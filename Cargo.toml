@@ -1,0 +1,15 @@
+[workspace]
+members = [
+    # arch
+    "arch",
+
+    # crates
+    "crates/console",
+
+    # modules
+    "modules/logging",
+    "modules/panic_handler",
+
+    # kernel
+    "kernel"
+]
