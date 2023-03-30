@@ -10,6 +10,7 @@ extern "Rust" fn main(hart_id: usize) {
     if hart_id != 0 {
         loop {}
     }
+
     // initialize logging module
     logging::init();
     println!("Hello, world!");
