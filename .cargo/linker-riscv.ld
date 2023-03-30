@@ -6,8 +6,10 @@
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
 
-/* BASE_ADDRESS = 0xffffffffc0200000; */
-BASE_ADDRESS = 0x80200000;
+BASE_ADDRESS = 0xffffffffc0200000;
+
+/* BASE_ADDRESS = 0x80200000; */
+__ENTRY_ADDR = 0x80200000;
 
 SECTIONS
 {
@@ -15,7 +17,7 @@ SECTIONS
     . = BASE_ADDRESS;
     start = .;
 
-    .text : {
+    .text : AT(__ENTRY_ADDR) {
         stext = .;
         *(.text.entry)
         _copy_user_start = .;
