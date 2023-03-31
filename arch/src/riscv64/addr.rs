@@ -1,4 +1,4 @@
-use core::{ops::Add, fmt::Debug};
+use core::{fmt::Debug, ops::Add};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(usize);

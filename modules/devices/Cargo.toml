@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 fdt = { path = "../../crates/fdt" }
 log = "0.4.16"
+sync = { path = "../sync" }
