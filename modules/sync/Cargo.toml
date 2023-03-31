@@ -1,9 +1,9 @@
 [package]
-name = "arch"
+name = "sync"
 version = "0.1.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
+spin = { version = "0.9.2", features = ["mutex"] }
