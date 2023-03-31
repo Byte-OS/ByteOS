@@ -8,8 +8,10 @@ extern "C" fn rust_main(hartid: usize) {
     extern "Rust" {
         fn main(hartid: usize);
     }
-    
-    unsafe { main(hartid); }
+
+    unsafe {
+        main(hartid);
+    }
 
     shutdown();
 }

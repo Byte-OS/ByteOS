@@ -1,7 +1,5 @@
-use core::arch::global_asm;
-
 /// 汇编入口函数
-/// 
+///
 /// 分配栈 初始化页表信息 并调到rust入口函数
 #[naked]
 #[no_mangle]
@@ -23,7 +21,7 @@ unsafe extern "C" fn _start() -> ! {
         arr[511] = (0x80000 << 10) | 0xcf;
         arr
     };
-    
+
     core::arch::asm!(
         // 1. 设置栈信息
         // sp = bootstack + (hartid + 1) * 0x10000
