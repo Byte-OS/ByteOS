@@ -9,6 +9,7 @@ members = [
     # modules
     "modules/logging",
     "modules/panic_handler",
+    "modules/kalloc",
 
     # kernel
     "kernel"
