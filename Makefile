@@ -1,6 +1,15 @@
 ARCH := riscv64imac
 LOG := info
 KERNEL_ELF = target/$(ARCH)-unknown-none-elf/release/kernel
+# SBI	:= tools/rustsbi-qemu.bin
+SBI := default
+QEMU_EXEC := qemu-system-riscv64 \
+				-machine virt \
+				-kernel $(KERNEL_ELF) \
+				-m 128M \
+				-bios $(SBI) \
+				-nographic \
+				-smp 2
 
 all:
 
@@ -8,13 +17,10 @@ build:
 	LOG=$(LOG) cargo build --release
 
 run: build
-	qemu-system-riscv64 \
-		-machine virt \
-		-kernel $(KERNEL_ELF) \
-		-m 128M \
-		-bios tools/rustsbi-qemu.bin \
-		-nographic \
-		-smp 2
+	$(QEMU_EXEC)
+
+debug: build
+	$(QEMU_EXEC)
 
 clean:
 	rm -rf target/

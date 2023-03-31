@@ -1,57 +1,64 @@
 #![no_std]
+#![feature(used_with_arg)]
 
 #[macro_use]
 extern crate log;
 #[macro_use]
 extern crate alloc;
 
+pub mod device;
 pub mod memory;
+pub mod rtc;
 
-use fdt::{self, Fdt};
+use alloc::{collections::BTreeMap, vec::Vec, sync::Arc};
+use device::RtcDriver;
 use core::sync::atomic::{AtomicUsize, Ordering};
+use fdt::{self, node::FdtNode, Fdt};
+use sync::Mutex;
 
 pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
+pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode)>> = Mutex::new(BTreeMap::new());
+pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
+
+pub fn init_drivers() {
+    rtc::driver_init();
+}
 
 pub fn init_device(device_tree: usize) {
+    // 初始化所有驱动
+    init_drivers();
+
     DEVICE_TREE_ADDR.store(device_tree, Ordering::Relaxed);
-    let fdt = unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Relaxed) as *const u8).unwrap() };
-    info!("This is a devicetree representation of a {}", fdt.root().model());
-    info!("...which is compatible with at least: {}", fdt.root().compatible().first());
-    info!("...and has {} CPU(s)", fdt.cpus().count());
-    
+    let fdt = unsafe { Fdt::from_ptr(device_tree as *const u8).unwrap() };
+    info!("There has {} CPU(s)", fdt.cpus().count());
+
     fdt.memory().regions().for_each(|x| {
-        info!("memory region {:#X} - {:#X}", 
+        info!(
+            "memory region {:#X} - {:#X}",
             x.starting_address as usize,
             x.starting_address as usize + x.size.unwrap()
         );
     });
 
-    let chosen = fdt.chosen();
-    if let Some(bootargs) = chosen.bootargs() {
-        info!("The bootargs are: {:?}", bootargs);
-    }
-
-    if let Some(stdout) = chosen.stdout() {
-        info!("It would write stdout to: {}", stdout.name);
-    }
-
     let node = fdt.all_nodes();
 
+    let driver_manager = DRIVER_REGS.lock();
     for child in node {
         if let Some(compatible) = child.compatible() {
-            info!("    {}  {}", child.name, compatible.first());
+            if let Some(f) = driver_manager.get(compatible.first()) {
+                f(&child);
+            }
+            // info!("    {}  {}", child.name, compatible.first());
         }
     }
+}
 
-    // let soc = fdt.find_node("/soc");
-    // info!("Does it have a `/soc` node? {}", if soc.is_some() { "yes" } else { "no" });
-    // if let Some(soc) = soc {
-    //     info!("...and it has the following children:");
-    //     for child in soc.children() {
-    //         info!("    {}", child.name);
-    //         if let Some(child) = child.compatible() {
-    //             info!("{}", child.first());
-    //         }
-    //     }
-    // }
+#[inline]
+pub fn get_addr_from_name(name: &str) -> usize {
+    for (i, c) in name.chars().enumerate() {
+        if c == '@' {
+            return name[(i + 1)..].parse::<usize>().unwrap();
+        }
+    }
+    0
 }

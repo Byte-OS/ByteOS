@@ -12,12 +12,13 @@ pub struct MemoryRegion {
 
 pub fn get_memorys() -> Vec<MemoryRegion> {
     let mut mrs = vec![];
-    let fdt = unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Relaxed) as *const u8).unwrap() };
-    
+    let fdt =
+        unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Relaxed) as *const u8).unwrap() };
+
     fdt.memory().regions().for_each(|mr| {
         mrs.push(MemoryRegion {
             start: mr.starting_address as usize,
-            end: mr.starting_address as usize + mr.size.unwrap_or(0)
+            end: mr.starting_address as usize + mr.size.unwrap_or(0),
         })
     });
 

@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use arch::{PAGE_SIZE, VIRT_ADDR_START, PhysPage};
+use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use devices::memory::get_memorys;
 use sync::Mutex;
@@ -15,7 +15,7 @@ pub const fn floor(a: usize, b: usize) -> usize {
 
 #[derive(Debug)]
 /// 页帧
-/// 
+///
 /// 用这个代表一个已经被分配的页表，并且利用 Drop 机制保证页表能够顺利被回收
 pub struct FrameTracker(pub PhysPage);
 
@@ -32,22 +32,22 @@ impl Drop for FrameTracker {
 }
 
 /// 页帧分布图
-/// 
+///
 /// 利用页帧分布图保存页帧分配器中的空闲内存，并且利用 bitArray 记录页帧使用情况
 pub struct FrameRegionMap {
     bits: Vec<usize>,
     ppn: PhysPage,
-    ppn_end: PhysPage
+    ppn_end: PhysPage,
 }
 
 impl FrameRegionMap {
     /// 创建页帧分布图
-    /// 
+    ///
     /// start_addr: usize 空闲页帧起始地址
     /// end_addr: usize 空闲页帧结束地址
     pub fn new(start_addr: usize, end_addr: usize) -> Self {
         let mut bits = vec![0usize; floor((end_addr - start_addr) / PAGE_SIZE, 64)];
-        
+
         // set non-exists memory bit as 1
         for i in (end_addr - start_addr) / PAGE_SIZE..bits.len() * 64 {
             bits.set_bit(i, true);
@@ -69,7 +69,7 @@ impl FrameRegionMap {
                 for i in 0..64 {
                     sum += match (*x).get_bit(i) {
                         true => 0,
-                        false => 1
+                        false => 1,
                     };
                 }
                 sum
@@ -79,7 +79,7 @@ impl FrameRegionMap {
 
     #[inline]
     /// 在 `bitArray` 指定位置获取一个空闲的页
-    /// 
+    ///
     /// index: usize 指定的位置 self.bits[index]
     fn alloc_in_pos(&mut self, index: usize) -> Option<FrameTracker> {
         for bit_index in 0..64 {
@@ -102,10 +102,11 @@ impl FrameRegionMap {
     }
 
     /// 释放一个已经使用的页
-    /// 
+    ///
     /// ppn: PhysPage 要释放的页的地址
     pub fn dealloc(&mut self, ppn: PhysPage) {
-        self.bits.set_bit(usize::from(ppn) - usize::from(self.ppn), false);
+        self.bits
+            .set_bit(usize::from(ppn) - usize::from(self.ppn), false);
     }
 }
 
@@ -119,7 +120,7 @@ impl FrameAllocator {
     }
 
     /// 将一块内存放在页帧分配器上
-    /// 
+    ///
     /// start: usize 内存的起始地址
     /// end: usize 内存的结束地址
     pub fn add_memory_region(&mut self, start: usize, end: usize) {
@@ -127,10 +128,11 @@ impl FrameAllocator {
     }
 
     /// 获取页帧分配器中空闲页表的数量
-    /// 
+    ///
     /// 也就是对所有的页帧分布图中的内存进行和运算
     pub fn get_free_page_count(&self) -> usize {
-        self.0.iter()
+        self.0
+            .iter()
             .fold(0, |sum, x| sum + x.get_free_page_count())
     }
 
@@ -157,8 +159,7 @@ impl FrameAllocator {
 }
 
 /// 一个总的页帧分配器
-pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = 
-    Mutex::new(FrameAllocator::new());
+pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = Mutex::new(FrameAllocator::new());
 
 pub fn init() {
     extern "C" {
@@ -177,5 +178,8 @@ pub fn init() {
     });
 
     // 确保帧分配器一定能工作
-    assert!(FRAME_ALLOCATOR.lock().0.len() > 0, "can't find frame to alloc");
+    assert!(
+        FRAME_ALLOCATOR.lock().0.len() > 0,
+        "can't find frame to alloc"
+    );
 }
