@@ -10,6 +10,9 @@ members = [
     "modules/logging",
     "modules/panic_handler",
     "modules/kalloc",
+    "modules/devices",
+    "modules/frame_allocator",
+    "modules/sync",
 
     # kernel
     "kernel"

@@ -3,12 +3,9 @@
 #[macro_use]
 extern crate alloc;
 
-use core::mem::size_of;
-
 use alloc::vec::Vec;
 use arch::{PAGE_SIZE, VIRT_ADDR_START, PhysPage};
 use bit_field::{BitArray, BitField};
-use log::info;
 use devices::memory::get_memorys;
 use sync::Mutex;
 
@@ -16,12 +13,38 @@ pub const fn floor(a: usize, b: usize) -> usize {
     return (a + b - 1) / b;
 }
 
+#[derive(Debug)]
+/// 页帧
+/// 
+/// 用这个代表一个已经被分配的页表，并且利用 Drop 机制保证页表能够顺利被回收
+pub struct FrameTracker(pub PhysPage);
+
+impl FrameTracker {
+    pub const fn new(ppn: PhysPage) -> Self {
+        Self(ppn)
+    }
+}
+
+impl Drop for FrameTracker {
+    fn drop(&mut self) {
+        FRAME_ALLOCATOR.lock().dealloc(self.0);
+    }
+}
+
+/// 页帧分布图
+/// 
+/// 利用页帧分布图保存页帧分配器中的空闲内存，并且利用 bitArray 记录页帧使用情况
 pub struct FrameRegionMap {
     bits: Vec<usize>,
-    ppn: PhysPage
+    ppn: PhysPage,
+    ppn_end: PhysPage
 }
 
 impl FrameRegionMap {
+    /// 创建页帧分布图
+    /// 
+    /// start_addr: usize 空闲页帧起始地址
+    /// end_addr: usize 空闲页帧结束地址
     pub fn new(start_addr: usize, end_addr: usize) -> Self {
         let mut bits = vec![0usize; floor((end_addr - start_addr) / PAGE_SIZE, 64)];
         
@@ -32,10 +55,12 @@ impl FrameRegionMap {
 
         Self {
             bits,
-            ppn: PhysPage::new(start_addr)
+            ppn: PhysPage::new(start_addr),
+            ppn_end: PhysPage::new(end_addr),
         }
     }
 
+    /// 获取页帧分布图中没有使用的页帧数量
     pub fn get_free_page_count(&self) -> usize {
         self.bits.iter().fold(0, |mut sum, x| {
             if *x == 0 {
@@ -51,24 +76,87 @@ impl FrameRegionMap {
             }
         })
     }
+
+    #[inline]
+    /// 在 `bitArray` 指定位置获取一个空闲的页
+    /// 
+    /// index: usize 指定的位置 self.bits[index]
+    fn alloc_in_pos(&mut self, index: usize) -> Option<FrameTracker> {
+        for bit_index in 0..64 {
+            if !self.bits[index].get_bit(bit_index) {
+                self.bits[index].set_bit(bit_index, true);
+                return Some(FrameTracker::new(self.ppn + index * 64 + bit_index));
+            }
+        }
+        None
+    }
+
+    /// 申请一个空闲页
+    pub fn alloc(&mut self) -> Option<FrameTracker> {
+        for i in 0..self.bits.len() {
+            if self.bits[i] != usize::MAX {
+                return self.alloc_in_pos(i);
+            }
+        }
+        None
+    }
+
+    /// 释放一个已经使用的页
+    /// 
+    /// ppn: PhysPage 要释放的页的地址
+    pub fn dealloc(&mut self, ppn: PhysPage) {
+        self.bits.set_bit(usize::from(ppn) - usize::from(self.ppn), false);
+    }
 }
 
+/// 一个总的页帧分配器
 pub struct FrameAllocator(Vec<FrameRegionMap>);
 
 impl FrameAllocator {
+    /// 创建一个空闲的页帧分配器
     pub const fn new() -> Self {
         Self(Vec::new())
     }
 
+    /// 将一块内存放在页帧分配器上
+    /// 
+    /// start: usize 内存的起始地址
+    /// end: usize 内存的结束地址
     pub fn add_memory_region(&mut self, start: usize, end: usize) {
         self.0.push(FrameRegionMap::new(start, end));
     }
 
+    /// 获取页帧分配器中空闲页表的数量
+    /// 
+    /// 也就是对所有的页帧分布图中的内存进行和运算
     pub fn get_free_page_count(&self) -> usize {
-        self.0.iter().fold(0, |sum, x| sum + x.get_free_page_count())
+        self.0.iter()
+            .fold(0, |sum, x| sum + x.get_free_page_count())
+    }
+
+    /// 申请一个空闲页
+    pub fn alloc(&mut self) -> Option<FrameTracker> {
+        for frm in &mut self.0 {
+            let frame = frm.alloc();
+            if frame.is_some() {
+                return frame;
+            }
+        }
+        None
+    }
+
+    /// 释放一个页
+    pub fn dealloc(&mut self, ppn: PhysPage) {
+        for frm in &mut self.0 {
+            if ppn >= frm.ppn && ppn < frm.ppn_end {
+                frm.dealloc(ppn);
+                break;
+            }
+        }
     }
 }
 
+/// 一个总的页帧分配器
 pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = 
     Mutex::new(FrameAllocator::new());
 
@@ -78,15 +166,16 @@ pub fn init() {
     }
     let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
 
+    // 从设备树中获取内存分布
     let mrs = get_memorys();
 
+    // 在帧分配器中添加内存
     mrs.iter().for_each(|mr| {
         if phys_end > mr.start && phys_end < mr.end {
             FRAME_ALLOCATOR.lock().add_memory_region(phys_end, mr.end);
         }
     });
 
+    // 确保帧分配器一定能工作
     assert!(FRAME_ALLOCATOR.lock().0.len() > 0, "can't find frame to alloc");
-
-    info!("free page count: {}", FRAME_ALLOCATOR.lock().get_free_page_count());
 }

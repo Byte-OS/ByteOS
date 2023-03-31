@@ -2,6 +2,12 @@
 
 ## 内核 ByteOS
 
+## Kernel struct Design
+
+```plain
+crates --> arch --> modules --> kernel
+```
+
 ## TODO List
 - [x] higher half kernel
 - [x] Modular skeleton
