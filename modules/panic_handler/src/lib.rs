@@ -4,8 +4,8 @@
 #[macro_use]
 extern crate logging;
 
-use core::panic::PanicInfo;
 use arch::shutdown;
+use core::panic::PanicInfo;
 
 // 程序遇到错误
 #[panic_handler]
@@ -14,4 +14,3 @@ fn panic_handler(info: &PanicInfo) -> ! {
     println!("!TEST FINISH!");
     shutdown()
 }
-

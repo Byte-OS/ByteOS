@@ -3,7 +3,7 @@
 use arch::console_putchar;
 use core::fmt::{self, Write};
 
-use log::{self, Level, LevelFilter, Log, Metadata, Record, info};
+use log::{self, info, Level, LevelFilter, Log, Metadata, Record};
 
 struct Logger;
 
@@ -17,11 +17,7 @@ impl Log for Logger {
         }
 
         print_in_color(
-            format_args!(
-                "[{}] {}\n",
-                record.level(),
-                record.args()
-            ),
+            format_args!("[{}] {}\n", record.level(), record.args()),
             level_to_color_code(record.level()),
         );
     }
@@ -73,12 +69,14 @@ macro_rules! with_color {
 }
 
 fn print_in_color(args: fmt::Arguments, color_code: u8) {
-    Logger.write_fmt(with_color!(args, color_code))
+    Logger
+        .write_fmt(with_color!(args, color_code))
         .expect("can't write color string in logging module.");
 }
 
 pub fn print(args: fmt::Arguments) {
-    Logger.write_fmt(args)
+    Logger
+        .write_fmt(args)
         .expect("can't write string in logging module.");
 }
 
