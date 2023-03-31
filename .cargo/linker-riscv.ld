@@ -36,6 +36,8 @@ SECTIONS
     }
 
     .data : {
+        . = ALIGN(4K);
+        *(.data.prepage)
         sdata = .;
         *(.data .data.*)
         *(.sdata .sdata.*)
@@ -47,6 +49,7 @@ SECTIONS
     }
 
     .bss : {
+        *(.bss.stack)
         sbss = .;
         *(.bss .bss.*)
         *(.sbss .sbss.*)
