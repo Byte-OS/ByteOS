@@ -4,6 +4,10 @@
 #![feature(asm_const)]
 #![feature(once_cell)]
 
+#[macro_use]
+extern crate log;
+
+#[cfg(target_arch = "riscv64")]
 mod riscv64;
 
 #[cfg(target_arch = "riscv64")]

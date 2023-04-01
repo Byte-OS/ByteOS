@@ -6,10 +6,10 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arch = { path = "../arch" }
 frame_allocator = { path = "../modules/frame_allocator" }
 logging = { path = "../modules/logging" }
 panic_handler = { path = "../modules/panic_handler" }
 kalloc = { path = "../modules/kalloc" }
 log = "0.4.17"
 devices = { path = "../modules/devices" }
+hal = { path = "../modules/hal" }

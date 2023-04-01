@@ -1,5 +1,5 @@
 [package]
-name = "devices"
+name = "hal"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,3 @@ edition = "2021"
 
 [dependencies]
 arch = { path = "../../arch" }
-fdt = { path = "../../crates/fdt" }
-log = "0.4.16"
-sync = { path = "../sync" }

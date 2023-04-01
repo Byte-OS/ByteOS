@@ -2,7 +2,7 @@ ARCH := riscv64imac
 LOG := info
 KERNEL_ELF = target/$(ARCH)-unknown-none-elf/release/kernel
 # SBI	:= tools/rustsbi-qemu.bin
-SBI := default
+SBI := tools/opensbi-qemu.bin
 QEMU_EXEC := qemu-system-riscv64 \
 				-machine virt \
 				-kernel $(KERNEL_ELF) \
@@ -20,7 +20,7 @@ run: build
 	$(QEMU_EXEC)
 
 debug: build
-	$(QEMU_EXEC)
+	$(QEMU_EXEC) -s -S
 
 clean:
 	rm -rf target/
