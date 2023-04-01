@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use arch::VIRT_ADDR_START;
 use core::ptr::read_volatile;
 use fdt::node::FdtNode;
 
@@ -42,7 +43,9 @@ pub fn init_rtc(node: &FdtNode) {
     let addr = node.property("reg").unwrap().value[4..8]
         .iter()
         .fold(0, |acc, x| (acc << 8) | (*x as usize));
-    let rtc = Arc::new(RtcGoldfish { base: addr });
+    let rtc = Arc::new(RtcGoldfish {
+        base: VIRT_ADDR_START + addr,
+    });
 
     RTC_DEVICES.lock().push(rtc.clone());
 

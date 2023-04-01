@@ -1,10 +1,13 @@
 mod addr;
 mod consts;
+mod context;
 mod entry;
+mod interrupt;
 mod sbi;
 
 pub use addr::*;
 pub use consts::*;
+pub use interrupt::init_interrupt;
 use riscv::register::sstatus;
 pub use sbi::*;
 
@@ -14,8 +17,10 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
         fn main(hartid: usize, device_tree: usize);
     }
 
-    // 开启 SUM
+    // 内核中断初始化
+    // interrupt::init();
 
+    // 开启 SUM
     unsafe {
         // 开启浮点运算
         sstatus::set_fs(sstatus::FS::Dirty);

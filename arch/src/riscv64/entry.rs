@@ -15,10 +15,13 @@ unsafe extern "C" fn _start() -> ! {
     static mut PAGE_TABLE: [usize; PAGE_ITEM_COUNT] = {
         let mut arr: [usize; PAGE_ITEM_COUNT] = [0usize; PAGE_ITEM_COUNT];
         // 初始化页表信息
+        // 0x00000000_00000000 -> 0x00000000 (1G)
         // 0x00000000_80000000 -> 0x80000000 (1G)
         // 0xffffffff_c0000000 -> 0x80000000 (1G)
+        // 0xffffffff_40000000 -> 0x00000000 (1G)
         arr[0] = 0x3;
         arr[2] = (0x80000 << 10) | 0xcf;
+        arr[509] = 0x3;
         arr[511] = (0x80000 << 10) | 0xcf;
         arr
     };

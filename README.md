@@ -13,9 +13,10 @@ crates --> arch --> modules --> kernel
 - [x] Modular skeleton
 - [x] global allocator
 - [ ] add the large page (addr > 0xffffffffc02x0000) to allocator
-- [ ] frame allocator, use bitmap written by myself or bit_field crate
+- [x] RTC device support
+- [x] frame allocator, use bitmap written by myself or bit_field crate
 - [ ] Interrupt support
 - [ ] smp support
 - [ ] async/await support
-- [ ] get devices info and memory info from device_tree
+- [x] get devices info and memory info from device_tree
 - [ ] MMIO device support, eg: blk, (net?)

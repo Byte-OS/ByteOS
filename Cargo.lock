@@ -15,6 +15,7 @@ dependencies = [
 name = "arch"
 version = "0.1.0"
 dependencies = [
+ "log",
  "riscv",
 ]
 
@@ -68,6 +69,7 @@ version = "0.1.0"
 name = "devices"
 version = "0.1.0"
 dependencies = [
+ "arch",
  "fdt",
  "log",
  "sync",
@@ -89,6 +91,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "hal"
+version = "0.1.0"
+dependencies = [
+ "arch",
+]
+
+[[package]]
 name = "kalloc"
 version = "0.1.0"
 dependencies = [
@@ -100,9 +109,9 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
- "arch",
  "devices",
  "frame_allocator",
+ "hal",
  "kalloc",
  "log",
  "logging",

@@ -10,9 +10,9 @@ pub mod device;
 pub mod memory;
 pub mod rtc;
 
-use alloc::{collections::BTreeMap, vec::Vec, sync::Arc};
-use device::RtcDriver;
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicUsize, Ordering};
+use device::RtcDriver;
 use fdt::{self, node::FdtNode, Fdt};
 use sync::Mutex;
 
