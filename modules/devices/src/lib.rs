@@ -14,13 +14,14 @@ pub mod virtio;
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicUsize, Ordering};
-use device::RtcDriver;
+use device::{RtcDriver, BlkDriver};
 use fdt::{self, node::FdtNode, Fdt};
 use sync::Mutex;
 
 pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
 pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode)>> = Mutex::new(BTreeMap::new());
 pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
+pub static BLK_DEVICES: Mutex<Vec<Arc<dyn BlkDriver>>> = Mutex::new(Vec::new());
 
 pub fn init_drivers() {
     virtio::driver_init();
@@ -61,14 +62,4 @@ pub fn prepare_devices() {
             // info!("    {}  {}", child.name, compatible.first());
         }
     }
-}
-
-#[inline]
-pub fn get_addr_from_name(name: &str) -> usize {
-    for (i, c) in name.chars().enumerate() {
-        if c == '@' {
-            return name[(i + 1)..].parse::<usize>().unwrap();
-        }
-    }
-    0
 }
