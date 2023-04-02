@@ -1,11 +1,17 @@
 use core::{fmt::Debug, ops::Add};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct PhysAddr(usize);
+pub struct PhysAddr(pub(crate) usize);
+impl From<PhysPage> for PhysAddr {
+    fn from(value: PhysPage) -> Self {
+        Self(value.0 << 12)
+    }
+}
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct VirtAddr(usize);
+pub struct VirtAddr(pub(crate) usize);
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct PhysPage(usize);
+pub struct PhysPage(pub(crate) usize);
 
 impl PhysPage {
     pub const fn new(addr: usize) -> Self {
@@ -53,4 +59,4 @@ impl Add<usize> for PhysPage {
 }
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
-pub struct VirtPage(usize);
+pub struct VirtPage(pub(crate) usize);

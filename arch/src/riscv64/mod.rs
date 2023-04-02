@@ -3,13 +3,17 @@ mod consts;
 mod context;
 mod entry;
 mod interrupt;
+mod page_table;
 mod sbi;
 
 pub use addr::*;
 pub use consts::*;
 pub use interrupt::init_interrupt;
-use riscv::register::sstatus;
 pub use sbi::*;
+pub use page_table::*;
+pub use context::*;
+
+use riscv::register::sstatus;
 
 #[no_mangle]
 extern "C" fn rust_main(hartid: usize, device_tree: usize) {

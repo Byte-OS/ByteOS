@@ -1,3 +1,5 @@
+use crate::PAGE_ITEM_COUNT;
+
 /// 汇编入口函数
 ///
 /// 分配栈 初始化页表信息 并调到rust入口函数
@@ -6,7 +8,6 @@
 #[link_section = ".text.entry"]
 unsafe extern "C" fn _start() -> ! {
     const STACK_SIZE: usize = 4096 * 4 * 8;
-    const PAGE_ITEM_COUNT: usize = 512;
 
     #[link_section = ".bss.stack"]
     static mut STACK: [u8; STACK_SIZE] = [0u8; STACK_SIZE];
