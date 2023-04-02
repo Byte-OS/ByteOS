@@ -1,16 +1,11 @@
 use core::sync::atomic::Ordering;
 
-use alloc::vec::Vec;
 use fdt::Fdt;
+use kheader::mm::{set_memory, MemoryRegion};
 
 use crate::DEVICE_TREE_ADDR;
 
-pub struct MemoryRegion {
-    pub start: usize,
-    pub end: usize,
-}
-
-pub fn get_memorys() -> Vec<MemoryRegion> {
+pub fn init() {
     let mut mrs = vec![];
     let fdt =
         unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Relaxed) as *const u8).unwrap() };
@@ -22,5 +17,5 @@ pub fn get_memorys() -> Vec<MemoryRegion> {
         })
     });
 
-    mrs
+    set_memory(mrs);
 }

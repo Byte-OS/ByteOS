@@ -12,8 +12,17 @@ pub trait Driver: Sync + Send {
     fn as_rtc(&self) -> Option<&dyn RtcDriver> {
         None
     }
+
+    fn as_blk(&self) -> Option<&dyn BlkDriver> {
+        None
+    }
 }
 
 pub trait RtcDriver: Driver {
     fn read_timestamp(&self) -> u64;
+}
+
+pub trait BlkDriver: Driver {
+    fn read_block(&self, block_id: usize, buf: &mut [u8]);
+    fn write_block(&self, block_id: usize, buf: &[u8]);
 }

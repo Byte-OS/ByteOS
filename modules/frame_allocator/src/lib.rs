@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::vec::Vec;
 use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
-use devices::memory::get_memorys;
+use kheader::mm::get_memorys;
 use sync::Mutex;
 
 pub const fn floor(a: usize, b: usize) -> usize {
@@ -101,6 +101,20 @@ impl FrameRegionMap {
         None
     }
 
+    pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
+        for i in 0..self.bits.len() - pages {
+            if self.bits.get_bits(0..pages) == 0 {
+                let mut ans = Vec::new();
+                for j in 0..pages {
+                    self.bits.set_bit(i + j, true);
+                    ans.push(FrameTracker::new(self.ppn + i + j));
+                }
+                return Some(ans);
+            }
+        }
+        None
+    }
+
     /// 释放一个已经使用的页
     ///
     /// ppn: PhysPage 要释放的页的地址
@@ -147,6 +161,16 @@ impl FrameAllocator {
         None
     }
 
+    pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
+        for frm in &mut self.0 {
+            let frame = frm.alloc_much(pages);
+            if frame.is_some() {
+                return frame;
+            }
+        }
+        None
+    }
+
     /// 释放一个页
     pub fn dealloc(&mut self, ppn: PhysPage) {
         for frm in &mut self.0 {
@@ -182,4 +206,16 @@ pub fn init() {
         FRAME_ALLOCATOR.lock().0.len() > 0,
         "can't find frame to alloc"
     );
+}
+
+pub fn frame_alloc() -> Option<FrameTracker> {
+    FRAME_ALLOCATOR.lock().alloc()
+}
+
+pub fn frame_alloc_much(pages: usize) -> Option<Vec<FrameTracker>> {
+    FRAME_ALLOCATOR.lock().alloc_much(pages)
+}
+
+pub fn get_free_pages() -> usize {
+    FRAME_ALLOCATOR.lock().get_free_page_count()
 }
