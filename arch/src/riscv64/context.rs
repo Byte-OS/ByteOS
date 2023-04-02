@@ -9,7 +9,8 @@ pub struct Context {
 
 impl Context {
     // 创建上下文信息
-    pub fn new() -> Self {
+    #[inline]
+    pub const fn new() -> Self {
         Context {
             x: [0usize; 32],
             sstatus: 0,
@@ -17,6 +18,7 @@ impl Context {
         }
     }
     // 从另一个上下文复制
+    #[inline]
     pub fn clone_from(&mut self, target: &Self) {
         for i in 0..32 {
             self.x[i] = target.x[i];

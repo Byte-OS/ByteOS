@@ -18,6 +18,7 @@ crates --> arch --> modules --> kernel
 - [x] frame allocator, use bitmap written by myself or bit_field crate
 - [x] Interrupt support
 - [ ] timer interrupt support
+- [ ] page mapping support
 - [x] get devices info and memory info from device_tree
 - [x] VIRTIO blk device support
 - [ ] vfs support, contains Inode
