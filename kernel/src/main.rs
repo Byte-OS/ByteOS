@@ -35,5 +35,8 @@ fn main(hart_id: usize, device_tree: usize) {
     // initialize frame allocator
     frame_allocator::init();
 
+    // get devices and init
+    devices::prepare_devices();
+
     println!("Hello, world!");
 }

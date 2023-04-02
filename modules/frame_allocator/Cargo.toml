@@ -9,5 +9,6 @@ edition = "2021"
 bit_field = "0.10.1"
 log = "0.4.17"
 arch = { path = "../../arch" }
-devices = { path = "../devices" }
+# devices = { path = "../devices" }
+kheader = { path = "../kheader" }
 sync = { path = "../sync" }

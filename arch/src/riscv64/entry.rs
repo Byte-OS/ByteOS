@@ -19,9 +19,9 @@ unsafe extern "C" fn _start() -> ! {
         // 0x00000000_80000000 -> 0x80000000 (1G)
         // 0xffffffff_c0000000 -> 0x80000000 (1G)
         // 0xffffffff_40000000 -> 0x00000000 (1G)
-        arr[0] = 0x3;
+        arr[0] = 0xf;
         arr[2] = (0x80000 << 10) | 0xcf;
-        arr[509] = 0x3;
+        arr[509] = 0xf;
         arr[511] = (0x80000 << 10) | 0xcf;
         arr
     };

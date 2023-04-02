@@ -10,3 +10,6 @@ arch = { path = "../../arch" }
 fdt = { path = "../../crates/fdt" }
 log = "0.4.16"
 sync = { path = "../sync" }
+virtio-drivers = { path = "../../crates/virtio-drivers" }
+kheader = { path = "../kheader" }
+frame_allocator = { path = "../frame_allocator" }
