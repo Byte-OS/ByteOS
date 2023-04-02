@@ -1,8 +1,9 @@
+use alloc::sync::Arc;
 use sync::Mutex;
 use virtio_drivers::device::blk::VirtIOBlk;
 use virtio_drivers::transport::mmio::MmioTransport;
 
-use crate::device::{BlkDriver, Driver};
+use crate::{device::{BlkDriver, Driver}, BLK_DEVICES};
 
 use super::virtio_impl::HalImpl;
 
@@ -45,15 +46,6 @@ pub fn init(transport: MmioTransport) {
     let blk = VirtIOBlock(Mutex::new(
         VirtIOBlk::<HalImpl, MmioTransport>::new(transport).expect("failed to create blk driver"),
     ));
-    let mut input = vec![0xffu8; 512];
-    let mut output = vec![0; 512];
-    for i in 0..32 {
-        for x in input.iter_mut() {
-            *x = i as u8;
-        }
-        blk.write_block(i, &input);
-        blk.read_block(i, &mut output);
-        assert_eq!(input, output);
-    }
-    info!("virtio-blk test finished");
+    BLK_DEVICES.lock().push(Arc::new(blk));
+    info!("Initailize virtio-block device");
 }
