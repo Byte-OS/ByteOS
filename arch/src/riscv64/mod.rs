@@ -8,10 +8,10 @@ mod sbi;
 
 pub use addr::*;
 pub use consts::*;
-pub use interrupt::init_interrupt;
-pub use sbi::*;
-pub use page_table::*;
 pub use context::*;
+pub use interrupt::init_interrupt;
+pub use page_table::*;
+pub use sbi::*;
 
 use riscv::register::sstatus;
 

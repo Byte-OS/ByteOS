@@ -4,7 +4,6 @@ members = [
     "arch",
 
     # crates
-    "crates/console",
 
     # modules
     "modules/logging",

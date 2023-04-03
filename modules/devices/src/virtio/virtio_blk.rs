@@ -3,7 +3,10 @@ use sync::Mutex;
 use virtio_drivers::device::blk::VirtIOBlk;
 use virtio_drivers::transport::mmio::MmioTransport;
 
-use crate::{device::{BlkDriver, Driver}, BLK_DEVICES};
+use crate::{
+    device::{BlkDriver, Driver},
+    BLK_DEVICES,
+};
 
 use super::virtio_impl::HalImpl;
 

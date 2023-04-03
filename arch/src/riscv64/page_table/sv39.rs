@@ -1,7 +1,8 @@
-use bitflags::bitflags;
+use bitflags::{bitflags, BitFlags};
 
-use crate::{PAGE_ITEM_COUNT, PhysPage, VirtPage, VirtAddr, PhysAddr, PAGE_SIZE};
+use crate::{PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE};
 
+#[derive(Copy, Clone)]
 pub struct PTE(usize);
 
 impl PTE {
@@ -11,24 +12,23 @@ impl PTE {
     }
 
     #[inline]
-    pub const fn from_ppn(ppn: usize) -> Self {
-        Self(ppn << 10)
+    pub const fn from_ppn(ppn: usize, flags: PTEFlags) -> Self {
+        Self(ppn << 10 | flags.bits() as usize)
     }
 
     #[inline]
-    pub const fn from_addr(addr: usize) -> Self {
-        Self::from_ppn(addr >> 12)
-    }
-
-    #[inline]
-    pub fn set_flags(mut self, flags: PTEFlags) -> Self {
-        self.0 |= flags.bits() as usize;
-        self
+    pub const fn from_addr(addr: usize, flags: PTEFlags) -> Self {
+        Self::from_ppn(addr >> 12, flags)
     }
 
     #[inline]
     pub fn to_ppn(&self) -> PhysPage {
         PhysPage(self.0 >> 10)
+    }
+
+    #[inline]
+    pub fn set(&mut self, ppn: usize, flags: PTEFlags) {
+        self.0 = (ppn << 10) | flags.bits() as usize;
     }
 }
 
@@ -66,25 +66,15 @@ impl PageTable {
     /// TODO physpage or virtpage
     #[inline]
     pub fn get_pte_list(&self) -> &'static mut [PTE] {
-        unsafe { 
-            core::slice::from_raw_parts_mut(self.0.0 as *mut PTE, PAGE_ITEM_COUNT) 
-        }
+        unsafe { core::slice::from_raw_parts_mut(self.0 .0 as *mut PTE, PAGE_ITEM_COUNT) }
     }
 
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags) {
-        // use loop to 
-        let pte = (2..-1).fold(self.0, |acc, x| {
-            let page_table = PageTable(acc);
-            let value = vpn.0 >> x * 9;
-            let pte = &page_table.get_pte_list()[value];
-
-            // TODO alloc frame to map
-            
-            if x == 0 {
-                todo!()
-            }
-            todo!()
-        });
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, falloc: fn() -> PhysPage) {
+        for i in (0..3).rev() {
+            // let page_table = PageTable(acc);
+            // let value = vpn.0 >> x * 9;
+            // let pte = &page_table.get_pte_list()[value];
+        }
     }
 
     #[inline]
@@ -92,10 +82,10 @@ impl PageTable {
         let offset = vaddr.0 % PAGE_SIZE;
         let paddr = (2..-1).fold(self.0, |acc, x| {
             let page_table = PageTable(acc);
-            let value = vaddr.0 >> 9 *x >> 10 & 0x1ff;
+            let value = vaddr.0 >> 9 * x >> 10 & 0x1ff;
             let pte = &page_table.get_pte_list()[value];
             pte.to_ppn().into()
         });
         PhysAddr(paddr.0 | offset)
-    }   
+    }
 }
