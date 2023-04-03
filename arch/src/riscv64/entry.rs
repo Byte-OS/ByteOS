@@ -1,4 +1,4 @@
-use crate::PAGE_ITEM_COUNT;
+use crate::{PAGE_ITEM_COUNT, PTE, PTEFlags};
 
 /// 汇编入口函数
 ///
@@ -13,17 +13,17 @@ unsafe extern "C" fn _start() -> ! {
     static mut STACK: [u8; STACK_SIZE] = [0u8; STACK_SIZE];
 
     #[link_section = ".data.prepage"]
-    static mut PAGE_TABLE: [usize; PAGE_ITEM_COUNT] = {
-        let mut arr: [usize; PAGE_ITEM_COUNT] = [0usize; PAGE_ITEM_COUNT];
+    static mut PAGE_TABLE: [PTE; PAGE_ITEM_COUNT] = {
+        let mut arr: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
         // 初始化页表信息
         // 0x00000000_00000000 -> 0x00000000 (1G)
         // 0x00000000_80000000 -> 0x80000000 (1G)
         // 0xffffffff_c0000000 -> 0x80000000 (1G)
         // 0xffffffff_40000000 -> 0x00000000 (1G)
-        arr[0] = 0xf;
-        arr[2] = (0x80000 << 10) | 0xcf;
-        arr[509] = 0xf;
-        arr[511] = (0x80000 << 10) | 0xcf;
+        // arr[0] = PTE::from_addr(0x0).set_flags(PTEFlags::VRWX);
+        arr[2] = PTE::from_addr(0x8000_0000, PTEFlags::VRWX);
+        arr[509] = PTE::from_addr(0x0, PTEFlags::GVRWX);
+        arr[511] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
         arr
     };
 

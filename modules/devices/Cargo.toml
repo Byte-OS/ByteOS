@@ -7,9 +7,9 @@ edition = "2021"
 
 [dependencies]
 arch = { path = "../../arch" }
-fdt = { path = "../../crates/fdt" }
+fdt = "0.1.5"
 log = "0.4.16"
 sync = { path = "../sync" }
-virtio-drivers = { path = "../../crates/virtio-drivers" }
+virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1d1cbb"}
 kheader = { path = "../kheader" }
 frame_allocator = { path = "../frame_allocator" }

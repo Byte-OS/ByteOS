@@ -14,7 +14,7 @@ pub mod virtio;
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use core::sync::atomic::{AtomicUsize, Ordering};
-use device::{RtcDriver, BlkDriver};
+use device::{BlkDriver, RtcDriver};
 use fdt::{self, node::FdtNode, Fdt};
 use sync::Mutex;
 
