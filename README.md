@@ -12,10 +12,9 @@ crates --> arch --> modules --> kernel
 - [x] higher half kernel
 - [x] Modular skeleton
 - [x] global allocator
-- [ ] add the large page (addr > 0xffffffffc02x0000) to allocator
 - [x] RTC device support
-- [ ] Timestamp --> actual Date/Time
-- [x] frame allocator, use bitmap written by myself or bit_field crate
+- [x] Timestamp --> actual Date/Time [timestamp crate](crates/timestamp/)
+- [x] frame allocator, use bit_field to store page usage
 - [x] Interrupt support
 - [x] backtrace support
 - [x] timer interrupt support
@@ -32,6 +31,7 @@ crates --> arch --> modules --> kernel
     - [ ] exec
     - [ ] read
     - [ ] write
+- [ ] add the large page (addr > 0xffffffffc02x0000) to allocator
 - [ ] VIRTIO net device support
 - [ ] smp support
 - [ ] async/await support

@@ -2,6 +2,7 @@ use alloc::sync::Arc;
 use arch::VIRT_ADDR_START;
 use core::ptr::read_volatile;
 use fdt::node::FdtNode;
+use timestamp::DateTime;
 
 use crate::device::{DeviceType, Driver, RtcDriver};
 use crate::{DRIVER_REGS, RTC_DEVICES};
@@ -49,8 +50,13 @@ pub fn init_rtc(node: &FdtNode) {
 
     RTC_DEVICES.lock().push(rtc.clone());
 
+    let date_time = DateTime::new(rtc.read_timestamp() as usize);
+
     info!("rtc device initialized.");
-    info!("rtc timestamp now: {}", rtc.read_timestamp());
+    info!(
+        "the standard Beijing time: {}   timestamp : {}",
+        date_time, date_time.timestamp
+    );
 }
 
 // 利用 Linkme 初始化
