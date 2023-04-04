@@ -1,4 +1,4 @@
-use crate::{PAGE_ITEM_COUNT, PTE, PTEFlags};
+use crate::{PTEFlags, PAGE_ITEM_COUNT, PTE};
 
 /// 汇编入口函数
 ///
@@ -20,7 +20,6 @@ unsafe extern "C" fn _start() -> ! {
         // 0x00000000_80000000 -> 0x80000000 (1G)
         // 0xffffffff_c0000000 -> 0x80000000 (1G)
         // 0xffffffff_40000000 -> 0x00000000 (1G)
-        // arr[0] = PTE::from_addr(0x0).set_flags(PTEFlags::VRWX);
         arr[2] = PTE::from_addr(0x8000_0000, PTEFlags::VRWX);
         arr[509] = PTE::from_addr(0x0, PTEFlags::GVRWX);
         arr[511] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);

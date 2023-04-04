@@ -27,6 +27,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
 
 [[package]]
+name = "backtrace"
+version = "0.1.0"
+dependencies = [
+ "log",
+ "riscv",
+]
+
+[[package]]
 name = "bare-metal"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -109,6 +117,8 @@ name = "hal"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "frame_allocator",
+ "log",
 ]
 
 [[package]]
@@ -123,6 +133,7 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
+ "arch",
  "devices",
  "frame_allocator",
  "hal",
@@ -183,6 +194,7 @@ name = "panic_handler"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "backtrace",
  "logging",
 ]
 

@@ -17,8 +17,9 @@ crates --> arch --> modules --> kernel
 - [ ] Timestamp --> actual Date/Time
 - [x] frame allocator, use bitmap written by myself or bit_field crate
 - [x] Interrupt support
+- [x] backtrace support
 - [ ] timer interrupt support
-- [ ] page mapping support
+- [x] page mapping support
 - [x] get devices info and memory info from device_tree
 - [x] VIRTIO blk device support
 - [ ] vfs support, contains Inode

@@ -8,3 +8,4 @@ edition = "2021"
 [dependencies]
 logging = { path = "../logging" }
 arch = { path = "../../arch" }
+backtrace = { path = "../../crates/backtrace" }

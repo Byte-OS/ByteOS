@@ -1,6 +1,7 @@
 ARCH := riscv64imac
 LOG  := info
-KERNEL_ELF = target/$(ARCH)-unknown-none-elf/release/kernel
+RELEASE := release
+KERNEL_ELF = target/$(ARCH)-unknown-none-elf/$(RELEASE)/kernel
 # SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
 SBI := tools/opensbi-qemu.bin
@@ -13,6 +14,11 @@ QEMU_EXEC := qemu-system-riscv64 \
         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
 				-nographic \
 				-smp 2
+RUST_BUILD_OPTIONS := 
+
+ifeq ($(RELEASE), release)
+	RUST_BUILD_OPTIONS += --release
+endif
 
 all:
 
@@ -25,7 +31,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build: fs-img
-	LOG=$(LOG) cargo build --release
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS)
 
 run: build
 	$(QEMU_EXEC)
@@ -41,5 +47,8 @@ gdb:
         -ex 'file $(KERNEL_ELF)' \
         -ex 'set arch riscv:rv64' \
         -ex 'target remote localhost:1234'
+
+addr2line:
+	addr2line -sfipe $(KERNEL_ELF) | rustfilt
 
 .PHONY: all run build clean gdb

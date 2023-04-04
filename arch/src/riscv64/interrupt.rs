@@ -50,7 +50,8 @@ fn kernel_callback(context: &mut Context, scause: Scause, stval: usize) -> usize
         // }
         // 其他情况，终止当前线程
         _ => {
-            warn!("未知中断");
+            // warn!("未知中断");
+            panic!("未知中断")
         }
     }
     context as *const Context as usize
