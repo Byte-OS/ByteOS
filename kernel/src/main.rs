@@ -17,6 +17,9 @@ fn main(hart_id: usize, device_tree: usize) {
     //     loop {}
     // }
 
+    let str = include_str!("banner.txt");
+    println!("{}", str);
+
     // initialize logging module
     logging::init();
 
