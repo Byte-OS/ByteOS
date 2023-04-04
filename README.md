@@ -21,6 +21,7 @@ crates --> arch --> modules --> kernel
 - [x] page mapping support
 - [x] get devices info and memory info from device_tree
 - [x] VIRTIO blk device support
+- [x] Add a banner for os. use tool [banner生成工具](http://patorjk.com/software/taag/#p=display&f=Big&t=ByteOS)
 - [ ] vfs support, contains Inode
 - [ ] fatfs support
 - [ ] ramfs support
@@ -36,3 +37,10 @@ crates --> arch --> modules --> kernel
 - [ ] smp support
 - [ ] async/await support
 
+# 运行
+
+```shell
+make run
+```
+
+![](./run.png)
