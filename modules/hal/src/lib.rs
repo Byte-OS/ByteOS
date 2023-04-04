@@ -3,7 +3,6 @@
 extern crate alloc;
 pub mod interrupt;
 
-
 /// test for page table, also a mini example for page table
 #[test]
 pub fn test_page_table() {

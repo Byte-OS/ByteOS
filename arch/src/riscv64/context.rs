@@ -28,5 +28,3 @@ impl Context {
         self.sepc = target.sepc;
     }
 }
-
-
