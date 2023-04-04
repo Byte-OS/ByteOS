@@ -92,6 +92,7 @@ dependencies = [
  "kheader",
  "log",
  "sync",
+ "timestamp",
  "virtio-drivers",
 ]
 
@@ -317,6 +318,10 @@ version = "0.1.0"
 dependencies = [
  "spin 0.9.7",
 ]
+
+[[package]]
+name = "timestamp"
+version = "0.1.0"
 
 [[package]]
 name = "unicode-ident"

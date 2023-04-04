@@ -5,6 +5,7 @@ members = [
 
     # crates
     "crates/backtrace",
+    "crates/timestamp",
     
     # modules
     "modules/logging",
