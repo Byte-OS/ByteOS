@@ -1,8 +1,10 @@
 use core::arch::asm;
 
-use riscv::register::scause::{Exception, Scause, Trap};
+use riscv::register::scause::{Exception, Interrupt, Scause, Trap};
 
-use crate::{riscv64::context::Context, shutdown};
+use crate::{interrupt_table, riscv64::context::Context, shutdown};
+
+use super::timer;
 
 // 设置中断
 pub fn init_interrupt() {
@@ -15,13 +17,14 @@ pub fn init_interrupt() {
         asm!("ebreak");
     }
 
-    // // 初始化定时器
-    // timer::init();
+    // 初始化定时器
+    timer::init();
 }
 
 // 内核中断回调
 #[no_mangle]
 fn kernel_callback(context: &mut Context, scause: Scause, stval: usize) -> usize {
+    let int_table = unsafe { interrupt_table() };
     warn!(
         "内核态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
         scause.bits(),
@@ -35,8 +38,11 @@ fn kernel_callback(context: &mut Context, scause: Scause, stval: usize) -> usize
         Trap::Exception(Exception::LoadFault) => {
             shutdown();
         }
-        // // 时钟中断 eg: 不再内核处理时间中断 just in user
-        // Trap::Interrupt(Interrupt::SupervisorTimer) => {},
+        // 时钟中断
+        Trap::Interrupt(Interrupt::SupervisorTimer) => {
+            (int_table.timer)();
+            timer::set_next_timeout();
+        }
         // // 缺页异常
         // Trap::Exception(Exception::StorePageFault) => handle_page_fault(context, stval),
         // // 加载页面错误

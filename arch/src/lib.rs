@@ -12,3 +12,11 @@ mod riscv64;
 
 #[cfg(target_arch = "riscv64")]
 pub use riscv64::*;
+
+pub struct IntTable {
+    pub timer: fn(),
+}
+
+extern "Rust" {
+    fn interrupt_table() -> IntTable;
+}

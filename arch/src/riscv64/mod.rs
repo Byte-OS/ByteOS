@@ -5,6 +5,7 @@ mod entry;
 mod interrupt;
 mod page_table;
 mod sbi;
+mod timer;
 
 pub use addr::*;
 pub use consts::*;
