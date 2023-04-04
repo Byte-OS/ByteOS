@@ -4,7 +4,8 @@ members = [
     "arch",
 
     # crates
-
+    "crates/backtrace",
+    
     # modules
     "modules/logging",
     "modules/panic_handler",

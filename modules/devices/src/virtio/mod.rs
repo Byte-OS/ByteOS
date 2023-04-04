@@ -19,10 +19,11 @@ pub fn init_mmio(node: &FdtNode) {
         let header = NonNull::new(vaddr as *mut VirtIOHeader).unwrap();
         if let Ok(transport) = unsafe { MmioTransport::new(header) } {
             info!(
-                "Detected virtio MMIO device with vendor id {:#X}, device type {:?}, version {:?}",
+                "Detected virtio MMIO device with vendor id {:#X}, device type {:?}, version {:?} addr @ {:#X}",
                 transport.vendor_id(),
                 transport.device_type(),
                 transport.version(),
+                vaddr
             );
             virtio_device(transport);
         }

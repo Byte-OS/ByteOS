@@ -45,6 +45,7 @@ impl FrameRegionMap {
     ///
     /// start_addr: usize 空闲页帧起始地址
     /// end_addr: usize 空闲页帧结束地址
+    #[inline]
     pub fn new(start_addr: usize, end_addr: usize) -> Self {
         let mut bits = vec![0usize; floor((end_addr - start_addr) / PAGE_SIZE, 64)];
 
@@ -55,12 +56,13 @@ impl FrameRegionMap {
 
         Self {
             bits,
-            ppn: PhysPage::new(start_addr),
-            ppn_end: PhysPage::new(end_addr),
+            ppn: PhysPage::from_addr(start_addr),
+            ppn_end: PhysPage::from_addr(end_addr),
         }
     }
 
     /// 获取页帧分布图中没有使用的页帧数量
+    #[inline]
     pub fn get_free_page_count(&self) -> usize {
         self.bits.iter().fold(0, |mut sum, x| {
             if *x == 0 {
@@ -77,10 +79,10 @@ impl FrameRegionMap {
         })
     }
 
-    #[inline]
     /// 在 `bitArray` 指定位置获取一个空闲的页
     ///
     /// index: usize 指定的位置 self.bits[index]
+    #[inline]
     fn alloc_in_pos(&mut self, index: usize) -> Option<FrameTracker> {
         for bit_index in 0..64 {
             if !self.bits[index].get_bit(bit_index) {
@@ -92,6 +94,7 @@ impl FrameRegionMap {
     }
 
     /// 申请一个空闲页
+    #[inline]
     pub fn alloc(&mut self) -> Option<FrameTracker> {
         for i in 0..self.bits.len() {
             if self.bits[i] != usize::MAX {
@@ -101,6 +104,9 @@ impl FrameRegionMap {
         None
     }
 
+    /// 申请多个空闲页, 空闲页是连续的
+    ///
+    /// pages: usize 要申请的页表数量
     pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
         for i in 0..self.bits.len() - pages {
             if self.bits.get_bits(0..pages) == 0 {
@@ -118,6 +124,7 @@ impl FrameRegionMap {
     /// 释放一个已经使用的页
     ///
     /// ppn: PhysPage 要释放的页的地址
+    #[inline]
     pub fn dealloc(&mut self, ppn: PhysPage) {
         self.bits
             .set_bit(usize::from(ppn) - usize::from(self.ppn), false);
@@ -129,6 +136,7 @@ pub struct FrameAllocator(Vec<FrameRegionMap>);
 
 impl FrameAllocator {
     /// 创建一个空闲的页帧分配器
+    #[inline]
     pub const fn new() -> Self {
         Self(Vec::new())
     }
@@ -137,6 +145,7 @@ impl FrameAllocator {
     ///
     /// start: usize 内存的起始地址
     /// end: usize 内存的结束地址
+    #[inline]
     pub fn add_memory_region(&mut self, start: usize, end: usize) {
         self.0.push(FrameRegionMap::new(start, end));
     }
@@ -144,6 +153,7 @@ impl FrameAllocator {
     /// 获取页帧分配器中空闲页表的数量
     ///
     /// 也就是对所有的页帧分布图中的内存进行和运算
+    #[inline]
     pub fn get_free_page_count(&self) -> usize {
         self.0
             .iter()
@@ -151,6 +161,7 @@ impl FrameAllocator {
     }
 
     /// 申请一个空闲页
+    #[inline]
     pub fn alloc(&mut self) -> Option<FrameTracker> {
         for frm in &mut self.0 {
             let frame = frm.alloc();
@@ -161,6 +172,11 @@ impl FrameAllocator {
         None
     }
 
+    /// 申请多个空闲页, 空闲页是连续的
+    ///
+    /// pages: usize 要申请的页表数量
+    /// 在多个页表分布图里查找
+    #[inline]
     pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
         for frm in &mut self.0 {
             let frame = frm.alloc_much(pages);
@@ -172,6 +188,7 @@ impl FrameAllocator {
     }
 
     /// 释放一个页
+    #[inline]
     pub fn dealloc(&mut self, ppn: PhysPage) {
         for frm in &mut self.0 {
             if ppn >= frm.ppn && ppn < frm.ppn_end {
@@ -185,6 +202,7 @@ impl FrameAllocator {
 /// 一个总的页帧分配器
 pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = Mutex::new(FrameAllocator::new());
 
+/// 页帧分配器初始化
 pub fn init() {
     extern "C" {
         fn end();
@@ -208,14 +226,17 @@ pub fn init() {
     );
 }
 
+/// 申请一个空闲页表
 pub fn frame_alloc() -> Option<FrameTracker> {
     FRAME_ALLOCATOR.lock().alloc()
 }
 
+/// 申请多个空闲连续页表
 pub fn frame_alloc_much(pages: usize) -> Option<Vec<FrameTracker>> {
     FRAME_ALLOCATOR.lock().alloc_much(pages)
 }
 
+/// 获取空闲页表数量
 pub fn get_free_pages() -> usize {
     FRAME_ALLOCATOR.lock().get_free_page_count()
 }
