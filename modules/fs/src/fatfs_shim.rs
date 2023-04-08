@@ -6,8 +6,8 @@ use fatfs::{Read, Seek, SeekFrom, Write};
 use sync::Mutex;
 use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, Metadata, VfsError, VfsResult};
 
-use crate::FILESYSTEMS;
 use crate::mount::open;
+use crate::FILESYSTEMS;
 
 pub trait DiskOperation {
     fn read_block(index: usize, buf: &mut [u8]);
@@ -47,8 +47,7 @@ impl Fat32FileSystem {
             offset: 0,
             device_id,
         };
-        let inner =
-            fatfs::FileSystem::new(cursor, fatfs::FsOptions::new()).expect("open fs wrong");
+        let inner = fatfs::FileSystem::new(cursor, fatfs::FsOptions::new()).expect("open fs wrong");
         Arc::new(Self { id, inner })
     }
 }
@@ -60,7 +59,7 @@ pub struct FatFileInner {
 
 pub struct FatFile {
     fs: Weak<dyn FileSystem>,
-    inner: Mutex<FatFileInner>
+    inner: Mutex<FatFileInner>,
 }
 
 // TODO: impl Sync and send in safe way
@@ -81,7 +80,8 @@ impl INodeInterface for FatFile {
         let mut inner = self.inner.lock();
         let offset = inner.offset;
         let len = inner.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
-        inner.inner
+        inner
+            .inner
             .seek(SeekFrom::Start(offset as u64))
             .map_err(as_vfs_err)?;
         inner.inner.read_exact(buffer).map_err(as_vfs_err)?;
@@ -106,7 +106,12 @@ impl INodeInterface for FatFile {
     }
 
     fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        let len = self.inner.lock().inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
+        let len = self
+            .inner
+            .lock()
+            .inner
+            .seek(SeekFrom::End(0))
+            .map_err(as_vfs_err)?;
 
         Ok(vfscore::Metadata {
             inode: usize::MAX,
@@ -178,11 +183,11 @@ impl INodeInterface for FatDir {
                     file.read_exact(&mut buf).expect("can't read file");
                     let mount_point = String::from_utf8(buf).expect("can't conver path");
                     open(&mount_point)
-                },
-                Err(_) =>  Ok(Arc::new(FatDir {
+                }
+                Err(_) => Ok(Arc::new(FatDir {
                     fs: self.fs.clone(),
                     inner: file.to_dir(),
-                }))
+                })),
             };
         };
 

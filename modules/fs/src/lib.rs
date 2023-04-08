@@ -1,6 +1,6 @@
 #![no_std]
 
-use alloc::{sync::Arc, vec::Vec, string::String};
+use alloc::{sync::Arc, vec::Vec};
 use devfs::DevFS;
 use devices::get_blk_devices;
 use sync::LazyInit;
@@ -34,7 +34,10 @@ pub fn init() {
     // init mount points
     info!("create fatfs mount file");
     {
-        let dir = get_filesystem(0).root_dir().mkdir("dev").expect("can't create devfs dir");
+        let dir = get_filesystem(0)
+            .root_dir()
+            .mkdir("dev")
+            .expect("can't create devfs dir");
         let file = dir.touch(".mount").expect("can't create .mount file");
         file.write(b"/dev").expect("can't write file");
     }

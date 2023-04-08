@@ -3,20 +3,20 @@
 extern crate alloc;
 extern crate log;
 
-use alloc::{sync::Arc, collections::BTreeMap, vec::Vec, string::ToString};
-use vfscore::{FileSystem, INodeInterface, VfsResult, DirEntry, VfsError, FileType};
+use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsError, VfsResult};
 
 mod stdin;
 mod stdout;
 
 pub struct DevFS {
-    root_dir: Arc<dyn INodeInterface>
+    root_dir: Arc<dyn INodeInterface>,
 }
 
 impl DevFS {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            root_dir: Arc::new(DevDir::new())
+            root_dir: Arc::new(DevDir::new()),
         })
     }
 }
@@ -32,7 +32,7 @@ impl FileSystem for DevFS {
 }
 
 pub struct DevDir {
-    map: BTreeMap<&'static str, Arc<dyn INodeInterface>>
+    map: BTreeMap<&'static str, Arc<dyn INodeInterface>>,
 }
 
 impl DevDir {
@@ -41,24 +41,27 @@ impl DevDir {
         map.insert("stdout", Arc::new(stdout::Stdout));
         map.insert("stderr", Arc::new(stdout::Stdout));
         map.insert("stdin", Arc::new(stdin::Stdin));
-        Self {
-            map
-        }
+        Self { map }
     }
 }
 
 impl INodeInterface for DevDir {
     fn open(&self, name: &str, _flags: vfscore::OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
-        self.map.get(name).map(|x| x.clone()).ok_or(VfsError::FileNotFound)
+        self.map
+            .get(name)
+            .map(|x| x.clone())
+            .ok_or(VfsError::FileNotFound)
     }
 
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
-        Ok(self.map.iter().map(|(name, _)| {
-            DirEntry {
+        Ok(self
+            .map
+            .iter()
+            .map(|(name, _)| DirEntry {
                 filename: name.to_string(),
                 len: 0,
                 file_type: FileType::Device,
-            }
-        }).collect())
+            })
+            .collect())
     }
 }
