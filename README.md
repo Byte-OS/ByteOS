@@ -24,7 +24,7 @@ crates --> arch --> modules --> kernel
 - [x] Add a banner for os. use tool [banner生成工具](http://patorjk.com/software/taag/#p=display&f=Big&t=ByteOS)
 - [x] vfs support, contains Inode
 - [x] fatfs support
-- [ ] fs mount support
+- [x] fs mount support
 - [ ] ramfs support
 - [ ] devfs support
 - [ ] process support
