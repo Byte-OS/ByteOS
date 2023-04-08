@@ -41,5 +41,8 @@ fn main(hart_id: usize, device_tree: usize) {
     // get devices and init
     devices::prepare_devices();
 
+    // initialize filesystem
+    fs::init();
+
     println!("Hello, world!");
 }
