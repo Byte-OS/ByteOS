@@ -10,14 +10,14 @@ pub fn init() {
     for (i, fs) in FILESYSTEMS.iter().enumerate() {
         match fs.name() {
             "fat32" => mount(String::from("/"), i).expect("can't mount to /"),
-            "ramfs" => mount(String::from("/ramfs"), i).expect("can't mount to /ramfs"),
-            "devfs" => mount(String::from("/devfs"), i).expect("can't mount to /devfs"),
-            "procfs" => mount(String::from("/procfs"), i).expect("can't mount to /procfs"),
+            "ramfs" => mount(String::from("/tmp"), i).expect("can't mount to /ramfs"),
+            "devfs" => mount(String::from("/dev"), i).expect("can't mount to /devfs"),
+            "procfs" => mount(String::from("/proc"), i).expect("can't mount to /procfs"),
             _ => unreachable!(),
         };
     }
     println!("{:=^30}", " LIST FILES START ");
-    list_files(open("/").expect("can't find mount point at ."), 0);
+    list_files(open("/dev").expect("can't find mount point at ."), 0);
     println!("{:=^30}", " LIST FILES START ");
 }
 
