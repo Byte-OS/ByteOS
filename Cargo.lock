@@ -129,6 +129,7 @@ dependencies = [
  "devices",
  "fatfs",
  "log",
+ "logging",
  "sync",
  "vfscore",
 ]

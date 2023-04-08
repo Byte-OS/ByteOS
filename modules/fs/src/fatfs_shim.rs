@@ -171,8 +171,11 @@ impl INodeInterface for FatDir {
         Ok(self
             .inner
             .iter()
-            .map(|x| {
+            .filter_map(|x| {
                 let x = x.unwrap();
+                if x.file_name() == "." || x.file_name() == ".." {
+                    return None;
+                }
                 let file_type = {
                     if x.is_file() {
                         FileType::File
@@ -182,11 +185,11 @@ impl INodeInterface for FatDir {
                         unreachable!()
                     }
                 };
-                DirEntry {
+                Some(DirEntry {
                     filename: x.file_name(),
                     len: x.len() as usize,
                     file_type,
-                }
+                })
             })
             .collect())
     }
