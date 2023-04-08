@@ -1,10 +1,13 @@
+use alloc::string::String;
 use alloc::sync::{Arc, Weak};
 use devices::get_blk_device;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
+use sync::Mutex;
 use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, Metadata, VfsError, VfsResult};
 
 use crate::FILESYSTEMS;
+use crate::mount::open;
 
 pub trait DiskOperation {
     fn read_block(index: usize, buf: &mut [u8]);
@@ -31,6 +34,10 @@ impl FileSystem for Fat32FileSystem {
             inner: self.inner.root_dir(),
         })
     }
+
+    fn flush(&self) -> VfsResult<()> {
+        self.inner.flush_fs_info().map_err(as_vfs_err)
+    }
 }
 
 impl Fat32FileSystem {
@@ -40,16 +47,20 @@ impl Fat32FileSystem {
             offset: 0,
             device_id,
         };
-        let innder =
+        let inner =
             fatfs::FileSystem::new(cursor, fatfs::FsOptions::new()).expect("open fs wrong");
-        Arc::new(Self { id, inner: innder })
+        Arc::new(Self { id, inner })
     }
 }
 
-pub struct FatFile {
+pub struct FatFileInner {
     offset: usize,
-    fs: Weak<dyn FileSystem>,
     inner: File<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
+}
+
+pub struct FatFile {
+    fs: Weak<dyn FileSystem>,
+    inner: Mutex<FatFileInner>
 }
 
 // TODO: impl Sync and send in safe way
@@ -66,19 +77,22 @@ unsafe impl Sync for FatDir {}
 unsafe impl Send for FatDir {}
 
 impl INodeInterface for FatFile {
-    fn read(&mut self, buffer: &mut [u8]) -> VfsResult<usize> {
-        let len = self.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
-        self.inner
-            .seek(SeekFrom::Start(self.offset as u64))
+    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+        let mut inner = self.inner.lock();
+        let offset = inner.offset;
+        let len = inner.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
+        inner.inner
+            .seek(SeekFrom::Start(offset as u64))
             .map_err(as_vfs_err)?;
-        self.inner.read_exact(buffer).map_err(as_vfs_err)?;
-        self.offset += len as usize - self.offset;
-        Ok(len as usize - self.offset)
+        inner.inner.read_exact(buffer).map_err(as_vfs_err)?;
+        inner.offset += len as usize - inner.offset;
+        Ok(len as usize - inner.offset)
     }
 
-    fn write(&mut self, buffer: &[u8]) -> VfsResult<usize> {
-        self.inner.write_all(buffer).map_err(as_vfs_err)?;
-        self.offset += buffer.len();
+    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+        let mut inner = self.inner.lock();
+        inner.inner.write_all(buffer).map_err(as_vfs_err)?;
+        inner.offset += buffer.len();
         Ok(buffer.len())
     }
 
@@ -86,12 +100,13 @@ impl INodeInterface for FatFile {
         Ok(self.fs.clone())
     }
 
-    fn flush(&mut self) -> VfsResult<()> {
-        self.inner.flush().map_err(as_vfs_err)
+    fn flush(&self) -> VfsResult<()> {
+        self.inner.lock().inner.flush().map_err(as_vfs_err)
+        // self.fs.upgrade().unwrap().flush()
     }
 
-    fn metadata(&mut self) -> VfsResult<vfscore::Metadata> {
-        let len = self.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
+    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
+        let len = self.inner.lock().inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
 
         Ok(vfscore::Metadata {
             inode: usize::MAX,
@@ -101,11 +116,13 @@ impl INodeInterface for FatFile {
         })
     }
 
-    fn truncate(&mut self, size: usize) -> VfsResult<()> {
+    fn truncate(&self, size: usize) -> VfsResult<()> {
         self.inner
+            .lock()
+            .inner
             .seek(SeekFrom::Start(size as u64))
             .map_err(as_vfs_err)?;
-        self.inner.truncate().map_err(as_vfs_err)
+        self.inner.lock().inner.truncate().map_err(as_vfs_err)
     }
 }
 
@@ -128,8 +145,10 @@ impl INodeInterface for FatDir {
             .map(|file| -> Arc<dyn INodeInterface> {
                 Arc::new(FatFile {
                     fs: self.fs.clone(),
-                    inner: file,
-                    offset: 0,
+                    inner: Mutex::new(FatFileInner {
+                        inner: file,
+                        offset: 0,
+                    }),
                 })
             })
             .map_err(as_vfs_err)
@@ -146,17 +165,34 @@ impl INodeInterface for FatDir {
             .find(|f| f.as_ref().unwrap().file_name() == name);
         let file = file.map(|x| x.unwrap()).ok_or(VfsError::FileNotFound)?;
         if file.is_dir() {
-            return Ok(Arc::new(FatDir {
-                fs: self.fs.clone(),
-                inner: file.to_dir(),
-            }));
+            let dir = file.to_dir();
+            // This is a temporary method for supporting mount
+            // 1. create a new dir as mount point
+            // 2. touch a .mount file with the target path at the folder
+            // use open to open mount point
+            return match dir.open_file(".mount") {
+                Ok(mut file) => {
+                    let len = file.seek(SeekFrom::End(0)).unwrap_or(0);
+                    file.seek(SeekFrom::Start(0)).expect("can't seek");
+                    let mut buf = vec![0u8; len as usize];
+                    file.read_exact(&mut buf).expect("can't read file");
+                    let mount_point = String::from_utf8(buf).expect("can't conver path");
+                    open(&mount_point)
+                },
+                Err(_) =>  Ok(Arc::new(FatDir {
+                    fs: self.fs.clone(),
+                    inner: file.to_dir(),
+                }))
+            };
         };
 
         if file.is_file() {
             return Ok(Arc::new(FatFile {
                 fs: self.fs.clone(),
-                offset: 0,
-                inner: file.to_file(),
+                inner: Mutex::new(FatFileInner {
+                    inner: file.to_file(),
+                    offset: 0,
+                }),
             }));
         }
 
@@ -194,7 +230,7 @@ impl INodeInterface for FatDir {
             .collect())
     }
 
-    fn metadata(&mut self) -> VfsResult<vfscore::Metadata> {
+    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
         Ok(Metadata {
             inode: usize::MAX,
             file_type: FileType::Directory,

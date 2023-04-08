@@ -1,4 +1,5 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc};
+use log::warn;
 use sync::Mutex;
 use vfscore::{INodeInterface, OpenFlags, VfsError, VfsResult, FileType};
 
@@ -11,13 +12,13 @@ pub fn init() {
         match fs.name() {
             "fat32" => mount(String::from("/"), i).expect("can't mount to /"),
             "ramfs" => mount(String::from("/tmp"), i).expect("can't mount to /ramfs"),
-            "devfs" => mount(String::from("/dev"), i).expect("can't mount to /devfs"),
+            "devfs" => mount(String::from("/dev"), i).expect("can't mount to /dev"),
             "procfs" => mount(String::from("/proc"), i).expect("can't mount to /procfs"),
-            _ => unreachable!(),
+            fs => warn!("unsupport fs: {}", fs),
         };
     }
     println!("{:=^30}", " LIST FILES START ");
-    list_files(open("/dev").expect("can't find mount point at ."), 0);
+    list_files(open("/").expect("can't find mount point at ."), 0);
     println!("{:=^30}", " LIST FILES START ");
 }
 
@@ -35,19 +36,19 @@ fn list_files(file: File, space: usize) {
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
-    if path != "/" {
-        // judge whether the mount point exists
-        open(&path)?;
-    }
+    // if path != "/" {
+    //     // judge whether the mount point exists
+    //     open(&path)?;
+    // }
     MOUNTS.lock().insert(path, fs_id);
     Ok(())
 }
 
 pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-    for (mount_point, id) in MOUNTS.lock().iter().rev() {
+    let mps = MOUNTS.lock().clone();
+    for (mount_point, id) in mps.iter().rev() {
         if path.starts_with(mount_point) {
             let folder = FILESYSTEMS[*id].root_dir();
-
             return path[mount_point.len()..]
                 .trim()
                 .split('/')

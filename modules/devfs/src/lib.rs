@@ -1,6 +1,7 @@
 #![no_std]
 
 extern crate alloc;
+extern crate log;
 
 use alloc::{sync::Arc, collections::BTreeMap, vec::Vec, string::ToString};
 use vfscore::{FileSystem, INodeInterface, VfsResult, DirEntry, VfsError, FileType};
@@ -37,7 +38,9 @@ pub struct DevDir {
 impl DevDir {
     pub fn new() -> Self {
         let mut map: BTreeMap<&'static str, Arc<dyn INodeInterface>> = BTreeMap::new();
-        map.insert("stdout", Arc::new(stdout::stdout));
+        map.insert("stdout", Arc::new(stdout::Stdout));
+        map.insert("stderr", Arc::new(stdout::Stdout));
+        map.insert("stdin", Arc::new(stdin::Stdin));
         Self {
             map
         }

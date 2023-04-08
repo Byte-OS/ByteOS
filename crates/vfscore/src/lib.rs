@@ -97,20 +97,23 @@ pub struct DirEntry {
 pub trait FileSystem: Send + Sync {
     fn root_dir(&'static self) -> Arc<dyn INodeInterface>;
     fn name(&self) -> &str;
+    fn flush(&self) -> VfsResult<()> {
+        Err(VfsError::FileNotFound)
+    }
 }
 
 pub type VfsResult<T> = core::result::Result<T, VfsError>;
 
 pub trait INodeInterface: Send + Sync {
-    fn metadata(&mut self) -> VfsResult<Metadata> {
+    fn metadata(&self) -> VfsResult<Metadata> {
         Err(VfsError::NotSupported)
     }
 
-    fn read(&mut self, _buffer: &mut [u8]) -> VfsResult<usize> {
+    fn read(&self, _buffer: &mut [u8]) -> VfsResult<usize> {
         Err(VfsError::NotFile)
     }
 
-    fn write(&mut self, _buffer: &[u8]) -> VfsResult<usize> {
+    fn write(&self, _buffer: &[u8]) -> VfsResult<usize> {
         Err(VfsError::NotFile)
     }
 
@@ -154,7 +157,7 @@ pub trait INodeInterface: Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn truncate(&mut self, _size: usize) -> VfsResult<()> {
+    fn truncate(&self, _size: usize) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 
@@ -162,7 +165,7 @@ pub trait INodeInterface: Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn flush(&mut self) -> VfsResult<()> {
+    fn flush(&self) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 
