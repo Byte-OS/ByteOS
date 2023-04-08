@@ -1,9 +1,9 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc};
 use log::warn;
 use sync::Mutex;
-use vfscore::{INodeInterface, OpenFlags, VfsError, VfsResult, FileType};
+use vfscore::{FileType, INodeInterface, OpenFlags, VfsError, VfsResult};
 
-use crate::{FILESYSTEMS, File};
+use crate::{File, FILESYSTEMS};
 
 pub static MOUNTS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
 
