@@ -1,6 +1,7 @@
 #![no_std]
 
 use alloc::{sync::Arc, vec::Vec};
+use devfs::DevFS;
 use devices::get_blk_devices;
 use sync::LazyInit;
 use vfscore::{FileSystem, INodeInterface};
@@ -26,15 +27,16 @@ pub fn init() {
     // TODO: Identify the filesystem at the device.
     let mut filesystems: Vec<Arc<dyn FileSystem>> = Vec::new();
     filesystems.push(Fat32FileSystem::new(0, filesystems.len()));
+    filesystems.push(DevFS::new());
 
     FILESYSTEMS.init_by(filesystems);
 
-    mount::init();
+    // init mount points
+    {
+        get_filesystem(0).root_dir().mkdir("dev").expect("can't create devfs dir");
+    }
 
-    // let entries = FILESYSTEMS[0].root_dir().read_dir().unwrap();
-    // for i in entries {
-    //     info!("{} {:?}", i.filename, i.file_type);
-    // }
+    mount::init();
 }
 
 pub fn get_filesystem(id: usize) -> &'static Arc<dyn FileSystem> {

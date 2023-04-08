@@ -28,9 +28,7 @@ impl Write for Logger {
     fn write_str(&mut self, s: &str) -> fmt::Result {
         let mut buffer = [0u8; 4];
         for c in s.chars() {
-            for code_point in c.encode_utf8(&mut buffer).as_bytes().iter() {
-                console_putchar(*code_point);
-            }
+            puts(c.encode_utf8(&mut buffer).as_bytes())
         }
         Ok(())
     }
@@ -78,6 +76,12 @@ pub fn print(args: fmt::Arguments) {
     Logger
         .write_fmt(args)
         .expect("can't write string in logging module.");
+}
+
+pub fn puts(buffer: &[u8]) {
+    for i in buffer {
+        console_putchar(*i);
+    }
 }
 
 fn level_to_color_code(level: Level) -> u8 {
