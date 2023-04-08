@@ -7,7 +7,7 @@ use core::fmt::Display;
 pub struct DateTime {
     /// Timestamp
     pub timestamp: usize,
-    /// year 
+    /// year
     pub year: u16,
     /// month of the year
     pub month: u8,

@@ -6,6 +6,7 @@ members = [
     # crates
     "crates/backtrace",
     "crates/timestamp",
+    "crates/vfscore",
     
     # modules
     "modules/logging",
@@ -16,6 +17,7 @@ members = [
     "modules/sync",
     "modules/hal",
     "modules/kheader",
+    "modules/fs",
 
     # kernel
     "kernel"

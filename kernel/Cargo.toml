@@ -14,3 +14,4 @@ log = "0.4.17"
 devices = { path = "../modules/devices" }
 hal = { path = "../modules/hal" }
 arch = { path = "../arch" }
+fs = { path = "../modules/fs" }

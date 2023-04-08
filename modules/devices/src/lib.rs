@@ -23,6 +23,18 @@ pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode)>> = Mutex::new(BTreeMa
 pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
 pub static BLK_DEVICES: Mutex<Vec<Arc<dyn BlkDriver>>> = Mutex::new(Vec::new());
 
+pub fn get_blk_device(id: usize) -> Option<Arc<dyn BlkDriver>> {
+    let len = BLK_DEVICES.lock().len();
+    match id < len {
+        true => Some(BLK_DEVICES.lock()[id].clone()),
+        false => None,
+    }
+}
+
+pub fn get_blk_devices() -> Vec<Arc<dyn BlkDriver>> {
+    return BLK_DEVICES.lock().clone();
+}
+
 pub fn init_drivers() {
     virtio::driver_init();
     rtc::driver_init();

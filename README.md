@@ -22,8 +22,9 @@ crates --> arch --> modules --> kernel
 - [x] get devices info and memory info from device_tree
 - [x] VIRTIO blk device support
 - [x] Add a banner for os. use tool [banner生成工具](http://patorjk.com/software/taag/#p=display&f=Big&t=ByteOS)
-- [ ] vfs support, contains Inode
-- [ ] fatfs support
+- [x] vfs support, contains Inode
+- [x] fatfs support
+- [ ] fs mount support
 - [ ] ramfs support
 - [ ] devfs support
 - [ ] process support
