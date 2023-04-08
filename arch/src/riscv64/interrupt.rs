@@ -25,7 +25,7 @@ pub fn init_interrupt() {
 #[no_mangle]
 fn kernel_callback(context: &mut Context, scause: Scause, stval: usize) -> usize {
     let int_table = unsafe { interrupt_table() };
-    warn!(
+    trace!(
         "内核态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
         scause.bits(),
         scause.cause(),

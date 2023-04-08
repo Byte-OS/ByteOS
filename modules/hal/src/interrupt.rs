@@ -1,8 +1,8 @@
 use arch::IntTable;
-use log::info;
+use log::trace;
 
 fn timer() {
-    info!("timer interrupt");
+    trace!("timer interrupt");
 }
 
 pub fn init() {

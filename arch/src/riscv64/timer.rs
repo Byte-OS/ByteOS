@@ -4,8 +4,10 @@ use crate::set_timer;
 
 const CLOCK_FREQ: usize = 12500000;
 const TICKS_PER_SEC: usize = 100;
+#[allow(dead_code)]
 const MSEC_PER_SEC: usize = 1000;
 
+#[allow(dead_code)]
 pub fn get_time_ms() -> usize {
     time::read() / (CLOCK_FREQ / MSEC_PER_SEC)
 }

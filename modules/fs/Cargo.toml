@@ -10,6 +10,7 @@ log = "0.4.17"
 vfscore = { path = "../../crates/vfscore" }
 sync = { path = "../sync" }
 devices = { path = "../devices" }
+logging = { path = "../logging" }
 
 [dependencies.fatfs]
 git = "https://github.com/yfblock/rust-fatfs.git"

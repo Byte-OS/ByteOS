@@ -46,3 +46,4 @@ fn main(hart_id: usize, device_tree: usize) {
 
     println!("Hello, world!");
 }
+
