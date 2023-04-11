@@ -48,7 +48,7 @@ pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
     let mps = MOUNTS.lock().clone();
     for (mount_point, id) in mps.iter().rev() {
         if path.starts_with(mount_point) {
-            let folder = FILESYSTEMS[*id].root_dir();
+            let folder = FILESYSTEMS[*id].root_dir(mount_point);
             return path[mount_point.len()..]
                 .trim()
                 .split('/')

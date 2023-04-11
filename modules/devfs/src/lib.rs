@@ -22,7 +22,7 @@ impl DevFS {
 }
 
 impl FileSystem for DevFS {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self, _mount_point: &str) -> Arc<dyn INodeInterface> {
         self.root_dir.clone()
     }
 

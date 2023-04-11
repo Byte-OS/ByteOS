@@ -80,8 +80,9 @@ pub enum SeekFrom {
     END(isize),
 }
 
-#[derive(Debug, Copy, Clone)]
-pub struct Metadata {
+#[derive(Debug, Clone)]
+pub struct Metadata<'a> {
+    pub filename: &'a str,
     pub inode: usize,
     pub file_type: FileType,
     pub size: usize,
@@ -95,7 +96,7 @@ pub struct DirEntry {
 }
 
 pub trait FileSystem: Send + Sync {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface>;
+    fn root_dir(&'static self, mount_point: &str) -> Arc<dyn INodeInterface>;
     fn name(&self) -> &str;
     fn flush(&self) -> VfsResult<()> {
         Err(VfsError::FileNotFound)

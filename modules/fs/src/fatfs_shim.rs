@@ -28,8 +28,9 @@ impl FileSystem for Fat32FileSystem {
         "fat32"
     }
 
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self, _mount_point: &str) -> Arc<dyn INodeInterface> {
         Arc::new(FatDir {
+            filename: String::from("/"),
             fs: Arc::downgrade(&FILESYSTEMS[self.id]),
             inner: self.inner.root_dir(),
         })
@@ -58,6 +59,7 @@ pub struct FatFileInner {
 }
 
 pub struct FatFile {
+    filename: String,
     fs: Weak<dyn FileSystem>,
     inner: Mutex<FatFileInner>,
 }
@@ -67,6 +69,7 @@ unsafe impl Sync for FatFile {}
 unsafe impl Send for FatFile {}
 
 pub struct FatDir {
+    filename: String,
     fs: Weak<dyn FileSystem>,
     inner: Dir<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
@@ -114,6 +117,7 @@ impl INodeInterface for FatFile {
             .map_err(as_vfs_err)?;
 
         Ok(vfscore::Metadata {
+            filename: &self.filename,
             inode: usize::MAX,
             file_type: FileType::File,
             size: len as usize,
@@ -137,6 +141,7 @@ impl INodeInterface for FatDir {
             .create_dir(name)
             .map(|dir| -> Arc<dyn INodeInterface> {
                 Arc::new(FatDir {
+                    filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: dir,
                 })
@@ -149,6 +154,7 @@ impl INodeInterface for FatDir {
             .create_file(name)
             .map(|file| -> Arc<dyn INodeInterface> {
                 Arc::new(FatFile {
+                    filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: Mutex::new(FatFileInner {
                         inner: file,
@@ -185,6 +191,7 @@ impl INodeInterface for FatDir {
                     open(&mount_point)
                 }
                 Err(_) => Ok(Arc::new(FatDir {
+                    filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: file.to_dir(),
                 })),
@@ -193,6 +200,7 @@ impl INodeInterface for FatDir {
 
         if file.is_file() {
             return Ok(Arc::new(FatFile {
+                filename: String::from(name),
                 fs: self.fs.clone(),
                 inner: Mutex::new(FatFileInner {
                     inner: file.to_file(),
@@ -237,6 +245,7 @@ impl INodeInterface for FatDir {
 
     fn metadata(&self) -> VfsResult<vfscore::Metadata> {
         Ok(Metadata {
+            filename: &self.filename,
             inode: usize::MAX,
             file_type: FileType::Directory,
             size: 0,
