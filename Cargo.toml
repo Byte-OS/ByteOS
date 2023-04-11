@@ -19,6 +19,7 @@ members = [
     "modules/kheader",
     "modules/fs",
     "modules/devfs",
+    "modules/ramfs",
 
     # kernel
     "kernel"

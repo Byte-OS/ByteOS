@@ -25,7 +25,7 @@ crates --> arch --> modules --> kernel
 - [x] vfs support, contains Inode
 - [x] fatfs support
 - [x] fs mount support (a temporary solution)
-- [ ] ramfs support
+- [x] ramfs support
 - [x] devfs support
 - [ ] process support
 - [ ] syscalls
