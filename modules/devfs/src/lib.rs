@@ -4,7 +4,7 @@ extern crate alloc;
 extern crate log;
 
 use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
-use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsError, VfsResult};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, MountedInfo, VfsError, VfsResult};
 
 mod stdin;
 mod stdout;
@@ -22,7 +22,7 @@ impl DevFS {
 }
 
 impl FileSystem for DevFS {
-    fn root_dir(&'static self, _mount_point: &str) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self, _mi: MountedInfo) -> Arc<dyn INodeInterface> {
         self.root_dir.clone()
     }
 

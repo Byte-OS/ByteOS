@@ -8,7 +8,8 @@ use core::cmp::min;
 use alloc::{string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, SeekFrom, VfsError, VfsResult,
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, VfsError,
+    VfsResult,
 };
 
 pub struct RamFs {
@@ -18,7 +19,7 @@ pub struct RamFs {
 impl RamFs {
     pub fn new() -> Arc<Self> {
         let inner = Arc::new(RamDirInner {
-            name: String::from("/"),
+            name: String::from(""),
             children: Mutex::new(Vec::new()),
         });
         Arc::new(Self { root: inner })
@@ -26,7 +27,7 @@ impl RamFs {
 }
 
 impl FileSystem for RamFs {
-    fn root_dir(&'static self, _mount_point: &str) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self, _mi: MountedInfo) -> Arc<dyn INodeInterface> {
         Arc::new(RamDir {
             inner: self.root.clone(),
         })
