@@ -3,7 +3,7 @@
 extern crate alloc;
 
 use alloc::string::String;
-use alloc::sync::{Arc, Weak};
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 bitflags::bitflags! {
@@ -95,8 +95,14 @@ pub struct DirEntry {
     pub file_type: FileType,
 }
 
+#[derive(Clone, Default)]
+pub struct MountedInfo {
+    pub fs_id: usize,
+    pub path: Arc<String>,
+}
+
 pub trait FileSystem: Send + Sync {
-    fn root_dir(&'static self, mount_point: &str) -> Arc<dyn INodeInterface>;
+    fn root_dir(&'static self, mi: MountedInfo) -> Arc<dyn INodeInterface>;
     fn name(&self) -> &str;
     fn flush(&self) -> VfsResult<()> {
         Err(VfsError::FileNotFound)
@@ -148,10 +154,6 @@ pub trait INodeInterface: Send + Sync {
 
     fn open(&self, _name: &str, _flags: OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
         Err(VfsError::NotDir)
-    }
-
-    fn weak_filesystem(&self) -> VfsResult<Weak<dyn FileSystem>> {
-        Err(VfsError::NotSupported)
     }
 
     fn ioctl(&self, _command: usize, _arg: usize) -> VfsResult<usize> {

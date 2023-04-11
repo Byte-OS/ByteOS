@@ -1,11 +1,11 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc};
 use log::warn;
 use sync::Mutex;
-use vfscore::{FileType, INodeInterface, OpenFlags, VfsError, VfsResult};
+use vfscore::{FileType, INodeInterface, MountedInfo, OpenFlags, VfsError, VfsResult};
 
 use crate::{File, FILESYSTEMS};
 
-pub static MOUNTS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
+pub static MOUNTS: Mutex<BTreeMap<String, MountedInfo>> = Mutex::new(BTreeMap::new());
 
 pub fn init() {
     for (i, fs) in FILESYSTEMS.iter().enumerate() {
@@ -17,6 +17,7 @@ pub fn init() {
             fs => warn!("unsupport fs: {}", fs),
         };
     }
+
     println!("{:=^30}", " LIST FILES START ");
     list_files(open("/").expect("can't find mount point at ."), 0);
     println!("{:=^30}", " LIST FILES START ");
@@ -36,19 +37,30 @@ fn list_files(file: File, space: usize) {
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
-    // if path != "/" {
-    //     // judge whether the mount point exists
-    //     open(&path)?;
-    // }
-    MOUNTS.lock().insert(path, fs_id);
+    if path != "/" {
+        // judge whether the mount point exists
+        open(&path)?;
+    }
+    MOUNTS.lock().insert(
+        path.clone(),
+        MountedInfo {
+            fs_id,
+            path: Arc::new(path),
+        },
+    );
+    Ok(())
+}
+
+pub fn umount(path: &str) -> VfsResult<()> {
+    MOUNTS.lock().remove(path);
     Ok(())
 }
 
 pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
     let mps = MOUNTS.lock().clone();
-    for (mount_point, id) in mps.iter().rev() {
+    for (mount_point, mi) in mps.iter().rev() {
         if path.starts_with(mount_point) {
-            let folder = FILESYSTEMS[*id].root_dir(mount_point);
+            let folder = FILESYSTEMS[mi.fs_id].root_dir(mi.clone());
             return path[mount_point.len()..]
                 .trim()
                 .split('/')
@@ -61,4 +73,14 @@ pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
         }
     }
     Err(VfsError::FileNotFound)
+}
+
+pub fn open_mount(path: &str) -> Option<Arc<dyn INodeInterface>> {
+    let mps = MOUNTS.lock().clone();
+    for (mount_point, mi) in mps.iter().rev() {
+        if mount_point == path {
+            return Some(FILESYSTEMS[mi.fs_id].root_dir(mi.clone()));
+        }
+    }
+    None
 }

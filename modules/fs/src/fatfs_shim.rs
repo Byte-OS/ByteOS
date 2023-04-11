@@ -1,13 +1,14 @@
 use alloc::string::String;
-use alloc::sync::{Arc, Weak};
+use alloc::sync::Arc;
 use devices::get_blk_device;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
 use sync::Mutex;
-use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, Metadata, VfsError, VfsResult};
+use vfscore::{
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, VfsError, VfsResult,
+};
 
-use crate::mount::open;
-use crate::FILESYSTEMS;
+use crate::mount::open_mount;
 
 pub trait DiskOperation {
     fn read_block(index: usize, buf: &mut [u8]);
@@ -15,7 +16,6 @@ pub trait DiskOperation {
 }
 
 pub struct Fat32FileSystem {
-    id: usize,
     inner: fatfs::FileSystem<DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
 
@@ -28,11 +28,12 @@ impl FileSystem for Fat32FileSystem {
         "fat32"
     }
 
-    fn root_dir(&'static self, _mount_point: &str) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self, mi: MountedInfo) -> Arc<dyn INodeInterface> {
         Arc::new(FatDir {
-            filename: String::from("/"),
-            fs: Arc::downgrade(&FILESYSTEMS[self.id]),
+            filename: String::from(""),
+            fs: mi.clone(),
             inner: self.inner.root_dir(),
+            dir_path: String::from(""),
         })
     }
 
@@ -42,14 +43,14 @@ impl FileSystem for Fat32FileSystem {
 }
 
 impl Fat32FileSystem {
-    pub fn new(device_id: usize, id: usize) -> Arc<Self> {
+    pub fn new(device_id: usize) -> Arc<Self> {
         let cursor: DiskCursor = DiskCursor {
             sector: 0,
             offset: 0,
             device_id,
         };
         let inner = fatfs::FileSystem::new(cursor, fatfs::FsOptions::new()).expect("open fs wrong");
-        Arc::new(Self { id, inner })
+        Arc::new(Self { inner })
     }
 }
 
@@ -58,9 +59,10 @@ pub struct FatFileInner {
     inner: File<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
 
+#[allow(dead_code)]
 pub struct FatFile {
     filename: String,
-    fs: Weak<dyn FileSystem>,
+    fs: MountedInfo,
     inner: Mutex<FatFileInner>,
 }
 
@@ -70,7 +72,8 @@ unsafe impl Send for FatFile {}
 
 pub struct FatDir {
     filename: String,
-    fs: Weak<dyn FileSystem>,
+    dir_path: String,
+    fs: MountedInfo,
     inner: Dir<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
 
@@ -97,10 +100,6 @@ impl INodeInterface for FatFile {
         inner.inner.write_all(buffer).map_err(as_vfs_err)?;
         inner.offset += buffer.len();
         Ok(buffer.len())
-    }
-
-    fn weak_filesystem(&self) -> VfsResult<Weak<dyn FileSystem>> {
-        Ok(self.fs.clone())
     }
 
     fn flush(&self) -> VfsResult<()> {
@@ -141,6 +140,7 @@ impl INodeInterface for FatDir {
             .create_dir(name)
             .map(|dir| -> Arc<dyn INodeInterface> {
                 Arc::new(FatDir {
+                    dir_path: format!("{}/{}", self.dir_path, name),
                     filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: dir,
@@ -176,26 +176,44 @@ impl INodeInterface for FatDir {
             .find(|f| f.as_ref().unwrap().file_name() == name);
         let file = file.map(|x| x.unwrap()).ok_or(VfsError::FileNotFound)?;
         if file.is_dir() {
-            let dir = file.to_dir();
+            let mut mount_path = self.fs.path.as_ref().clone();
+            if mount_path == "/" {
+                mount_path = String::from("");
+            }
+            let res = match open_mount(&format!("{}{}/{}", mount_path, self.dir_path, name)) {
+                Some(inode) => inode,
+                None => Arc::new(FatDir {
+                    dir_path: format!("{}/{}", self.dir_path, name),
+                    filename: String::from(name),
+                    fs: self.fs.clone(),
+                    inner: file.to_dir(),
+                }),
+            };
+
+            return Ok(res);
             // This is a temporary method for supporting mount
             // 1. create a new dir as mount point
             // 2. touch a .mount file with the target path at the folder
             // use open to open mount point
-            return match dir.open_file(".mount") {
-                Ok(mut file) => {
-                    let len = file.seek(SeekFrom::End(0)).unwrap_or(0);
-                    file.seek(SeekFrom::Start(0)).expect("can't seek");
-                    let mut buf = vec![0u8; len as usize];
-                    file.read_exact(&mut buf).expect("can't read file");
-                    let mount_point = String::from_utf8(buf).expect("can't conver path");
-                    open(&mount_point)
-                }
-                Err(_) => Ok(Arc::new(FatDir {
-                    filename: String::from(name),
-                    fs: self.fs.clone(),
-                    inner: file.to_dir(),
-                })),
-            };
+            // if dir.iter().count() == 0 {
+
+            // }
+            // return match dir.open_file(".mount") {
+            //     Ok(mut file) => {
+            //         let len = file.seek(SeekFrom::End(0)).unwrap_or(0);
+            //         file.seek(SeekFrom::Start(0)).expect("can't seek");
+            //         let mut buf = vec![0u8; len as usize];
+            //         file.read_exact(&mut buf).expect("can't read file");
+            //         let mount_point = String::from_utf8(buf).expect("can't conver path");
+            //         open(&mount_point)
+            //     }
+            //     Err(_) => Ok(Arc::new(FatDir {
+            //         dir_path: format!("{}/{}", self.dir_path, name),
+            //         filename: String::from(name),
+            //         fs: self.fs.clone(),
+            //         inner: file.to_dir(),
+            //     })),
+            // };
         };
 
         if file.is_file() {
