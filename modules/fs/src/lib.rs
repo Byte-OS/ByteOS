@@ -18,7 +18,7 @@ mod fatfs_shim;
 pub mod mount;
 
 pub type File = Arc<dyn INodeInterface>;
-pub use vfscore::{FileType, OpenFlags};
+pub use vfscore::{FileType, OpenFlags, VfsError};
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 
 pub fn init() {

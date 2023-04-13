@@ -1,9 +1,9 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc};
 use log::warn;
 use sync::Mutex;
-use vfscore::{FileType, INodeInterface, MountedInfo, OpenFlags, VfsError, VfsResult};
+use vfscore::{INodeInterface, MountedInfo, OpenFlags, VfsError, VfsResult};
 
-use crate::{File, FILESYSTEMS};
+use crate::FILESYSTEMS;
 
 pub static MOUNTS: Mutex<BTreeMap<String, MountedInfo>> = Mutex::new(BTreeMap::new());
 
@@ -16,23 +16,6 @@ pub fn init() {
             "procfs" => mount(String::from("/proc"), i).expect("can't mount to /procfs"),
             fs => warn!("unsupport fs: {}", fs),
         };
-    }
-
-    println!("{:=^30}", " LIST FILES START ");
-    list_files(open("/").expect("can't find mount point at ."), 0);
-    println!("{:=^30}", " LIST FILES START ");
-}
-
-fn list_files(file: File, space: usize) {
-    for i in file.read_dir().expect("can't read dir") {
-        println!("{:<3$}{} {}", "", i.filename, i.len, space);
-        if i.file_type == FileType::Directory {
-            list_files(
-                file.open(&i.filename, OpenFlags::O_RDWR)
-                    .expect("can't read dir"),
-                space + 4,
-            );
-        }
     }
 }
 
@@ -57,6 +40,10 @@ pub fn umount(path: &str) -> VfsResult<()> {
 }
 
 pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+    let path = match path.starts_with("/") {
+        true => String::from(path),
+        false => String::from("/") + path
+    };
     let mps = MOUNTS.lock().clone();
     for (mount_point, mi) in mps.iter().rev() {
         if path.starts_with(mount_point) {

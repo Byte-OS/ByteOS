@@ -20,6 +20,7 @@ members = [
     "modules/fs",
     "modules/devfs",
     "modules/ramfs",
+    "modules/executor",
 
     # kernel
     "kernel"
