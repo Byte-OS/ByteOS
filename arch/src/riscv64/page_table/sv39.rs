@@ -1,3 +1,5 @@
+use core::arch::asm;
+
 use bitflags::bitflags;
 
 use crate::{
@@ -91,6 +93,20 @@ impl PageTable {
     #[inline]
     pub fn get_pte_list(&self) -> &'static mut [PTE] {
         unsafe { core::slice::from_raw_parts_mut(paddr_c(self.0).0 as *mut PTE, PAGE_ITEM_COUNT) }
+    }
+
+    #[inline]
+    pub const fn get_satp(&self) -> usize {
+        (8 << 60) | (self.0 .0 >> 12)
+    }
+
+    #[inline]
+    pub fn change(&self) {
+        unsafe {
+            asm!("csrw satp, {0}",  in(reg) self.get_satp());
+            // satp::set(Mode::Sv39, 0, self.0.0 >> 12);
+            // riscv::asm::sfence_vma_all();
+        }
     }
 
     #[inline]

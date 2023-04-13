@@ -27,6 +27,7 @@ crates --> arch --> modules --> kernel
 - [x] fs mount support (a temporary solution)
 - [x] ramfs support
 - [x] devfs support
+- [x] async/await support (simple version)
 - [ ] process support
 - [ ] syscalls
     - [ ] open
@@ -36,9 +37,12 @@ crates --> arch --> modules --> kernel
 - [ ] add the large page (addr > 0xffffffffc02x0000) to allocator
 - [ ] VIRTIO net device support
 - [ ] smp support
-- [ ] async/await support
 
 # 运行
+
+> 内含一个简单的 `shell`, 可以执行 `help`, `ls`, `clear`, `exit`, `brk` 命令
+>
+> `brk` 是执行一个 `brk` 程序.
 
 ```shell
 make run

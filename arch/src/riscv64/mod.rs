@@ -13,6 +13,7 @@ pub use context::*;
 pub use interrupt::init_interrupt;
 pub use page_table::*;
 pub use sbi::*;
+pub use timer::*;
 
 use riscv::register::sstatus;
 
@@ -39,4 +40,11 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
     }
 
     shutdown();
+}
+
+#[inline]
+pub fn wfi() {
+    unsafe {
+        riscv::asm::wfi();
+    }
 }

@@ -1,9 +1,14 @@
 #![no_main]
 #![no_std]
+#![feature(exclusive_range_pattern)]
 
 #[macro_use]
 extern crate logging;
+#[macro_use]
 extern crate alloc;
+
+mod syscall;
+mod tasks;
 
 use devices;
 use frame_allocator;
@@ -43,6 +48,9 @@ fn main(hart_id: usize, device_tree: usize) {
 
     // initialize filesystem
     fs::init();
+
+    // init kernel threads and async executor
+    tasks::init();
 
     println!("Hello, world!");
 }
