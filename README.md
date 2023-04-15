@@ -28,7 +28,7 @@ crates --> arch --> modules --> kernel
 - [x] ramfs support
 - [x] devfs support
 - [x] async/await support (simple version)
-- [ ] process support
+- [x] process support
 - [ ] syscalls
     - [ ] open
     - [ ] exec

@@ -31,11 +31,15 @@ impl Driver for RtcGoldfish {
 impl RtcDriver for RtcGoldfish {
     // read seconds since 1970-01-01
     fn read_timestamp(&self) -> u64 {
+        self.read() / 1_000_000_000u64
+    }
+    // read value
+    #[inline]
+    fn read(&self) -> u64 {
         unsafe {
             let low: u32 = read_volatile((self.base + TIMER_TIME_LOW) as *const u32);
             let high: u32 = read_volatile((self.base + TIMER_TIME_HIGH) as *const u32);
-            let ns = ((high as u64) << 32) | (low as u64);
-            ns / 1_000_000_000u64
+            ((high as u64) << 32) | (low as u64)
         }
     }
 }

@@ -229,3 +229,12 @@ pub const SYS_MUNMAP: usize = 215;
 pub const SYS_WAIT4: usize = 260;
 
 pub const AT_CWD: usize = -100 as isize as usize;
+
+pub struct UTSname  {
+    pub sysname: [u8;65],
+    pub nodename: [u8;65],
+    pub release: [u8;65],
+    pub version: [u8;65],
+    pub machine: [u8;65],
+    pub domainname: [u8;65],
+}

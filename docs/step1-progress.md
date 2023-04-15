@@ -1,7 +1,7 @@
 # Step1-progress
 
-- [ ] brk
-- [ ] chdir
+- [x] brk
+- [x] chdir
 - [ ] clone
 - [x] close
 - [x] dup
@@ -10,11 +10,11 @@
 - [ ] exit
 - [ ] fork
 - [ ] fstat
-- [ ] getcwd
-- [ ] getpid
+- [x] getcwd
+- [x] getpid
 - [ ] getppid
-- [ ] gettimeofday
-- [ ] mkdir_
+- [x] gettimeofday
+- [x] mkdir_
 - [ ] mmap
 - [ ] mount
 - [ ] munmap
@@ -22,11 +22,10 @@
 - [x] openat
 - [ ] pipe
 - [x] read
-- [ ] sleep
-- [ ] test_echo
+- [x] sleep
 - [ ] umount
-- [ ] uname
-- [ ] unlink
+- [x] uname
+- [x] unlink
 - [ ] wait
 - [ ] waitpid
 - [x] write

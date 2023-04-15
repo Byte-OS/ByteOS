@@ -44,6 +44,47 @@ fn clear() {
     console_putchar(0x4a);
 }
 
+async fn run_all() -> bool {
+    let commands = [
+        "brk",
+        "chdir",
+        // "clone",
+        "close",
+        "dup",
+        "dup2",
+        // "execve",
+        "exit",
+        // "fork",
+        // "fstat",
+        "getcwd",
+        "getpid",
+        // "getppid",
+        "gettimeofday",
+        "mkdir_",
+        // "mmap",
+        // "mount",
+        // "munmap",
+        "open",
+        "openat",
+        // "pipe",
+        "read",
+        "sleep",
+        // "umount",
+        "uname",
+        "unlink",
+        // "wait",
+        // "waitpid",
+        "write",
+        // "yield"
+    ];
+
+    for i in commands {
+        file_command(i).await
+    }
+
+    return true;
+}
+
 async fn file_command(cmd: &str) {
     let filename = match cmd.starts_with("/") {
         true => String::from(cmd),
@@ -81,6 +122,7 @@ pub async fn command(cmd: &str) -> bool {
         "ls" => list_files(open("/").expect("can't find mount point at ."), 0),
         "clear" => clear(),
         "exit" => return true,
+        "run_all" => return run_all().await,
         _ => file_command(cmd).await,
     }
 

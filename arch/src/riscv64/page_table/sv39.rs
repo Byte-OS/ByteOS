@@ -7,7 +7,7 @@ use crate::{
     VIRT_ADDR_START,
 };
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Debug)]
 pub struct PTE(usize);
 
 impl PTE {
@@ -107,7 +107,7 @@ impl PageTable {
         unsafe {
             asm!("csrw satp, {0}",  in(reg) self.get_satp());
             // satp::set(Mode::Sv39, 0, self.0.0 >> 12);
-            // riscv::asm::sfence_vma_all();
+            riscv::asm::sfence_vma_all();
         }
     }
 

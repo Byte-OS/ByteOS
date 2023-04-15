@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
+use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START, ppn_c};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
 use log::debug;
@@ -21,7 +21,12 @@ pub const fn floor(a: usize, b: usize) -> usize {
 pub struct FrameTracker(pub PhysPage);
 
 impl FrameTracker {
-    pub const fn new(ppn: PhysPage) -> Self {
+    pub fn new(ppn: PhysPage) -> Self {
+        // clear ppn before alloc.
+        let arr = ppn_c(ppn).to_addr() as *mut u8;
+        unsafe {
+            core::slice::from_raw_parts_mut(arr, PAGE_SIZE).fill(0);
+        }
         Self(ppn)
     }
 }

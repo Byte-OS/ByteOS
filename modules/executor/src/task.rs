@@ -1,7 +1,7 @@
 use core::{future::Future, pin::Pin};
 
-use alloc::{boxed::Box, sync::Arc, vec::Vec, string::String};
-use arch::{Context, PTEFlags, PageTable, PhysPage, VirtPage, PTE};
+use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
+use arch::{Context, PTEFlags, PageTable, PhysPage, VirtPage, PAGE_SIZE, PTE};
 use devfs::{Stdin, Stdout};
 use frame_allocator::{frame_alloc, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -168,6 +168,25 @@ impl UserTask {
 
     pub fn exit_code(&self) -> Option<usize> {
         self.inner.lock().exit_code
+    }
+
+    pub fn sbrk(&self, incre: isize) -> usize {
+        let mut inner = self.inner.lock();
+        let curr_page = inner.heap / PAGE_SIZE;
+        let after_page = (inner.heap as isize + incre) as usize / PAGE_SIZE;
+        // need alloc frame page
+        if after_page > curr_page {
+            for i in curr_page..after_page {
+                let ppn = self.frame_alloc();
+                self.map(ppn, VirtPage::new(i + 1), PTEFlags::UVRW);
+            }
+        }
+        inner.heap = (inner.heap as isize + incre) as usize;
+        inner.heap
+    }
+
+    pub fn heap(&self) -> usize {
+        self.inner.lock().heap
     }
 }
 
