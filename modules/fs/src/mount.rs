@@ -1,5 +1,5 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use log::{warn, debug};
+use log::{debug, warn};
 use sync::Mutex;
 use vfscore::{INodeInterface, MountedInfo, OpenFlags, VfsError, VfsResult};
 
@@ -39,22 +39,29 @@ pub fn umount(path: &str) -> VfsResult<()> {
     Ok(())
 }
 
-pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-    let path = String::from("/") + &path.split("/").fold(Vec::new(), |mut vec, x| {
-        match x {
-            "" | "." => {},
-            ".." => {
-                if vec.len() > 0 {
-                    vec.pop();
+pub fn rebuild_path(path: &str) -> String {
+    String::from("/")
+        + &path
+            .split("/")
+            .fold(Vec::new(), |mut vec, x| {
+                match x {
+                    "" | "." => {}
+                    ".." => {
+                        if vec.len() > 0 {
+                            vec.pop();
+                        }
+                    }
+                    _ => vec.push(x),
                 }
-            }
-            _ => vec.push(x)
-        }
-        vec
-    }).join("/");
-    
+                vec
+            })
+            .join("/")
+}
+
+pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+    let path = rebuild_path(path);
     debug!("open @ {}", path);
-    
+
     let mps = MOUNTS.lock().clone();
     for (mount_point, mi) in mps.iter().rev() {
         if path.starts_with(mount_point) {

@@ -36,6 +36,7 @@ pub fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync> {
     Box::new(async { user_entry_inner().await })
 }
 
+#[no_mangle]
 pub async fn user_entry_inner() {
     let task = current_task().as_user_task().unwrap();
     debug!("user_entry, task: {}", task.get_task_id());

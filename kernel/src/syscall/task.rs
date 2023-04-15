@@ -1,7 +1,9 @@
 use crate::syscall::consts::from_vfs;
+use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{ppn_c, PTEFlags, VirtPage, PAGE_SIZE};
+use core::cmp;
 use core::future::Future;
 use core::ops::Add;
 use executor::{current_task, thread, AsyncTask, UserTask};
@@ -9,10 +11,46 @@ use frame_allocator::floor;
 use fs::mount::open;
 use log::debug;
 
+use super::c2rust_buffer;
 use super::{c2rust_list, c2rust_str, consts::LinuxError};
 
 extern "Rust" {
     fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync>;
+}
+
+pub async fn sys_chdir(path_ptr: usize) -> Result<usize, LinuxError> {
+    let path = c2rust_str(path_ptr as *mut i8);
+    debug!("sys_chdir @ path: {}", path);
+    // check folder exists
+    let dir = open(path).map_err(from_vfs)?;
+    match dir.metadata().unwrap().file_type {
+        fs::FileType::Directory => {
+            let user_task = current_task().as_user_task().unwrap();
+            let mut inner = user_task.inner.lock();
+            match path.starts_with("/") {
+                true => inner.curr_dir = String::from(path),
+                false => inner.curr_dir += path,
+            }
+            Ok(0)
+        }
+        _ => Err(LinuxError::ENOTDIR),
+    }
+}
+
+pub async fn sys_getcwd(buf_ptr: usize, size: usize) -> Result<usize, LinuxError> {
+    debug!("sys_getcwd @ buffer_ptr{:#x} size: {}", buf_ptr, size);
+    let buffer = c2rust_buffer(buf_ptr as *mut u8, size);
+    let curr_path = current_task()
+        .as_user_task()
+        .unwrap()
+        .inner
+        .lock()
+        .curr_dir
+        .clone();
+    let bytes = curr_path.as_bytes();
+    let len = cmp::min(bytes.len(), size);
+    buffer[..len].copy_from_slice(&bytes[..len]);
+    Ok(buf_ptr)
 }
 
 pub fn sys_exit(exit_code: usize) -> Result<usize, LinuxError> {
@@ -69,6 +107,10 @@ pub async fn sys_execve(
     exec_with_process(task, filename, args).await?;
 
     Ok(0)
+}
+
+pub async fn sys_getpid() -> Result<usize, LinuxError> {
+    Ok(current_task().get_task_id())
 }
 
 pub async fn exec_with_process<'a>(

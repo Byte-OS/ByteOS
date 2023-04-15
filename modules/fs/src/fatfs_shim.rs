@@ -95,7 +95,10 @@ impl INodeInterface for FatFile {
             .seek(SeekFrom::Start(offset as u64))
             .map_err(as_vfs_err)?;
         let rlen = min(buffer.len(), len as usize - inner.offset);
-        inner.inner.read_exact(&mut buffer[..rlen]).map_err(as_vfs_err)?;
+        inner
+            .inner
+            .read_exact(&mut buffer[..rlen])
+            .map_err(as_vfs_err)?;
         inner.offset += rlen;
         Ok(rlen)
     }
@@ -244,6 +247,10 @@ impl INodeInterface for FatDir {
     }
 
     fn rmdir(&self, name: &str) -> VfsResult<()> {
+        self.inner.remove(name).map_err(as_vfs_err)
+    }
+
+    fn remove(&self, name: &str) -> VfsResult<()> {
         self.inner.remove(name).map_err(as_vfs_err)
     }
 

@@ -1,8 +1,11 @@
 use executor::current_task;
-use fs::{mount::open, OpenFlags};
+use fs::{mount::{open, rebuild_path}, OpenFlags};
 use log::debug;
 
-use crate::syscall::{c2rust_buffer, consts::{from_vfs, AT_CWD}};
+use crate::syscall::{
+    c2rust_buffer,
+    consts::{from_vfs, AT_CWD},
+};
 
 use super::{c2rust_str, consts::LinuxError};
 
@@ -59,6 +62,40 @@ pub async fn sys_close(fd: usize) -> Result<usize, LinuxError> {
     Ok(0)
 }
 
+pub async fn sys_mkdir_at(dir_fd: usize, path: usize, mode: usize) -> Result<usize, LinuxError> {
+    let path = c2rust_str(path as *mut i8);
+    debug!(
+        "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
+        dir_fd, path, mode
+    );
+    let user_task = current_task().as_user_task().unwrap();
+    let inner = user_task.inner.lock();
+    let dir = if dir_fd == AT_CWD {
+        open(&inner.curr_dir).map_err(from_vfs)?
+    } else {
+        inner.fd_table.get(dir_fd).ok_or(LinuxError::EBADF)?
+    };
+    dir.mkdir(path).map_err(from_vfs)?;
+    Ok(0)
+}
+
+pub async fn sys_unlinkat(dir_fd: usize, path: usize, flags: usize) -> Result<usize, LinuxError> {
+    let path = c2rust_str(path as *mut i8);
+    debug!(
+        "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
+        dir_fd, path, flags
+    );
+    let user_task = current_task().as_user_task().unwrap();
+    let inner = user_task.inner.lock();
+    let dir = if dir_fd == AT_CWD {
+        open(&inner.curr_dir).map_err(from_vfs)?
+    } else {
+        inner.fd_table.get(dir_fd).ok_or(LinuxError::EBADF)?
+    };
+    dir.remove(&rebuild_path(path)).map_err(from_vfs)?;
+    Ok(0)
+}
+
 pub async fn sys_openat(
     fd: usize,
     filename: usize,
@@ -91,7 +128,7 @@ pub async fn sys_openat(
             } else {
                 Err(LinuxError::ENOENT)
             }
-        },
+        }
     }?;
     debug!("file: {}", file.path().map_err(from_vfs)?);
     let fd = inner.fd_table.alloc_fd().ok_or(LinuxError::ENFILE)?;

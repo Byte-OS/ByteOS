@@ -20,6 +20,7 @@ pub trait Driver: Sync + Send {
 
 pub trait RtcDriver: Driver {
     fn read_timestamp(&self) -> u64;
+    fn read(&self) -> u64;
 }
 
 pub trait BlkDriver: Driver {
