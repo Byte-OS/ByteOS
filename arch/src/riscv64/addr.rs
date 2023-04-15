@@ -64,6 +64,14 @@ impl PhysPage {
     }
 }
 
+impl Add<usize> for VirtPage {
+    type Output = VirtPage;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        VirtPage(self.0 + rhs)
+    }
+}
+
 impl PhysAddr {
     #[inline]
     pub const fn new(addr: usize) -> Self {

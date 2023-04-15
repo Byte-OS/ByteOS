@@ -1,12 +1,43 @@
 use crate::syscall::consts::from_vfs;
-
-use alloc::sync::Arc;
 use alloc::vec::Vec;
-use executor::{current_task, AsyncTask, UserTask, yield_now, thread};
+use alloc::{boxed::Box, sync::Arc};
+use arch::{ppn_c, PTEFlags, VirtPage, PAGE_SIZE};
+use core::future::Future;
+use core::ops::Add;
+use executor::{current_task, thread, AsyncTask, UserTask};
+use frame_allocator::floor;
 use fs::mount::open;
 use log::debug;
 
 use super::{c2rust_list, c2rust_str, consts::LinuxError};
+
+extern "Rust" {
+    fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync>;
+}
+
+pub fn sys_exit(exit_code: usize) -> Result<usize, LinuxError> {
+    debug!("sys_exit @ exit_code: {}", exit_code);
+    current_task()
+        .as_user_task()
+        .unwrap()
+        .inner
+        .lock()
+        .exit_code = Some(exit_code);
+    Ok(0)
+}
+
+pub fn _sys_wait4(
+    pid: usize,
+    ptr: usize, // *mut i32
+    _options: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_wait4 @ pid: {}, ptr: {:#x}, _options: {}",
+        pid, ptr, _options
+    );
+
+    Ok(0)
+}
 
 pub async fn sys_execve(
     filename: usize, // *mut i8
@@ -28,8 +59,12 @@ pub async fn sys_execve(
         "sys_execve @ filename: {} args: {:?}: envp: {:?}",
         filename, args, envp
     );
-
-    let task = UserTask::new();
+    // let b = user_entry();
+    // let task = UserTask::new(async {
+    //     let t = unsafe { user_entry() };
+    //     Pin::from(value)
+    // });
+    let task = UserTask::new(unsafe { user_entry() });
 
     exec_with_process(task, filename, args).await?;
 
@@ -54,13 +89,10 @@ pub async fn exec_with_process<'a>(
     let entry_point = elf.header.pt2.entry_point() as usize;
     assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
 
-    let current_task = current_task();
-    info!("current_task: {}", current_task.get_task_id());
+    info!("current_task: {}", task.get_task_id());
     info!("entry_point: {:#x}", entry_point);
-
-    thread::spawn(task.clone());
-
-    yield_now().await;
+    // WARRNING: this convert async task to user task.
+    let user_task = task.clone().as_user_task().unwrap();
 
     // // check if it is libc, dlopen, it needs recurit.
     // let header = elf
@@ -75,6 +107,45 @@ pub async fn exec_with_process<'a>(
     //     }
     // }
 
-    info!("read file: {}", path);
+    // get heap_bottom, TODO: align 4096
+    // brk is expanding the data section.
+    let heap_bottom = elf.program_iter().fold(0, |acc, x| {
+        if x.virtual_addr() + x.mem_size() > acc {
+            x.virtual_addr() + x.mem_size()
+        } else {
+            acc
+        }
+    });
+    user_task.inner.lock().heap = heap_bottom as usize;
+
+    // map stack
+    let ppn = user_task.frame_alloc();
+    user_task.map(ppn, VirtPage::from_addr(0x7ffff000), PTEFlags::UVRW);
+
+    // map sections.
+    elf.program_iter()
+        .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
+        .for_each(|ph| {
+            let file_size = ph.file_size() as usize;
+            let mem_size = ph.mem_size() as usize;
+            // let phys_addr = ph.physical_addr();
+            let offset = ph.offset() as usize;
+            let virt_addr = ph.virtual_addr() as usize;
+
+            let page_count = floor(mem_size, PAGE_SIZE);
+            let ppn_start = user_task.frame_alloc_much(page_count);
+            let vpn_start = VirtPage::from_addr(virt_addr);
+
+            (0..page_count).into_iter().for_each(|x| {
+                user_task.map(ppn_start.add(x), vpn_start.add(x), PTEFlags::UVRWX);
+            });
+
+            let page_space = unsafe {
+                core::slice::from_raw_parts_mut(ppn_c(ppn_start).to_addr() as _, file_size)
+            };
+            page_space.copy_from_slice(&buffer[offset..offset + file_size]);
+        });
+
+    thread::spawn(task.clone());
     Ok(task)
 }

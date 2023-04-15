@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
+use log::debug;
 use sync::Mutex;
 
 pub const fn floor(a: usize, b: usize) -> usize {
@@ -109,7 +110,7 @@ impl FrameRegionMap {
     /// pages: usize 要申请的页表数量
     pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
         for i in 0..self.bits.len() - pages {
-            if self.bits.get_bits(0..pages) == 0 {
+            if self.bits.get_bits(i..i + pages) == 0 {
                 let mut ans = Vec::new();
                 for j in 0..pages {
                     self.bits.set_bit(i + j, true);
@@ -218,6 +219,8 @@ pub fn init() {
             FRAME_ALLOCATOR.lock().add_memory_region(phys_end, mr.end);
         }
     });
+
+    debug!("free page count: {}", get_free_pages());
 
     // 确保帧分配器一定能工作
     assert!(

@@ -18,3 +18,5 @@ fs = { path = "../modules/fs" }
 executor = { path = "../modules/executor" }
 xmas-elf = "0.9.0"
 async-recursion = "1.0.4"
+sync = { path = "../modules/sync" }
+bitflags = "2.0.2"

@@ -1,4 +1,9 @@
-use alloc::{boxed::Box, collections::{BTreeMap, VecDeque}, sync::Arc, task::Wake};
+use alloc::{
+    boxed::Box,
+    collections::{BTreeMap, VecDeque},
+    sync::Arc,
+    task::Wake,
+};
 use core::{
     future::Future,
     pin::Pin,
@@ -7,9 +12,14 @@ use core::{
 use crossbeam_queue::SegQueue;
 use sync::Mutex;
 
+use crate::UserTask;
+
 pub trait AsyncTask: Send + Sync {
     fn get_task_id(&self) -> TaskId;
     fn before_run(&self);
+    fn as_user_task(self: Arc<Self>) -> Option<Arc<UserTask>> {
+        None
+    }
 }
 
 pub type TaskId = usize;
@@ -44,6 +54,7 @@ impl Executor {
     fn run_ready_task(&mut self) {
         let task = TASK_QUEUE.lock().pop_front();
         if let Some(task) = task {
+            task.before_run();
             *CURRENT_TASK.lock() = Some(task.clone());
             let waker = self.create_waker(task.as_ref()).into();
             let mut context = Context::from_waker(&waker);

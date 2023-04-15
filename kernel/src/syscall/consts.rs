@@ -138,8 +138,8 @@ impl LinuxError {
         }
     }
 
-    pub const fn code(self) -> i32 {
-        self as i32
+    pub const fn code(self) -> isize {
+        self as isize
     }
 }
 
@@ -227,3 +227,5 @@ pub const SYS_MMAP: usize = 222;
 pub const SYS_MPROTECT: usize = 226;
 pub const SYS_MUNMAP: usize = 215;
 pub const SYS_WAIT4: usize = 260;
+
+pub const AT_CWD: usize = -100 as isize as usize;

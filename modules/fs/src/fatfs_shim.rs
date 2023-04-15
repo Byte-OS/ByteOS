@@ -1,8 +1,11 @@
+use core::cmp::min;
+
 use alloc::string::String;
 use alloc::sync::Arc;
 use devices::get_blk_device;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
+use log::debug;
 use sync::Mutex;
 use vfscore::{
     DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, VfsError, VfsResult,
@@ -62,6 +65,7 @@ pub struct FatFileInner {
 #[allow(dead_code)]
 pub struct FatFile {
     filename: String,
+    dir_path: String,
     fs: MountedInfo,
     inner: Mutex<FatFileInner>,
 }
@@ -90,9 +94,10 @@ impl INodeInterface for FatFile {
             .inner
             .seek(SeekFrom::Start(offset as u64))
             .map_err(as_vfs_err)?;
-        inner.inner.read_exact(buffer).map_err(as_vfs_err)?;
-        inner.offset += len as usize - inner.offset;
-        Ok(len as usize - inner.offset)
+        let rlen = min(buffer.len(), len as usize - inner.offset);
+        inner.inner.read_exact(&mut buffer[..rlen]).map_err(as_vfs_err)?;
+        inner.offset += rlen;
+        Ok(rlen)
     }
 
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
@@ -132,6 +137,11 @@ impl INodeInterface for FatFile {
             .map_err(as_vfs_err)?;
         self.inner.lock().inner.truncate().map_err(as_vfs_err)
     }
+
+    fn path(&self) -> VfsResult<String> {
+        let mount_path = self.fs.path.as_ref().clone();
+        Ok(format!("{}{}/{}", mount_path, self.dir_path, self.filename))
+    }
 }
 
 impl INodeInterface for FatDir {
@@ -140,7 +150,7 @@ impl INodeInterface for FatDir {
             .create_dir(name)
             .map(|dir| -> Arc<dyn INodeInterface> {
                 Arc::new(FatDir {
-                    dir_path: format!("{}/{}", self.dir_path, name),
+                    dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: dir,
@@ -150,10 +160,12 @@ impl INodeInterface for FatDir {
     }
 
     fn touch(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+        debug!("touch file {} @ {}/{}", name, self.dir_path, self.filename);
         self.inner
             .create_file(name)
             .map(|file| -> Arc<dyn INodeInterface> {
                 Arc::new(FatFile {
+                    dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: Mutex::new(FatFileInner {
@@ -183,7 +195,7 @@ impl INodeInterface for FatDir {
             let res = match open_mount(&format!("{}{}/{}", mount_path, self.dir_path, name)) {
                 Some(inode) => inode,
                 None => Arc::new(FatDir {
-                    dir_path: format!("{}/{}", self.dir_path, name),
+                    dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
                     fs: self.fs.clone(),
                     inner: file.to_dir(),
@@ -218,6 +230,7 @@ impl INodeInterface for FatDir {
 
         if file.is_file() {
             return Ok(Arc::new(FatFile {
+                dir_path: format!("{}/{}", self.dir_path, self.filename),
                 filename: String::from(name),
                 fs: self.fs.clone(),
                 inner: Mutex::new(FatFileInner {
@@ -269,6 +282,11 @@ impl INodeInterface for FatDir {
             size: 0,
             childrens: self.inner.iter().count(),
         })
+    }
+
+    fn path(&self) -> VfsResult<String> {
+        let mount_path = self.fs.path.as_ref().clone();
+        Ok(format!("{}{}/{}", mount_path, self.dir_path, self.filename))
     }
 }
 

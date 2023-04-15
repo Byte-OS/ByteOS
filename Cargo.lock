@@ -143,7 +143,9 @@ version = "0.1.0"
 dependencies = [
  "arch",
  "crossbeam-queue",
+ "devfs",
  "frame_allocator",
+ "fs",
  "log",
  "logging",
  "sync",
@@ -212,6 +214,7 @@ version = "0.1.0"
 dependencies = [
  "arch",
  "async-recursion",
+ "bitflags 2.0.2",
  "devices",
  "executor",
  "frame_allocator",
@@ -221,6 +224,7 @@ dependencies = [
  "log",
  "logging",
  "panic_handler",
+ "sync",
  "xmas-elf",
 ]
 
