@@ -3,7 +3,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::{console_getchar, console_putchar};
-use executor::yield_now;
+use executor::{yield_now, TASK_QUEUE};
 use fs::{mount::open, File, FileType, OpenFlags};
 
 use crate::syscall::{consts::SYS_EXECVE, syscall};
@@ -44,17 +44,35 @@ fn clear() {
     console_putchar(0x4a);
 }
 
-async fn brk() {
-    // pub async fn exec_with_process<'a>(task: Arc<dyn AsyncTask>, path: &'a str, args: Vec<&'a str>)
-    // exec_with_process(current_task(), "/brk", Vec::new())
-    //     .await
-    //     .expect("can't exec file");
-    let filename = "/brk\0";
-    // syscall(SYS_EXECVE, filename.as_ptr() as _).await;
-    let t = filename.as_ptr() as usize;
-    syscall(SYS_EXECVE, [t, 0, 0, 0, 0, 0, 0])
-        .await
-        .expect("can't call execve");
+async fn file_command(cmd: &str) {
+    let filename = match cmd.starts_with("/") {
+        true => String::from(cmd),
+        false => String::from("/") + cmd,
+    };
+    match open(&filename) {
+        Ok(_) => {
+            let filename = filename + "\0";
+            let t = filename.as_str().as_ptr() as usize;
+            info!("exec: {}", filename);
+            syscall(SYS_EXECVE, [t, 0, 0, 0, 0, 0, 0])
+                .await
+                .expect("can't call execve");
+            yield_now().await;
+
+            loop {
+                if TASK_QUEUE.lock().len() == 0 {
+                    break;
+                }
+                yield_now().await;
+            }
+            // syscall(SYS_WAIT4, [0,0,0,0,0,0,0])
+            //     .await
+            //     .expect("can't wait a pid");
+        }
+        Err(_) => {
+            println!("unknown command: {}", cmd);
+        }
+    }
 }
 
 pub async fn command(cmd: &str) -> bool {
@@ -63,8 +81,7 @@ pub async fn command(cmd: &str) -> bool {
         "ls" => list_files(open("/").expect("can't find mount point at ."), 0),
         "clear" => clear(),
         "exit" => return true,
-        "brk" => brk().await,
-        _ => println!("unknown command: {}", cmd),
+        _ => file_command(cmd).await,
     }
 
     false

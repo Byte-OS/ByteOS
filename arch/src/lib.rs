@@ -17,6 +17,28 @@ pub struct IntTable {
     pub timer: fn(),
 }
 
+pub trait ContextOps {
+    fn set_sp(&mut self, sp: usize);
+    fn sp(&self) -> usize;
+    fn set_ra(&mut self, ra: usize);
+    fn ra(&self) -> usize;
+    fn set_sepc(&mut self, sepc: usize);
+    fn sepc(&self) -> usize;
+
+    fn syscall_number(&self) -> usize;
+    fn args(&self) -> &[usize];
+    fn syscall_ok(&mut self);
+
+    fn set_ret(&mut self, ret: usize);
+}
+
 extern "Rust" {
     fn interrupt_table() -> IntTable;
+}
+
+pub enum TrapType {
+    Breakpoint,
+    UserEnvCall,
+    Time,
+    Unknown,
 }

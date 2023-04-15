@@ -71,8 +71,10 @@ bitflags! {
         const A = 1 << 6;
         const D = 1 << 7;
 
+        const VRW   = Self::V.bits() | Self::R.bits() | Self::W.bits();
         const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
         const UVRWX = Self::U.bits() | Self::VRWX.bits();
+        const UVRW = Self::U.bits() | Self::VRW.bits();
         const GVRWX = Self::G.bits() | Self::VRWX.bits();
 
         const NONE  = 0;
@@ -114,6 +116,12 @@ impl PageTable {
     where
         G: FnMut() -> PhysPage,
     {
+        debug!(
+            "map {:#x} @ {:#x} flags: {:?}",
+            vpn.to_addr(),
+            ppn.to_addr(),
+            flags
+        );
         // TODO: Add huge page support.
         let mut page_table = PageTable(self.0);
         for i in (1..3).rev() {

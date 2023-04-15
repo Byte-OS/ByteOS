@@ -7,6 +7,7 @@ use alloc::sync::Arc;
 use alloc::vec::Vec;
 
 bitflags::bitflags! {
+    #[derive(Debug)]
     pub struct OpenFlags: usize {
         // reserve 3 bits for the access mode
         const O_ACCMODE =  0x0007;
@@ -18,8 +19,8 @@ bitflags::bitflags! {
 
         // these flags get their own bit
         const O_APPEND    = 0x000008;
-        const O_CREAT     = 0x000010;
-        const O_DIRECTORY = 0x000020;
+        const O_CREAT     = 0x40;
+        const O_DIRECTORY = 0x0200000;
         const O_EXCL      = 0x000040;
         const O_NOCTTY    = 0x000080;
         const O_NOFOLLOW  = 0x000100;
@@ -185,6 +186,10 @@ pub trait INodeInterface: Send + Sync {
     }
 
     fn mmap(&self, _offset: usize, _size: usize, _flags: MMapFlags) -> VfsResult<usize> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn path(&self) -> VfsResult<String> {
         Err(VfsError::NotSupported)
     }
 }

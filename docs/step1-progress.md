@@ -1,0 +1,33 @@
+# Step1-progress
+
+- [ ] brk
+- [ ] chdir
+- [ ] clone
+- [x] close
+- [x] dup
+- [x] dup2
+- [ ] execve
+- [ ] exit
+- [ ] fork
+- [ ] fstat
+- [ ] getcwd
+- [ ] getpid
+- [ ] getppid
+- [ ] gettimeofday
+- [ ] mkdir_
+- [ ] mmap
+- [ ] mount
+- [ ] munmap
+- [x] open
+- [x] openat
+- [ ] pipe
+- [x] read
+- [ ] sleep
+- [ ] test_echo
+- [ ] umount
+- [ ] uname
+- [ ] unlink
+- [ ] wait
+- [ ] waitpid
+- [x] write
+- [ ] yield

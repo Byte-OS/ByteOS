@@ -9,6 +9,8 @@ use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, MountedInfo, VfsEr
 mod stdin;
 mod stdout;
 
+pub use {stdin::Stdin, stdout::Stdout};
+
 pub struct DevFS {
     root_dir: Arc<dyn INodeInterface>,
 }
