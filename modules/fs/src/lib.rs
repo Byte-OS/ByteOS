@@ -16,9 +16,10 @@ extern crate logging;
 
 mod fatfs_shim;
 pub mod mount;
+pub mod pipe;
 
 pub type File = Arc<dyn INodeInterface>;
-pub use vfscore::{FileType, OpenFlags, VfsError};
+pub use vfscore::{FileType, OpenFlags, Stat, TimeSepc, VfsError};
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 
 pub fn init() {

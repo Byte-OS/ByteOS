@@ -1,9 +1,12 @@
 use executor::current_task;
-use fs::{mount::{open, rebuild_path}, OpenFlags};
+use fs::{
+    mount::{open, rebuild_path},
+    OpenFlags, Stat,
+};
 use log::debug;
 
 use crate::syscall::{
-    c2rust_buffer,
+    c2rust_buffer, c2rust_ref,
     consts::{from_vfs, AT_CWD},
 };
 
@@ -136,4 +139,20 @@ pub async fn sys_openat(
     debug!("sys_openat @ ret fd: {}", fd);
 
     Ok(fd)
+}
+
+pub async fn sys_fstat(fd: usize, stat_ptr: usize) -> Result<usize, LinuxError> {
+    debug!("sys_fstat @ fd: {} stat_ptr: {:#x}", fd, stat_ptr);
+    let stat_ref = c2rust_ref(stat_ptr as *mut Stat);
+    current_task()
+        .as_user_task()
+        .unwrap()
+        .inner
+        .lock()
+        .fd_table
+        .get(fd)
+        .ok_or(LinuxError::EBADF)?
+        .stat(stat_ref)
+        .map_err(from_vfs)?;
+    Ok(0)
 }

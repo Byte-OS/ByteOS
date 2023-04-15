@@ -29,18 +29,13 @@ crates --> arch --> modules --> kernel
 - [x] devfs support
 - [x] async/await support (simple version)
 - [x] process support
-- [ ] syscalls
-    - [ ] open
-    - [ ] exec
-    - [ ] read
-    - [ ] write
-- [ ] add the large page (addr > 0xffffffffc02x0000) to allocator
+- [ ] syscalls [](./docs/step1-progress.md)
 - [ ] VIRTIO net device support
 - [ ] smp support
 
 # 运行
 
-> 内含一个简单的 `shell`, 可以执行 `help`, `ls`, `clear`, `exit`, `brk` 命令
+> 内含一个简单的 `shell`, 可以执行 `help`, `ls`, `clear`, `exit`, `brk`, `run_all` 命令或者执行 `elf` 文件
 >
 > `brk` 是执行一个 `brk` 程序.
 

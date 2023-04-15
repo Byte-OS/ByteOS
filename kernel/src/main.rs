@@ -52,5 +52,5 @@ fn main(hart_id: usize, device_tree: usize) {
     // init kernel threads and async executor
     tasks::init();
 
-    println!("Hello, world!");
+    println!("Task All Finished!");
 }

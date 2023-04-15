@@ -4,7 +4,7 @@
 extern crate alloc;
 
 use alloc::vec::Vec;
-use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START, ppn_c};
+use arch::{ppn_c, PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
 use log::debug;

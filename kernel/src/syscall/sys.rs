@@ -7,7 +7,7 @@ use super::consts::LinuxError;
 pub async fn sys_uname(uts_ptr: usize) -> Result<usize, LinuxError> {
     debug!("sys_uname @ uts_ptr: {:#x}", uts_ptr);
     let uts = c2rust_ref(uts_ptr as *mut UTSname);
-    
+
     let sys_name = b"ByteOS";
     let sys_nodename = b"ByteOS";
     let sys_release = b"release";

@@ -9,7 +9,7 @@
 - [ ] execve
 - [ ] exit
 - [ ] fork
-- [ ] fstat
+- [x] fstat
 - [x] getcwd
 - [x] getpid
 - [ ] getppid
