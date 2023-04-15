@@ -55,12 +55,7 @@ pub async fn sys_getcwd(buf_ptr: usize, size: usize) -> Result<usize, LinuxError
 
 pub fn sys_exit(exit_code: usize) -> Result<usize, LinuxError> {
     debug!("sys_exit @ exit_code: {}", exit_code);
-    current_task()
-        .as_user_task()
-        .unwrap()
-        .inner
-        .lock()
-        .exit_code = Some(exit_code);
+    current_task().as_user_task().unwrap().exit(exit_code);
     Ok(0)
 }
 
@@ -102,7 +97,7 @@ pub async fn sys_execve(
     //     let t = unsafe { user_entry() };
     //     Pin::from(value)
     // });
-    let task = UserTask::new(unsafe { user_entry() });
+    let task = UserTask::new(unsafe { user_entry() }, None);
 
     exec_with_process(task, filename, args).await?;
 

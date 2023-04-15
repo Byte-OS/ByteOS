@@ -112,6 +112,32 @@ pub trait FileSystem: Send + Sync {
 
 pub type VfsResult<T> = core::result::Result<T, VfsError>;
 
+#[repr(C)]
+#[derive(Default)]
+pub struct TimeSepc {
+    pub sec: usize,  /* 秒 */
+    pub nsec: usize, /* 纳秒, 范围在0~999999999 */
+}
+
+#[repr(C)]
+pub struct Stat {
+    pub dev: u64,        // 设备号
+    pub ino: u64,        // inode
+    pub mode: u32,       // 设备mode
+    pub nlink: u32,      // 文件links
+    pub uid: u32,        // 文件uid
+    pub gid: u32,        // 文件gid
+    pub rdev: u64,       // 文件rdev
+    pub __pad: u64,      // 保留
+    pub size: u64,       // 文件大小
+    pub blksize: u32,    // 占用块大小
+    pub __pad2: u32,     // 保留
+    pub blocks: u64,     // 占用块数量
+    pub atime: TimeSepc, // 最后访问时间
+    pub mtime: TimeSepc, // 最后修改时间
+    pub ctime: TimeSepc, // 最后创建时间
+}
+
 pub trait INodeInterface: Send + Sync {
     fn metadata(&self) -> VfsResult<Metadata> {
         Err(VfsError::NotSupported)
@@ -192,27 +218,8 @@ pub trait INodeInterface: Send + Sync {
     fn path(&self) -> VfsResult<String> {
         Err(VfsError::NotSupported)
     }
+
+    fn stat(&self, _stat: &mut Stat) -> VfsResult<()> {
+        Err(VfsError::NotSupported)
+    }
 }
-
-/*
-// Linux Vfs operations
-struct file_operations {
-    struct module *owner;
-    loff_t (*llseek) (struct file *, loff_t, int);
-    ssize_t (*read) (struct file *, char *, size_t, loff_t *);
-    ssize_t (*write) (struct file *, const char *, size_t, loff_t *);
-    int (*readdir) (struct file *, void *, filldir_t);
-    unsigned int (*poll) (struct file *, struct poll_table_struct *);
-    int (*ioctl) (struct inode *, struct file *, unsigned int, unsigned long);
-    int (*mmap) (struct file *, struct vm_area_struct *);
-    int (*open) (struct inode *, struct file *);
-    int (*flush) (struct file *);
-    int (*release) (struct inode *, struct file *);
-    int (*fsync) (struct file *, struct dentry *, int datasync);
-    int (*fasync) (int, struct file *, int);
-    int (*lock) (struct file *, int, struct file_lock *);
-    ssize_t (*readv) (struct file *, const struct iovec *, unsigned long, loff_t *);
-    ssize_t (*writev) (struct file *, const struct iovec *, unsigned long, loff_t *);
-};
-
-*/

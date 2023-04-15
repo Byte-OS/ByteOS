@@ -8,7 +8,8 @@ use fatfs::{Read, Seek, SeekFrom, Write};
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, VfsError, VfsResult,
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, VfsError,
+    VfsResult,
 };
 
 use crate::mount::open_mount;
@@ -116,11 +117,12 @@ impl INodeInterface for FatFile {
     }
 
     fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        let len = self
+        let mut inner = self.inner.lock();
+        let len = inner.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
+        let offset = inner.offset as u64;
+        inner
             .inner
-            .lock()
-            .inner
-            .seek(SeekFrom::End(0))
+            .seek(SeekFrom::Start(offset))
             .map_err(as_vfs_err)?;
 
         Ok(vfscore::Metadata {
@@ -144,6 +146,21 @@ impl INodeInterface for FatFile {
     fn path(&self) -> VfsResult<String> {
         let mount_path = self.fs.path.as_ref().clone();
         Ok(format!("{}{}/{}", mount_path, self.dir_path, self.filename))
+    }
+
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
+        stat.dev = self.fs.fs_id as u64;
+        stat.ino = 1; // TODO: convert path to number(ino)
+        stat.mode = 0o777; // TODO: add access mode
+        stat.nlink = 1;
+        stat.uid = 1000;
+        stat.gid = 1000;
+        stat.size = self.metadata().unwrap().size as u64;
+        stat.blksize = 512;
+        stat.blocks = self.metadata().unwrap().size as u64 / 512;
+        stat.rdev = 0; // TODO: add device id
+                       // TODO: add A/M/C time
+        Ok(())
     }
 }
 
@@ -294,6 +311,20 @@ impl INodeInterface for FatDir {
     fn path(&self) -> VfsResult<String> {
         let mount_path = self.fs.path.as_ref().clone();
         Ok(format!("{}{}/{}", mount_path, self.dir_path, self.filename))
+    }
+
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
+        stat.dev = self.fs.fs_id as u64;
+        stat.ino = 1; // TODO: convert path to number(ino)
+        stat.mode = 0o777; // TODO: add access mode
+        stat.nlink = 1;
+        stat.uid = 1000;
+        stat.gid = 1000;
+        stat.size = 0;
+        stat.blksize = 512;
+        stat.blocks = 0;
+        stat.rdev = 0; // TODO: add device id
+        Ok(())
     }
 }
 

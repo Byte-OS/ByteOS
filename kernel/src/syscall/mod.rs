@@ -13,11 +13,17 @@ use log::warn;
 use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE, SYS_EXIT,
-        SYS_GETCWD, SYS_GETPID, SYS_MKDIRAT, SYS_OPENAT, SYS_READ, SYS_WRITE, SYS_GETTIMEOFDAY, SYS_NANOSLEEP, SYS_UNAME, SYS_UNLINKAT,
+        SYS_FSTAT, SYS_GETCWD, SYS_GETPID, SYS_GETTIMEOFDAY, SYS_MKDIRAT, SYS_NANOSLEEP,
+        SYS_OPENAT, SYS_READ, SYS_UNAME, SYS_UNLINKAT, SYS_WRITE,
     },
-    fd::{sys_close, sys_dup, sys_dup3, sys_mkdir_at, sys_openat, sys_read, sys_write, sys_unlinkat},
+    fd::{
+        sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_openat, sys_read, sys_unlinkat,
+        sys_write,
+    },
     mm::sys_brk,
-    task::{sys_chdir, sys_execve, sys_exit, sys_getcwd, sys_getpid}, time::{sys_gettimeofday, sys_nanosleep}, sys::sys_uname,
+    sys::sys_uname,
+    task::{sys_chdir, sys_execve, sys_exit, sys_getcwd, sys_getpid},
+    time::{sys_gettimeofday, sys_nanosleep},
 };
 
 pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
@@ -39,6 +45,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_NANOSLEEP => sys_nanosleep(args[0] as _, args[1] as _).await,
         SYS_UNAME => sys_uname(args[0] as _).await,
         SYS_UNLINKAT => sys_unlinkat(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_FSTAT => sys_fstat(args[0] as _, args[1] as _).await,
         _ => {
             warn!("unsupported syscall");
             Err(LinuxError::EPERM)
@@ -73,7 +80,5 @@ pub fn c2rust_str(ptr: *const i8) -> &'static str {
 }
 
 pub fn c2rust_ref<T>(ptr: *mut T) -> &'static mut T {
-    unsafe {
-        ptr.as_mut().unwrap()
-    }
+    unsafe { ptr.as_mut().unwrap() }
 }
