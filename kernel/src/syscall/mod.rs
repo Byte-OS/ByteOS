@@ -12,17 +12,21 @@ use log::warn;
 
 use self::{
     consts::{
-        LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE, SYS_EXIT,
-        SYS_FSTAT, SYS_GETCWD, SYS_GETPID, SYS_GETTIMEOFDAY, SYS_MKDIRAT, SYS_NANOSLEEP,
-        SYS_OPENAT, SYS_READ, SYS_UNAME, SYS_UNLINKAT, SYS_WRITE,
+        LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
+        SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETPID, SYS_GETPPID, SYS_GETTIMEOFDAY, SYS_MKDIRAT,
+        SYS_NANOSLEEP, SYS_OPENAT, SYS_READ, SYS_SCHED_YIELD, SYS_UNAME, SYS_UNLINKAT, SYS_WAIT4,
+        SYS_WRITE, SYS_PIPE2,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_openat, sys_read, sys_unlinkat,
-        sys_write,
+        sys_write, sys_pipe2,
     },
     mm::sys_brk,
     sys::sys_uname,
-    task::{sys_chdir, sys_execve, sys_exit, sys_getcwd, sys_getpid},
+    task::{
+        sys_chdir, sys_clone, sys_execve, sys_exit, sys_getcwd, sys_getpid, sys_getppid,
+        sys_sched_yield, sys_wait4,
+    },
     time::{sys_gettimeofday, sys_nanosleep},
 };
 
@@ -41,11 +45,25 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_EXIT => sys_exit(args[0] as _),
         SYS_BRK => sys_brk(args[0] as _).await,
         SYS_GETPID => sys_getpid().await,
+        SYS_PIPE2 => sys_pipe2(args[0] as _, args[1] as _).await,
         SYS_GETTIMEOFDAY => sys_gettimeofday(args[0] as _, args[1] as _).await,
         SYS_NANOSLEEP => sys_nanosleep(args[0] as _, args[1] as _).await,
         SYS_UNAME => sys_uname(args[0] as _).await,
         SYS_UNLINKAT => sys_unlinkat(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_FSTAT => sys_fstat(args[0] as _, args[1] as _).await,
+        SYS_CLONE => {
+            sys_clone(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+            )
+            .await
+        }
+        SYS_WAIT4 => sys_wait4(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_SCHED_YIELD => sys_sched_yield().await,
+        SYS_GETPPID => sys_getppid().await,
         _ => {
             warn!("unsupported syscall");
             Err(LinuxError::EPERM)

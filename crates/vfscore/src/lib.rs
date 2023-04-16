@@ -63,6 +63,7 @@ pub enum VfsError {
     UnexpectedEof,
     WriteZero,
     Io,
+    Blocking,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

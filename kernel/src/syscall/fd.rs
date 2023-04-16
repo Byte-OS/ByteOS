@@ -1,7 +1,7 @@
 use executor::current_task;
 use fs::{
     mount::{open, rebuild_path},
-    OpenFlags, Stat,
+    OpenFlags, Stat, pipe::create_pipe,
 };
 use log::debug;
 
@@ -35,7 +35,7 @@ pub async fn sys_dup3(fd_src: usize, fd_dst: usize) -> Result<usize, LinuxError>
 
 pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, LinuxError> {
     debug!(
-        "sys_write @ fd: {} buf_ptr: {:#x} count: {}",
+        "sys_read @ fd: {} buf_ptr: {:#x} count: {}",
         fd as isize, buf_ptr, count
     );
     let mut buffer = c2rust_buffer(buf_ptr as *mut u8, count);
@@ -156,3 +156,23 @@ pub async fn sys_fstat(fd: usize, stat_ptr: usize) -> Result<usize, LinuxError> 
         .map_err(from_vfs)?;
     Ok(0)
 }
+
+pub async fn sys_pipe2(fds_ptr: usize, _unknown: usize) -> Result<usize, LinuxError> {
+    debug!("sys_pipe2 @ fds_ptr: {:#x}, _unknown: {}", fds_ptr, _unknown);
+    let fds = c2rust_buffer(fds_ptr as *mut u32, 2);
+    let user_task = current_task().as_user_task().unwrap();
+    let mut inner = user_task.inner.lock();
+
+    let (rx, tx) = create_pipe();
+
+    let rx_fd = inner.fd_table.alloc_fd().ok_or(LinuxError::ENFILE)?;
+    inner.fd_table.set(rx_fd, Some(rx));
+    fds[0] = rx_fd as u32;
+
+    let tx_fd = inner.fd_table.alloc_fd().ok_or(LinuxError::ENFILE)?;
+    inner.fd_table.set(tx_fd, Some(tx));
+    fds[1] = tx_fd as u32;
+
+    debug!("sys_pipe2 ret: {} {}", rx_fd as u32, tx_fd as u32);
+    Ok(0)
+} 

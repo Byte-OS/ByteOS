@@ -41,4 +41,5 @@ pub enum TrapType {
     UserEnvCall,
     Time,
     Unknown,
+    StorePageFault(usize),
 }
