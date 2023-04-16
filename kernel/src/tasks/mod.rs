@@ -6,10 +6,10 @@ use core::{
 
 use alloc::{boxed::Box, sync::Arc};
 use arch::{get_time_ms, trap_pre_handle, user_restore, ContextOps, VirtPage};
-use executor::{current_task, AsyncTask, Executor, KernelTask, MemType, UserTask, yield_now};
+use executor::{current_task, AsyncTask, Executor, KernelTask, MemType, UserTask};
 use log::debug;
 
-use crate::syscall::{syscall, consts::LinuxError};
+use crate::syscall::syscall;
 
 use self::initproc::initproc;
 
@@ -66,12 +66,7 @@ pub async fn user_entry_inner() {
                     .await
                     .map_or_else(|e| -e.code(), |x| x as isize)
                     as usize;
-                if result as isize != -LinuxError::EAGAIN.code() {
-                    cx_ref.set_ret(result);
-                } else {
-                    yield_now().await;
-                    cx_ref.set_sepc(cx_ref.sepc() - 4);
-                }
+                cx_ref.set_ret(result);
             }
             arch::TrapType::Time => {
                 info!("time interrupt from user");

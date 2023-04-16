@@ -1,6 +1,9 @@
 use core::cmp;
 
-use alloc::{collections::VecDeque, sync::{Arc, Weak}};
+use alloc::{
+    collections::VecDeque,
+    sync::{Arc, Weak},
+};
 use sync::Mutex;
 use vfscore::INodeInterface;
 
@@ -19,7 +22,7 @@ impl INodeInterface for PipeSender {
 // pipe reader, just can read.
 pub struct PipeReceiver {
     queue: Arc<Mutex<VecDeque<u8>>>,
-    sender: Weak<PipeSender>
+    sender: Weak<PipeSender>,
 }
 
 impl INodeInterface for PipeReceiver {
@@ -45,8 +48,11 @@ impl INodeInterface for PipeReceiver {
 pub fn create_pipe() -> (Arc<PipeReceiver>, Arc<PipeSender>) {
     let queue = Arc::new(Mutex::new(VecDeque::new()));
     let sender = Arc::new(PipeSender(queue.clone()));
-    (Arc::new(PipeReceiver{
-        queue: queue.clone(),
-        sender: Arc::downgrade(&sender)
-    }), sender)
+    (
+        Arc::new(PipeReceiver {
+            queue: queue.clone(),
+            sender: Arc::downgrade(&sender),
+        }),
+        sender,
+    )
 }
