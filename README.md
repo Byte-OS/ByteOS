@@ -29,7 +29,7 @@ crates --> arch --> modules --> kernel
 - [x] devfs support
 - [x] async/await support (simple version)
 - [x] process support
-- [ ] syscalls [](./docs/step1-progress.md)
+- [ ] syscalls [syscalls](./docs/step1-progress.md)
 - [ ] VIRTIO net device support
 - [ ] smp support
 

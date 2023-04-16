@@ -1,7 +1,10 @@
 use core::{
     fmt::{Debug, Display},
     ops::Add,
+    slice::from_raw_parts_mut,
 };
+
+use crate::{ppn_c, PAGE_SIZE};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub(crate) usize);
@@ -61,6 +64,15 @@ impl PhysPage {
     #[inline]
     pub const fn to_addr(&self) -> usize {
         self.0 << 12
+    }
+
+    #[inline]
+    pub fn copy_value_from_another(&self, ppn: PhysPage) {
+        unsafe {
+            let src = from_raw_parts_mut(ppn_c(ppn).to_addr() as *mut u8, PAGE_SIZE);
+            let dst = from_raw_parts_mut(ppn_c(*self).to_addr() as *mut u8, PAGE_SIZE);
+            dst.copy_from_slice(src);
+        }
     }
 }
 

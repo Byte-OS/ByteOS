@@ -158,6 +158,7 @@ pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
         VfsError::UnexpectedEof => LinuxError::EIO,
         VfsError::WriteZero => LinuxError::EIO,
         VfsError::Io => LinuxError::EIO,
+        VfsError::Blocking => LinuxError::EAGAIN
     }
 }
 

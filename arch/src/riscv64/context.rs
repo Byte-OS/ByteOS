@@ -60,7 +60,7 @@ impl ContextOps for Context {
 
     #[inline]
     fn sepc(&self) -> usize {
-        self.x[2]
+        self.sepc
     }
 
     #[inline]

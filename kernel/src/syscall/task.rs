@@ -1,12 +1,13 @@
+use crate::syscall::c2rust_ref;
 use crate::syscall::consts::from_vfs;
+use crate::tasks::WaitPid;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{ppn_c, PTEFlags, VirtPage, PAGE_SIZE};
+use arch::{ppn_c, ContextOps, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
-use core::ops::Add;
-use executor::{current_task, thread, AsyncTask, UserTask};
+use executor::{current_task, thread, yield_now, AsyncTask, MemType, UserTask};
 use frame_allocator::floor;
 use fs::mount::open;
 use log::debug;
@@ -59,19 +60,6 @@ pub fn sys_exit(exit_code: usize) -> Result<usize, LinuxError> {
     Ok(0)
 }
 
-pub fn _sys_wait4(
-    pid: usize,
-    ptr: usize, // *mut i32
-    _options: usize,
-) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_wait4 @ pid: {}, ptr: {:#x}, _options: {}",
-        pid, ptr, _options
-    );
-
-    Ok(0)
-}
-
 pub async fn sys_execve(
     filename: usize, // *mut i8
     args: usize,     // *mut *mut i8
@@ -97,7 +85,7 @@ pub async fn sys_execve(
     //     let t = unsafe { user_entry() };
     //     Pin::from(value)
     // });
-    let task = UserTask::new(unsafe { user_entry() }, None);
+    let task = UserTask::new(unsafe { user_entry() }, Some(current_task()));
 
     exec_with_process(task, filename, args).await?;
 
@@ -156,8 +144,7 @@ pub async fn exec_with_process<'a>(
     user_task.inner.lock().heap = heap_bottom as usize;
 
     // map stack
-    let ppn = user_task.frame_alloc();
-    user_task.map(ppn, VirtPage::from_addr(0x7ffff000), PTEFlags::UVRW);
+    user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
 
     // map sections.
     elf.program_iter()
@@ -165,17 +152,15 @@ pub async fn exec_with_process<'a>(
         .for_each(|ph| {
             let file_size = ph.file_size() as usize;
             let mem_size = ph.mem_size() as usize;
-            // let phys_addr = ph.physical_addr();
             let offset = ph.offset() as usize;
             let virt_addr = ph.virtual_addr() as usize;
 
             let page_count = floor(mem_size, PAGE_SIZE);
-            let ppn_start = user_task.frame_alloc_much(page_count);
-            let vpn_start = VirtPage::from_addr(virt_addr);
-
-            (0..page_count).into_iter().for_each(|x| {
-                user_task.map(ppn_start.add(x), vpn_start.add(x), PTEFlags::UVRWX);
-            });
+            let ppn_start = user_task.frame_alloc_much(
+                VirtPage::from_addr(virt_addr),
+                MemType::CodeSection,
+                page_count,
+            );
 
             let page_space = unsafe {
                 core::slice::from_raw_parts_mut(ppn_c(ppn_start).to_addr() as _, file_size)
@@ -185,4 +170,67 @@ pub async fn exec_with_process<'a>(
 
     thread::spawn(task.clone());
     Ok(task)
+}
+
+pub async fn sys_clone(
+    flags: usize, // 复制 标志位
+    stack: usize, // 指定新的栈，可以为 0, 0 不处理
+    ptid: usize,  // 父线程 id
+    tls: usize,   // TLS线程本地存储描述符
+    ctid: usize,  // 子线程 id
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+        flags, stack, ptid, tls, ctid
+    );
+    let curr_task = current_task().as_user_task().unwrap();
+    let new_task = curr_task.fork(unsafe { user_entry() });
+    if stack != 0 {
+        new_task.inner.lock().cx.set_sp(stack);
+    }
+    Ok(new_task.task_id)
+}
+
+pub async fn sys_wait4(
+    pid: isize,     // 指定进程ID，可为-1等待任何子进程；
+    status: usize,  // 接收状态的指针；
+    options: usize, // WNOHANG，WUNTRACED，WCONTINUED；
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_wait4 @ pid: {}, status: {:#x}, options: {}",
+        pid, status, options
+    );
+    let curr_task = current_task().as_user_task().unwrap();
+    let child_task = WaitPid(curr_task.clone(), pid).await;
+    curr_task
+        .inner
+        .lock()
+        .children
+        .drain_filter(|x| x.task_id == child_task.get_task_id());
+    debug!("wait pid: {}", child_task.exit_code().unwrap());
+
+    if status != 0 {
+        let status_ref = c2rust_ref(status as *mut i32);
+        *status_ref = (child_task.exit_code().unwrap() as i32) << 8;
+        debug!("waitpid acc: {}", *status_ref);
+    }
+
+    Ok(child_task.task_id)
+}
+
+pub async fn sys_sched_yield() -> Result<usize, LinuxError> {
+    debug!("sys_sched_yield @ ");
+    yield_now().await;
+    Ok(0)
+}
+
+pub async fn sys_getppid() -> Result<usize, LinuxError> {
+    debug!("sys_getppid @ ");
+    current_task()
+        .as_user_task()
+        .unwrap()
+        .parent
+        .as_ref()
+        .map(|x| x.get_task_id())
+        .ok_or(LinuxError::EPERM)
 }

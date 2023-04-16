@@ -1,6 +1,7 @@
 #![no_main]
 #![no_std]
 #![feature(exclusive_range_pattern)]
+#![feature(drain_filter)]
 
 #[macro_use]
 extern crate logging;
