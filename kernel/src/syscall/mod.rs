@@ -14,12 +14,12 @@ use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
         SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETPID, SYS_GETPPID, SYS_GETTIMEOFDAY, SYS_MKDIRAT,
-        SYS_NANOSLEEP, SYS_OPENAT, SYS_READ, SYS_SCHED_YIELD, SYS_UNAME, SYS_UNLINKAT, SYS_WAIT4,
-        SYS_WRITE, SYS_PIPE2,
+        SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_READ, SYS_SCHED_YIELD, SYS_UNAME, SYS_UNLINKAT,
+        SYS_WAIT4, SYS_WRITE,
     },
     fd::{
-        sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_openat, sys_read, sys_unlinkat,
-        sys_write, sys_pipe2,
+        sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_openat, sys_pipe2, sys_read,
+        sys_unlinkat, sys_write,
     },
     mm::sys_brk,
     sys::sys_uname,

@@ -1,7 +1,8 @@
 use executor::current_task;
 use fs::{
     mount::{open, rebuild_path},
-    OpenFlags, Stat, pipe::create_pipe,
+    pipe::create_pipe,
+    OpenFlags, Stat, WaitBlockingRead,
 };
 use log::debug;
 
@@ -39,10 +40,15 @@ pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, 
         fd as isize, buf_ptr, count
     );
     let mut buffer = c2rust_buffer(buf_ptr as *mut u8, count);
-    let user_task = current_task().as_user_task().unwrap();
-    let inner = user_task.inner.lock();
-    let file = inner.fd_table.get(fd).ok_or(LinuxError::EBADF)?;
-    Ok(file.read(&mut buffer).map_err(from_vfs)?)
+    let file = current_task()
+        .as_user_task()
+        .unwrap()
+        .inner
+        .lock()
+        .fd_table
+        .get(fd)
+        .ok_or(LinuxError::EBADF)?;
+    WaitBlockingRead(file, &mut buffer).await.map_err(from_vfs)
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, LinuxError> {
@@ -158,7 +164,10 @@ pub async fn sys_fstat(fd: usize, stat_ptr: usize) -> Result<usize, LinuxError> 
 }
 
 pub async fn sys_pipe2(fds_ptr: usize, _unknown: usize) -> Result<usize, LinuxError> {
-    debug!("sys_pipe2 @ fds_ptr: {:#x}, _unknown: {}", fds_ptr, _unknown);
+    debug!(
+        "sys_pipe2 @ fds_ptr: {:#x}, _unknown: {}",
+        fds_ptr, _unknown
+    );
     let fds = c2rust_buffer(fds_ptr as *mut u32, 2);
     let user_task = current_task().as_user_task().unwrap();
     let mut inner = user_task.inner.lock();
@@ -175,4 +184,4 @@ pub async fn sys_pipe2(fds_ptr: usize, _unknown: usize) -> Result<usize, LinuxEr
 
     debug!("sys_pipe2 ret: {} {}", rx_fd as u32, tx_fd as u32);
     Ok(0)
-} 
+}
