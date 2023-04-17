@@ -1,4 +1,4 @@
-use alloc::{vec::Vec, string::String};
+use alloc::{string::String, vec::Vec};
 use sync::Mutex;
 use vfscore::{INodeInterface, VfsError};
 
@@ -6,12 +6,12 @@ pub struct Sdx {
     device_id: usize,
     mount_fn: fn(usize, &str) -> Result<(), VfsError>,
     umount_fn: fn(usize, &str) -> Result<(), VfsError>,
-    mount_paths: Mutex<Vec<String>>
+    mount_paths: Mutex<Vec<String>>,
 }
 
 impl Sdx {
     pub fn new(
-        device_id: usize, 
+        device_id: usize,
         mount_fn: fn(usize, &str) -> Result<(), VfsError>,
         umount_fn: fn(usize, &str) -> Result<(), VfsError>,
     ) -> Self {
@@ -19,7 +19,7 @@ impl Sdx {
             device_id,
             mount_fn,
             umount_fn,
-            mount_paths: Mutex::new(Vec::new())
+            mount_paths: Mutex::new(Vec::new()),
         }
     }
 }

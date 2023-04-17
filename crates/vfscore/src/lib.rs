@@ -64,7 +64,7 @@ pub enum VfsError {
     WriteZero,
     Io,
     Blocking,
-    NoMountedPoint
+    NoMountedPoint,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

@@ -196,8 +196,11 @@ pub async fn sys_mount(
     let special = c2rust_str(special as *mut i8);
     let dir = c2rust_str(dir as *mut i8);
     let fstype = c2rust_str(fstype as *mut i8);
-    
-    debug!("sys_mount @ special: {}, dir: {}, fstype: {}, flags: {}, data: {:#x}", special, dir, fstype, flags, data);
+
+    debug!(
+        "sys_mount @ special: {}, dir: {}, fstype: {}, flags: {}, data: {:#x}",
+        special, dir, fstype, flags, data
+    );
 
     let file = open(special).map_err(from_vfs)?;
     file.mount(dir).map_err(from_vfs)?;
@@ -211,11 +214,11 @@ pub async fn sys_umount2(special: usize, flags: usize) -> Result<usize, LinuxErr
         true => {
             let dev = open(special).map_err(from_vfs)?;
             dev.umount().map_err(from_vfs)?;
-        },
+        }
         false => {
             umount(special).map_err(from_vfs)?;
-        },
+        }
     };
-    
+
     Ok(0)
 }
