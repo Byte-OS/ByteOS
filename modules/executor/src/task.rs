@@ -1,7 +1,9 @@
-use core::{future::Future, ops::Add, pin::Pin};
+use core::{future::Future, mem::size_of, ops::Add, pin::Pin};
 
 use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
-use arch::{Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtPage, PAGE_SIZE, PTE};
+use arch::{
+    paddr_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE, PTE,
+};
 use devfs::{Stdin, Stdout};
 use frame_allocator::{frame_alloc, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -324,6 +326,35 @@ impl UserTask {
 
         thread::spawn(new_task.clone());
         new_task
+    }
+
+    pub fn push_str(&self, str: &str) -> usize {
+        const ULEN: usize = size_of::<usize>();
+        let mut inner = self.inner.lock();
+        let bytes = str.as_bytes();
+        let len = bytes.len();
+        let sp = inner.cx.sp() - (len + ULEN) / ULEN * ULEN;
+
+        let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
+        unsafe {
+            core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(bytes);
+        }
+        inner.cx.set_sp(sp);
+        sp
+    }
+
+    pub fn push_num(&self, num: usize) -> usize {
+        const ULEN: usize = size_of::<usize>();
+        let mut inner = self.inner.lock();
+        let sp = inner.cx.sp() - ULEN;
+
+        let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
+
+        unsafe {
+            (phys_sp.addr() as *mut usize).write(num);
+        }
+        inner.cx.set_sp(sp);
+        sp
     }
 }
 

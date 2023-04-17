@@ -6,10 +6,10 @@ use core::{
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time_ms, trap_pre_handle, user_restore, ContextOps, VirtPage};
-use executor::{current_task, AsyncTask, Executor, KernelTask, MemType, UserTask, thread};
+use executor::{current_task, thread, AsyncTask, Executor, KernelTask, MemType, UserTask};
 use log::debug;
 
-use crate::syscall::{syscall, exec_with_process};
+use crate::syscall::{exec_with_process, syscall};
 
 use self::initproc::initproc;
 
@@ -129,7 +129,9 @@ impl Future for WaitPid {
 }
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) {
-    let task = UserTask::new(unsafe { user_entry() }, Some(current_task()));
-    exec_with_process(task.clone(), filename, args).await.expect("can't add task to excutor");
+    let task = UserTask::new(user_entry(), Some(current_task()));
+    exec_with_process(task.clone(), filename, args)
+        .await
+        .expect("can't add task to excutor");
     thread::spawn(task.clone());
 }

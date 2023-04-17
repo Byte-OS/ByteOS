@@ -99,8 +99,10 @@ pub async fn sys_getpid() -> Result<usize, LinuxError> {
 pub async fn exec_with_process<'a>(
     task: Arc<dyn AsyncTask>,
     path: &'a str,
-    _args: Vec<&'a str>,
+    args_v: Vec<&'a str>,
 ) -> Result<Arc<dyn AsyncTask>, LinuxError> {
+    let mut args = vec![path];
+    args.extend(args_v.iter());
     let file = open(path).map_err(from_vfs)?;
 
     let mut buffer = vec![0u8; file.metadata().unwrap().size];
@@ -139,15 +141,27 @@ pub async fn exec_with_process<'a>(
             acc
         }
     });
-    user_task.inner_map(|mut inner| {
-        inner.heap = heap_bottom as usize;
-        inner.entry = entry_point;
-        inner.cx.set_sp(0x7fff_fff8);
-        inner.cx.set_sepc(0x1000);
-    });
 
     // map stack
     user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
+
+    user_task.inner_map(|mut inner| {
+        inner.heap = heap_bottom as usize;
+        inner.entry = entry_point;
+        inner.cx.set_sp(0x8000_0000); // stack top;
+        inner.cx.set_sepc(0x1000);
+    });
+
+    let args: Vec<usize> = args
+        .into_iter()
+        .rev()
+        .map(|x| user_task.push_str(x))
+        .collect();
+    user_task.push_num(0);
+    args.iter().for_each(|x| {
+        user_task.push_num(*x);
+    });
+    user_task.push_num(args.len());
 
     // map sections.
     elf.program_iter()

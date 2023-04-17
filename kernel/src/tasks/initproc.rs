@@ -7,7 +7,7 @@ use executor::{yield_now, TASK_QUEUE};
 use fs::{mount::open, File, FileType, OpenFlags};
 use log::debug;
 
-use crate::{syscall::{consts::SYS_EXECVE, syscall}, tasks::add_user_task};
+use crate::tasks::add_user_task;
 
 const LF: u8 = b'\n';
 const CR: u8 = b'\r';
@@ -63,14 +63,14 @@ async fn run_all() -> bool {
         "gettimeofday",
         "mkdir_",
         // "mmap",
-        // "mount",
+        "mount /dev/sda /mount",
         // "munmap",
         "open",
         "openat",
         "pipe",
         "read",
         "sleep",
-        // "umount",
+        "umount /dev/sda /mount",
         "uname",
         "unlink",
         "wait",

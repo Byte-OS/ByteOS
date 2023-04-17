@@ -170,6 +170,12 @@ pub fn paddr_c(paddr: PhysAddr) -> PhysAddr {
     PhysAddr(paddr.0 + VIRT_ADDR_START)
 }
 
+/// paddr number convert, 如果在高半核空间
+pub fn paddr_cn(paddr: usize) -> usize {
+    assert!(paddr < VIRT_ADDR_START);
+    paddr + VIRT_ADDR_START
+}
+
 /// 虚拟地址转物理地址
 pub fn virt_to_phys(vaddr: VirtAddr) -> PhysAddr {
     current_page_table().virt_to_phys(vaddr)
