@@ -1,15 +1,21 @@
 #![no_std]
 
-use core::{future::Future, pin::Pin, task::{Context, Poll}, usize};
+use core::{
+    future::Future,
+    pin::Pin,
+    task::{Context, Poll},
+    usize,
+};
 
-use alloc::{sync::Arc, vec::Vec};
-use devfs::DevFS;
+use alloc::{string::String, sync::Arc, vec::Vec};
+use devfs::{DevDir, DevFS, Sdx};
 use devices::get_blk_devices;
+use mount::umount;
 use ramfs::RamFs;
 use sync::LazyInit;
 use vfscore::{FileSystem, INodeInterface, MountedInfo, VfsResult};
 
-use crate::fatfs_shim::Fat32FileSystem;
+use crate::{fatfs_shim::Fat32FileSystem, mount::mount};
 
 #[macro_use]
 extern crate alloc;
@@ -24,6 +30,24 @@ pub type File = Arc<dyn INodeInterface>;
 pub use vfscore::{FileType, OpenFlags, Stat, TimeSepc, VfsError};
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 
+pub fn build_devfs(filesystems: &Vec<Arc<dyn FileSystem>>) -> Arc<DevFS> {
+    let dev_sdxs: Vec<_> = filesystems
+        .iter()
+        .enumerate()
+        .map(|(i, _x)| Arc::new(Sdx::new(
+            i, 
+            |fs_id, path| mount(String::from(path), fs_id),
+            |_fs_id, path| umount(path)
+        )))
+        .collect();
+    let mut dev_dir = DevDir::new();
+
+    // TODO: add fs normal, not fixed.
+    dev_dir.add("sda", dev_sdxs[0].clone());
+
+    DevFS::new_with_dir(dev_dir)
+}
+
 pub fn init() {
     info!("fs module initialized");
 
@@ -31,7 +55,8 @@ pub fn init() {
     // TODO: Identify the filesystem at the device.
     let mut filesystems: Vec<Arc<dyn FileSystem>> = Vec::new();
     filesystems.push(Fat32FileSystem::new(0));
-    filesystems.push(DevFS::new());
+    // filesystems.push(DevFS::new());
+    filesystems.push(build_devfs(&filesystems));
     filesystems.push(RamFs::new());
 
     FILESYSTEMS.init_by(filesystems);
@@ -76,7 +101,7 @@ impl<'a> Future for WaitBlockingRead<'a> {
                 } else {
                     Poll::Ready(Err(err))
                 }
-            },
+            }
         }
     }
 }

@@ -50,7 +50,7 @@ impl ContextOps for Context {
 
     #[inline]
     fn ra(&self) -> usize {
-        self.x[2]
+        self.x[1]
     }
 
     #[inline]

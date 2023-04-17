@@ -14,6 +14,12 @@ impl From<PhysPage> for PhysAddr {
     }
 }
 
+impl PhysAddr {
+    pub fn addr(&self) -> usize {
+        self.0
+    }
+}
+
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtAddr(pub(crate) usize);
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]

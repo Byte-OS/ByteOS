@@ -64,6 +64,7 @@ pub enum VfsError {
     WriteZero,
     Io,
     Blocking,
+    NoMountedPoint
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]
@@ -221,6 +222,14 @@ pub trait INodeInterface: Send + Sync {
     }
 
     fn stat(&self, _stat: &mut Stat) -> VfsResult<()> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn mount(&self, _path: &str) -> VfsResult<()> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn umount(&self) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 }

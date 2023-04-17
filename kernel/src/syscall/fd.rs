@@ -1,6 +1,6 @@
 use executor::current_task;
 use fs::{
-    mount::{open, rebuild_path},
+    mount::{open, rebuild_path, umount},
     pipe::create_pipe,
     OpenFlags, Stat, WaitBlockingRead,
 };
@@ -183,5 +183,39 @@ pub async fn sys_pipe2(fds_ptr: usize, _unknown: usize) -> Result<usize, LinuxEr
     fds[1] = tx_fd as u32;
 
     debug!("sys_pipe2 ret: {} {}", rx_fd as u32, tx_fd as u32);
+    Ok(0)
+}
+
+pub async fn sys_mount(
+    special: usize,
+    dir: usize,
+    fstype: usize,
+    flags: usize,
+    data: usize,
+) -> Result<usize, LinuxError> {
+    let special = c2rust_str(special as *mut i8);
+    let dir = c2rust_str(dir as *mut i8);
+    let fstype = c2rust_str(fstype as *mut i8);
+    
+    debug!("sys_mount @ special: {}, dir: {}, fstype: {}, flags: {}, data: {:#x}", special, dir, fstype, flags, data);
+
+    let file = open(special).map_err(from_vfs)?;
+    file.mount(dir).map_err(from_vfs)?;
+    Ok(0)
+}
+
+pub async fn sys_umount2(special: usize, flags: usize) -> Result<usize, LinuxError> {
+    let special = c2rust_str(special as *mut i8);
+    debug!("sys_umount @ special: {}, flags: {}", special, flags);
+    match special.starts_with("/dev") {
+        true => {
+            let dev = open(special).map_err(from_vfs)?;
+            dev.umount().map_err(from_vfs)?;
+        },
+        false => {
+            umount(special).map_err(from_vfs)?;
+        },
+    };
+    
     Ok(0)
 }

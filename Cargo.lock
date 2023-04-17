@@ -120,6 +120,7 @@ dependencies = [
  "devices",
  "log",
  "logging",
+ "sync",
  "vfscore",
 ]
 

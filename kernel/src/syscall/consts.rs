@@ -159,6 +159,7 @@ pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
         VfsError::WriteZero => LinuxError::EIO,
         VfsError::Io => LinuxError::EIO,
         VfsError::Blocking => LinuxError::EAGAIN,
+        VfsError::NoMountedPoint => LinuxError::ENOENT
     }
 }
 

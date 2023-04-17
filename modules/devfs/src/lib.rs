@@ -6,10 +6,11 @@ extern crate log;
 use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
 use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, MountedInfo, VfsError, VfsResult};
 
+mod sdx;
 mod stdin;
 mod stdout;
 
-pub use {stdin::Stdin, stdout::Stdout};
+pub use {sdx::Sdx, stdin::Stdin, stdout::Stdout};
 
 pub struct DevFS {
     root_dir: Arc<dyn INodeInterface>,
@@ -19,6 +20,12 @@ impl DevFS {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
             root_dir: Arc::new(DevDir::new()),
+        })
+    }
+
+    pub fn new_with_dir(dev: DevDir) -> Arc<Self> {
+        Arc::new(Self {
+            root_dir: Arc::new(dev),
         })
     }
 }
@@ -44,6 +51,10 @@ impl DevDir {
         map.insert("stderr", Arc::new(stdout::Stdout));
         map.insert("stdin", Arc::new(stdin::Stdin));
         Self { map }
+    }
+
+    pub fn add(&mut self, path: &'static str, node: Arc<dyn INodeInterface>) {
+        self.map.insert(path, node);
     }
 }
 

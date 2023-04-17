@@ -15,11 +15,11 @@ use self::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
         SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETPID, SYS_GETPPID, SYS_GETTIMEOFDAY, SYS_MKDIRAT,
         SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_READ, SYS_SCHED_YIELD, SYS_UNAME, SYS_UNLINKAT,
-        SYS_WAIT4, SYS_WRITE,
+        SYS_WAIT4, SYS_WRITE, SYS_MOUNT, SYS_UMOUNT2,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_openat, sys_pipe2, sys_read,
-        sys_unlinkat, sys_write,
+        sys_unlinkat, sys_write, sys_mount, sys_umount2,
     },
     mm::sys_brk,
     sys::sys_uname,
@@ -64,6 +64,8 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_WAIT4 => sys_wait4(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_SCHED_YIELD => sys_sched_yield().await,
         SYS_GETPPID => sys_getppid().await,
+        SYS_MOUNT => sys_mount(args[0] as _, args[1] as _, args[2] as _, args[3] as _, args[4] as _).await,
+        SYS_UMOUNT2 => sys_umount2(args[0] as _, args[1] as _).await,
         _ => {
             warn!("unsupported syscall");
             Err(LinuxError::EPERM)
