@@ -20,7 +20,10 @@ ifeq ($(RELEASE), release)
 	RUST_BUILD_OPTIONS += --release
 endif
 
-all:
+all: 
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --offline
+	cp $(SBI) sbi-qemu
+	cp $(KERNEL_ELF) kernel-qemu
 
 fs-img:
 	rm -f $(FS_IMG)
@@ -31,7 +34,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build: fs-img
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS)
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) $(OFFLINE)
 
 run: build
 	$(QEMU_EXEC)

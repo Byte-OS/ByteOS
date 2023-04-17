@@ -1,3 +1,5 @@
 target/
 mount.img
 mount/
+sbi-qemu
+kernel-qemu
