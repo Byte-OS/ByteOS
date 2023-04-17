@@ -4,12 +4,12 @@ use core::{
     task::{Context, Poll},
 };
 
-use alloc::{boxed::Box, sync::Arc};
+use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time_ms, trap_pre_handle, user_restore, ContextOps, VirtPage};
-use executor::{current_task, AsyncTask, Executor, KernelTask, MemType, UserTask};
+use executor::{current_task, AsyncTask, Executor, KernelTask, MemType, UserTask, thread};
 use log::debug;
 
-use crate::syscall::syscall;
+use crate::syscall::{syscall, exec_with_process};
 
 use self::initproc::initproc;
 
@@ -54,7 +54,7 @@ pub async fn user_entry_inner() {
         match trap_type {
             arch::TrapType::Breakpoint => {}
             arch::TrapType::UserEnvCall => {
-                info!("user env call: {}", cx_ref.syscall_number());
+                debug!("user env call: {}", cx_ref.syscall_number());
                 // if syscall ok
                 let args = cx_ref.args();
                 let args = [
@@ -69,7 +69,7 @@ pub async fn user_entry_inner() {
                 cx_ref.set_ret(result);
             }
             arch::TrapType::Time => {
-                info!("time interrupt from user");
+                debug!("time interrupt from user");
             }
             arch::TrapType::Unknown => {
                 debug!("unknown trap: {:#x?}", cx_ref);
@@ -126,4 +126,10 @@ impl Future for WaitPid {
             None => Poll::Pending,
         }
     }
+}
+
+pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) {
+    let task = UserTask::new(unsafe { user_entry() }, Some(current_task()));
+    exec_with_process(task.clone(), filename, args).await.expect("can't add task to excutor");
+    thread::spawn(task.clone());
 }
