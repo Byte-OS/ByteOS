@@ -7,7 +7,7 @@ use alloc::{boxed::Box, sync::Arc};
 use arch::{ppn_c, ContextOps, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
-use executor::{current_task, thread, yield_now, AsyncTask, MemType, UserTask};
+use executor::{current_task, yield_now, AsyncTask, MemType};
 use frame_allocator::floor;
 use fs::mount::open;
 use log::debug;
@@ -85,10 +85,10 @@ pub async fn sys_execve(
     //     let t = unsafe { user_entry() };
     //     Pin::from(value)
     // });
-    let task = UserTask::new(unsafe { user_entry() }, Some(current_task()));
-
-    exec_with_process(task, filename, args).await?;
-
+    // let task = UserTask::new(unsafe { user_entry() }, Some(current_task()));
+    let task = current_task().as_user_task().unwrap();
+    exec_with_process(task.clone(), filename, args).await?;
+    // thread::spawn(task.clone());
     Ok(0)
 }
 
@@ -114,8 +114,6 @@ pub async fn exec_with_process<'a>(
     let entry_point = elf.header.pt2.entry_point() as usize;
     assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
 
-    info!("current_task: {}", task.get_task_id());
-    info!("entry_point: {:#x}", entry_point);
     // WARRNING: this convert async task to user task.
     let user_task = task.clone().as_user_task().unwrap();
 
@@ -141,7 +139,12 @@ pub async fn exec_with_process<'a>(
             acc
         }
     });
-    user_task.inner.lock().heap = heap_bottom as usize;
+    user_task.inner_map(|mut inner| {
+        inner.heap = heap_bottom as usize;
+        inner.entry = entry_point;
+        inner.cx.set_sp(0x7fff_fff8);
+        inner.cx.set_sepc(0x1000);
+    });
 
     // map stack
     user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
@@ -168,7 +171,6 @@ pub async fn exec_with_process<'a>(
             page_space.copy_from_slice(&buffer[offset..offset + file_size]);
         });
 
-    thread::spawn(task.clone());
     Ok(task)
 }
 

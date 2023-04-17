@@ -1,6 +1,6 @@
 #![no_std]
 
-pub use spin::Mutex;
+pub use spin::{Mutex, MutexGuard};
 
 use core::cell::UnsafeCell;
 use core::fmt;

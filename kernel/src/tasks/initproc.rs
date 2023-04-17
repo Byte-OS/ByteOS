@@ -5,8 +5,9 @@ use alloc::{
 use arch::{console_getchar, console_putchar};
 use executor::{yield_now, TASK_QUEUE};
 use fs::{mount::open, File, FileType, OpenFlags};
+use log::debug;
 
-use crate::syscall::{consts::SYS_EXECVE, syscall};
+use crate::{syscall::{consts::SYS_EXECVE, syscall}, tasks::add_user_task};
 
 const LF: u8 = b'\n';
 const CR: u8 = b'\r';
@@ -52,7 +53,7 @@ async fn run_all() -> bool {
         "close",
         "dup",
         "dup2",
-        // "execve",
+        "execve",
         "exit",
         "fork",
         "fstat",
@@ -86,19 +87,17 @@ async fn run_all() -> bool {
 }
 
 async fn file_command(cmd: &str) {
-    let filename = match cmd.starts_with("/") {
-        true => String::from(cmd),
-        false => String::from("/") + cmd,
+    let mut args: Vec<&str> = cmd.split(" ").filter(|x| *x != "").collect();
+    debug!("cmd: {}  args: {:?}", cmd, args);
+    let filename = args.drain(..1).last().unwrap();
+    let filename = match filename.starts_with("/") {
+        true => String::from(filename),
+        false => String::from("/") + filename,
     };
     match open(&filename) {
         Ok(_) => {
-            let filename = filename + "\0";
-            let t = filename.as_str().as_ptr() as usize;
             info!("exec: {}", filename);
-            syscall(SYS_EXECVE, [t, 0, 0, 0, 0, 0, 0])
-                .await
-                .expect("can't call execve");
-            yield_now().await;
+            add_user_task(&filename, args, Vec::new()).await;
 
             loop {
                 if TASK_QUEUE.lock().len() == 0 {

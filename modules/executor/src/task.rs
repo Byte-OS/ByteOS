@@ -6,7 +6,7 @@ use devfs::{Stdin, Stdout};
 use frame_allocator::{frame_alloc, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::debug;
-use sync::Mutex;
+use sync::{Mutex, MutexGuard};
 
 use crate::{task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST};
 
@@ -113,13 +113,13 @@ pub struct TaskInner {
     pub exit_code: Option<usize>,
     pub curr_dir: String,
     pub heap: usize,
+    pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
 }
 
 #[allow(dead_code)]
 pub struct UserTask {
     pub task_id: TaskId,
-    pub entry: usize,
     pub page_table: PageTable,
     pub inner: Mutex<TaskInner>,
     pub parent: Option<Arc<dyn AsyncTask>>,
@@ -152,7 +152,7 @@ impl UserTask {
 
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 
-        let mut inner = TaskInner {
+        let inner = TaskInner {
             memset,
             cx: Context::new(),
             fd_table: FileTable::new(),
@@ -160,18 +160,19 @@ impl UserTask {
             curr_dir: String::from("/"),
             heap: 0,
             children: Vec::new(),
+            entry: 0,
         };
 
-        inner.cx.set_sp(0x7fff_fff8);
-        inner.cx.set_sepc(0x1000);
-
         Arc::new(Self {
-            entry: 0,
             page_table,
             task_id,
             parent,
             inner: Mutex::new(inner),
         })
+    }
+
+    pub fn inner_map<T>(&self, mut f: impl FnMut(MutexGuard<TaskInner>) -> T) -> T {
+        f(self.inner.lock())
     }
 
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags) {

@@ -2,17 +2,17 @@
 
 - [x] brk
 - [x] chdir
-- [ ] clone
+- [x] clone
 - [x] close
 - [x] dup
 - [x] dup2
-- [ ] execve
-- [ ] exit
-- [ ] fork
+- [x] execve
+- [x] exit
+- [x] fork
 - [x] fstat
 - [x] getcwd
 - [x] getpid
-- [ ] getppid
+- [x] getppid
 - [x] gettimeofday
 - [x] mkdir_
 - [ ] mmap
@@ -20,13 +20,13 @@
 - [ ] munmap
 - [x] open
 - [x] openat
-- [ ] pipe
+- [x] pipe
 - [x] read
 - [x] sleep
 - [ ] umount
 - [x] uname
 - [x] unlink
-- [ ] wait
-- [ ] waitpid
+- [x] wait
+- [x] waitpid
 - [x] write
-- [ ] yield
+- [x] yield
