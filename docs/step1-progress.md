@@ -15,15 +15,15 @@
 - [x] getppid
 - [x] gettimeofday
 - [x] mkdir_
-- [ ] mmap
-- [ ] mount
-- [ ] munmap
+- [x] mmap
+- [x] mount
+- [x] munmap
 - [x] open
 - [x] openat
 - [x] pipe
 - [x] read
 - [x] sleep
-- [ ] umount
+- [x] umount
 - [x] uname
 - [x] unlink
 - [x] wait

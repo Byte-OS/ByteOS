@@ -83,7 +83,13 @@ pub async fn user_entry_inner() {
                     .lock()
                     .memset
                     .iter()
-                    .find(|x| x.vpn == vpn && x.mem_type == MemType::Clone)
+                    .find(|x| {
+                        x.vpn == vpn
+                            && match x.mem_type {
+                                MemType::Clone => true,
+                                _ => false,
+                            }
+                    })
                     .map(|x| x.tracker.clone());
 
                 match mem_tracker {

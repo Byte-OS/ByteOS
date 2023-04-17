@@ -27,18 +27,20 @@ pub mod mount;
 pub mod pipe;
 
 pub type File = Arc<dyn INodeInterface>;
-pub use vfscore::{FileType, OpenFlags, Stat, TimeSepc, VfsError};
+pub use vfscore::{FileType, OpenFlags, SeekFrom, Stat, TimeSepc, VfsError};
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 
 pub fn build_devfs(filesystems: &Vec<Arc<dyn FileSystem>>) -> Arc<DevFS> {
     let dev_sdxs: Vec<_> = filesystems
         .iter()
         .enumerate()
-        .map(|(i, _x)| Arc::new(Sdx::new(
-            i, 
-            |fs_id, path| mount(String::from(path), fs_id),
-            |_fs_id, path| umount(path)
-        )))
+        .map(|(i, _x)| {
+            Arc::new(Sdx::new(
+                i,
+                |fs_id, path| mount(String::from(path), fs_id),
+                |_fs_id, path| umount(path),
+            ))
+        })
         .collect();
     let mut dev_dir = DevDir::new();
 

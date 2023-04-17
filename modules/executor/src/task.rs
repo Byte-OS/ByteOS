@@ -1,12 +1,13 @@
-use core::{future::Future, mem::size_of, ops::Add, pin::Pin};
+use core::{cmp::min, future::Future, mem::size_of, ops::Add, pin::Pin};
 
 use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
 use arch::{
-    paddr_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE, PTE,
+    paddr_c, ppn_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage,
+    PAGE_SIZE, PTE,
 };
 use devfs::{Stdin, Stdout};
 use frame_allocator::{frame_alloc, frame_alloc_much, FrameTracker};
-use fs::File;
+use fs::{File, SeekFrom};
 use log::debug;
 use sync::{Mutex, MutexGuard};
 
@@ -90,12 +91,12 @@ impl FileTable {
     }
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone)]
 pub enum MemType {
     CodeSection,
     Stack,
     Mmap,
-    Shared,
+    Shared(Option<File>, usize, usize), // file, start, len
     Clone,
     PTE,
 }
@@ -106,6 +107,33 @@ pub struct MemTrack {
     pub mem_type: MemType,
     pub vpn: VirtPage,
     pub tracker: Arc<FrameTracker>,
+}
+
+impl Drop for MemTrack {
+    fn drop(&mut self) {
+        match &self.mem_type {
+            MemType::Shared(file, start, len) => {
+                file.as_ref().map(|file| match Arc::strong_count(file) > 1 {
+                    true => {}
+                    false => {
+                        let offset = self.vpn.to_addr() - start;
+                        let wlen = min(len - offset, PAGE_SIZE);
+
+                        let bytes = unsafe {
+                            core::slice::from_raw_parts_mut(
+                                ppn_c(self.tracker.0).to_addr() as *mut u8,
+                                wlen,
+                            )
+                        };
+                        file.seek(SeekFrom::SET(offset))
+                            .expect("can't write data to file");
+                        file.write(bytes).expect("can't write data to file at drop");
+                    }
+                });
+            }
+            _ => {}
+        }
+    }
 }
 
 pub struct TaskInner {
@@ -214,17 +242,20 @@ impl UserTask {
         ppn
     }
 
-    pub fn frame_alloc_much(&self, vpn: VirtPage, _mtype: MemType, count: usize) -> PhysPage {
+    pub fn frame_alloc_much(&self, vpn: VirtPage, mtype: MemType, count: usize) -> PhysPage {
         assert!(count > 0, "can't alloc count = 0 in user_task frame_alloc");
         let mut trackers: Vec<_> = frame_alloc_much(count)
             .expect("can't alloc frame in user_task")
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
-                self.map(x.0, vpn.add(i), PTEFlags::UVRWX);
+                let vpn = match vpn.to_addr() == 0 {
+                    true => vpn,
+                    false => vpn.add(i),
+                };
                 MemTrack {
-                    mem_type: MemType::CodeSection,
-                    vpn: vpn.add(i),
+                    mem_type: mtype.clone(),
+                    vpn,
                     tracker: Arc::new(x),
                 }
             })
@@ -308,10 +339,22 @@ impl UserTask {
             .lock()
             .memset
             .iter()
-            .for_each(|x| match x.mem_type {
+            .for_each(|x| match &x.mem_type {
                 MemType::CodeSection | MemType::Stack => {
                     new_task.inner.lock().memset.push(MemTrack {
                         mem_type: MemType::Clone,
+                        vpn: x.vpn,
+                        tracker: x.tracker.clone(),
+                    });
+                    new_task.map(
+                        x.tracker.0,
+                        x.vpn,
+                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X,
+                    );
+                }
+                MemType::Shared(file, start, len) => {
+                    new_task.inner.lock().memset.push(MemTrack {
+                        mem_type: MemType::Shared(file.clone(), *start, *len),
                         vpn: x.vpn,
                         tracker: x.tracker.clone(),
                     });
@@ -355,6 +398,20 @@ impl UserTask {
         }
         inner.cx.set_sp(sp);
         sp
+    }
+
+    pub fn get_last_free_addr(&self) -> VirtAddr {
+        VirtAddr::new(
+            self.inner
+                .lock()
+                .memset
+                .iter()
+                .fold(0, |acc, x| match x.vpn.to_addr() > acc {
+                    true => x.vpn.to_addr(),
+                    false => acc,
+                })
+                + PAGE_SIZE,
+        )
     }
 }
 

@@ -14,14 +14,14 @@ use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
         SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETPID, SYS_GETPPID, SYS_GETTIMEOFDAY, SYS_MKDIRAT,
-        SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_READ, SYS_SCHED_YIELD, SYS_UNAME, SYS_UNLINKAT,
-        SYS_WAIT4, SYS_WRITE, SYS_MOUNT, SYS_UMOUNT2,
+        SYS_MMAP, SYS_MOUNT, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_READ, SYS_SCHED_YIELD,
+        SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_WAIT4, SYS_WRITE, SYS_MUNMAP,
     },
     fd::{
-        sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_openat, sys_pipe2, sys_read,
-        sys_unlinkat, sys_write, sys_mount, sys_umount2,
+        sys_close, sys_dup, sys_dup3, sys_fstat, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2,
+        sys_read, sys_umount2, sys_unlinkat, sys_write,
     },
-    mm::sys_brk,
+    mm::{sys_brk, sys_mmap, sys_munmap},
     sys::sys_uname,
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_getcwd, sys_getpid, sys_getppid,
@@ -64,8 +64,29 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_WAIT4 => sys_wait4(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_SCHED_YIELD => sys_sched_yield().await,
         SYS_GETPPID => sys_getppid().await,
-        SYS_MOUNT => sys_mount(args[0] as _, args[1] as _, args[2] as _, args[3] as _, args[4] as _).await,
+        SYS_MOUNT => {
+            sys_mount(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+            )
+            .await
+        }
         SYS_UMOUNT2 => sys_umount2(args[0] as _, args[1] as _).await,
+        SYS_MMAP => {
+            sys_mmap(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+                args[5] as _,
+            )
+            .await
+        }
+        SYS_MUNMAP => sys_munmap(args[0] as _, args[1] as _).await,
         _ => {
             warn!("unsupported syscall");
             Err(LinuxError::EPERM)
