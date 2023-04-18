@@ -11,6 +11,6 @@ logging = { path = "../logging" }
 arch = { path = "../../arch"}
 sync = { path = "../sync" }
 frame_allocator = { path = "../frame_allocator" }
-log = "0.4.17"
+log = "0.4"
 fs = { path = "../fs" }
 devfs = { path = "../devfs" }

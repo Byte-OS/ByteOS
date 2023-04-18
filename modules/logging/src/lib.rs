@@ -17,7 +17,7 @@ impl Log for Logger {
         }
 
         print_in_color(
-            format_args!("[{}] {}\n", record.level(), record.args()),
+            format_args!("[{}] {}", record.level(), record.args()),
             level_to_color_code(record.level()),
         );
     }
@@ -62,7 +62,7 @@ macro_rules! println {
 
 macro_rules! with_color {
     ($args: ident, $color_code: ident) => {{
-        format_args!("\u{1B}[{}m{}\u{1B}[0m", $color_code as u8, $args)
+        format_args!("\u{1B}[{}m{}\u{1B}[0m\n", $color_code as u8, $args)
     }};
 }
 

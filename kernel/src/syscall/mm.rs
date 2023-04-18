@@ -69,7 +69,8 @@ pub async fn sys_munmap(start: usize, len: usize) -> Result<usize, LinuxError> {
     let current_task = current_task().as_user_task().unwrap();
 
     current_task.inner_map(|mut x| {
-        x.memset.drain_filter(|x| (start..start + len).contains(&x.vpn.to_addr()));
+        x.memset
+            .drain_filter(|x| (start..start + len).contains(&x.vpn.to_addr()));
     });
     Ok(0)
 }

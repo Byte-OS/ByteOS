@@ -8,7 +8,7 @@ edition = "2021"
 [dependencies]
 arch = { path = "../../arch" }
 fdt = "0.1.5"
-log = "0.4.16"
+log = "0.4"
 sync = { path = "../sync" }
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1d1cbb"}
 kheader = { path = "../kheader" }

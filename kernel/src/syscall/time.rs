@@ -4,7 +4,9 @@ use core::{
     task::{Context, Poll},
 };
 
+use arch::get_time;
 use devices::RTC_DEVICES;
+use executor::{current_task, TMS};
 use fs::TimeSepc;
 use log::debug;
 
@@ -43,6 +45,16 @@ pub async fn sys_nanosleep(req_ptr: usize, rem_ptr: usize) -> Result<usize, Linu
     rem.sec = 0;
 
     Ok(0)
+}
+
+pub async fn sys_times(tms_ptr: usize) -> Result<usize, LinuxError> {
+    debug!("sys_times @ tms: {:#x}", tms_ptr);
+    let tms = c2rust_ref(tms_ptr as *mut TMS);
+    current_task()
+        .as_user_task()
+        .unwrap()
+        .inner_map(|x| *tms = x.tms);
+    Ok(get_time())
 }
 
 pub struct WaitNsec(usize);

@@ -10,5 +10,5 @@ vfscore = { path = "../../crates/vfscore" }
 logging = { path = "../logging" }
 devices = { path = "../devices" }
 arch = { path = "../../arch" }
-log = "0.4.17"
+log = "0.4"
 sync = { path = "../sync" }

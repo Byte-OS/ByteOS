@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 buddy_system_allocator = "0.8"
-log = "0.4.17"
+log = "0.4"
