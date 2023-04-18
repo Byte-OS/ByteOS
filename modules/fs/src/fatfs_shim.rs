@@ -165,16 +165,20 @@ impl INodeInterface for FatFile {
 
     fn seek(&self, seek: vfscore::SeekFrom) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
-        inner.inner
+        inner
+            .inner
             .seek(match seek {
                 vfscore::SeekFrom::SET(offset) => SeekFrom::Start(offset as u64),
                 vfscore::SeekFrom::CURRENT(offset) => SeekFrom::Current(offset as i64),
                 vfscore::SeekFrom::END(offset) => SeekFrom::End(offset as i64),
             })
-            .map_or_else(|e| Err(as_vfs_err(e)), |x| {
-                inner.offset = x as usize;
-                Ok(x as usize)
-            })
+            .map_or_else(
+                |e| Err(as_vfs_err(e)),
+                |x| {
+                    inner.offset = x as usize;
+                    Ok(x as usize)
+                },
+            )
     }
 }
 

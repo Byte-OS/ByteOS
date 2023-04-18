@@ -63,18 +63,20 @@ async fn run_all() -> bool {
         "gettimeofday",
         "mkdir_",
         "mmap",
-        "mount /dev/sda /mount",
+        "mount /dev/sda ./mnt",
         "munmap",
         "open",
+        "times",
         "openat",
         "pipe",
         "read",
         "sleep",
-        "umount /dev/sda /mount",
+        "umount /dev/sda ./mnt",
         "uname",
         "unlink",
         "wait",
         "waitpid",
+        "getdents",
         "write",
         "yield",
     ];
@@ -129,8 +131,8 @@ pub async fn command(cmd: &str) -> bool {
 }
 
 pub async fn initproc() {
+    // command("run_all").await;
     let mut buffer = Vec::new();
-    // let mut buffer = [0u8; 30];
     let mut new_line = true;
     loop {
         if new_line {

@@ -5,7 +5,7 @@ use core::{
 };
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use arch::{get_time_ms, trap_pre_handle, user_restore, ContextOps, VirtPage};
+use arch::{get_time, get_time_ms, trap_pre_handle, user_restore, ContextOps, VirtPage};
 use executor::{current_task, thread, AsyncTask, Executor, KernelTask, MemType, UserTask};
 use log::debug;
 
@@ -47,9 +47,13 @@ pub async fn user_entry_inner() {
             debug!("program exit with code: {}", exit_code);
             break;
         }
+        let ustart = 0;
         unsafe {
             user_restore(cx_ref);
         }
+        task.inner_map(|mut inner| inner.tms.utime += (get_time() - ustart) as u64);
+
+        let sstart = 0;
         let trap_type = trap_pre_handle(cx_ref);
         match trap_type {
             arch::TrapType::Breakpoint => {}
@@ -105,6 +109,7 @@ pub async fn user_entry_inner() {
                 }
             }
         }
+        task.inner_map(|mut inner| inner.tms.stime += (get_time() - sstart) as u64);
         // yield_now().await;
     }
 }

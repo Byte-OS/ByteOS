@@ -7,5 +7,5 @@ edition = "2021"
 
 [dependencies]
 vfscore = { path = "../../crates/vfscore" }
-log = "0.4.16"
+log = "0.4"
 sync = { path = "../sync" }

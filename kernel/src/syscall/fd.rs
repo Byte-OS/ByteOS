@@ -1,3 +1,5 @@
+use core::mem::size_of;
+
 use executor::current_task;
 use fs::{
     mount::{open, rebuild_path, umount},
@@ -8,7 +10,7 @@ use log::debug;
 
 use crate::syscall::{
     c2rust_buffer, c2rust_ref,
-    consts::{from_vfs, AT_CWD},
+    consts::{from_vfs, AT_CWD, Dirent},
 };
 
 use super::{c2rust_str, consts::LinuxError};
@@ -221,4 +223,36 @@ pub async fn sys_umount2(special: usize, flags: usize) -> Result<usize, LinuxErr
     };
 
     Ok(0)
+}
+
+pub async fn sys_getdents64(fd: usize, buf_ptr: usize, len: usize) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_getdents64 @ fd: {}, buf_ptr: {:#X}, len: {}",
+        fd, buf_ptr, len
+    );
+
+    let file = current_task()
+        .as_user_task()
+        .unwrap()
+        .inner_map(|x| x.fd_table.get(fd))
+        .unwrap();
+
+    let mut ptr = buf_ptr;
+    for i in file.read_dir().map_err(from_vfs)? {
+        let file_bytes = i.filename.as_bytes();
+        let current_len = size_of::<Dirent>() + file_bytes.len() + 1;
+
+        if len - (ptr - buf_ptr) < current_len {
+            break;
+        }
+        let dirent = c2rust_ref(ptr as *mut Dirent);
+        dirent.ino = 0;
+        dirent.off = current_len as i64;
+        dirent.reclen = current_len as u16;
+        let buffer = c2rust_buffer(dirent.name.as_mut_ptr(), file_bytes.len() + 1);
+        buffer[..file_bytes.len()].copy_from_slice(file_bytes);
+        buffer[file_bytes.len()] = b'\0';
+        ptr = ptr + current_len;
+    }
+    Ok(ptr - buf_ptr)
 }

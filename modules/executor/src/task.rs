@@ -11,7 +11,7 @@ use fs::{File, SeekFrom};
 use log::debug;
 use sync::{Mutex, MutexGuard};
 
-use crate::{task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST};
+use crate::{task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
 
 #[allow(dead_code)]
 pub struct KernelTask {
@@ -145,6 +145,7 @@ pub struct TaskInner {
     pub heap: usize,
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
+    pub tms: TMS,
 }
 
 #[allow(dead_code)]
@@ -191,6 +192,7 @@ impl UserTask {
             heap: 0,
             children: Vec::new(),
             entry: 0,
+            tms: Default::default(),
         };
 
         Arc::new(Self {
@@ -296,15 +298,17 @@ impl UserTask {
     }
 
     pub fn sbrk(&self, incre: isize) -> usize {
-        let mut inner = self.inner.lock();
+        let inner = self.inner.lock();
         let curr_page = inner.heap / PAGE_SIZE;
         let after_page = (inner.heap as isize + incre) as usize / PAGE_SIZE;
+        drop(inner);
         // need alloc frame page
         if after_page > curr_page {
             for i in curr_page..after_page {
                 self.frame_alloc(VirtPage::new(i + 1), MemType::CodeSection);
             }
         }
+        let mut inner = self.inner.lock();
         inner.heap = (inner.heap as isize + incre) as usize;
         inner.heap
     }
