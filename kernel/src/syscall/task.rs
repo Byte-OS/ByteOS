@@ -1,6 +1,8 @@
 use crate::syscall::c2rust_ref;
-use crate::syscall::consts::from_vfs;
+use crate::syscall::consts::{from_vfs, elf};
 use crate::tasks::WaitPid;
+use crate::tasks::elf::ElfExtra;
+use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
@@ -8,7 +10,7 @@ use arch::{ppn_c, ContextOps, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
 use executor::{current_task, yield_now, AsyncTask, MemType};
-use frame_allocator::floor;
+use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use log::debug;
 
@@ -54,9 +56,9 @@ pub async fn sys_getcwd(buf_ptr: usize, size: usize) -> Result<usize, LinuxError
     Ok(buf_ptr)
 }
 
-pub fn sys_exit(exit_code: usize) -> Result<usize, LinuxError> {
+pub fn sys_exit(exit_code: isize) -> Result<usize, LinuxError> {
     debug!("sys_exit @ exit_code: {}", exit_code);
-    current_task().as_user_task().unwrap().exit(exit_code);
+    current_task().as_user_task().unwrap().exit(exit_code as _);
     Ok(0)
 }
 
@@ -99,23 +101,28 @@ pub async fn sys_getpid() -> Result<usize, LinuxError> {
 pub async fn exec_with_process<'a>(
     task: Arc<dyn AsyncTask>,
     path: &'a str,
-    args_v: Vec<&'a str>,
+    args: Vec<&'a str>,
 ) -> Result<Arc<dyn AsyncTask>, LinuxError> {
-    let mut args = vec![path];
-    args.extend(args_v.iter());
+    // copy args, avoid free before pushing.
+    let args:Vec<String> = args.into_iter().map(|x|String::from(x)).collect();
+    // let mut args = vec![String::from(path)];
+    // args.extend(args_v.iter().map(|x| String::from(*x)));
+    
     let file = open(path).map_err(from_vfs)?;
+    let file_size = file.metadata().unwrap().size;
+    let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
+    let mut buffer = c2rust_buffer(ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8, file_size);
+    // let mut buffer = vec![0u8; file.metadata().unwrap().size];
+    let rsize = file.read(&mut buffer).map_err(from_vfs)?;
 
-    let mut buffer = vec![0u8; file.metadata().unwrap().size];
-    file.read(&mut buffer).map_err(from_vfs)?;
+    assert_eq!(rsize, file_size);
 
     // 读取elf信息
     let elf = xmas_elf::ElfFile::new(&buffer).unwrap();
     let elf_header = elf.header;
-    let magic = elf_header.pt1.magic;
 
     let entry_point = elf.header.pt2.entry_point() as usize;
-    assert_eq!(magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
-
+    assert_eq!(elf_header.pt1.magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
     // WARRNING: this convert async task to user task.
     let user_task = task.clone().as_user_task().unwrap();
 
@@ -142,37 +149,81 @@ pub async fn exec_with_process<'a>(
         }
     });
 
+    let base = 0;
+
     // map stack
     user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
-
+    debug!("entry: {:#x}", entry_point);
     user_task.inner_map(|mut inner| {
         inner.heap = heap_bottom as usize;
         inner.entry = entry_point;
+        inner.cx.clear();
         inner.cx.set_sp(0x8000_0000); // stack top;
-        inner.cx.set_sepc(0x1000);
+        inner.cx.set_sepc(entry_point);
     });
 
-    let args: Vec<usize> = args
+    // push stack
+    let envp = vec![
+        "LD_LIBRARY_PATH=/"
+    ];
+    let envp: Vec<usize> = envp
         .into_iter()
         .rev()
         .map(|x| user_task.push_str(x))
         .collect();
+    let args: Vec<usize> = args
+        .into_iter()
+        .rev()
+        .map(|x| user_task.push_str(&x))
+        .collect();
+
+    let random_ptr = user_task.push_arr(&[0u8; 16]);
+    let mut auxv = BTreeMap::new();
+    auxv.insert(elf::AT_PLATFORM, user_task.push_str("riscv"));
+    auxv.insert(elf::AT_EXECFN, user_task.push_str(path));
+    auxv.insert(elf::AT_PHNUM, elf_header.pt2.ph_count() as usize);
+    auxv.insert(elf::AT_PAGESZ, PAGE_SIZE);
+    auxv.insert(elf::AT_ENTRY, base + entry_point);
+    auxv.insert(elf::AT_PHENT, elf_header.pt2.ph_entry_size() as usize);
+    auxv.insert(elf::AT_PHDR, base + elf.get_ph_addr().unwrap_or(0) as usize);
+    auxv.insert(elf::AT_GID, 1000);
+    auxv.insert(elf::AT_EGID, 1000);
+    auxv.insert(elf::AT_UID, 1000);
+    auxv.insert(elf::AT_EUID, 1000);
+    auxv.insert(elf::AT_SECURE, 0);
+    auxv.insert(elf::AT_RANDOM, random_ptr);
+
+    // auxv top
+    user_task.push_num(0);
+    // TODO: push auxv
+    auxv.iter().for_each(|(key, v)| {
+        user_task.push_num(*v);
+        user_task.push_num(*key);
+    });
+
+    user_task.push_num(0);
+    envp.iter().for_each(|x| {
+        user_task.push_num(*x);
+    });
     user_task.push_num(0);
     args.iter().for_each(|x| {
         user_task.push_num(*x);
     });
     user_task.push_num(args.len());
 
+
     // map sections.
     elf.program_iter()
         .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
         .for_each(|ph| {
+
             let file_size = ph.file_size() as usize;
             let mem_size = ph.mem_size() as usize;
             let offset = ph.offset() as usize;
             let virt_addr = ph.virtual_addr() as usize;
+            let vpn = virt_addr / PAGE_SIZE;
 
-            let page_count = floor(mem_size, PAGE_SIZE);
+            let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
             let ppn_start = user_task.frame_alloc_much(
                 VirtPage::from_addr(virt_addr),
                 MemType::CodeSection,
@@ -180,7 +231,8 @@ pub async fn exec_with_process<'a>(
             );
 
             let page_space = unsafe {
-                core::slice::from_raw_parts_mut(ppn_c(ppn_start).to_addr() as _, file_size)
+                core::slice::from_raw_parts_mut(
+                    (ppn_c(ppn_start).to_addr() + virt_addr % PAGE_SIZE )as _ , file_size)
             };
             page_space.copy_from_slice(&buffer[offset..offset + file_size]);
         });
@@ -200,6 +252,7 @@ pub async fn sys_clone(
         flags, stack, ptid, tls, ctid
     );
     let curr_task = current_task().as_user_task().unwrap();
+    debug!("sepc: {:#x}", curr_task.inner_map(|x| x.cx.sepc()));
     let new_task = curr_task.fork(unsafe { user_entry() });
     if stack != 0 {
         new_task.inner.lock().cx.set_sp(stack);
@@ -249,4 +302,16 @@ pub async fn sys_getppid() -> Result<usize, LinuxError> {
         .as_ref()
         .map(|x| x.get_task_id())
         .ok_or(LinuxError::EPERM)
+}
+
+pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
+    debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
+    let tid = c2rust_ref(tid_ptr as *mut u32);
+    *tid = current_task().get_task_id() as u32;
+    Ok(current_task().get_task_id())
+}
+
+pub async fn sys_gettid() -> Result<usize, LinuxError> {
+    debug!("sys_gettid @ ");
+    Ok(current_task().get_task_id())
 }

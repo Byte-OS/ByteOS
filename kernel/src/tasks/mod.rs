@@ -13,6 +13,7 @@ use crate::syscall::{exec_with_process, syscall};
 
 use self::initproc::initproc;
 
+pub mod elf;
 mod initproc;
 
 pub struct NextTick(usize);
@@ -103,8 +104,11 @@ pub async fn user_entry_inner() {
                         dst_ppn.copy_value_from_another(src_ppn);
                     }
                     None => {
-                        // TODO: add stack @ here
-                        break;
+                        if (0x7fff0000..0x7ffff000).contains(&addr) {
+                            task.frame_alloc(vpn, MemType::Stack);
+                        } else {
+                            break;
+                        }
                     }
                 }
             }

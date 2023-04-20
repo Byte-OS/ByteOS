@@ -14,6 +14,10 @@ pub const fn floor(a: usize, b: usize) -> usize {
     return (a + b - 1) / b;
 }
 
+pub const fn ceil_div(a: usize, b: usize) -> usize {
+    return (a + b - 1) / b;
+}
+
 #[derive(Debug)]
 /// 页帧
 ///
@@ -114,16 +118,41 @@ impl FrameRegionMap {
     ///
     /// pages: usize 要申请的页表数量
     pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
-        for i in 0..self.bits.len() - pages {
-            if self.bits.get_bits(i..i + pages) == 0 {
-                let mut ans = Vec::new();
-                for j in 0..pages {
-                    self.bits.set_bit(i + j, true);
-                    ans.push(FrameTracker::new(self.ppn + i + j));
+        // TODO: alloc more than 64?;
+        // 优化本函数
+        for mut i in 0..(usize::from(self.ppn_end) - usize::from(self.ppn) - pages + 1) {
+            let mut j = i;
+            loop {
+                if j - i >= pages {
+                    let mut ans = Vec::new();
+                    (i..j).into_iter().for_each(|x| {
+                        self.bits.set_bit(x, true);
+                        ans.push(FrameTracker::new(self.ppn + x));
+                    });
+                    return Some(ans);
                 }
-                return Some(ans);
+
+                if self.bits.get_bit(j) == true {
+                    i = j + 1;
+                    break;
+                }
+
+                j += 1;
             }
+            // for j in i ..i + pages {
+
+            // }
+
+            // if self.bits.get_bits(i..i + pages) == 0 {
+            //     let mut ans = Vec::new();
+            //     for j in 0..pages {
+            //         self.bits.set_bit(i + j, true);
+            //         ans.push(FrameTracker::new(self.ppn + i + j));
+            //     }
+            //     return Some(ans);
+            // }
         }
+        debug!("non alloc");
         None
     }
 
@@ -241,6 +270,7 @@ pub fn frame_alloc() -> Option<FrameTracker> {
 
 /// 申请多个空闲连续页表
 pub fn frame_alloc_much(pages: usize) -> Option<Vec<FrameTracker>> {
+    debug!("free page num: {}", get_free_pages());
     FRAME_ALLOCATOR.lock().alloc_much(pages)
 }
 

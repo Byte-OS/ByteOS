@@ -14,3 +14,4 @@ frame_allocator = { path = "../frame_allocator" }
 log = "0.4"
 fs = { path = "../fs" }
 devfs = { path = "../devfs" }
+futures = { version = "0.3", default-features = false }

@@ -10,7 +10,7 @@ use log::debug;
 
 use crate::syscall::{
     c2rust_buffer, c2rust_ref,
-    consts::{from_vfs, AT_CWD, Dirent},
+    consts::{from_vfs, Dirent, AT_CWD},
 };
 
 use super::{c2rust_str, consts::LinuxError};
