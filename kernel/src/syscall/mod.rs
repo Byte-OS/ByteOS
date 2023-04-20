@@ -13,10 +13,10 @@ use log::warn;
 use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
-        SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETDENTS, SYS_GETPID, SYS_GETPPID, SYS_GETTIMEOFDAY,
-        SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2,
-        SYS_READ, SYS_SCHED_YIELD, SYS_TIMES, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_WAIT4,
-        SYS_WRITE,
+        SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETDENTS, SYS_GETPID, SYS_GETPPID, SYS_GETTID,
+        SYS_GETTIMEOFDAY, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
+        SYS_PIPE2, SYS_READ, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS, SYS_TIMES, SYS_UMOUNT2,
+        SYS_UNAME, SYS_UNLINKAT, SYS_WAIT4, SYS_WRITE,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fstat, sys_getdents64, sys_mkdir_at, sys_mount,
@@ -26,7 +26,7 @@ use self::{
     sys::sys_uname,
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_getcwd, sys_getpid, sys_getppid,
-        sys_sched_yield, sys_wait4,
+        sys_gettid, sys_sched_yield, sys_set_tid_address, sys_wait4,
     },
     time::{sys_gettimeofday, sys_nanosleep, sys_times},
 };
@@ -90,6 +90,8 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_MUNMAP => sys_munmap(args[0] as _, args[1] as _).await,
         SYS_TIMES => sys_times(args[0] as _).await,
         SYS_GETDENTS => sys_getdents64(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_SET_TID_ADDRESS => sys_set_tid_address(args[0] as _).await,
+        SYS_GETTID => sys_gettid().await,
         _ => {
             warn!("unsupported syscall");
             Err(LinuxError::EPERM)

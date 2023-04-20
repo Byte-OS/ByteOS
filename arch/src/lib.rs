@@ -24,12 +24,16 @@ pub trait ContextOps {
     fn ra(&self) -> usize;
     fn set_sepc(&mut self, sepc: usize);
     fn sepc(&self) -> usize;
+    fn set_tp(&mut self, tp: usize);
+    fn tp(&self) -> usize;
 
     fn syscall_number(&self) -> usize;
     fn args(&self) -> &[usize];
     fn syscall_ok(&mut self);
 
     fn set_ret(&mut self, ret: usize);
+
+    fn clear(&mut self);
 }
 
 extern "Rust" {

@@ -81,4 +81,18 @@ impl ContextOps for Context {
     fn set_ret(&mut self, ret: usize) {
         self.x[10] = ret;
     }
+
+    fn set_tp(&mut self, tp: usize) {
+        self.x[4] = tp;
+    }
+
+    fn tp(&self) -> usize {
+        self.x[4]
+    }
+
+    fn clear(&mut self) {
+        self.x.fill(0);
+        self.sepc = 0;
+        self.sstatus = sstatus::read().bits();
+    }
 }

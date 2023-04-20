@@ -6,7 +6,7 @@ use arch::{
     PAGE_SIZE, PTE,
 };
 use devfs::{Stdin, Stdout};
-use frame_allocator::{frame_alloc, frame_alloc_much, FrameTracker};
+use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::{File, SeekFrom};
 use log::debug;
 use sync::{Mutex, MutexGuard};
@@ -344,7 +344,12 @@ impl UserTask {
             .memset
             .iter()
             .for_each(|x| match &x.mem_type {
-                MemType::CodeSection | MemType::Stack => {
+                MemType::Stack => {
+                    new_task
+                        .frame_alloc(x.vpn, x.mem_type.clone())
+                        .copy_value_from_another(x.tracker.0);
+                }
+                MemType::CodeSection => {
                     new_task.inner.lock().memset.push(MemTrack {
                         mem_type: MemType::Clone,
                         vpn: x.vpn,
@@ -385,6 +390,20 @@ impl UserTask {
         let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
         unsafe {
             core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(bytes);
+        }
+        inner.cx.set_sp(sp);
+        sp
+    }
+
+    pub fn push_arr(&self, buffer: &[u8]) -> usize {
+        const ULEN: usize = size_of::<usize>();
+        let mut inner = self.inner.lock();
+        let len = buffer.len();
+        let sp = inner.cx.sp() - ceil_div(len, ULEN) * ULEN;
+
+        let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
+        unsafe {
+            core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(buffer);
         }
         inner.cx.set_sp(sp);
         sp

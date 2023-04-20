@@ -99,7 +99,10 @@ async fn file_command(cmd: &str) {
     match open(&filename) {
         Ok(_) => {
             info!("exec: {}", filename);
-            add_user_task(&filename, args, Vec::new()).await;
+            let mut args_extend = vec![filename.as_str()];
+            args_extend.extend(args.into_iter());
+            // args.into_iter().for_each(|x| args_extend.push(x));
+            add_user_task(&filename, args_extend, Vec::new()).await;
 
             loop {
                 if TASK_QUEUE.lock().len() == 0 {
@@ -118,7 +121,8 @@ async fn file_command(cmd: &str) {
 }
 
 pub async fn command(cmd: &str) -> bool {
-    match cmd {
+    match cmd.trim() {
+        "" => {}
         "help" => help(),
         "ls" => list_files(open("/").expect("can't find mount point at ."), 0),
         "clear" => clear(),
@@ -131,41 +135,46 @@ pub async fn command(cmd: &str) -> bool {
 }
 
 pub async fn initproc() {
+    command("./runtest.exe -w entry-static.exe argv").await;
+    command("./runtest.exe -w entry-static.exe basename").await;
+    // command("entry-static.exe argv").await;
+    // command("runtest.exe").await;
+    // command("entry-static.exe argv").await;
     // command("run_all").await;
-    let mut buffer = Vec::new();
-    let mut new_line = true;
-    loop {
-        if new_line {
-            print!("> ");
-            new_line = false;
-        }
-        let c = console_getchar();
-        if c as i8 != -1 {
-            match c as u8 {
-                CR | LF => {
-                    print!("\n");
-                    let sign = command(&String::from_utf8_lossy(&buffer).to_string()).await;
-                    if sign {
-                        break;
-                    }
-                    buffer.clear();
-                    new_line = true;
-                }
-                BS | DL => {
-                    if buffer.len() > 0 {
-                        buffer.pop();
-                        console_putchar(BS);
-                        console_putchar(SPACE);
-                        console_putchar(BS);
-                    }
-                }
-                0..30 => {}
-                _ => {
-                    buffer.push(c as u8);
-                    console_putchar(c as u8);
-                }
-            }
-        }
-        yield_now().await;
-    }
+    // let mut buffer = Vec::new();
+    // let mut new_line = true;
+    // loop {
+    //     if new_line {
+    //         print!("> ");
+    //         new_line = false;
+    //     }
+    //     let c = console_getchar();
+    //     if c as i8 != -1 {
+    //         match c as u8 {
+    //             CR | LF => {
+    //                 print!("\n");
+    //                 let sign = command(&String::from_utf8_lossy(&buffer).to_string()).await;
+    //                 if sign {
+    //                     break;
+    //                 }
+    //                 buffer.clear();
+    //                 new_line = true;
+    //             }
+    //             BS | DL => {
+    //                 if buffer.len() > 0 {
+    //                     buffer.pop();
+    //                     console_putchar(BS);
+    //                     console_putchar(SPACE);
+    //                     console_putchar(BS);
+    //                 }
+    //             }
+    //             0..30 => {}
+    //             _ => {
+    //                 buffer.push(c as u8);
+    //                 console_putchar(c as u8);
+    //             }
+    //         }
+    //     }
+    //     yield_now().await;
+    // }
 }

@@ -30,7 +30,7 @@ fs-img:
 	dd if=/dev/zero of=$(FS_IMG) bs=1M count=40
 	mkfs.vfat -F 32 $(FS_IMG)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
-	cp -r tools/testcase-step1/* mount/
+	cp -r tools/testcase-step2/* mount/
 	sudo umount $(FS_IMG)
 
 build: fs-img
@@ -40,7 +40,10 @@ run: build
 	$(QEMU_EXEC)
 
 debug: build
-	$(QEMU_EXEC) -s -S
+	@tmux new-session -d \
+	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
+	tmux split-window -h "riscv64-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
+	tmux -2 attach-session -d
 
 clean:
 	rm -rf target/
