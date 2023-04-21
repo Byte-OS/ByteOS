@@ -139,20 +139,7 @@ impl FrameRegionMap {
 
                 j += 1;
             }
-            // for j in i ..i + pages {
-
-            // }
-
-            // if self.bits.get_bits(i..i + pages) == 0 {
-            //     let mut ans = Vec::new();
-            //     for j in 0..pages {
-            //         self.bits.set_bit(i + j, true);
-            //         ans.push(FrameTracker::new(self.ppn + i + j));
-            //     }
-            //     return Some(ans);
-            // }
         }
-        debug!("non alloc");
         None
     }
 

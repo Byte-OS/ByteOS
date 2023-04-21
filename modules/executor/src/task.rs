@@ -75,7 +75,11 @@ impl FileTable {
     }
 
     pub fn get(&self, index: usize) -> Option<File> {
-        self.0[index].clone()
+        if index >= FILE_MAX {
+            None
+        } else {
+            self.0[index].clone()
+        }
     }
 
     pub fn set(&mut self, index: usize, value: Option<File>) {

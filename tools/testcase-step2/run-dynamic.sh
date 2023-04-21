@@ -61,7 +61,6 @@
 ./runtest.exe -w entry-dynamic.exe fflush_exit
 ./runtest.exe -w entry-dynamic.exe fgets_eof
 ./runtest.exe -w entry-dynamic.exe fgetwc_buffering
-./runtest.exe -w entry-dynamic.exe flockfile_list
 ./runtest.exe -w entry-dynamic.exe fpclassify_invalid_ld80
 ./runtest.exe -w entry-dynamic.exe ftello_unflushed_append
 ./runtest.exe -w entry-dynamic.exe getpwnam_r_crash

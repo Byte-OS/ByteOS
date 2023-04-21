@@ -116,7 +116,7 @@ pub type VfsResult<T> = core::result::Result<T, VfsError>;
 
 #[repr(C)]
 #[derive(Default)]
-pub struct TimeSepc {
+pub struct TimeSpec {
     pub sec: usize,  /* 秒 */
     pub nsec: usize, /* 纳秒, 范围在0~999999999 */
 }
@@ -135,9 +135,22 @@ pub struct Stat {
     pub blksize: u32,    // 占用块大小
     pub __pad2: u32,     // 保留
     pub blocks: u64,     // 占用块数量
-    pub atime: TimeSepc, // 最后访问时间
-    pub mtime: TimeSepc, // 最后修改时间
-    pub ctime: TimeSepc, // 最后创建时间
+    pub atime: TimeSpec, // 最后访问时间
+    pub mtime: TimeSpec, // 最后修改时间
+    pub ctime: TimeSpec, // 最后创建时间
+}
+
+#[repr(C)]
+pub struct StatFS {
+    pub ftype: u64,   // 文件系统的类型
+    pub bsize: u64,   // 经优化后的传输块的大小
+    pub blocks: u64,  // 文件系统数据块总数
+    pub bfree: u64,   // 可用块数
+    pub bavail: u64,  // 普通用户能够获得的块数
+    pub files: u64,   // 文件结点总数
+    pub ffree: u64,   // 可用文件结点数
+    pub fsid: u64,    // 文件系统标识
+    pub namelen: u64, // 文件名的最大长度
 }
 
 pub trait INodeInterface: Send + Sync {
@@ -230,6 +243,10 @@ pub trait INodeInterface: Send + Sync {
     }
 
     fn umount(&self) -> VfsResult<()> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn statfs(&self, _statfs: &mut StatFS) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 }

@@ -10,9 +10,9 @@ mod task;
 pub mod thread;
 
 pub use executor::*;
+pub use futures::future::select;
 pub use ops::*;
 pub use task::*;
-pub use futures::future::select;
 
 // tms_utime记录的是进程执行用户代码的时间.
 // tms_stime记录的是进程执行内核代码的时间.

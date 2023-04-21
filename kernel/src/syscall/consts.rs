@@ -212,8 +212,9 @@ pub const SYS_GETTIMEOFDAY: usize = 169;
 pub const SYS_GETPID: usize = 172;
 pub const SYS_GETPPID: usize = 173;
 pub const SYS_GETUID: usize = 174;
-// pub const SYS_GETEUID: usize = 175;
+pub const SYS_GETEUID: usize = 175;
 pub const SYS_GETGID: usize = 176;
+pub const SYS_GETEGID: usize = 177;
 pub const SYS_GETTID: usize = 178;
 pub const SYS_SOCKET: usize = 198;
 pub const SYS_BIND: usize = 200;
@@ -230,6 +231,7 @@ pub const SYS_MMAP: usize = 222;
 pub const SYS_MPROTECT: usize = 226;
 pub const SYS_MUNMAP: usize = 215;
 pub const SYS_WAIT4: usize = 260;
+pub const SYS_GETRLIMIT: usize = 261;
 
 pub const AT_CWD: usize = -100 as isize as usize;
 
@@ -244,6 +246,7 @@ pub struct UTSname {
 
 bitflags! {
         // MAP Flags
+        #[derive(Debug)]
         pub struct MapFlags: u32 {
             const MAP_SHARED          =    0x01;
             const MAP_PRIVATE         =    0x02;
@@ -273,6 +276,13 @@ pub struct Dirent {
     pub reclen: u16,   // 当前dirent的长度
     pub ftype: u8,     // 文件类型
     pub name: [u8; 0], // 文件名
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct IoVec {
+    pub base: usize,
+    pub len: usize,
 }
 
 pub mod elf {

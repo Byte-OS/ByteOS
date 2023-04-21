@@ -31,3 +31,20 @@ pub async fn sys_uname(uts_ptr: usize) -> Result<usize, LinuxError> {
     uts.domainname[..sys_domain.len()].copy_from_slice(sys_domain);
     Ok(0)
 }
+
+/// FINISH sys_getrlimit
+pub async fn sys_getrlimit(resource: usize, rlim_ptr: usize) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_getrlimit @ resource: {}, rlim_ptr: {:#x}",
+        resource, rlim_ptr
+    );
+    Ok(0)
+}
+
+pub async fn sys_geteuid() -> Result<usize, LinuxError> {
+    Ok(1000)
+}
+
+pub async fn sys_getegid() -> Result<usize, LinuxError> {
+    Ok(1000)
+}

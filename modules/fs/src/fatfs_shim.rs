@@ -8,7 +8,7 @@ use fatfs::{Read, Seek, SeekFrom, Write};
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, VfsError,
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS, VfsError,
     VfsResult,
 };
 
@@ -334,7 +334,7 @@ impl INodeInterface for FatDir {
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.dev = self.fs.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = 0o777; // TODO: add access mode
+        stat.mode = 0o40000; // TODO: add access mode
         stat.nlink = 1;
         stat.uid = 1000;
         stat.gid = 1000;
@@ -342,6 +342,19 @@ impl INodeInterface for FatDir {
         stat.blksize = 512;
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
+        Ok(())
+    }
+
+    fn statfs(&self, statfs: &mut StatFS) -> VfsResult<()> {
+        statfs.ftype = 32;
+        statfs.bsize = 512;
+        statfs.blocks = 80;
+        statfs.bfree = 40;
+        statfs.bavail = 0;
+        statfs.files = 32;
+        statfs.ffree = 0;
+        statfs.fsid = 32;
+        statfs.namelen = 20;
         Ok(())
     }
 }

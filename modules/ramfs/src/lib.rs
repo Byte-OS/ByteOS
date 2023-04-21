@@ -3,13 +3,13 @@
 
 extern crate alloc;
 
-use core::cmp::min;
+use core::cmp::{self, min};
 
-use alloc::{string::String, sync::Arc, vec::Vec};
+use alloc::{format, string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, VfsError,
-    VfsResult,
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, Stat,
+    VfsError, VfsResult,
 };
 
 pub struct RamFs {
@@ -21,15 +21,17 @@ impl RamFs {
         let inner = Arc::new(RamDirInner {
             name: String::from(""),
             children: Mutex::new(Vec::new()),
+            dir_path: String::from(""),
         });
         Arc::new(Self { root: inner })
     }
 }
 
 impl FileSystem for RamFs {
-    fn root_dir(&'static self, _mi: MountedInfo) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self, mi: MountedInfo) -> Arc<dyn INodeInterface> {
         Arc::new(RamDir {
             inner: self.root.clone(),
+            mi,
         })
     }
 
@@ -41,12 +43,14 @@ impl FileSystem for RamFs {
 pub struct RamDirInner {
     name: String,
     children: Mutex<Vec<FileContainer>>,
+    dir_path: String,
 }
 
 // TODO: use frame insteads of Vec.
 pub struct RamFileInner {
     name: String,
     content: Mutex<Vec<u8>>,
+    dir_path: String,
 }
 
 pub enum FileContainer {
@@ -56,13 +60,17 @@ pub enum FileContainer {
 
 impl FileContainer {
     #[inline]
-    fn to_inode(&self) -> Arc<dyn INodeInterface> {
+    fn to_inode(&self, mi: MountedInfo) -> Arc<dyn INodeInterface> {
         match self {
             FileContainer::File(file) => Arc::new(RamFile {
                 offset: Mutex::new(0),
                 inner: file.clone(),
+                mi,
             }),
-            FileContainer::Dir(dir) => Arc::new(RamDir { inner: dir.clone() }),
+            FileContainer::Dir(dir) => Arc::new(RamDir {
+                inner: dir.clone(),
+                mi,
+            }),
         }
     }
 
@@ -77,6 +85,7 @@ impl FileContainer {
 
 pub struct RamDir {
     inner: Arc<RamDirInner>,
+    mi: MountedInfo,
 }
 
 impl INodeInterface for RamDir {
@@ -86,7 +95,7 @@ impl INodeInterface for RamDir {
             .lock()
             .iter()
             .find(|x| x.filename() == name)
-            .map(|x| x.to_inode())
+            .map(|x| x.to_inode(self.mi.clone()))
             .ok_or(VfsError::FileNotFound)
     }
 
@@ -102,11 +111,13 @@ impl INodeInterface for RamDir {
         let new_inner = Arc::new(RamFileInner {
             name: String::from(name),
             content: Mutex::new(Vec::new()),
+            dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
         });
 
         let new_file = Arc::new(RamFile {
             offset: Mutex::new(0),
             inner: new_inner.clone(),
+            mi: self.mi.clone(),
         });
 
         self.inner
@@ -129,10 +140,12 @@ impl INodeInterface for RamDir {
         let new_inner = Arc::new(RamDirInner {
             name: String::from(name),
             children: Mutex::new(Vec::new()),
+            dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
         });
 
         let new_dir = Arc::new(RamDir {
             inner: new_inner.clone(),
+            mi: self.mi.clone(),
         });
 
         self.inner
@@ -198,6 +211,10 @@ impl INodeInterface for RamDir {
         }
     }
 
+    fn unlink(&self, name: &str) -> VfsResult<()> {
+        self.remove(name)
+    }
+
     fn metadata(&self) -> VfsResult<vfscore::Metadata> {
         Ok(Metadata {
             filename: &self.inner.name,
@@ -207,11 +224,19 @@ impl INodeInterface for RamDir {
             childrens: self.inner.children.lock().len(),
         })
     }
+
+    fn path(&self) -> VfsResult<String> {
+        Ok(format!(
+            "{}/{}/{}",
+            self.mi.path, self.inner.dir_path, self.inner.name
+        ))
+    }
 }
 
 pub struct RamFile {
     offset: Mutex<usize>,
     inner: Arc<RamFileInner>,
+    mi: MountedInfo,
 }
 
 impl INodeInterface for RamFile {
@@ -233,22 +258,25 @@ impl INodeInterface for RamFile {
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         let offset = *self.offset.lock();
         let file_size = self.inner.content.lock().len();
-        let write_size = buffer.len();
+        let wsize = buffer.len();
 
-        let part1 = file_size - offset;
+        let part1 = cmp::min(file_size - offset, wsize);
         let mut content = self.inner.content.lock();
-        content[offset..].copy_from_slice(&buffer[..part1]);
+        content[offset..offset + part1].copy_from_slice(&buffer[..part1]);
+        // extend content if offset + buffer > content.len()
         content.extend_from_slice(&buffer[part1..]);
-        Ok(write_size)
+
+        *self.offset.lock() += wsize;
+        Ok(wsize)
     }
 
     fn seek(&self, seek: SeekFrom) -> VfsResult<usize> {
         let new_off = match seek {
-            SeekFrom::SET(off) => (*self.offset.lock() + off) as isize,
+            SeekFrom::SET(off) => off as isize,
             SeekFrom::CURRENT(off) => *self.offset.lock() as isize + off,
             SeekFrom::END(off) => self.inner.content.lock().len() as isize + off,
         };
-        match new_off > 0 {
+        match new_off >= 0 {
             true => {
                 *self.offset.lock() = new_off as _;
                 Ok(new_off as _)
@@ -259,6 +287,37 @@ impl INodeInterface for RamFile {
 
     fn truncate(&self, size: usize) -> VfsResult<()> {
         self.inner.content.lock().drain(size..);
+        Ok(())
+    }
+
+    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
+        Ok(Metadata {
+            filename: &self.inner.name,
+            inode: 0,
+            file_type: FileType::File,
+            size: self.inner.content.lock().len(),
+            childrens: 0,
+        })
+    }
+
+    fn path(&self) -> VfsResult<String> {
+        Ok(format!(
+            "{}/{}/{}",
+            self.mi.path, self.inner.dir_path, self.inner.name
+        ))
+    }
+
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
+        stat.dev = self.mi.fs_id as u64;
+        stat.ino = 1; // TODO: convert path to number(ino)
+        stat.mode = 0; // TODO: add access mode
+        stat.nlink = 1;
+        stat.uid = 1000;
+        stat.gid = 1000;
+        stat.size = self.inner.content.lock().len() as u64;
+        stat.blksize = 512;
+        stat.blocks = 0;
+        stat.rdev = 0; // TODO: add device id
         Ok(())
     }
 }
