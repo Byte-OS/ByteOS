@@ -33,6 +33,9 @@ fs-img:
 	cp -r tools/testcase-step2/* mount/
 	sudo umount $(FS_IMG)
 
+#	rm -f $(FS_IMG)
+#	cp fs.img $(FS_IMG)
+
 build: fs-img
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) $(OFFLINE)
 

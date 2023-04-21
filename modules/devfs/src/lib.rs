@@ -6,6 +6,7 @@ extern crate log;
 use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
 use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, MountedInfo, VfsError, VfsResult};
 
+mod null;
 mod sdx;
 mod stdin;
 mod stdout;
@@ -50,6 +51,7 @@ impl DevDir {
         map.insert("stdout", Arc::new(stdout::Stdout));
         map.insert("stderr", Arc::new(stdout::Stdout));
         map.insert("stdin", Arc::new(stdin::Stdin));
+        map.insert("null", Arc::new(null::Null));
         Self { map }
     }
 

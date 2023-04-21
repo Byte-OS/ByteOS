@@ -7,7 +7,7 @@ use core::{
 use arch::get_time;
 use devices::RTC_DEVICES;
 use executor::{current_task, TMS};
-use fs::TimeSepc;
+use fs::TimeSpec;
 use log::debug;
 
 use crate::syscall::c2rust_ref;
@@ -34,8 +34,8 @@ pub async fn sys_gettimeofday(tv_ptr: usize, timezone_ptr: usize) -> Result<usiz
 
 pub async fn sys_nanosleep(req_ptr: usize, rem_ptr: usize) -> Result<usize, LinuxError> {
     let ns = RTC_DEVICES.lock()[0].read() as usize;
-    let req = c2rust_ref(req_ptr as *mut TimeSepc);
-    let rem = c2rust_ref(rem_ptr as *mut TimeSepc);
+    let req = c2rust_ref(req_ptr as *mut TimeSpec);
+    let rem = c2rust_ref(rem_ptr as *mut TimeSpec);
     debug!(
         "sys_nanosleep @ req_ptr: {:#x}, req: {:#x}",
         req_ptr, rem_ptr
@@ -55,6 +55,20 @@ pub async fn sys_times(tms_ptr: usize) -> Result<usize, LinuxError> {
         .unwrap()
         .inner_map(|x| *tms = x.tms);
     Ok(get_time())
+}
+
+pub async fn sys_gettime(clock_id: usize, times_ptr: usize) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_gettime @ clock_id: {}, times_ptr: {}",
+        clock_id, times_ptr
+    );
+
+    let ts = c2rust_ref(times_ptr as *mut TimeSpec);
+    let ns = RTC_DEVICES.lock()[0].read() as usize;
+
+    ts.sec = ns / 1_000_000_000;
+    ts.nsec = (ns % 1_000_000_000) / 1000;
+    Ok(0)
 }
 
 pub struct WaitNsec(usize);

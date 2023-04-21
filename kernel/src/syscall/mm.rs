@@ -1,5 +1,6 @@
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
+use frame_allocator::ceil_div;
 use log::debug;
 
 use crate::syscall::{
@@ -10,7 +11,7 @@ use crate::syscall::{
 use super::consts::LinuxError;
 
 pub async fn sys_brk(addr: isize) -> Result<usize, LinuxError> {
-    debug!("sys_brk @ increment: {}", addr);
+    debug!("sys_brk @ increment: {:#x}", addr);
     let user_task = current_task().as_user_task().unwrap();
     if addr == 0 {
         Ok(user_task.heap())
@@ -28,11 +29,11 @@ pub async fn sys_mmap(
     fd: usize,
     off: usize,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_mmap @ start: {:#x}, len: {:#x}, prot: {}, flags: {}, fd: {}, offset: {}",
-        start, len, prot, flags, fd, off
-    );
     let flags = MapFlags::from_bits_truncate(flags as _);
+    debug!(
+        "sys_mmap @ start: {:#x}, len: {:#x}, prot: {}, flags: {:?}, fd: {}, offset: {}",
+        start, len, prot, flags, fd as isize, off
+    );
     let user_task = current_task().as_user_task().unwrap();
     let file = user_task.inner_map(|x| x.fd_table.get(fd).clone());
 
@@ -60,6 +61,12 @@ pub async fn sys_mmap(
             file.seek(fs::SeekFrom::SET(offset)).map_err(from_vfs)?;
             debug!("read len: {}", len);
         }
+    } else {
+        user_task.frame_alloc_much(
+            VirtPage::from_addr(addr.into()),
+            executor::MemType::Shared(file.clone(), addr.into(), len),
+            ceil_div(len, PAGE_SIZE),
+        );
     }
     Ok(addr.into())
 }

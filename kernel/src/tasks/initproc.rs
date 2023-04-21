@@ -45,6 +45,36 @@ fn clear() {
     console_putchar(0x4a);
 }
 
+async fn run_libc_test() -> bool {
+    let commands = [
+        // "./runtest.exe -w entry-static.exe pthread_cancel_points",
+        // "./runtest.exe -w entry-static.exe pthread_cancel",
+        // "./runtest.exe -w entry-static.exe pthread_cond",
+        // "./runtest.exe -w entry-static.exe pthread_tsd",
+        // "./runtest.exe -w entry-static.exe setjmp",
+        // "./runtest.exe -w entry-static.exe socket",
+        // "./runtest.exe -w entry-static.exe strptime",
+        // "./runtest.exe -w entry-static.exe utime",
+        // "./runtest.exe -w entry-static.exe daemon_failure",
+        // "./runtest.exe -w entry-static.exe pthread_robust_detach",
+        // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
+        // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
+        // "./runtest.exe -w entry-static.exe pthread_condattr_setclock",
+        // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
+        // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
+        // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
+        // "./runtest.exe -w entry-static.exe rlimit_open_files",
+        // "./runtest.exe -w entry-static.exe sigprocmask_internal",
+        // "./runtest.exe -w entry-static.exe syscall_sign_extend",
+    ];
+
+    for i in commands {
+        file_command(i).await
+    }
+
+    false
+}
+
 async fn run_all() -> bool {
     let commands = [
         "brk",
@@ -135,12 +165,14 @@ pub async fn command(cmd: &str) -> bool {
 }
 
 pub async fn initproc() {
-    command("./runtest.exe -w entry-static.exe argv").await;
-    command("./runtest.exe -w entry-static.exe basename").await;
-    // command("entry-static.exe argv").await;
-    // command("runtest.exe").await;
-    // command("entry-static.exe argv").await;
+    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
+    // for i in names.split('\n') {
+    //     command(i).await;
+    // }
+    run_libc_test().await;
     // command("run_all").await;
+
+    // simple command shell.
     // let mut buffer = Vec::new();
     // let mut new_line = true;
     // loop {

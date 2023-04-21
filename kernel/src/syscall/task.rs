@@ -1,7 +1,7 @@
 use crate::syscall::c2rust_ref;
-use crate::syscall::consts::{from_vfs, elf};
-use crate::tasks::WaitPid;
+use crate::syscall::consts::{elf, from_vfs};
 use crate::tasks::elf::ElfExtra;
+use crate::tasks::WaitPid;
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -104,14 +104,17 @@ pub async fn exec_with_process<'a>(
     args: Vec<&'a str>,
 ) -> Result<Arc<dyn AsyncTask>, LinuxError> {
     // copy args, avoid free before pushing.
-    let args:Vec<String> = args.into_iter().map(|x|String::from(x)).collect();
+    let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     // let mut args = vec![String::from(path)];
     // args.extend(args_v.iter().map(|x| String::from(*x)));
-    
+
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
     let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
-    let mut buffer = c2rust_buffer(ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8, file_size);
+    let mut buffer = c2rust_buffer(
+        ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8,
+        file_size,
+    );
     // let mut buffer = vec![0u8; file.metadata().unwrap().size];
     let rsize = file.read(&mut buffer).map_err(from_vfs)?;
 
@@ -122,7 +125,11 @@ pub async fn exec_with_process<'a>(
     let elf_header = elf.header;
 
     let entry_point = elf.header.pt2.entry_point() as usize;
-    assert_eq!(elf_header.pt1.magic, [0x7f, 0x45, 0x4c, 0x46], "invalid elf!");
+    assert_eq!(
+        elf_header.pt1.magic,
+        [0x7f, 0x45, 0x4c, 0x46],
+        "invalid elf!"
+    );
     // WARRNING: this convert async task to user task.
     let user_task = task.clone().as_user_task().unwrap();
 
@@ -163,9 +170,7 @@ pub async fn exec_with_process<'a>(
     });
 
     // push stack
-    let envp = vec![
-        "LD_LIBRARY_PATH=/"
-    ];
+    let envp = vec!["LD_LIBRARY_PATH=/"];
     let envp: Vec<usize> = envp
         .into_iter()
         .rev()
@@ -211,12 +216,10 @@ pub async fn exec_with_process<'a>(
     });
     user_task.push_num(args.len());
 
-
     // map sections.
     elf.program_iter()
         .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
         .for_each(|ph| {
-
             let file_size = ph.file_size() as usize;
             let mem_size = ph.mem_size() as usize;
             let offset = ph.offset() as usize;
@@ -232,7 +235,9 @@ pub async fn exec_with_process<'a>(
 
             let page_space = unsafe {
                 core::slice::from_raw_parts_mut(
-                    (ppn_c(ppn_start).to_addr() + virt_addr % PAGE_SIZE )as _ , file_size)
+                    (ppn_c(ppn_start).to_addr() + virt_addr % PAGE_SIZE) as _,
+                    file_size,
+                )
             };
             page_space.copy_from_slice(&buffer[offset..offset + file_size]);
         });

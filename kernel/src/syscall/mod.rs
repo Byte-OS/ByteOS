@@ -1,6 +1,7 @@
 pub mod consts;
 mod fd;
 mod mm;
+mod signal;
 mod sys;
 mod task;
 mod time;
@@ -13,22 +14,26 @@ use log::warn;
 use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
-        SYS_EXIT, SYS_FSTAT, SYS_GETCWD, SYS_GETDENTS, SYS_GETPID, SYS_GETPPID, SYS_GETTID,
-        SYS_GETTIMEOFDAY, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
-        SYS_PIPE2, SYS_READ, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS, SYS_TIMES, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_WAIT4, SYS_WRITE,
+        SYS_EXIT, SYS_FSTAT, SYS_FSTATAT, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID,
+        SYS_GETPID, SYS_GETPPID, SYS_GETRLIMIT, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY,
+        SYS_GETUID, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MUNMAP, SYS_NANOSLEEP,
+        SYS_OPENAT, SYS_PIPE2, SYS_PREAD, SYS_READ, SYS_READV, SYS_SCHED_YIELD,
+        SYS_SET_TID_ADDRESS, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_UMOUNT2, SYS_UNAME,
+        SYS_UNLINKAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
-        sys_close, sys_dup, sys_dup3, sys_fstat, sys_getdents64, sys_mkdir_at, sys_mount,
-        sys_openat, sys_pipe2, sys_read, sys_umount2, sys_unlinkat, sys_write,
+        sys_close, sys_dup, sys_dup3, sys_fstat, sys_fstatat, sys_getdents64, sys_lseek,
+        sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_pread, sys_read, sys_readv, sys_statfs,
+        sys_umount2, sys_unlinkat, sys_write, sys_writev,
     },
     mm::{sys_brk, sys_mmap, sys_munmap},
-    sys::sys_uname,
+    signal::sys_sigtimedwait,
+    sys::{sys_getegid, sys_geteuid, sys_getrlimit, sys_uname},
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_getcwd, sys_getpid, sys_getppid,
         sys_gettid, sys_sched_yield, sys_set_tid_address, sys_wait4,
     },
-    time::{sys_gettimeofday, sys_nanosleep, sys_times},
+    time::{sys_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
 };
 
 pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
@@ -92,8 +97,19 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_GETDENTS => sys_getdents64(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_SET_TID_ADDRESS => sys_set_tid_address(args[0] as _).await,
         SYS_GETTID => sys_gettid().await,
+        SYS_LSEEK => sys_lseek(args[0] as _, args[1] as _, args[2] as _),
+        SYS_GETTIME => sys_gettime(args[0] as _, args[1] as _).await,
+        SYS_SIGTIMEDWAIT => sys_sigtimedwait().await,
+        SYS_GETRLIMIT => sys_getrlimit(args[0] as _, args[1] as _).await,
+        SYS_READV => sys_readv(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_WRITEV => sys_writev(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_STATFS => sys_statfs(args[0] as _, args[1] as _).await,
+        SYS_PREAD => sys_pread(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_FSTATAT => sys_fstatat(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_GETEUID => sys_geteuid().await,
+        SYS_GETEGID => sys_getegid().await,
         _ => {
-            warn!("unsupported syscall");
+            warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)
         }
     }
