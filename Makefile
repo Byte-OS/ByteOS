@@ -30,11 +30,8 @@ fs-img:
 	dd if=/dev/zero of=$(FS_IMG) bs=1M count=40
 	mkfs.vfat -F 32 $(FS_IMG)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
-	cp -r tools/testcase-step2/* mount/
+	cp -r tools/testcase-step3/* mount/
 	sudo umount $(FS_IMG)
-
-#	rm -f $(FS_IMG)
-#	cp fs.img $(FS_IMG)
 
 build: fs-img
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) $(OFFLINE)

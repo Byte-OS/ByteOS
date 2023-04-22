@@ -231,6 +231,20 @@ impl INodeInterface for RamDir {
             self.mi.path, self.inner.dir_path, self.inner.name
         ))
     }
+
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
+        stat.dev = self.mi.fs_id as u64;
+        stat.ino = 1; // TODO: convert path to number(ino)
+        stat.mode = 0; // TODO: add access mode
+        stat.nlink = 1;
+        stat.uid = 1000;
+        stat.gid = 1000;
+        stat.size = 0;
+        stat.blksize = 512;
+        stat.blocks = 0;
+        stat.rdev = 0; // TODO: add device id
+        Ok(())
+    }
 }
 
 pub struct RamFile {

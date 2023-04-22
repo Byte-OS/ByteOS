@@ -1,5 +1,3 @@
-use core::mem::size_of;
-
 use alloc::vec::Vec;
 use executor::current_task;
 use fs::{
@@ -11,7 +9,7 @@ use log::debug;
 
 use crate::syscall::{
     c2rust_buffer, c2rust_ref,
-    consts::{from_vfs, Dirent, IoVec, AT_CWD},
+    consts::{from_vfs, IoVec, AT_CWD},
 };
 
 use super::{c2rust_str, consts::LinuxError};
@@ -19,21 +17,15 @@ use super::{c2rust_str, consts::LinuxError};
 pub async fn sys_dup(fd: usize) -> Result<usize, LinuxError> {
     debug!("sys_dup3 @ fd_src: {}", fd);
     let user_task = current_task().as_user_task().unwrap();
-    let fd_dst = user_task
-        .inner
-        .lock()
-        .fd_table
-        .alloc_fd()
-        .ok_or(LinuxError::EMFILE)?;
+    let fd_dst = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     sys_dup3(fd, fd_dst).await
 }
 
 pub async fn sys_dup3(fd_src: usize, fd_dst: usize) -> Result<usize, LinuxError> {
     debug!("sys_dup3 @ fd_src: {}, fd_dst: {}", fd_src, fd_dst);
     let user_task = current_task().as_user_task().unwrap();
-    let mut inner = user_task.inner.lock();
-    let file = inner.fd_table.get(fd_src);
-    inner.fd_table.set(fd_dst, file);
+    let file = user_task.get_fd(fd_src);
+    user_task.set_fd(fd_dst, file);
     Ok(fd_dst)
 }
 
@@ -46,10 +38,7 @@ pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, 
     let file = current_task()
         .as_user_task()
         .unwrap()
-        .inner
-        .lock()
-        .fd_table
-        .get(fd)
+        .get_fd(fd)
         .ok_or(LinuxError::EBADF)?;
     WaitBlockingRead(file, &mut buffer).await.map_err(from_vfs)
 }
@@ -61,8 +50,7 @@ pub async fn sys_write(fd: usize, buf_ptr: usize, count: usize) -> Result<usize,
     );
     let buffer = c2rust_buffer(buf_ptr as *mut u8, count);
     let user_task = current_task().as_user_task().unwrap();
-    let inner = user_task.inner.lock();
-    let file = inner.fd_table.get(fd).ok_or(LinuxError::EBADF)?;
+    let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
     Ok(file.write(buffer).map_err(from_vfs)?)
 }
 
@@ -73,8 +61,7 @@ pub async fn sys_readv(fd: usize, iov: usize, iocnt: usize) -> Result<usize, Lin
 
     let iov = c2rust_buffer(iov as *mut IoVec, iocnt);
     let user_task = current_task().as_user_task().unwrap();
-    let inner = user_task.inner.lock();
-    let file = inner.fd_table.get(fd).ok_or(LinuxError::EBADF)?;
+    let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
 
     for io in iov {
         let buffer = c2rust_buffer(io.base as *mut u8, io.len);
@@ -90,8 +77,7 @@ pub async fn sys_writev(fd: usize, iov: usize, iocnt: usize) -> Result<usize, Li
 
     let iov = c2rust_buffer(iov as *mut IoVec, iocnt);
     let user_task = current_task().as_user_task().unwrap();
-    let inner = user_task.inner.lock();
-    let file = inner.fd_table.get(fd).ok_or(LinuxError::EBADF)?;
+    let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
 
     for io in iov {
         let buffer = c2rust_buffer(io.base as *mut u8, io.len);
@@ -104,8 +90,7 @@ pub async fn sys_writev(fd: usize, iov: usize, iocnt: usize) -> Result<usize, Li
 pub async fn sys_close(fd: usize) -> Result<usize, LinuxError> {
     debug!("sys_close @ fd: {}", fd as isize);
     let user_task = current_task().as_user_task().unwrap();
-    let mut inner = user_task.inner.lock();
-    inner.fd_table.set(fd, None);
+    user_task.set_fd(fd, None);
     Ok(0)
 }
 
@@ -116,11 +101,10 @@ pub async fn sys_mkdir_at(dir_fd: usize, path: usize, mode: usize) -> Result<usi
         dir_fd, path, mode
     );
     let user_task = current_task().as_user_task().unwrap();
-    let inner = user_task.inner.lock();
     let dir = if dir_fd == AT_CWD {
-        open(&inner.curr_dir).map_err(from_vfs)?
+        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)?
     } else {
-        inner.fd_table.get(dir_fd).ok_or(LinuxError::EBADF)?
+        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
     dir.mkdir(path).map_err(from_vfs)?;
     Ok(0)
@@ -133,11 +117,10 @@ pub async fn sys_unlinkat(dir_fd: usize, path: usize, flags: usize) -> Result<us
         dir_fd, path, flags
     );
     let user_task = current_task().as_user_task().unwrap();
-    let inner = user_task.inner.lock();
     let dir = if dir_fd == AT_CWD {
-        open(&inner.curr_dir).map_err(from_vfs)?
+        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)?
     } else {
-        inner.fd_table.get(dir_fd).ok_or(LinuxError::EBADF)?
+        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
     let full_path = format!("{}/{}", dir.path().map_err(from_vfs)?, path);
     let mut paths = full_path.split("/").fold(Vec::new(), |mut p, x| match x {
@@ -162,7 +145,6 @@ pub async fn sys_unlinkat(dir_fd: usize, path: usize, flags: usize) -> Result<us
         }
         None => Err(LinuxError::EINVAL),
     }
-    // dir.remove(&rebuild_path(path)).map_err(from_vfs)?;
 }
 
 pub async fn sys_openat(
@@ -173,16 +155,15 @@ pub async fn sys_openat(
 ) -> Result<usize, LinuxError> {
     let user_task = current_task().as_user_task().unwrap();
     let open_flags = OpenFlags::from_bits_truncate(flags);
-    let mut inner = user_task.inner.lock();
     let filename = c2rust_str(filename as *mut i8);
     debug!(
         "sys_openat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
         fd as isize, filename, open_flags, mode
     );
     let path = if fd == AT_CWD {
-        inner.curr_dir.clone() + filename
+        user_task.inner.lock().curr_dir.clone() + filename
     } else {
-        let file = inner.fd_table.get(fd).ok_or(LinuxError::EBADF)?;
+        let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
         file.path().map_err(from_vfs)? + "/" + filename
     };
     let file = match open(&path) {
@@ -201,8 +182,8 @@ pub async fn sys_openat(
         }
     }?;
     debug!("file: {:?}", file.path());
-    let fd = inner.fd_table.alloc_fd().ok_or(LinuxError::EMFILE)?;
-    inner.fd_table.set(fd, Some(file));
+    let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+    user_task.set_fd(fd, Some(file));
     debug!("sys_openat @ ret fd: {}", fd);
 
     Ok(fd)
@@ -214,10 +195,7 @@ pub async fn sys_fstat(fd: usize, stat_ptr: usize) -> Result<usize, LinuxError> 
     current_task()
         .as_user_task()
         .unwrap()
-        .inner
-        .lock()
-        .fd_table
-        .get(fd)
+        .get_fd(fd)
         .ok_or(LinuxError::EBADF)?
         .stat(stat_ref)
         .map_err(from_vfs)?;
@@ -238,13 +216,11 @@ pub async fn sys_fstatat(
 
     let user_task = current_task().as_user_task().unwrap();
 
-    let dir = user_task.inner_map(|inner| {
-        if dir_fd == AT_CWD {
-            open(&inner.curr_dir).map_err(from_vfs)
-        } else {
-            inner.fd_table.get(dir_fd).ok_or(LinuxError::EBADF)
-        }
-    })?;
+    let dir = if dir_fd == AT_CWD {
+        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)
+    } else {
+        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
+    }?;
 
     open(&format!("{}/{}", dir.path().map_err(from_vfs)?, filename))
         .map_err(from_vfs)?
@@ -275,16 +251,15 @@ pub async fn sys_pipe2(fds_ptr: usize, _unknown: usize) -> Result<usize, LinuxEr
     );
     let fds = c2rust_buffer(fds_ptr as *mut u32, 2);
     let user_task = current_task().as_user_task().unwrap();
-    let mut inner = user_task.inner.lock();
 
     let (rx, tx) = create_pipe();
 
-    let rx_fd = inner.fd_table.alloc_fd().ok_or(LinuxError::ENFILE)?;
-    inner.fd_table.set(rx_fd, Some(rx));
+    let rx_fd = user_task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+    user_task.set_fd(rx_fd, Some(rx));
     fds[0] = rx_fd as u32;
 
-    let tx_fd = inner.fd_table.alloc_fd().ok_or(LinuxError::ENFILE)?;
-    inner.fd_table.set(tx_fd, Some(tx));
+    let tx_fd = user_task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+    user_task.set_fd(tx_fd, Some(tx));
     fds[1] = tx_fd as u32;
 
     debug!("sys_pipe2 ret: {} {}", rx_fd as u32, tx_fd as u32);
@@ -306,7 +281,7 @@ pub async fn sys_pread(
     let file = current_task()
         .as_user_task()
         .unwrap()
-        .inner_map(|x| x.fd_table.get(fd))
+        .get_fd(fd)
         .ok_or(LinuxError::EBADF)?;
 
     let old_off = file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?;
@@ -361,30 +336,10 @@ pub async fn sys_getdents64(fd: usize, buf_ptr: usize, len: usize) -> Result<usi
         fd, buf_ptr, len
     );
 
-    let file = current_task()
-        .as_user_task()
-        .unwrap()
-        .inner_map(|x| x.fd_table.get(fd))
-        .unwrap();
+    let file = current_task().as_user_task().unwrap().get_fd(fd).unwrap();
 
-    let mut ptr = buf_ptr;
-    for i in file.read_dir().map_err(from_vfs)? {
-        let file_bytes = i.filename.as_bytes();
-        let current_len = size_of::<Dirent>() + file_bytes.len() + 1;
-
-        if len - (ptr - buf_ptr) < current_len {
-            break;
-        }
-        let dirent = c2rust_ref(ptr as *mut Dirent);
-        dirent.ino = 0;
-        dirent.off = current_len as i64;
-        dirent.reclen = current_len as u16;
-        let buffer = c2rust_buffer(dirent.name.as_mut_ptr(), file_bytes.len() + 1);
-        buffer[..file_bytes.len()].copy_from_slice(file_bytes);
-        buffer[file_bytes.len()] = b'\0';
-        ptr = ptr + current_len;
-    }
-    Ok(ptr - buf_ptr)
+    let buffer = c2rust_buffer(buf_ptr as *mut u8, len);
+    file.getdents(buffer).map_err(from_vfs)
 }
 
 pub fn sys_lseek(fd: usize, offset: usize, whence: usize) -> Result<usize, LinuxError> {
@@ -394,9 +349,7 @@ pub fn sys_lseek(fd: usize, offset: usize, whence: usize) -> Result<usize, Linux
     );
 
     let usre_task = current_task().as_user_task().unwrap();
-    let file = usre_task
-        .inner_map(|x| x.fd_table.get(fd))
-        .ok_or(LinuxError::EBADF)?;
+    let file = usre_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
     let seek_from = match whence {
         0 => SeekFrom::SET(offset),
         1 => SeekFrom::CURRENT(offset as isize),
@@ -404,4 +357,25 @@ pub fn sys_lseek(fd: usize, offset: usize, whence: usize) -> Result<usize, Linux
         _ => return Err(LinuxError::EINVAL),
     };
     file.seek(seek_from).map_err(from_vfs)
+}
+
+pub async fn sys_ioctl(
+    fd: usize,
+    request: usize,
+    arg1: usize,
+    arg2: usize,
+    arg3: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "ioctl: fd: {}, request: {:#x}, args: {:#x} {:#x} {:#x}",
+        fd, request, arg1, arg2, arg3
+    );
+
+    Ok(0)
+}
+
+pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
+    debug!("fcntl: fd: {}, cmd: {:#x}, arg: {}", fd, cmd, arg);
+
+    Ok(0)
 }

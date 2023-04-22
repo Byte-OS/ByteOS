@@ -63,35 +63,22 @@ impl AsyncTask for KernelTask {
 const FILE_MAX: usize = 255;
 const FD_NONE: Option<File> = Option::None;
 
-pub struct FileTable([Option<File>; FILE_MAX]);
+// pub struct FileTable(pub [Option<File>; FILE_MAX]);
+
+pub struct FileTable(pub Vec<Option<File>>);
 
 impl FileTable {
     pub fn new() -> Self {
-        let mut file_table = [FD_NONE; FILE_MAX];
+        let mut file_table: Vec<Option<File>> = vec![FD_NONE; FILE_MAX];
+        // let mut file_table = [FD_NONE; FILE_MAX];
         file_table[0] = Some(Arc::new(Stdin));
         file_table[1] = Some(Arc::new(Stdout));
         file_table[2] = Some(Arc::new(Stdout));
+        // file_table.push(Some(Arc::new(Stdin)));
+        // file_table.push(Some(Arc::new(Stdout)));
+        // file_table.push(Some(Arc::new(Stdout)));
+
         Self(file_table)
-    }
-
-    pub fn get(&self, index: usize) -> Option<File> {
-        if index >= FILE_MAX {
-            None
-        } else {
-            self.0[index].clone()
-        }
-    }
-
-    pub fn set(&mut self, index: usize, value: Option<File>) {
-        self.0[index] = value;
-    }
-
-    pub fn alloc_fd(&self) -> Option<usize> {
-        self.0
-            .iter()
-            .enumerate()
-            .find(|(_, x)| x.is_none())
-            .map(|(i, _)| i)
     }
 }
 
@@ -140,6 +127,12 @@ impl Drop for MemTrack {
     }
 }
 
+fn rlimits_new() -> Vec<usize> {
+    let mut rlimits = vec![0usize; 8];
+    rlimits[7] = FILE_MAX;
+    rlimits
+}
+
 pub struct TaskInner {
     pub memset: Vec<MemTrack>,
     pub cx: Context,
@@ -150,6 +143,7 @@ pub struct TaskInner {
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
     pub tms: TMS,
+    pub rlimits: Vec<usize>,
 }
 
 #[allow(dead_code)]
@@ -197,6 +191,7 @@ impl UserTask {
             children: Vec::new(),
             entry: 0,
             tms: Default::default(),
+            rlimits: rlimits_new(),
         };
 
         Arc::new(Self {
@@ -439,6 +434,49 @@ impl UserTask {
                 })
                 + PAGE_SIZE,
         )
+    }
+
+    pub fn get_fd(&self, index: usize) -> Option<File> {
+        let inner = self.inner.lock();
+        match index >= inner.rlimits[7] {
+            true => None,
+            false => inner.fd_table.0[index].clone(),
+        }
+    }
+
+    pub fn set_fd(&self, index: usize, value: Option<File>) {
+        let mut inner = self.inner.lock();
+        match index >= inner.rlimits[7] {
+            true => {}
+            false => inner.fd_table.0[index] = value,
+        }
+    }
+
+    pub fn alloc_fd(&self) -> Option<usize> {
+        let mut inner = self.inner.lock();
+        let index = inner
+            .fd_table
+            .0
+            .iter()
+            .enumerate()
+            .find(|(i, x)| x.is_none() && *i < inner.rlimits[7])
+            .map(|(i, _)| i);
+        if index.is_none() && inner.fd_table.0.len() < inner.rlimits[7] {
+            inner.fd_table.0.push(None);
+            Some(inner.fd_table.0.len() - 1)
+        } else {
+            index
+        }
+    }
+
+    pub fn used_fd(&self) -> usize {
+        self.inner
+            .lock()
+            .fd_table
+            .0
+            .iter()
+            .filter(|x| x.is_some())
+            .count()
     }
 }
 

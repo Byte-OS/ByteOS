@@ -10,6 +10,7 @@ mod null;
 mod sdx;
 mod stdin;
 mod stdout;
+mod zero;
 
 pub use {sdx::Sdx, stdin::Stdin, stdout::Stdout};
 
@@ -52,6 +53,9 @@ impl DevDir {
         map.insert("stderr", Arc::new(stdout::Stdout));
         map.insert("stdin", Arc::new(stdin::Stdin));
         map.insert("null", Arc::new(null::Null));
+        map.insert("zero", Arc::new(zero::Zero));
+        map.insert("tty", Arc::new(stdout::Stdout));
+
         Self { map }
     }
 
@@ -78,5 +82,19 @@ impl INodeInterface for DevDir {
                 file_type: FileType::Device,
             })
             .collect())
+    }
+
+    fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
+        stat.dev = 0;
+        stat.ino = 1; // TODO: convert path to number(ino)
+        stat.mode = 0; // TODO: add access mode
+        stat.nlink = 1;
+        stat.uid = 1000;
+        stat.gid = 1000;
+        stat.size = 0;
+        stat.blksize = 512;
+        stat.blocks = 0;
+        stat.rdev = 0; // TODO: add device id
+        Ok(())
     }
 }

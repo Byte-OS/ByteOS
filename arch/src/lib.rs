@@ -34,6 +34,8 @@ pub trait ContextOps {
     fn set_ret(&mut self, ret: usize);
 
     fn clear(&mut self);
+
+    fn set_tls(&mut self, tls: usize);
 }
 
 extern "Rust" {

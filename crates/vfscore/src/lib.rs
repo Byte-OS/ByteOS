@@ -153,6 +153,15 @@ pub struct StatFS {
     pub namelen: u64, // 文件名的最大长度
 }
 
+#[repr(C)]
+pub struct Dirent {
+    pub ino: u64,      // 索引结点号
+    pub off: i64,      // 到下一个dirent的偏移
+    pub reclen: u16,   // 当前dirent的长度
+    pub ftype: u8,     // 文件类型
+    pub name: [u8; 0], // 文件名
+}
+
 pub trait INodeInterface: Send + Sync {
     fn metadata(&self) -> VfsResult<Metadata> {
         Err(VfsError::NotSupported)
@@ -247,6 +256,10 @@ pub trait INodeInterface: Send + Sync {
     }
 
     fn statfs(&self, _statfs: &mut StatFS) -> VfsResult<()> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn getdents(&self, _buffer: &mut [u8]) -> VfsResult<usize> {
         Err(VfsError::NotSupported)
     }
 }

@@ -156,10 +156,16 @@ pub async fn exec_with_process<'a>(
         }
     });
 
-    let base = 0;
+    let tls = elf
+        .program_iter()
+        .find(|x| x.get_type().unwrap() == xmas_elf::program::Type::Tls)
+        .map(|ph| ph.virtual_addr())
+        .unwrap_or(0);
 
+    let base = 0;
     // map stack
-    user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
+    user_task.frame_alloc_much(VirtPage::from_addr(0x7fffe000), MemType::Stack, 2);
+    // user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
     debug!("entry: {:#x}", entry_point);
     user_task.inner_map(|mut inner| {
         inner.heap = heap_bottom as usize;
@@ -167,6 +173,7 @@ pub async fn exec_with_process<'a>(
         inner.cx.clear();
         inner.cx.set_sp(0x8000_0000); // stack top;
         inner.cx.set_sepc(entry_point);
+        inner.cx.set_tls(tls as usize);
     });
 
     // push stack

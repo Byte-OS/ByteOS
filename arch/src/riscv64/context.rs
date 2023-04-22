@@ -95,4 +95,9 @@ impl ContextOps for Context {
         self.sepc = 0;
         self.sstatus = sstatus::read().bits();
     }
+
+    #[inline]
+    fn set_tls(&mut self, tls: usize) {
+        self.x[4] = tls;
+    }
 }
