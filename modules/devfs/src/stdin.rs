@@ -1,5 +1,5 @@
 use arch::console_getchar;
-use log::info;
+use log::{debug, info};
 use vfscore::INodeInterface;
 
 pub struct Stdin;

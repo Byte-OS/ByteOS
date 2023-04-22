@@ -107,6 +107,7 @@ pub async fn user_entry_inner() {
                         if (0x7fff0000..0x7ffff000).contains(&addr) {
                             task.frame_alloc(vpn, MemType::Stack);
                         } else {
+                            debug!("context: {:#X?}", cx_ref);
                             break;
                         }
                     }

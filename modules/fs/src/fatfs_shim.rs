@@ -1,4 +1,5 @@
 use core::cmp::min;
+use core::mem::size_of;
 
 use alloc::string::String;
 use alloc::sync::Arc;
@@ -8,8 +9,8 @@ use fatfs::{Read, Seek, SeekFrom, Write};
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS, VfsError,
-    VfsResult,
+    DirEntry, Dirent, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS,
+    VfsError, VfsResult,
 };
 
 use crate::mount::open_mount;
@@ -36,6 +37,7 @@ impl FileSystem for Fat32FileSystem {
         Arc::new(FatDir {
             filename: String::from(""),
             fs: mi.clone(),
+            dents_off: Mutex::new(0),
             inner: self.inner.root_dir(),
             dir_path: String::from(""),
         })
@@ -79,6 +81,7 @@ pub struct FatDir {
     filename: String,
     dir_path: String,
     fs: MountedInfo,
+    dents_off: Mutex<usize>,
     inner: Dir<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
 
@@ -188,6 +191,7 @@ impl INodeInterface for FatDir {
             .create_dir(name)
             .map(|dir| -> Arc<dyn INodeInterface> {
                 Arc::new(FatDir {
+                    dents_off: Mutex::new(0),
                     dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
                     fs: self.fs.clone(),
@@ -233,6 +237,7 @@ impl INodeInterface for FatDir {
             let res = match open_mount(&format!("{}{}/{}", mount_path, self.dir_path, name)) {
                 Some(inode) => inode,
                 None => Arc::new(FatDir {
+                    dents_off: Mutex::new(0),
                     dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
                     fs: self.fs.clone(),
@@ -356,6 +361,49 @@ impl INodeInterface for FatDir {
         statfs.fsid = 32;
         statfs.namelen = 20;
         Ok(())
+    }
+
+    fn getdents(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+        let buf_ptr = buffer.as_mut_ptr() as usize;
+        let len = buffer.len();
+        let mut ptr: usize = buf_ptr;
+        let mut finished = 0;
+        for (i, x) in self.inner.iter().enumerate().skip(*self.dents_off.lock()) {
+            let x = x.unwrap();
+            if x.file_name() == "." || x.file_name() == ".." {
+                finished = i + 1;
+                continue;
+            }
+            let filename = x.file_name();
+            let file_bytes = filename.as_bytes();
+            let current_len = size_of::<Dirent>() + file_bytes.len() + 1;
+            if len - (ptr - buf_ptr) < current_len {
+                break;
+            }
+
+            // let dirent = c2rust_ref(ptr as *mut Dirent);
+            let dirent: &mut Dirent = unsafe { (ptr as *mut Dirent).as_mut() }.unwrap();
+
+            dirent.ino = 0;
+            dirent.off = current_len as i64;
+            dirent.reclen = current_len as u16;
+
+            if x.is_dir() {
+                dirent.ftype = 4;
+            } else {
+                dirent.ftype = 0;
+            }
+
+            let buffer = unsafe {
+                core::slice::from_raw_parts_mut(dirent.name.as_mut_ptr(), file_bytes.len() + 1)
+            };
+            buffer[..file_bytes.len()].copy_from_slice(file_bytes);
+            buffer[file_bytes.len()] = b'\0';
+            ptr = ptr + current_len;
+            finished = i + 1;
+        }
+        *self.dents_off.lock() = finished;
+        Ok(ptr - buf_ptr)
     }
 }
 

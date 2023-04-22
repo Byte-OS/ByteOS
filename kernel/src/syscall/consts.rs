@@ -169,6 +169,7 @@ pub const SYS_GETCWD: usize = 17;
 pub const SYS_DUP: usize = 23;
 pub const SYS_DUP3: usize = 24;
 pub const SYS_FCNTL: usize = 25;
+pub const SYS_IOCTL: usize = 29;
 pub const SYS_MKDIRAT: usize = 34;
 pub const SYS_UNLINKAT: usize = 35;
 pub const SYS_UMOUNT2: usize = 39;
@@ -231,7 +232,7 @@ pub const SYS_MMAP: usize = 222;
 pub const SYS_MPROTECT: usize = 226;
 pub const SYS_MUNMAP: usize = 215;
 pub const SYS_WAIT4: usize = 260;
-pub const SYS_GETRLIMIT: usize = 261;
+pub const SYS_PRLIMIT64: usize = 261;
 
 pub const AT_CWD: usize = -100 as isize as usize;
 
@@ -267,15 +268,6 @@ bitflags! {
             const MAP_FIXED_NOREPLACE =    0x100000;
             const MAP_FILE            =    0;
         }
-}
-
-#[repr(C)]
-pub struct Dirent {
-    pub ino: u64,      // 索引结点号
-    pub off: i64,      // 到下一个dirent的偏移
-    pub reclen: u16,   // 当前dirent的长度
-    pub ftype: u8,     // 文件类型
-    pub name: [u8; 0], // 文件名
 }
 
 #[repr(C)]
@@ -318,3 +310,12 @@ pub mod elf {
     pub const AT_SYSINFO: usize = 32;
     pub const AT_SYSINFO_EHDR: usize = 33;
 }
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct Rlimit {
+    pub curr: usize,
+    pub max: usize,
+}
+
+const RLIMIT_NOFILE: usize = 7;

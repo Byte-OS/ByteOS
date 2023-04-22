@@ -1,6 +1,10 @@
-use log::debug;
+use executor::current_task;
+use log::{debug, warn};
 
-use crate::syscall::{c2rust_ref, consts::UTSname};
+use crate::syscall::{
+    c2rust_ref,
+    consts::{Rlimit, UTSname},
+};
 
 use super::consts::LinuxError;
 
@@ -32,12 +36,36 @@ pub async fn sys_uname(uts_ptr: usize) -> Result<usize, LinuxError> {
     Ok(0)
 }
 
-/// FINISH sys_getrlimit
-pub async fn sys_getrlimit(resource: usize, rlim_ptr: usize) -> Result<usize, LinuxError> {
+/// TODO: FINISH sys_getrlimit
+pub async fn sys_prlimit64(
+    pid: usize,
+    resource: usize,
+    new_limit: usize,
+    old_limit: usize,
+) -> Result<usize, LinuxError> {
     debug!(
-        "sys_getrlimit @ resource: {}, rlim_ptr: {:#x}",
-        resource, rlim_ptr
+        "sys_getrlimit @ pid: {}, resource: {}, new_limit: {:#x}, old_limit: {:#x}",
+        pid, resource, new_limit, old_limit
     );
+    let user_task = current_task().as_user_task().unwrap();
+    match resource {
+        7 => {
+            if new_limit != 0 {
+                let rlimit = c2rust_ref(new_limit as *mut Rlimit);
+                user_task.inner_map(|mut x| {
+                    x.rlimits[7] = rlimit.max;
+                })
+            }
+            if old_limit != 0 {
+                let rlimit = c2rust_ref(old_limit as *mut Rlimit);
+                rlimit.max = user_task.inner_map(|inner| inner.rlimits[7]);
+                rlimit.curr = rlimit.max;
+            }
+        }
+        _ => {
+            warn!("need to finish prlimit64: resource {}", resource)
+        }
+    }
     Ok(0)
 }
 
@@ -46,5 +74,13 @@ pub async fn sys_geteuid() -> Result<usize, LinuxError> {
 }
 
 pub async fn sys_getegid() -> Result<usize, LinuxError> {
+    Ok(1000)
+}
+
+pub async fn sys_getgid() -> Result<usize, LinuxError> {
+    Ok(1000)
+}
+
+pub async fn sys_getuid() -> Result<usize, LinuxError> {
     Ok(1000)
 }

@@ -53,19 +53,14 @@ async fn run_libc_test() -> bool {
         // "./runtest.exe -w entry-static.exe pthread_tsd",
         // "./runtest.exe -w entry-static.exe setjmp",
         // "./runtest.exe -w entry-static.exe socket",
-        // "./runtest.exe -w entry-static.exe strptime",
-        // "./runtest.exe -w entry-static.exe utime",
-        // "./runtest.exe -w entry-static.exe daemon_failure",
+        "./runtest.exe -w entry-static.exe utime",
         // "./runtest.exe -w entry-static.exe pthread_robust_detach",
         // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
         // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
-        // "./runtest.exe -w entry-static.exe pthread_condattr_setclock",
         // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
         // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
-        // "./runtest.exe -w entry-static.exe rlimit_open_files",
         // "./runtest.exe -w entry-static.exe sigprocmask_internal",
-        // "./runtest.exe -w entry-static.exe syscall_sign_extend",
     ];
 
     for i in commands {
@@ -166,11 +161,15 @@ pub async fn command(cmd: &str) -> bool {
 
 pub async fn initproc() {
     // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    // for i in names.split('\n') {
-    //     command(i).await;
+    // for (i, x) in names.split('\n').filter(|x| !x.contains("pthread")).enumerate() {
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
     // }
-    run_libc_test().await;
-    // command("run_all").await;
+
+    command("busybox sh").await;
+    // command("busybox ls").await;
+    // command("busybox sh busybox_testcode.sh").await;
+    // run_libc_test().await;
 
     // simple command shell.
     // let mut buffer = Vec::new();
