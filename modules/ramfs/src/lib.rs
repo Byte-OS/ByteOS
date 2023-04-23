@@ -9,7 +9,7 @@ use alloc::{format, string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
     DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, Stat,
-    TimeSpec, VfsError, VfsResult,
+    TimeSpec, VfsError, VfsResult, UTIME_OMIT,
 };
 
 pub struct RamFs {
@@ -337,14 +337,18 @@ impl INodeInterface for RamFile {
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
 
-        stat.mtime = self.inner.times.lock()[1];
-        stat.atime = self.inner.times.lock()[2];
+        stat.atime = self.inner.times.lock()[1];
+        stat.mtime = self.inner.times.lock()[2];
         Ok(())
     }
 
     fn utimes(&self, times: &mut [vfscore::TimeSpec]) -> VfsResult<()> {
-        self.inner.times.lock()[1] = times[0];
-        self.inner.times.lock()[2] = times[1];
+        if times[0].nsec != UTIME_OMIT {
+            self.inner.times.lock()[1] = times[0];
+        }
+        if times[1].nsec != UTIME_OMIT {
+            self.inner.times.lock()[2] = times[1];
+        }
         Ok(())
     }
 }

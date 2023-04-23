@@ -341,4 +341,4 @@ pub struct Rlimit {
     pub max: usize,
 }
 
-const RLIMIT_NOFILE: usize = 7;
+pub const RLIMIT_NOFILE: usize = 7;

@@ -1,12 +1,12 @@
 pub mod consts;
 mod fd;
+mod func;
 mod mm;
 mod signal;
 mod sys;
 mod task;
 mod time;
 
-use core::ffi::CStr;
 pub use task::exec_with_process;
 
 use log::warn;
@@ -132,34 +132,4 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             Err(LinuxError::EPERM)
         }
     }
-}
-
-pub fn c2rust_list<T>(ptr: *mut T, valid: fn(T) -> bool) -> &'static mut [T] {
-    unsafe {
-        let mut len = 0;
-        if !ptr.is_null() {
-            loop {
-                if !valid(ptr.add(len).read()) {
-                    break;
-                }
-                len += 1;
-            }
-        }
-        core::slice::from_raw_parts_mut(ptr, len)
-    }
-}
-
-pub fn c2rust_buffer<T>(ptr: *mut T, count: usize) -> &'static mut [T] {
-    unsafe { core::slice::from_raw_parts_mut(ptr, count) }
-}
-
-pub fn c2rust_str(ptr: *const i8) -> &'static str {
-    if ptr.is_null() {
-        return "";
-    }
-    unsafe { CStr::from_ptr(ptr) }.to_str().unwrap()
-}
-
-pub fn c2rust_ref<T>(ptr: *mut T) -> &'static mut T {
-    unsafe { ptr.as_mut().unwrap() }
 }

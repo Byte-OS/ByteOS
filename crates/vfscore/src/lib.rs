@@ -48,6 +48,9 @@ bitflags::bitflags! {
     }
 }
 
+pub const UTIME_NOW: usize = 0x3fffffff;
+pub const UTIME_OMIT: usize = 0x3ffffffe;
+
 #[derive(Debug, Clone, Copy)]
 pub enum VfsError {
     NotLinkFile,
@@ -115,7 +118,7 @@ pub trait FileSystem: Send + Sync {
 pub type VfsResult<T> = core::result::Result<T, VfsError>;
 
 #[repr(C)]
-#[derive(Default, Clone, Copy)]
+#[derive(Default, Clone, Copy, Debug)]
 pub struct TimeSpec {
     pub sec: usize,  /* 秒 */
     pub nsec: usize, /* 纳秒, 范围在0~999999999 */

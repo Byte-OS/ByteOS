@@ -3,10 +3,9 @@ use executor::current_task;
 use frame_allocator::ceil_div;
 use log::debug;
 
-use crate::syscall::{
-    c2rust_buffer,
-    consts::{from_vfs, MapFlags},
-};
+use crate::syscall::consts::from_vfs;
+use crate::syscall::consts::MapFlags;
+use crate::syscall::func::c2rust_buffer;
 
 use super::consts::LinuxError;
 
