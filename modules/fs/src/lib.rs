@@ -27,7 +27,9 @@ pub mod mount;
 pub mod pipe;
 
 pub type File = Arc<dyn INodeInterface>;
-pub use vfscore::{FileType, OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, VfsError};
+pub use vfscore::{
+    FileType, OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, VfsError, UTIME_NOW, UTIME_OMIT,
+};
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 
 pub fn build_devfs(filesystems: &Vec<Arc<dyn FileSystem>>) -> Arc<DevFS> {

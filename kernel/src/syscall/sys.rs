@@ -1,10 +1,8 @@
 use executor::current_task;
 use log::{debug, warn};
 
-use crate::syscall::{
-    c2rust_ref,
-    consts::{Rlimit, UTSname},
-};
+use crate::syscall::consts::{Rlimit, UTSname};
+use crate::syscall::func::c2rust_ref;
 
 use super::consts::LinuxError;
 

@@ -1,18 +1,14 @@
 use alloc::vec::Vec;
 use executor::current_task;
-use fs::{
-    mount::{open, umount},
-    pipe::create_pipe,
-    OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, WaitBlockingRead,
-};
+use fs::mount::{open, umount};
+use fs::pipe::create_pipe;
+use fs::{OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, WaitBlockingRead, UTIME_NOW};
 use log::debug;
 
-use crate::syscall::{
-    c2rust_buffer, c2rust_ref,
-    consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD},
-};
+use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
+use crate::syscall::func::{c2rust_buffer, c2rust_ref, c2rust_str, timespc_now};
 
-use super::{c2rust_str, consts::LinuxError};
+use super::consts::LinuxError;
 
 pub async fn sys_dup(fd: usize) -> Result<usize, LinuxError> {
     debug!("sys_dup3 @ fd_src: {}", fd);
@@ -115,7 +111,7 @@ pub async fn sys_unlinkat(dir_fd: usize, path: usize, flags: usize) -> Result<us
     let path = c2rust_str(path as *mut i8);
     debug!(
         "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
-        dir_fd, path, flags
+        dir_fd as isize, path, flags
     );
     let user_task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
@@ -384,6 +380,20 @@ pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, Linux
     }
 }
 
+/// information source: https://man7.org/linux/man-pages/man2/utimensat.2.html
+///
+/// Updated file timestamps are set to the greatest value supported
+/// by the filesystem that is not greater than the specified time.
+///
+/// If the tv_nsec field of one of the timespec structures has the
+/// special value UTIME_NOW, then the corresponding file timestamp is
+/// set to the current time.  If the tv_nsec field of one of the
+/// timespec structures has the special value UTIME_OMIT, then the
+/// corresponding file timestamp is left unchanged.  In both of these
+/// cases, the value of the corresponding tv_sec field is ignored.
+///
+/// If times is NULL, then both timestamps are set to the current
+/// time.
 pub async fn sys_utimensat(
     dir_fd: usize,
     path: usize,
@@ -394,8 +404,25 @@ pub async fn sys_utimensat(
         "sys_utimensat @ dir_fd: {}, path: {:#x}, times_ptr: {:#x}, flags: {}",
         dir_fd, path, times_ptr, flags
     );
-    let path = c2rust_str(path as *const i8);
-    let times = c2rust_buffer(times_ptr as *mut TimeSpec, 2);
+    // build times
+    let mut times = match times_ptr == 0 {
+        true => {
+            vec![timespc_now(), timespc_now()]
+        }
+        false => {
+            let ts = c2rust_buffer(times_ptr as *mut TimeSpec, 2);
+            let mut times = vec![];
+            for i in 0..2 {
+                if ts[i].nsec == UTIME_NOW {
+                    times.push(timespc_now());
+                } else {
+                    times.push(ts[i]);
+                }
+            }
+            times
+        }
+    };
+
     let user_task = current_task().as_user_task().unwrap();
 
     let dir = if dir_fd == AT_CWD {
@@ -404,9 +431,14 @@ pub async fn sys_utimensat(
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
     }?;
 
-    let file_path = format!("{}/{}", dir.path().map_err(from_vfs)?, path);
+    let file = if path == 0 {
+        dir
+    } else {
+        let path = c2rust_str(path as *const i8);
+        let file_path = format!("{}/{}", dir.path().map_err(from_vfs)?, path);
+        open(&file_path).map_err(from_vfs)?
+    };
 
-    let file = open(&file_path).map_err(from_vfs)?;
-    file.utimes(times).map_err(from_vfs)?;
+    file.utimes(&mut times).map_err(from_vfs)?;
     Ok(0)
 }

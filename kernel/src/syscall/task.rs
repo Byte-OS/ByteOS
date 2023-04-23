@@ -1,5 +1,5 @@
-use crate::syscall::c2rust_ref;
 use crate::syscall::consts::{elf, from_vfs};
+use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
 use crate::tasks::elf::ElfExtra;
 use crate::tasks::WaitPid;
 use alloc::collections::BTreeMap;
@@ -14,8 +14,7 @@ use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use log::debug;
 
-use super::c2rust_buffer;
-use super::{c2rust_list, c2rust_str, consts::LinuxError};
+use super::consts::LinuxError;
 
 extern "Rust" {
     fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync>;

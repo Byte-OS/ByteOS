@@ -53,14 +53,13 @@ async fn run_libc_test() -> bool {
         // "./runtest.exe -w entry-static.exe pthread_tsd",
         // "./runtest.exe -w entry-static.exe setjmp",
         // "./runtest.exe -w entry-static.exe socket",
-        "./runtest.exe -w entry-static.exe utime",
         // "./runtest.exe -w entry-static.exe pthread_robust_detach",
         // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
         // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
         // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
         // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
-        // "./runtest.exe -w entry-static.exe sigprocmask_internal",
+        "./runtest.exe -w entry-static.exe sigprocmask_internal",
     ];
 
     for i in commands {
@@ -166,10 +165,10 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
-    // command("busybox sh").await;
+    command("runtest.exe -w entry-static.exe utime").await;
     // command("busybox ls").await;
     // command("busybox sh busybox_testcode.sh").await;
-    run_libc_test().await;
+    // run_libc_test().await;
 
     // simple command shell.
     // let mut buffer = Vec::new();

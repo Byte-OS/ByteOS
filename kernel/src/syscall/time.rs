@@ -10,7 +10,7 @@ use executor::{current_task, TMS};
 use fs::TimeSpec;
 use log::debug;
 
-use crate::syscall::c2rust_ref;
+use crate::syscall::func::c2rust_ref;
 
 use super::consts::LinuxError;
 
