@@ -9,7 +9,7 @@ use alloc::{format, string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
     DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, Stat,
-    VfsError, VfsResult,
+    TimeSpec, VfsError, VfsResult,
 };
 
 pub struct RamFs {
@@ -51,6 +51,7 @@ pub struct RamFileInner {
     name: String,
     content: Mutex<Vec<u8>>,
     dir_path: String,
+    times: Mutex<[TimeSpec; 3]>, // ctime, atime, mtime.
 }
 
 pub enum FileContainer {
@@ -112,6 +113,7 @@ impl INodeInterface for RamDir {
             name: String::from(name),
             content: Mutex::new(Vec::new()),
             dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
+            times: Mutex::new([Default::default(); 3]),
         });
 
         let new_file = Arc::new(RamFile {
@@ -243,6 +245,8 @@ impl INodeInterface for RamDir {
         stat.blksize = 512;
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
+        stat.mtime = Default::default();
+        stat.atime = Default::default();
         Ok(())
     }
 }
@@ -332,6 +336,15 @@ impl INodeInterface for RamFile {
         stat.blksize = 512;
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
+
+        stat.mtime = self.inner.times.lock()[1];
+        stat.atime = self.inner.times.lock()[2];
+        Ok(())
+    }
+
+    fn utimes(&self, times: &mut [vfscore::TimeSpec]) -> VfsResult<()> {
+        self.inner.times.lock()[1] = times[0];
+        self.inner.times.lock()[2] = times[1];
         Ok(())
     }
 }

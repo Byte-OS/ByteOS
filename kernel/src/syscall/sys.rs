@@ -84,3 +84,7 @@ pub async fn sys_getgid() -> Result<usize, LinuxError> {
 pub async fn sys_getuid() -> Result<usize, LinuxError> {
     Ok(1000)
 }
+
+pub async fn sys_getpgid() -> Result<usize, LinuxError> {
+    Ok(1000)
+}

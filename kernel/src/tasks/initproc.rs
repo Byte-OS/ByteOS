@@ -166,10 +166,10 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
-    command("busybox sh").await;
+    // command("busybox sh").await;
     // command("busybox ls").await;
     // command("busybox sh busybox_testcode.sh").await;
-    // run_libc_test().await;
+    run_libc_test().await;
 
     // simple command shell.
     // let mut buffer = Vec::new();

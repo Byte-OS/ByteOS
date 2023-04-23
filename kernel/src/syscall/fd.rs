@@ -3,13 +3,13 @@ use executor::current_task;
 use fs::{
     mount::{open, umount},
     pipe::create_pipe,
-    OpenFlags, SeekFrom, Stat, StatFS, WaitBlockingRead,
+    OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, WaitBlockingRead,
 };
 use log::debug;
 
 use crate::syscall::{
     c2rust_buffer, c2rust_ref,
-    consts::{from_vfs, IoVec, AT_CWD},
+    consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD},
 };
 
 use super::{c2rust_str, consts::LinuxError};
@@ -34,6 +34,7 @@ pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, 
         "sys_read @ fd: {} buf_ptr: {:#x} count: {}",
         fd as isize, buf_ptr, count
     );
+
     let mut buffer = c2rust_buffer(buf_ptr as *mut u8, count);
     let file = current_task()
         .as_user_task()
@@ -377,5 +378,35 @@ pub async fn sys_ioctl(
 pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
     debug!("fcntl: fd: {}, cmd: {:#x}, arg: {}", fd, cmd, arg);
 
+    match cmd {
+        fcntl_cmd::DUPFD_CLOEXEC => sys_dup(fd).await,
+        _ => Err(LinuxError::EPERM),
+    }
+}
+
+pub async fn sys_utimensat(
+    dir_fd: usize,
+    path: usize,
+    times_ptr: usize,
+    flags: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_utimensat @ dir_fd: {}, path: {:#x}, times_ptr: {:#x}, flags: {}",
+        dir_fd, path, times_ptr, flags
+    );
+    let path = c2rust_str(path as *const i8);
+    let times = c2rust_buffer(times_ptr as *mut TimeSpec, 2);
+    let user_task = current_task().as_user_task().unwrap();
+
+    let dir = if dir_fd == AT_CWD {
+        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)
+    } else {
+        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
+    }?;
+
+    let file_path = format!("{}/{}", dir.path().map_err(from_vfs)?, path);
+
+    let file = open(&file_path).map_err(from_vfs)?;
+    file.utimes(times).map_err(from_vfs)?;
     Ok(0)
 }

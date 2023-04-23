@@ -369,7 +369,7 @@ impl UserTask {
                     new_task.map(
                         x.tracker.0,
                         x.vpn,
-                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X,
+                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X | PTEFlags::W,
                     );
                 }
                 _ => {}

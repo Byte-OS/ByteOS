@@ -147,7 +147,7 @@ impl LinuxError {
 pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
     match vfs_error {
         VfsError::NotLinkFile => LinuxError::EBADF,
-        VfsError::NotDir => LinuxError::EBADF,
+        VfsError::NotDir => LinuxError::ENOTDIR,
         VfsError::NotFile => LinuxError::EBADF,
         VfsError::NotSupported => LinuxError::EPERM,
         VfsError::FileNotFound => LinuxError::ENOENT,
@@ -207,6 +207,7 @@ pub const SYS_SIGPROCMASK: usize = 135;
 pub const SYS_SIGTIMEDWAIT: usize = 137;
 pub const SYS_SIGRETURN: usize = 139;
 pub const SYS_TIMES: usize = 153;
+pub const SYS_GETPGID: usize = 155;
 pub const SYS_UNAME: usize = 160;
 pub const SYS_GETRUSAGE: usize = 165;
 pub const SYS_GETTIMEOFDAY: usize = 169;
@@ -309,6 +310,28 @@ pub mod elf {
     pub const AT_EXECFN: usize = 31;
     pub const AT_SYSINFO: usize = 32;
     pub const AT_SYSINFO_EHDR: usize = 33;
+}
+
+#[allow(unused)]
+pub mod fcntl_cmd {
+    /// dup
+    pub const DUPFD: usize = 0;
+    /// get close_on_exec
+    pub const GETFD: usize = 1;
+    /// set/clear close_on_exec
+    pub const SETFD: usize = 2;
+    /// get file->f_flags
+    pub const GETFL: usize = 3;
+    /// set file->f_flags
+    pub const SETFL: usize = 4;
+    /// Get record locking info.
+    pub const GETLK: usize = 5;
+    /// Set record locking info (non-blocking).
+    pub const SETLK: usize = 6;
+    /// Set record locking info (blocking).
+    pub const SETLKW: usize = 7;
+    /// like F_DUPFD, but additionally set the close-on-exec flag
+    pub const DUPFD_CLOEXEC: usize = 0x406;
 }
 
 #[repr(C)]
