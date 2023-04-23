@@ -115,7 +115,7 @@ pub trait FileSystem: Send + Sync {
 pub type VfsResult<T> = core::result::Result<T, VfsError>;
 
 #[repr(C)]
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct TimeSpec {
     pub sec: usize,  /* 秒 */
     pub nsec: usize, /* 纳秒, 范围在0~999999999 */
@@ -260,6 +260,10 @@ pub trait INodeInterface: Send + Sync {
     }
 
     fn getdents(&self, _buffer: &mut [u8]) -> VfsResult<usize> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn utimes(&self, _times: &mut [TimeSpec]) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 }
