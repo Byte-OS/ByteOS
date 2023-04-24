@@ -1,4 +1,4 @@
-use crate::syscall::consts::{elf, from_vfs};
+use crate::syscall::consts::{elf, from_vfs, CloneFlags};
 use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
 use crate::tasks::elf::ElfExtra;
 use crate::tasks::WaitPid;
@@ -81,20 +81,10 @@ pub async fn sys_execve(
         "sys_execve @ filename: {} args: {:?}: envp: {:?}",
         filename, args, envp
     );
-    // let b = user_entry();
-    // let task = UserTask::new(async {
-    //     let t = unsafe { user_entry() };
-    //     Pin::from(value)
-    // });
-    // let task = UserTask::new(unsafe { user_entry() }, Some(current_task()));
+
     let task = current_task().as_user_task().unwrap();
     exec_with_process(task.clone(), filename, args).await?;
-    // thread::spawn(task.clone());
     Ok(0)
-}
-
-pub async fn sys_getpid() -> Result<usize, LinuxError> {
-    Ok(current_task().get_task_id())
 }
 
 pub async fn exec_with_process<'a>(
@@ -104,8 +94,6 @@ pub async fn exec_with_process<'a>(
 ) -> Result<Arc<dyn AsyncTask>, LinuxError> {
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
-    // let mut args = vec![String::from(path)];
-    // args.extend(args_v.iter().map(|x| String::from(*x)));
 
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
@@ -114,7 +102,6 @@ pub async fn exec_with_process<'a>(
         ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8,
         file_size,
     );
-    // let mut buffer = vec![0u8; file.metadata().unwrap().size];
     let rsize = file.read(&mut buffer).map_err(from_vfs)?;
 
     assert_eq!(rsize, file_size);
@@ -258,15 +245,20 @@ pub async fn sys_clone(
     tls: usize,   // TLS线程本地存储描述符
     ctid: usize,  // 子线程 id
 ) -> Result<usize, LinuxError> {
+    let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
-        "sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+        "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {:#x}, tls: {:#x}, ctid: {:#x}",
         flags, stack, ptid, tls, ctid
     );
     let curr_task = current_task().as_user_task().unwrap();
-    debug!("sepc: {:#x}", curr_task.inner_map(|x| x.cx.sepc()));
+
     let new_task = curr_task.fork(unsafe { user_entry() });
     if stack != 0 {
         new_task.inner.lock().cx.set_sp(stack);
+    }
+    // set tls.
+    if flags.contains(CloneFlags::CLONE_SETTLS) {
+        new_task.inner.lock().cx.set_tls(tls);
     }
     Ok(new_task.task_id)
 }
@@ -304,6 +296,35 @@ pub async fn sys_sched_yield() -> Result<usize, LinuxError> {
     Ok(0)
 }
 
+/// 对于每个线程，内核维护着两个属性(地址)，分别称为set_child_tid和clear_child_tid。默认情况下，这两个属性包含值NULL。
+
+/// set_child_tid
+/// 如果使用带有CLONE_CHILD_SETTID标志的clone(2)启动线程，则set_child_tid设置为该系统调用的ctid参数中传递的值。
+/// 设置set_child_tid时，新线程要做的第一件事就是在该地址写入其线程ID。
+/// clear_child_tid
+/// 如果使用带有CLONE_CHILD_CLEARTID标志的clone(2)启动线程，则clear_child_tid设置为该系统调用的ctid参数中传递的值。
+/// 系统调用set_tid_address()将调用线程的clear_child_tid值设置为tidptr。
+
+// 当clear_child_tid不为NULL的线程终止时，如果该线程与其他线程共享内存，则将0写入clear_child_tid中指定的地址，并且内核执行以下操作：
+
+// futex(clear_child_tid，FUTEX_WAKE，1 , NULL，NULL，0);
+
+// 此操作的效果是唤醒正在执行内存位置上的futex等待的单个线程。来自futex唤醒操作的错误将被忽略。
+pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
+    // information source: https://www.onitroad.com/jc/linux/man-pages/linux/man2/set_tid_address.2.html
+
+    debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
+    let tid = c2rust_ref(tid_ptr as *mut u32);
+    *tid = current_task().get_task_id() as u32;
+    Ok(current_task().get_task_id())
+}
+
+/// sys_getpid() 获取进程 id
+pub async fn sys_getpid() -> Result<usize, LinuxError> {
+    Ok(current_task().get_task_id())
+}
+
+/// sys_getppid() 获取父进程 id
 pub async fn sys_getppid() -> Result<usize, LinuxError> {
     debug!("sys_getppid @ ");
     current_task()
@@ -315,13 +336,7 @@ pub async fn sys_getppid() -> Result<usize, LinuxError> {
         .ok_or(LinuxError::EPERM)
 }
 
-pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
-    debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
-    let tid = c2rust_ref(tid_ptr as *mut u32);
-    *tid = current_task().get_task_id() as u32;
-    Ok(current_task().get_task_id())
-}
-
+/// sys_gettid() 获取线程 id.
 pub async fn sys_gettid() -> Result<usize, LinuxError> {
     debug!("sys_gettid @ ");
     Ok(current_task().get_task_id())

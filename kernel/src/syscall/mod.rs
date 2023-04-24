@@ -17,17 +17,18 @@ use self::{
         SYS_EXIT, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID,
         SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETTID, SYS_GETTIME,
         SYS_GETTIMEOFDAY, SYS_GETUID, SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT,
-        SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PREAD, SYS_PRLIMIT64, SYS_READ,
-        SYS_READV, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES,
-        SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PREAD, SYS_PRLIMIT64,
+        SYS_READ, SYS_READV, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK,
+        SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT,
+        SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
         sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_pread, sys_read, sys_readv,
         sys_statfs, sys_umount2, sys_unlinkat, sys_utimensat, sys_write, sys_writev,
     },
-    mm::{sys_brk, sys_mmap, sys_munmap},
-    signal::sys_sigtimedwait,
+    mm::{sys_brk, sys_mmap, sys_mprotect, sys_munmap},
+    signal::{sys_sigaction, sys_sigprocmask, sys_sigtimedwait},
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_uname,
     },
@@ -127,6 +128,9 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         }
         SYS_FCNTL => sys_fcntl(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_UTIMEAT => sys_utimensat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_SIGPROCMASK => sys_sigprocmask(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_SIGACTION => sys_sigaction(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_MPROTECT => sys_mprotect(args[0] as _, args[1] as _, args[2] as _).await,
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

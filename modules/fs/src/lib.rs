@@ -22,6 +22,7 @@ extern crate alloc;
 #[macro_use]
 extern crate logging;
 
+mod cache;
 mod fatfs_shim;
 pub mod mount;
 pub mod pipe;
@@ -83,6 +84,8 @@ pub fn init() {
     }
 
     mount::init();
+
+    cache::init();
 }
 
 pub fn get_filesystem(id: usize) -> &'static Arc<dyn FileSystem> {

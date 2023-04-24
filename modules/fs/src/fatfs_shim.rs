@@ -13,7 +13,8 @@ use vfscore::{
     VfsError, VfsResult,
 };
 
-use crate::mount::open_mount;
+use crate::cache::{cache_read, cached};
+use crate::mount::{open_mount, rebuild_path};
 
 pub trait DiskOperation {
     fn read_block(index: usize, buf: &mut [u8]);
@@ -94,15 +95,22 @@ impl INodeInterface for FatFile {
         let mut inner = self.inner.lock();
         let offset = inner.offset;
         let len = inner.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
-        inner
-            .inner
-            .seek(SeekFrom::Start(offset as u64))
-            .map_err(as_vfs_err)?;
-        let rlen = min(buffer.len(), len as usize - inner.offset);
-        inner
-            .inner
-            .read_exact(&mut buffer[..rlen])
-            .map_err(as_vfs_err)?;
+        // read cached file.
+        let rlen = match cached(&self.path()?) {
+            true => cache_read(&self.path()?, buffer, offset),
+            false => {
+                inner
+                    .inner
+                    .seek(SeekFrom::Start(offset as u64))
+                    .map_err(as_vfs_err)?;
+                let rlen = min(buffer.len(), len as usize - inner.offset);
+                inner
+                    .inner
+                    .read_exact(&mut buffer[..rlen])
+                    .map_err(as_vfs_err)?;
+                rlen
+            }
+        };
         inner.offset += rlen;
         Ok(rlen)
     }
@@ -148,7 +156,10 @@ impl INodeInterface for FatFile {
 
     fn path(&self) -> VfsResult<String> {
         let mount_path = self.fs.path.as_ref().clone();
-        Ok(format!("{}{}/{}", mount_path, self.dir_path, self.filename))
+        Ok(rebuild_path(&format!(
+            "{}{}/{}",
+            mount_path, self.dir_path, self.filename
+        )))
     }
 
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
@@ -333,7 +344,10 @@ impl INodeInterface for FatDir {
 
     fn path(&self) -> VfsResult<String> {
         let mount_path = self.fs.path.as_ref().clone();
-        Ok(format!("{}{}/{}", mount_path, self.dir_path, self.filename))
+        Ok(rebuild_path(&format!(
+            "{}{}/{}",
+            mount_path, self.dir_path, self.filename
+        )))
     }
 
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {

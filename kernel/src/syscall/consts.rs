@@ -247,28 +247,65 @@ pub struct UTSname {
 }
 
 bitflags! {
-        // MAP Flags
-        #[derive(Debug)]
-        pub struct MapFlags: u32 {
-            const MAP_SHARED          =    0x01;
-            const MAP_PRIVATE         =    0x02;
-            const MAP_SHARED_VALIDATE =    0x03;
-            const MAP_TYPE            =    0x0f;
-            const MAP_FIXED           =    0x10;
-            const MAP_ANONYMOUS       =    0x20;
-            const MAP_NORESERVE       =    0x4000;
-            const MAP_GROWSDOWN       =    0x0100;
-            const MAP_DENYWRITE       =    0x0800;
-            const MAP_EXECUTABLE      =    0x1000;
-            const MAP_LOCKED          =    0x2000;
-            const MAP_POPULATE        =    0x8000;
-            const MAP_NONBLOCK        =    0x10000;
-            const MAP_STACK           =    0x20000;
-            const MAP_HUGETLB         =    0x40000;
-            const MAP_SYNC            =    0x80000;
-            const MAP_FIXED_NOREPLACE =    0x100000;
-            const MAP_FILE            =    0;
-        }
+    // MAP Flags
+    #[derive(Debug)]
+    pub struct MapFlags: u32 {
+        const MAP_SHARED          =    0x01;
+        const MAP_PRIVATE         =    0x02;
+        const MAP_SHARED_VALIDATE =    0x03;
+        const MAP_TYPE            =    0x0f;
+        const MAP_FIXED           =    0x10;
+        const MAP_ANONYMOUS       =    0x20;
+        const MAP_NORESERVE       =    0x4000;
+        const MAP_GROWSDOWN       =    0x0100;
+        const MAP_DENYWRITE       =    0x0800;
+        const MAP_EXECUTABLE      =    0x1000;
+        const MAP_LOCKED          =    0x2000;
+        const MAP_POPULATE        =    0x8000;
+        const MAP_NONBLOCK        =    0x10000;
+        const MAP_STACK           =    0x20000;
+        const MAP_HUGETLB         =    0x40000;
+        const MAP_SYNC            =    0x80000;
+        const MAP_FIXED_NOREPLACE =    0x100000;
+        const MAP_FILE            =    0;
+    }
+
+    #[derive(Debug)]
+    pub struct ProtFlags: u32 {
+        const PROT_NONE = 0;
+        const PROT_READ = 1;
+        const PROT_WRITE = 2;
+        const PROT_EXEC = 4;
+    }
+
+    #[derive(Debug)]
+    pub struct CloneFlags: usize {
+        const CSIGNAL		= 0x000000ff;
+        const CLONE_VM	    = 0x00000100;
+        const CLONE_FS	    = 0x00000200;
+        const CLONE_FILES	= 0x00000400;
+        const CLONE_SIGHAND	= 0x00000800;
+        const CLONE_PIDFD	= 0x00001000;
+        const CLONE_PTRACE	= 0x00002000;
+        const CLONE_VFORK	= 0x00004000;
+        const CLONE_PARENT	= 0x00008000;
+        const CLONE_THREAD	= 0x00010000;
+        const CLONE_NEWNS	= 0x00020000;
+        const CLONE_SYSVSEM	= 0x00040000;
+        const CLONE_SETTLS	= 0x00080000;
+        const CLONE_PARENT_SETTID	= 0x00100000;
+        const CLONE_CHILD_CLEARTID	= 0x00200000;
+        const CLONE_DETACHED	= 0x00400000;
+        const CLONE_UNTRACED	= 0x00800000;
+        const CLONE_CHILD_SETTID	= 0x01000000;
+        const CLONE_NEWCGROUP	= 0x02000000;
+        const CLONE_NEWUTS	= 0x04000000;
+        const CLONE_NEWIPC	= 0x08000000;
+        const CLONE_NEWUSER	= 0x10000000;
+        const CLONE_NEWPID	= 0x20000000;
+        const CLONE_NEWNET	= 0x40000000;
+        const CLONE_IO	    = 0x80000000;
+    }
 }
 
 #[repr(C)]
