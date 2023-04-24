@@ -5,6 +5,7 @@ use log::debug;
 
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MapFlags;
+use crate::syscall::consts::ProtFlags;
 use crate::syscall::func::c2rust_buffer;
 
 use super::consts::LinuxError;
@@ -79,5 +80,15 @@ pub async fn sys_munmap(start: usize, len: usize) -> Result<usize, LinuxError> {
         x.memset
             .drain_filter(|x| (start..start + len).contains(&x.vpn.to_addr()));
     });
+    Ok(0)
+}
+
+pub async fn sys_mprotect(start: usize, len: usize, prot: u32) -> Result<usize, LinuxError> {
+    let prot = ProtFlags::from_bits_truncate(prot);
+    debug!(
+        "sys_mprotect @ start: {:#x}, len: {:#x}, prot: {:?}",
+        start, len, prot
+    );
+    // Err(LinuxError::EPERM)
     Ok(0)
 }

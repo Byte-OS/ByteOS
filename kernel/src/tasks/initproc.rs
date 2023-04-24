@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+#![allow(unused_imports)]
 use alloc::{
     string::{String, ToString},
     vec::Vec,
@@ -48,7 +50,7 @@ fn clear() {
 async fn run_libc_test() -> bool {
     let commands = [
         // "./runtest.exe -w entry-static.exe pthread_cancel_points",
-        // "./runtest.exe -w entry-static.exe pthread_cancel",
+        "./runtest.exe -w entry-static.exe pthread_cancel",
         // "./runtest.exe -w entry-static.exe pthread_cond",
         // "./runtest.exe -w entry-static.exe pthread_tsd",
         // "./runtest.exe -w entry-static.exe setjmp",
@@ -59,7 +61,7 @@ async fn run_libc_test() -> bool {
         // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
         // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
-        "./runtest.exe -w entry-static.exe sigprocmask_internal",
+        // "./runtest.exe -w entry-static.exe sigprocmask_internal",
     ];
 
     for i in commands {
@@ -160,15 +162,19 @@ pub async fn command(cmd: &str) -> bool {
 
 pub async fn initproc() {
     // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    // for (i, x) in names.split('\n').filter(|x| !x.contains("pthread")).enumerate() {
+    // for (i, x) in names
+    //     .split('\n')
+    //     .filter(|x| !x.contains("pthread"))
+    //     .enumerate()
+    // {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
 
-    command("runtest.exe -w entry-static.exe utime").await;
     // command("busybox ls").await;
     // command("busybox sh busybox_testcode.sh").await;
-    // run_libc_test().await;
+    run_libc_test().await;
+    // run_all().await;
 
     // simple command shell.
     // let mut buffer = Vec::new();

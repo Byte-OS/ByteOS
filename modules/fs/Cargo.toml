@@ -13,6 +13,8 @@ devices = { path = "../devices" }
 logging = { path = "../logging" }
 devfs = { path = "../devfs" }
 ramfs = { path = "../ramfs" }
+frame_allocator = { path = "../frame_allocator" }
+arch = { path = "../../arch" }
 
 [dependencies.fatfs]
 git = "https://github.com/yfblock/rust-fatfs.git"

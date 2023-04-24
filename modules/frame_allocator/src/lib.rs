@@ -117,6 +117,7 @@ impl FrameRegionMap {
     /// 申请多个空闲页, 空闲页是连续的
     ///
     /// pages: usize 要申请的页表数量
+    #[allow(unused_assignments)]
     pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
         // TODO: alloc more than 64?;
         // 优化本函数

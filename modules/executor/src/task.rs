@@ -9,6 +9,7 @@ use devfs::{Stdin, Stdout};
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::{File, SeekFrom};
 use log::debug;
+use signal::{SigAction, SigProcMask};
 use sync::{Mutex, MutexGuard};
 
 use crate::{task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
@@ -144,6 +145,8 @@ pub struct TaskInner {
     pub children: Vec<Arc<UserTask>>,
     pub tms: TMS,
     pub rlimits: Vec<usize>,
+    pub sigmask: SigProcMask,
+    pub sigaction: Arc<Mutex<SigAction>>,
 }
 
 #[allow(dead_code)]
@@ -192,6 +195,8 @@ impl UserTask {
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
+            sigmask: SigProcMask::new(),
+            sigaction: Arc::new(Mutex::new(SigAction::new())),
         };
 
         Arc::new(Self {
