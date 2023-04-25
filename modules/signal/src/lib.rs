@@ -78,8 +78,8 @@ impl SigProcMask {
 
     pub fn handle(&mut self, how: SigMaskHow, mask: &Self) {
         self.mask = match how {
-            SigMaskHow::Block => self.mask & (!mask.mask),
-            SigMaskHow::Unblock => self.mask | mask.mask,
+            SigMaskHow::Block => self.mask | mask.mask,
+            SigMaskHow::Unblock => self.mask & (!mask.mask),
             SigMaskHow::Setmask => mask.mask,
         }
     }

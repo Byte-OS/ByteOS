@@ -1,7 +1,7 @@
 use crate::syscall::consts::{elf, from_vfs, CloneFlags};
 use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
 use crate::tasks::elf::ElfExtra;
-use crate::tasks::WaitPid;
+use crate::tasks::{WaitFutex, WaitPid, FUTEX_TABLE};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -14,7 +14,7 @@ use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use log::debug;
 
-use super::consts::LinuxError;
+use super::consts::{FutexFlags, LinuxError};
 
 extern "Rust" {
     fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync>;
@@ -252,13 +252,39 @@ pub async fn sys_clone(
     );
     let curr_task = current_task().as_user_task().unwrap();
 
-    let new_task = curr_task.fork(unsafe { user_entry() });
+    let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
+        true => curr_task.clone().thread_clone(unsafe { user_entry() }),
+        false => curr_task.clone().fork(unsafe { user_entry() }),
+    };
+    let set_child_tid = flags
+        .contains(CloneFlags::CLONE_CHILD_SETTID)
+        .then_some(ctid)
+        .unwrap_or(0);
+
+    let clear_child_tid = flags
+        .contains(CloneFlags::CLONE_CHILD_CLEARTID)
+        .then_some(ctid)
+        .unwrap_or(0);
+
+    new_task.inner_map(|mut inner| {
+        inner.clear_child_tid = clear_child_tid;
+        inner.set_child_tid = set_child_tid;
+    });
+
     if stack != 0 {
         new_task.inner.lock().cx.set_sp(stack);
     }
     // set tls.
     if flags.contains(CloneFlags::CLONE_SETTLS) {
         new_task.inner.lock().cx.set_tls(tls);
+    }
+    if ptid != 0 {
+        let ptid = c2rust_ref(ptid as *mut usize);
+        *ptid = new_task.get_task_id();
+    }
+    if ctid != 0 {
+        let ptid = c2rust_ref(ctid as *mut usize);
+        *ptid = new_task.get_task_id();
     }
     Ok(new_task.task_id)
 }
@@ -314,6 +340,10 @@ pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
     // information source: https://www.onitroad.com/jc/linux/man-pages/linux/man2/set_tid_address.2.html
 
     debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
+    current_task()
+        .as_user_task()
+        .unwrap()
+        .inner_map(|mut inner| inner.clear_child_tid = tid_ptr);
     let tid = c2rust_ref(tid_ptr as *mut u32);
     *tid = current_task().get_task_id() as u32;
     Ok(current_task().get_task_id())
@@ -337,7 +367,62 @@ pub async fn sys_getppid() -> Result<usize, LinuxError> {
 }
 
 /// sys_gettid() 获取线程 id.
+/// need to write correct clone and thread_clone for pthread.
 pub async fn sys_gettid() -> Result<usize, LinuxError> {
     debug!("sys_gettid @ ");
     Ok(current_task().get_task_id())
+}
+
+pub async fn sys_futex(
+    uaddr_ptr: usize,
+    op: usize,
+    value: i32,
+    value2: usize,
+    value3: usize,
+) -> Result<usize, LinuxError> {
+    let op = if op >= 0x80 { op - 0x80 } else { op };
+    debug!(
+        "sys_futex @ uaddr: {:#x} op: {} value: {:#x}, value1: {:#x}, value2: {:#x}",
+        uaddr_ptr, op, value, value2, value3
+    );
+    let uaddr = c2rust_ref(uaddr_ptr as *mut i32);
+    let flags = FutexFlags::try_from(op).map_err(|_| LinuxError::EINVAL)?;
+    debug!(
+        "sys_futex @ uaddr: {} flags: {:?} value: {}",
+        uaddr, flags, value
+    );
+
+    match flags {
+        FutexFlags::Wait => {
+            if *uaddr == value {
+                let mut table = FUTEX_TABLE.lock();
+                match table.get_mut(&uaddr_ptr) {
+                    Some(t) => *t += 1,
+                    None => {
+                        table.insert(uaddr_ptr, 1);
+                    }
+                }
+                drop(table);
+                // FUTEX_TABLE.lock().get_mut(&uaddr_ptr).map(|x| *x += 1);
+                WaitFutex(uaddr_ptr).await;
+                // yield_now().await;
+                // return Err(LinuxError::EAGAIN);
+            }
+            Ok(0)
+        }
+        FutexFlags::Wake => {
+            let count = if let Some(t) = FUTEX_TABLE.lock().remove(&uaddr_ptr) {
+                debug!("sys_futex wake {}", t);
+                t
+            } else {
+                0
+            };
+            yield_now().await;
+            Ok(count)
+        }
+        FutexFlags::Requeue => todo!(),
+        _ => {
+            return Err(LinuxError::EPERM);
+        }
+    }
 }

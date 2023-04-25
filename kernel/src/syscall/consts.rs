@@ -3,6 +3,7 @@
 
 use bitflags::bitflags;
 use fs::VfsError;
+use num_enum::TryFromPrimitive;
 
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -306,6 +307,18 @@ bitflags! {
         const CLONE_NEWNET	= 0x40000000;
         const CLONE_IO	    = 0x80000000;
     }
+}
+
+#[derive(Debug, TryFromPrimitive)]
+#[repr(usize)]
+pub enum FutexFlags {
+    Wait = 0,
+    Wake = 1,
+    Requeue = 3,
+    FutexWakeOp = 5,
+    LockPi = 6,
+    UnlockPi = 7,
+    Private = 0x80,
 }
 
 #[repr(C)]
