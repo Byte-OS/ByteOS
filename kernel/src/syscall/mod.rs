@@ -14,13 +14,13 @@ use log::warn;
 use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
-        SYS_EXIT, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID,
-        SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETTID, SYS_GETTIME,
-        SYS_GETTIMEOFDAY, SYS_GETUID, SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT,
-        SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PREAD, SYS_PRLIMIT64,
-        SYS_READ, SYS_READV, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK,
-        SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT,
-        SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_EXIT, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS,
+        SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETTID,
+        SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP,
+        SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PREAD,
+        SYS_PRLIMIT64, SYS_READ, SYS_READV, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS, SYS_SIGACTION,
+        SYS_SIGPROCMASK, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_UMOUNT2, SYS_UNAME,
+        SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
@@ -33,7 +33,7 @@ use self::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_uname,
     },
     task::{
-        sys_chdir, sys_clone, sys_execve, sys_exit, sys_getcwd, sys_getpid, sys_getppid,
+        sys_chdir, sys_clone, sys_execve, sys_exit, sys_futex, sys_getcwd, sys_getpid, sys_getppid,
         sys_gettid, sys_sched_yield, sys_set_tid_address, sys_wait4,
     },
     time::{sys_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
@@ -131,6 +131,16 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_SIGPROCMASK => sys_sigprocmask(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_SIGACTION => sys_sigaction(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_MPROTECT => sys_mprotect(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_FUTEX => {
+            sys_futex(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+            )
+            .await
+        }
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

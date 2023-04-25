@@ -81,6 +81,7 @@ bitflags! {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {

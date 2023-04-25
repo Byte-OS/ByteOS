@@ -66,6 +66,7 @@ const FD_NONE: Option<File> = Option::None;
 
 // pub struct FileTable(pub [Option<File>; FILE_MAX]);
 
+#[derive(Clone)]
 pub struct FileTable(pub Vec<Option<File>>);
 
 impl FileTable {
@@ -147,6 +148,8 @@ pub struct TaskInner {
     pub rlimits: Vec<usize>,
     pub sigmask: SigProcMask,
     pub sigaction: Arc<Mutex<SigAction>>,
+    pub set_child_tid: usize,
+    pub clear_child_tid: usize,
 }
 
 #[allow(dead_code)]
@@ -197,6 +200,8 @@ impl UserTask {
             rlimits: rlimits_new(),
             sigmask: SigProcMask::new(),
             sigaction: Arc::new(Mutex::new(SigAction::new())),
+            set_child_tid: 0,
+            clear_child_tid: 0,
         };
 
         Arc::new(Self {
@@ -323,6 +328,18 @@ impl UserTask {
 
     #[inline]
     pub fn exit(&self, exit_code: usize) {
+        let uaddr = self.inner.lock().clear_child_tid;
+        if uaddr != 0 {
+            extern "Rust" {
+                fn futex_wake(uaddr: usize);
+            }
+            debug!("write addr: {:#x}", uaddr);
+            let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
+            unsafe {
+                (paddr_c(addr).addr() as *mut i32).write(0);
+                futex_wake(uaddr);
+            }
+        }
         self.inner.lock().exit_code = Some(exit_code);
         FUTURE_LIST.lock().remove(&self.task_id);
     }
@@ -379,6 +396,48 @@ impl UserTask {
                 }
                 _ => {}
             });
+
+        thread::spawn(new_task.clone());
+        new_task
+    }
+
+    #[inline]
+    pub fn thread_clone(
+        self: Arc<Self>,
+        future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
+    ) -> Arc<Self> {
+        // Give the frame_tracker in the memset a type.
+        // it will contains the frame used for page mapping、
+        // mmap or text section.
+        // and then we can implement COW(copy on write).
+        let task_id = task_id_alloc();
+        let inner = self.inner.lock();
+        let mut new_inner = TaskInner {
+            memset: inner.memset.clone(),
+            cx: inner.cx.clone(),
+            fd_table: inner.fd_table.clone(),
+            exit_code: None,
+            curr_dir: inner.curr_dir.clone(),
+            heap: inner.heap,
+            children: inner.children.clone(),
+            entry: 0,
+            tms: Default::default(),
+            rlimits: rlimits_new(),
+            sigmask: inner.sigmask.clone(),
+            sigaction: inner.sigaction.clone(),
+            set_child_tid: 0,
+            clear_child_tid: 0,
+        };
+
+        new_inner.cx.set_ret(0);
+
+        let new_task = Arc::new(Self {
+            page_table: self.page_table.clone(),
+            task_id,
+            parent: Some(self.clone()),
+            inner: Mutex::new(new_inner),
+        });
+        FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 
         thread::spawn(new_task.clone());
         new_task

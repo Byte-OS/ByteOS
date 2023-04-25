@@ -49,19 +49,21 @@ fn clear() {
 
 async fn run_libc_test() -> bool {
     let commands = [
+        // "./runtest.exe -w entry-static.exe socket",
+
         // "./runtest.exe -w entry-static.exe pthread_cancel_points",
         "./runtest.exe -w entry-static.exe pthread_cancel",
         // "./runtest.exe -w entry-static.exe pthread_cond",
-        // "./runtest.exe -w entry-static.exe pthread_tsd",
-        // "./runtest.exe -w entry-static.exe setjmp",
-        // "./runtest.exe -w entry-static.exe socket",
         // "./runtest.exe -w entry-static.exe pthread_robust_detach",
         // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
         // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
+
+        // "./runtest.exe -w entry-static.exe pthread_tsd",
         // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
+        // "./runtest.exe -w entry-static.exe sigprocmask_internal",
         // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
-        // "./runtest.exe -w entry-static.exe sigprocmask_internal",
+        // "./runtest.exe -w entry-static.exe setjmp",
     ];
 
     for i in commands {
