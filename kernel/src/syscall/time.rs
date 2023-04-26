@@ -33,16 +33,22 @@ pub async fn sys_gettimeofday(tv_ptr: usize, timezone_ptr: usize) -> Result<usiz
 }
 
 pub async fn sys_nanosleep(req_ptr: usize, rem_ptr: usize) -> Result<usize, LinuxError> {
+    debug!(
+        "nano sleep @ req_ptr: {:#x}, rem_ptr: {:#x}",
+        req_ptr, rem_ptr
+    );
     let ns = RTC_DEVICES.lock()[0].read() as usize;
     let req = c2rust_ref(req_ptr as *mut TimeSpec);
-    let rem = c2rust_ref(rem_ptr as *mut TimeSpec);
     debug!(
         "sys_nanosleep @ req_ptr: {:#x}, req: {:#x}",
         req_ptr, rem_ptr
     );
     WaitNsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
-    rem.nsec = 0;
-    rem.sec = 0;
+    if rem_ptr != 0 {
+        let rem = c2rust_ref(rem_ptr as *mut TimeSpec);
+        rem.nsec = 0;
+        rem.sec = 0;
+    }
 
     Ok(0)
 }

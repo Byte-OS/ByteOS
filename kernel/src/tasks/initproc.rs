@@ -57,12 +57,14 @@ async fn run_libc_test() -> bool {
         // "./runtest.exe -w entry-static.exe pthread_robust_detach",
         // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
         // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
-        "./runtest.exe -w entry-static.exe pthread_tsd",
+
+        // "./runtest.exe -w entry-static.exe pthread_tsd",
         // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
         // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
         // "./runtest.exe -w entry-static.exe sigprocmask_internal",
         // "./runtest.exe -w entry-static.exe setjmp",
+        "./runtest.exe -w entry-dynamic.exe env",
     ];
 
     for i in commands {
