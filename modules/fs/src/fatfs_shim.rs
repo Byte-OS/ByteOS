@@ -167,8 +167,8 @@ impl INodeInterface for FatFile {
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = 0o777; // TODO: add access mode
         stat.nlink = 1;
-        stat.uid = 1000;
-        stat.gid = 1000;
+        stat.uid = 0;
+        stat.gid = 0;
         stat.size = self.metadata().unwrap().size as u64;
         stat.blksize = 512;
         stat.blocks = self.metadata().unwrap().size as u64 / 512;
@@ -355,8 +355,8 @@ impl INodeInterface for FatDir {
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = 0o40000; // TODO: add access mode
         stat.nlink = 1;
-        stat.uid = 1000;
-        stat.gid = 1000;
+        stat.uid = 0;
+        stat.gid = 0;
         stat.size = 0;
         stat.blksize = 512;
         stat.blocks = 0;

@@ -359,6 +359,9 @@ impl UserTask {
 
         new_task.inner.lock().cx.clone_from(&self.inner.lock().cx);
         new_task.inner.lock().cx.set_ret(0);
+        new_task.inner_map(|mut inner| {
+            inner.curr_dir = self.inner.lock().curr_dir.clone();
+        });
         self.inner.lock().children.push(new_task.clone());
         self.inner
             .lock()

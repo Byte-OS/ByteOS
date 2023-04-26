@@ -184,10 +184,10 @@ pub async fn exec_with_process<'a>(
     auxv.insert(elf::AT_ENTRY, base + entry_point);
     auxv.insert(elf::AT_PHENT, elf_header.pt2.ph_entry_size() as usize);
     auxv.insert(elf::AT_PHDR, base + elf.get_ph_addr().unwrap_or(0) as usize);
-    auxv.insert(elf::AT_GID, 1000);
-    auxv.insert(elf::AT_EGID, 1000);
-    auxv.insert(elf::AT_UID, 1000);
-    auxv.insert(elf::AT_EUID, 1000);
+    auxv.insert(elf::AT_GID, 0);
+    auxv.insert(elf::AT_EGID, 0);
+    auxv.insert(elf::AT_UID, 0);
+    auxv.insert(elf::AT_EUID, 0);
     auxv.insert(elf::AT_SECURE, 0);
     auxv.insert(elf::AT_RANDOM, random_ptr);
 
@@ -278,14 +278,15 @@ pub async fn sys_clone(
     if flags.contains(CloneFlags::CLONE_SETTLS) {
         new_task.inner.lock().cx.set_tls(tls);
     }
-    if ptid != 0 {
+    if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
         let ptid = c2rust_ref(ptid as *mut usize);
         *ptid = new_task.get_task_id();
     }
-    if ctid != 0 {
+    if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
         let ptid = c2rust_ref(ctid as *mut usize);
         *ptid = new_task.get_task_id();
     }
+    yield_now().await;
     Ok(new_task.task_id)
 }
 
@@ -299,7 +300,14 @@ pub async fn sys_wait4(
         pid, status, options
     );
     let curr_task = current_task().as_user_task().unwrap();
+
+    // return LinuxError::ECHILD if there has no child process.
+    if curr_task.inner_map(|inner| inner.children.len()) == 0 {
+        return Err(LinuxError::ECHILD);
+    }
+
     let child_task = WaitPid(curr_task.clone(), pid).await;
+    debug!("wait ok: {}", child_task.get_task_id());
     curr_task
         .inner
         .lock()

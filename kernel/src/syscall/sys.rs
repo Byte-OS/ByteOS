@@ -68,21 +68,21 @@ pub async fn sys_prlimit64(
 }
 
 pub async fn sys_geteuid() -> Result<usize, LinuxError> {
-    Ok(1000)
+    Ok(0)
 }
 
 pub async fn sys_getegid() -> Result<usize, LinuxError> {
-    Ok(1000)
+    Ok(0)
 }
 
 pub async fn sys_getgid() -> Result<usize, LinuxError> {
-    Ok(1000)
+    Ok(0)
 }
 
 pub async fn sys_getuid() -> Result<usize, LinuxError> {
-    Ok(1000)
+    Ok(0)
 }
 
 pub async fn sys_getpgid() -> Result<usize, LinuxError> {
-    Ok(1000)
+    Ok(0)
 }
