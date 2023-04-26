@@ -6,13 +6,14 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{ppn_c, ContextOps, VirtPage, PAGE_SIZE};
+use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
 use executor::{current_task, yield_now, AsyncTask, MemType};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use log::debug;
+use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError};
 
@@ -83,17 +84,18 @@ pub async fn sys_execve(
     );
 
     let task = current_task().as_user_task().unwrap();
-    exec_with_process(task.clone(), filename, args).await?;
+    exec_with_process(task.clone(), filename, args)?;
     Ok(0)
 }
 
-pub async fn exec_with_process<'a>(
+pub fn exec_with_process<'a>(
     task: Arc<dyn AsyncTask>,
     path: &'a str,
     args: Vec<&'a str>,
 ) -> Result<Arc<dyn AsyncTask>, LinuxError> {
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
+    debug!("exec: {:?}", args);
 
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
@@ -119,18 +121,19 @@ pub async fn exec_with_process<'a>(
     // WARRNING: this convert async task to user task.
     let user_task = task.clone().as_user_task().unwrap();
 
-    // // check if it is libc, dlopen, it needs recurit.
-    // let header = elf
-    //     .program_iter()
-    //     .find(|ph| ph.get_type() == Ok(Type::Interp));
-    // if let Some(header) = header {
-    //     if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
-    //         let path = "libc.so";
-    //         let mut new_args = vec![path];
-    //         new_args.extend_from_slice(&args[..]);
-    //         return exec_with_process(task, path, new_args).await;
-    //     }
-    // }
+    // check if it is libc, dlopen, it needs recurit.
+    let header = elf
+        .program_iter()
+        .find(|ph| ph.get_type() == Ok(Type::Interp));
+    if let Some(header) = header {
+        drop(frame_ppn);
+        if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
+            let path = "libc.so";
+            let mut new_args = vec![path];
+            args.iter().for_each(|x| new_args.push(x));
+            return exec_with_process(task, path, new_args);
+        }
+    }
 
     // get heap_bottom, TODO: align 4096
     // brk is expanding the data section.
@@ -148,17 +151,22 @@ pub async fn exec_with_process<'a>(
         .map(|ph| ph.virtual_addr())
         .unwrap_or(0);
 
-    let base = 0;
+    let base = 0x20000000;
+
+    let (base, relocated_arr) = match elf.relocate(base) {
+        Ok(arr) => (base, arr),
+        Err(_) => (0, vec![]),
+    };
+
     // map stack
     user_task.frame_alloc_much(VirtPage::from_addr(0x7fffe000), MemType::Stack, 2);
-    // user_task.frame_alloc(VirtPage::from_addr(0x7ffff000), MemType::Stack);
-    debug!("entry: {:#x}", entry_point);
+    debug!("entry: {:#x}", base + entry_point);
     user_task.inner_map(|mut inner| {
         inner.heap = heap_bottom as usize;
-        inner.entry = entry_point;
+        inner.entry = base + entry_point;
         inner.cx.clear();
         inner.cx.set_sp(0x8000_0000); // stack top;
-        inner.cx.set_sepc(entry_point);
+        inner.cx.set_sepc(base + entry_point);
         inner.cx.set_tls(tls as usize);
     });
 
@@ -216,7 +224,7 @@ pub async fn exec_with_process<'a>(
             let file_size = ph.file_size() as usize;
             let mem_size = ph.mem_size() as usize;
             let offset = ph.offset() as usize;
-            let virt_addr = ph.virtual_addr() as usize;
+            let virt_addr = base + ph.virtual_addr() as usize;
             let vpn = virt_addr / PAGE_SIZE;
 
             let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
@@ -235,6 +243,14 @@ pub async fn exec_with_process<'a>(
             page_space.copy_from_slice(&buffer[offset..offset + file_size]);
         });
 
+    if base > 0 {
+        relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
+            debug!("addr: {:#X} value: {:#x}", addr, value);
+            (paddr_c(user_task.page_table.virt_to_phys(VirtAddr::from(addr))).addr() as *mut usize)
+                .write(value);
+        })
+    }
+
     Ok(task)
 }
 
@@ -245,6 +261,7 @@ pub async fn sys_clone(
     tls: usize,   // TLS线程本地存储描述符
     ctid: usize,  // 子线程 id
 ) -> Result<usize, LinuxError> {
+    debug!("{:#X}", flags);
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
         "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {:#x}, tls: {:#x}, ctid: {:#x}",
@@ -256,10 +273,6 @@ pub async fn sys_clone(
         true => curr_task.clone().thread_clone(unsafe { user_entry() }),
         false => curr_task.clone().fork(unsafe { user_entry() }),
     };
-    let set_child_tid = flags
-        .contains(CloneFlags::CLONE_CHILD_SETTID)
-        .then_some(ctid)
-        .unwrap_or(0);
 
     let clear_child_tid = flags
         .contains(CloneFlags::CLONE_CHILD_CLEARTID)
@@ -268,7 +281,7 @@ pub async fn sys_clone(
 
     new_task.inner_map(|mut inner| {
         inner.clear_child_tid = clear_child_tid;
-        inner.set_child_tid = set_child_tid;
+        // inner.set_child_tid = set_child_tid;
     });
 
     if stack != 0 {
@@ -279,14 +292,12 @@ pub async fn sys_clone(
         new_task.inner.lock().cx.set_tls(tls);
     }
     if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
-        let ptid = c2rust_ref(ptid as *mut usize);
-        *ptid = new_task.get_task_id();
+        *c2rust_ref(ptid as *mut u32) = new_task.get_task_id() as _;
     }
     if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
-        let ptid = c2rust_ref(ctid as *mut usize);
-        *ptid = new_task.get_task_id();
+        *c2rust_ref(ctid as *mut u32) = new_task.get_task_id() as _;
     }
-    yield_now().await;
+    // yield_now().await;
     Ok(new_task.task_id)
 }
 
@@ -352,8 +363,6 @@ pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
         .as_user_task()
         .unwrap()
         .inner_map(|mut inner| inner.clear_child_tid = tid_ptr);
-    let tid = c2rust_ref(tid_ptr as *mut u32);
-    *tid = current_task().get_task_id() as u32;
     Ok(current_task().get_task_id())
 }
 
@@ -411,12 +420,11 @@ pub async fn sys_futex(
                     }
                 }
                 drop(table);
-                // FUTEX_TABLE.lock().get_mut(&uaddr_ptr).map(|x| *x += 1);
                 WaitFutex(uaddr_ptr).await;
-                // yield_now().await;
-                // return Err(LinuxError::EAGAIN);
+                Ok(0)
+            } else {
+                Err(LinuxError::EAGAIN)
             }
-            Ok(0)
         }
         FutexFlags::Wake => {
             let count = if let Some(t) = FUTEX_TABLE.lock().remove(&uaddr_ptr) {

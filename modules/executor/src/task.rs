@@ -336,7 +336,7 @@ impl UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
-                (paddr_c(addr).addr() as *mut i32).write(0);
+                (paddr_c(addr).addr() as *mut u32).write(0);
                 futex_wake(uaddr);
             }
         }

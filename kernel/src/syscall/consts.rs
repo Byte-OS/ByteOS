@@ -314,11 +314,14 @@ bitflags! {
 pub enum FutexFlags {
     Wait = 0,
     Wake = 1,
+    Fd = 2,
     Requeue = 3,
-    FutexWakeOp = 5,
+    CmpRequeue = 4,
+    WakeOp = 5,
     LockPi = 6,
     UnlockPi = 7,
-    Private = 0x80,
+    TrylockPi = 8,
+    WaitBitset = 9,
 }
 
 #[repr(C)]
