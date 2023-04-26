@@ -223,7 +223,6 @@ pub async fn sys_fstatat(
         .map_err(from_vfs)?
         .stat(stat)
         .map_err(from_vfs)?;
-
     Ok(0)
 }
 

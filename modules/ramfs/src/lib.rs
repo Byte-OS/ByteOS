@@ -3,12 +3,15 @@
 
 extern crate alloc;
 
-use core::cmp::{self, min};
+use core::{
+    cmp::{self, min},
+    mem::size_of,
+};
 
 use alloc::{format, string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, Stat,
+    DirEntry, Dirent, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, Stat,
     TimeSpec, VfsError, VfsResult, UTIME_OMIT,
 };
 
@@ -32,6 +35,7 @@ impl FileSystem for RamFs {
         Arc::new(RamDir {
             inner: self.root.clone(),
             mi,
+            dents_off: Mutex::new(0),
         })
     }
 
@@ -71,6 +75,7 @@ impl FileContainer {
             FileContainer::Dir(dir) => Arc::new(RamDir {
                 inner: dir.clone(),
                 mi,
+                dents_off: Mutex::new(0),
             }),
         }
     }
@@ -87,6 +92,7 @@ impl FileContainer {
 pub struct RamDir {
     inner: Arc<RamDirInner>,
     mi: MountedInfo,
+    dents_off: Mutex<usize>,
 }
 
 impl INodeInterface for RamDir {
@@ -148,6 +154,7 @@ impl INodeInterface for RamDir {
         let new_dir = Arc::new(RamDir {
             inner: new_inner.clone(),
             mi: self.mi.clone(),
+            dents_off: Mutex::new(0),
         });
 
         self.inner
@@ -237,10 +244,10 @@ impl INodeInterface for RamDir {
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.dev = self.mi.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = 0; // TODO: add access mode
+        stat.mode = 0o40000; // TODO: add access mode
         stat.nlink = 1;
-        stat.uid = 1000;
-        stat.gid = 1000;
+        stat.uid = 0;
+        stat.gid = 0;
         stat.size = 0;
         stat.blksize = 512;
         stat.blocks = 0;
@@ -248,6 +255,47 @@ impl INodeInterface for RamDir {
         stat.mtime = Default::default();
         stat.atime = Default::default();
         Ok(())
+    }
+
+    fn getdents(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+        let buf_ptr = buffer.as_mut_ptr() as usize;
+        let len = buffer.len();
+        let mut ptr: usize = buf_ptr;
+        let mut finished = 0;
+        for (i, x) in self
+            .inner
+            .children
+            .lock()
+            .iter()
+            .enumerate()
+            .skip(*self.dents_off.lock())
+        {
+            let filename = x.filename();
+            let file_bytes = filename.as_bytes();
+            let current_len = size_of::<Dirent>() + file_bytes.len() + 1;
+            if len - (ptr - buf_ptr) < current_len {
+                break;
+            }
+
+            // let dirent = c2rust_ref(ptr as *mut Dirent);
+            let dirent: &mut Dirent = unsafe { (ptr as *mut Dirent).as_mut() }.unwrap();
+
+            dirent.ino = 0;
+            dirent.off = current_len as i64;
+            dirent.reclen = current_len as u16;
+
+            dirent.ftype = 0; // 0 ftype is file
+
+            let buffer = unsafe {
+                core::slice::from_raw_parts_mut(dirent.name.as_mut_ptr(), file_bytes.len() + 1)
+            };
+            buffer[..file_bytes.len()].copy_from_slice(file_bytes);
+            buffer[file_bytes.len()] = b'\0';
+            ptr = ptr + current_len;
+            finished = i + 1;
+        }
+        *self.dents_off.lock() = finished;
+        Ok(ptr - buf_ptr)
     }
 }
 
@@ -330,8 +378,8 @@ impl INodeInterface for RamFile {
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = 0; // TODO: add access mode
         stat.nlink = 1;
-        stat.uid = 1000;
-        stat.gid = 1000;
+        stat.uid = 0;
+        stat.gid = 0;
         stat.size = self.inner.content.lock().len() as u64;
         stat.blksize = 512;
         stat.blocks = 0;
