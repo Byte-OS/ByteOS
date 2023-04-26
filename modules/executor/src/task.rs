@@ -495,6 +495,10 @@ impl UserTask {
                 .lock()
                 .memset
                 .iter()
+                .filter(|x| match x.mem_type {
+                    MemType::Stack => false,
+                    _ => true,
+                })
                 .fold(0, |acc, x| match x.vpn.to_addr() > acc {
                     true => x.vpn.to_addr(),
                     false => acc,

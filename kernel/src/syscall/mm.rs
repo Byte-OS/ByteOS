@@ -38,8 +38,14 @@ pub async fn sys_mmap(
     let file = user_task.get_fd(fd);
     // let file = user_task.inner_map(|x| x.fd_table.get(fd).clone());
 
+    let addr = user_task.get_last_free_addr();
+
     let addr = if start == 0 {
-        user_task.get_last_free_addr()
+        if usize::from(addr) >= 0x4000_0000 {
+            addr
+        } else {
+            VirtAddr::from(0x4000_0000)
+        }
     } else {
         VirtAddr::new(start)
     };
@@ -52,22 +58,21 @@ pub async fn sys_mmap(
             executor::MemType::Shared(file.clone(), addr.into(), len),
             (len + PAGE_SIZE - 1) / PAGE_SIZE,
         );
-
-        let mut buffer = c2rust_buffer(usize::from(addr) as *mut u8, len);
-
-        if let Some(file) = file {
-            let offset = file.seek(fs::SeekFrom::CURRENT(0)).map_err(from_vfs)?;
-            file.seek(fs::SeekFrom::SET(0)).map_err(from_vfs)?;
-            let len = file.read(&mut buffer).map_err(from_vfs)?;
-            file.seek(fs::SeekFrom::SET(offset)).map_err(from_vfs)?;
-            debug!("read len: {}", len);
-        }
     } else {
         user_task.frame_alloc_much(
             VirtPage::from_addr(addr.into()),
-            executor::MemType::Shared(file.clone(), addr.into(), len),
+            executor::MemType::CodeSection,
             ceil_div(len, PAGE_SIZE),
         );
+    }
+    let mut buffer = c2rust_buffer(usize::from(addr) as *mut u8, len);
+
+    if let Some(file) = file {
+        let offset = file.seek(fs::SeekFrom::CURRENT(0)).map_err(from_vfs)?;
+        file.seek(fs::SeekFrom::SET(off)).map_err(from_vfs)?;
+        let len = file.read(&mut buffer).map_err(from_vfs)?;
+        file.seek(fs::SeekFrom::SET(offset)).map_err(from_vfs)?;
+        debug!("read len: {:#x}", len);
     }
     Ok(addr.into())
 }
