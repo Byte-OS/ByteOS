@@ -8,15 +8,20 @@ use crate::FILESYSTEMS;
 pub static MOUNTS: Mutex<BTreeMap<String, MountedInfo>> = Mutex::new(BTreeMap::new());
 
 pub fn init() {
-    for (i, fs) in FILESYSTEMS.iter().enumerate() {
-        match fs.name() {
-            "fat32" => mount(String::from("/"), i).expect("can't mount to /"),
-            "ramfs" => mount(String::from("/tmp"), i).expect("can't mount to /ramfs"),
-            "devfs" => mount(String::from("/dev"), i).expect("can't mount to /dev"),
-            "procfs" => mount(String::from("/proc"), i).expect("can't mount to /procfs"),
-            fs => warn!("unsupport fs: {}", fs),
-        };
-    }
+    // for (i, fs) in FILESYSTEMS.iter().enumerate() {
+    //     debug!("mount {}", i);
+    //     match fs.name() {
+    //         "fat32" => mount(String::from("/"), i).expect("can't mount to /"),
+    //         "ramfs" => mount(String::from("/tmp"), i).expect("can't mount to /tmp"),
+    //         "devfs" => mount(String::from("/dev"), i).expect("can't mount to /dev"),
+    //         "procfs" => mount(String::from("/proc"), i).expect("can't mount to /procfs"),
+    //         fs => warn!("unsupport fs: {}", fs),
+    //     };
+    // }
+    mount(String::from("/"), 0).expect("can't mount to /");
+    mount(String::from("/dev"), 1).expect("can't mount to /dev");
+    mount(String::from("/tmp"), 2).expect("can't mount to /tmp");
+    mount(String::from("/lib"), 3).expect("can't mount to /lib");
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
@@ -58,13 +63,18 @@ pub fn rebuild_path(path: &str) -> String {
             .join("/")
 }
 
+#[no_mangle]
 pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
     let path = rebuild_path(path);
     debug!("open @ {}", path);
 
     let mps = MOUNTS.lock().clone();
     for (mount_point, mi) in mps.iter().rev() {
-        if path.starts_with(mount_point) {
+        if path.starts_with(mount_point)
+            && (mount_point == "/"
+                || path.len() == mount_point.len()
+                || path.chars().nth(mount_point.len()) == Some('/'))
+        {
             let folder = FILESYSTEMS[mi.fs_id].root_dir(mi.clone());
             return path[mount_point.len()..]
                 .trim()
@@ -81,6 +91,7 @@ pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
 }
 
 pub fn open_mount(path: &str) -> Option<Arc<dyn INodeInterface>> {
+    debug!("open mount: {}", path);
     let mps = MOUNTS.lock().clone();
     for (mount_point, mi) in mps.iter().rev() {
         if mount_point == path {

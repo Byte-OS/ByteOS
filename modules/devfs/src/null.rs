@@ -1,4 +1,4 @@
-use vfscore::{INodeInterface, Stat, VfsResult};
+use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
 
 pub struct Null;
 
@@ -15,7 +15,7 @@ impl INodeInterface for Null {
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = 0o20000; // TODO: add access mode
+        stat.mode = StatMode::CHAR; // TODO: add access mode
         stat.nlink = 1;
         stat.uid = 1000;
         stat.gid = 1000;

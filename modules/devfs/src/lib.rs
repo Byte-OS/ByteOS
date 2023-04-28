@@ -13,7 +13,8 @@ use alloc::{
 };
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent, FileSystem, FileType, INodeInterface, MountedInfo, VfsError, VfsResult,
+    DirEntry, Dirent, FileSystem, FileType, INodeInterface, MountedInfo, StatMode, VfsError,
+    VfsResult,
 };
 
 mod null;
@@ -107,7 +108,7 @@ impl INodeInterface for DevDirContainer {
     fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = 0o40000; // TODO: add access mode
+        stat.mode = StatMode::DIR; // TODO: add access mode
         stat.nlink = 1;
         stat.uid = 0;
         stat.gid = 0;

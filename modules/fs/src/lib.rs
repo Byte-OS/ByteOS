@@ -13,7 +13,7 @@ use devices::get_blk_devices;
 use mount::umount;
 use ramfs::RamFs;
 use sync::LazyInit;
-use vfscore::{FileSystem, INodeInterface, MountedInfo, VfsResult};
+use vfscore::{DirEntry, FileSystem, INodeInterface, MountedInfo, VfsResult};
 
 use crate::{fatfs_shim::Fat32FileSystem, mount::mount};
 
@@ -63,6 +63,7 @@ pub fn init() {
     // filesystems.push(DevFS::new());
     filesystems.push(build_devfs(&filesystems));
     filesystems.push(RamFs::new());
+    filesystems.push(RamFs::new());
 
     FILESYSTEMS.init_by(filesystems);
 
@@ -73,6 +74,7 @@ pub fn init() {
         let fatfs = get_filesystem(0).root_dir(MountedInfo::default());
         fatfs.mkdir("dev").expect("can't create devfs dir");
         fatfs.mkdir("tmp").expect("can't create devfs dir");
+        fatfs.mkdir("lib").expect("can't create devfs dir");
 
         // create tets file in ramfs
         get_filesystem(2)
@@ -81,6 +83,25 @@ pub fn init() {
             .expect("can't create file in ramfs")
             .write(b"test data")
             .expect("can't create file in ramfs/newfile.txt");
+
+        let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
+
+        let so_files: Vec<DirEntry> = rootfs
+            .read_dir()
+            .expect("can't read files")
+            .into_iter()
+            .filter(|x| x.filename.ends_with("dso.so"))
+            .collect();
+
+        let lib_fs = get_filesystem(3).root_dir(MountedInfo::default());
+
+        for file in so_files {
+            rootfs
+                .link(&file.filename[3..], &format!("/{}", file.filename))
+                .expect("can't link file");
+            // lib_fs.link(&file.filename[3..], &format!("/{}", file.filename)).expect("can't link file");
+            // lib_fs.link(&file.filename, &format!("/{}", file.filename)).expect("can't link file");
+        }
     }
 
     mount::init();

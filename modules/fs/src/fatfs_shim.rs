@@ -10,7 +10,7 @@ use log::debug;
 use sync::Mutex;
 use vfscore::{
     DirEntry, Dirent, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS,
-    VfsError, VfsResult,
+    StatMode, VfsError, VfsResult,
 };
 
 use crate::cache::{cache_read, cached};
@@ -165,7 +165,7 @@ impl INodeInterface for FatFile {
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.dev = self.fs.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = 0o777; // TODO: add access mode
+        stat.mode = StatMode::FILE; // TODO: add access mode
         stat.nlink = 1;
         stat.uid = 0;
         stat.gid = 0;
@@ -353,7 +353,7 @@ impl INodeInterface for FatDir {
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.dev = self.fs.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = 0o40000; // TODO: add access mode
+        stat.mode = StatMode::DIR; // TODO: add access mode
         stat.nlink = 1;
         stat.uid = 0;
         stat.gid = 0;
@@ -418,6 +418,32 @@ impl INodeInterface for FatDir {
         }
         *self.dents_off.lock() = finished;
         Ok(ptr - buf_ptr)
+    }
+
+    fn link(&self, name: &str, src: &str) -> VfsResult<()> {
+        self.inner
+            .open_file(name)
+            .map_or(Ok(()), |_| Err(VfsError::AlreadyExists))?;
+        let mut src = self
+            .inner
+            .open_file(src)
+            .map_err(|_| VfsError::FileNotFound)?;
+        let mut buffer = vec![0u8; 512];
+        let mut dst = self
+            .inner
+            .create_file(name)
+            .map_err(|_| VfsError::AlreadyExists)?;
+        loop {
+            if let Ok(len) = src.read(&mut buffer) {
+                if len == 0 {
+                    break;
+                }
+                dst.write(&buffer[..len]).map_err(as_vfs_err)?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
     }
 }
 

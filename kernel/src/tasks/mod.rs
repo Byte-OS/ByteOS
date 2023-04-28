@@ -49,6 +49,7 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
             let result = syscall(call_number, args)
                 .await
                 .map_or_else(|e| -e.code(), |x| x as isize) as usize;
+            debug!("syscall result: {:#X?}", result);
             cx_ref.set_ret(result);
         }
         arch::TrapType::Time => {
