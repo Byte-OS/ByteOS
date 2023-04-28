@@ -64,7 +64,8 @@ async fn run_libc_test() -> bool {
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
         // "./runtest.exe -w entry-static.exe sigprocmask_internal",
         // "./runtest.exe -w entry-static.exe setjmp",
-        "./runtest.exe -w entry-dynamic.exe env",
+        "./runtest.exe -w entry-dynamic.exe dlopen",
+        // "./runtest.exe -w entry-dynamic.exe tls_get_new_dtv",
     ];
 
     for i in commands {
@@ -163,6 +164,46 @@ pub async fn command(cmd: &str) -> bool {
     false
 }
 
+pub async fn simple_shell() {
+    // simple command shell.
+    let mut buffer = Vec::new();
+    let mut new_line = true;
+    loop {
+        if new_line {
+            print!("> ");
+            new_line = false;
+        }
+        let c = console_getchar();
+        if c as i8 != -1 {
+            match c as u8 {
+                CR | LF => {
+                    print!("\n");
+                    let sign = command(&String::from_utf8_lossy(&buffer).to_string()).await;
+                    if sign {
+                        break;
+                    }
+                    buffer.clear();
+                    new_line = true;
+                }
+                BS | DL => {
+                    if buffer.len() > 0 {
+                        buffer.pop();
+                        console_putchar(BS);
+                        console_putchar(SPACE);
+                        console_putchar(BS);
+                    }
+                }
+                0..30 => {}
+                _ => {
+                    buffer.push(c as u8);
+                    console_putchar(c as u8);
+                }
+            }
+        }
+        yield_now().await;
+    }
+}
+
 pub async fn initproc() {
     // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
     // for (i, x) in names
@@ -174,46 +215,20 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
+    // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
+    // for (i, x) in names
+    //     .split('\n')
+    //     .filter(|x| !x.contains("pthread") && !x.contains("dlopen") && !x.contains("tls"))
+    //     .enumerate()
+    // {
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
+    // }
+
     // command("busybox sh").await;
     // command("busybox sh busybox_testcode.sh").await;
     run_libc_test().await;
     // run_all().await;
 
-    // simple command shell.
-    // let mut buffer = Vec::new();
-    // let mut new_line = true;
-    // loop {
-    //     if new_line {
-    //         print!("> ");
-    //         new_line = false;
-    //     }
-    //     let c = console_getchar();
-    //     if c as i8 != -1 {
-    //         match c as u8 {
-    //             CR | LF => {
-    //                 print!("\n");
-    //                 let sign = command(&String::from_utf8_lossy(&buffer).to_string()).await;
-    //                 if sign {
-    //                     break;
-    //                 }
-    //                 buffer.clear();
-    //                 new_line = true;
-    //             }
-    //             BS | DL => {
-    //                 if buffer.len() > 0 {
-    //                     buffer.pop();
-    //                     console_putchar(BS);
-    //                     console_putchar(SPACE);
-    //                     console_putchar(BS);
-    //                 }
-    //             }
-    //             0..30 => {}
-    //             _ => {
-    //                 buffer.push(c as u8);
-    //                 console_putchar(c as u8);
-    //             }
-    //         }
-    //     }
-    //     yield_now().await;
-    // }
+    // simple_shell().await;
 }

@@ -368,23 +368,24 @@ impl UserTask {
             .memset
             .iter()
             .for_each(|x| match &x.mem_type {
-                MemType::Stack => {
+                // 后面再考虑 copy on write 的问题.
+                MemType::Stack | MemType::CodeSection | MemType::Clone => {
                     new_task
                         .frame_alloc(x.vpn, x.mem_type.clone())
                         .copy_value_from_another(x.tracker.0);
                 }
-                MemType::CodeSection => {
-                    new_task.inner.lock().memset.push(MemTrack {
-                        mem_type: MemType::Clone,
-                        vpn: x.vpn,
-                        tracker: x.tracker.clone(),
-                    });
-                    new_task.map(
-                        x.tracker.0,
-                        x.vpn,
-                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X,
-                    );
-                }
+                // MemType::CodeSection | MemType::Clone => {
+                //     new_task.inner.lock().memset.push(MemTrack {
+                //         mem_type: MemType::Clone,
+                //         vpn: x.vpn,
+                //         tracker: x.tracker.clone(),
+                //     });
+                //     new_task.map(
+                //         x.tracker.0,
+                //         x.vpn,
+                //         PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X,
+                //     );
+                // }
                 MemType::Shared(file, start, len) => {
                     new_task.inner.lock().memset.push(MemTrack {
                         mem_type: MemType::Shared(file.clone(), *start, *len),
