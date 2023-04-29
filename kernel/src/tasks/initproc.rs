@@ -231,4 +231,6 @@ pub async fn initproc() {
     // run_all().await;
 
     // simple_shell().await;
+    // command("helloworld").await;
+    // command("filelist").await;
 }
