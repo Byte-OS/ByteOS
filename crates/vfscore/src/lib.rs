@@ -209,7 +209,7 @@ pub struct StatFS {
 }
 
 #[repr(C)]
-pub struct Dirent {
+pub struct Dirent64 {
     pub ino: u64,      // 索引结点号
     pub off: i64,      // 到下一个dirent的偏移
     pub reclen: u16,   // 当前dirent的长度

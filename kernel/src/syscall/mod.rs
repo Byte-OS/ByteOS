@@ -18,14 +18,16 @@ use self::{
         SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETTID,
         SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP,
         SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL,
-        SYS_PREAD, SYS_PRLIMIT64, SYS_READ, SYS_READV, SYS_SCHED_YIELD, SYS_SET_TID_ADDRESS,
-        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_PREAD, SYS_PRLIMIT64, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD,
+        SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGTIMEDWAIT, SYS_STATFS,
+        SYS_TIMES, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
+        SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
-        sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_pread, sys_read, sys_readv,
-        sys_statfs, sys_umount2, sys_unlinkat, sys_utimensat, sys_write, sys_writev,
+        sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_pread, sys_read,
+        sys_readlinkat, sys_readv, sys_statfs, sys_umount2, sys_unlinkat, sys_utimensat, sys_write,
+        sys_writev,
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_munmap},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigtimedwait},
@@ -142,6 +144,9 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             .await
         }
         SYS_PPOLL => Ok(args[1]), // return request polls always.
+        SYS_READLINKAT => {
+            sys_readlinkat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
+        }
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

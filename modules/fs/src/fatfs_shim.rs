@@ -6,11 +6,12 @@ use alloc::sync::Arc;
 use devices::get_blk_device;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
+use frame_allocator::ceil_div;
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS,
-    StatMode, VfsError, VfsResult,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS,
+    StatMode, TimeSpec, VfsError, VfsResult,
 };
 
 use crate::cache::{cache_read, cached};
@@ -64,6 +65,7 @@ impl Fat32FileSystem {
 pub struct FatFileInner {
     offset: usize,
     inner: File<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
+    size: usize,
 }
 
 #[allow(dead_code)]
@@ -112,6 +114,9 @@ impl INodeInterface for FatFile {
             }
         };
         inner.offset += rlen;
+        if inner.offset > inner.size {
+            inner.size = inner.offset;
+        }
         Ok(rlen)
     }
 
@@ -119,28 +124,24 @@ impl INodeInterface for FatFile {
         let mut inner = self.inner.lock();
         inner.inner.write_all(buffer).map_err(as_vfs_err)?;
         inner.offset += buffer.len();
+        if inner.offset > inner.size {
+            inner.size = inner.offset;
+        }
         Ok(buffer.len())
     }
 
     fn flush(&self) -> VfsResult<()> {
         self.inner.lock().inner.flush().map_err(as_vfs_err)
-        // self.fs.upgrade().unwrap().flush()
     }
 
     fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        let mut inner = self.inner.lock();
-        let len = inner.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
-        let offset = inner.offset as u64;
-        inner
-            .inner
-            .seek(SeekFrom::Start(offset))
-            .map_err(as_vfs_err)?;
+        let inner = self.inner.lock();
 
         Ok(vfscore::Metadata {
             filename: &self.filename,
             inode: usize::MAX,
             file_type: FileType::File,
-            size: len as usize,
+            size: inner.size,
             childrens: usize::MAX,
         })
     }
@@ -224,6 +225,7 @@ impl INodeInterface for FatDir {
                     inner: Mutex::new(FatFileInner {
                         inner: file,
                         offset: 0,
+                        size: 0,
                     }),
                 })
             })
@@ -257,29 +259,6 @@ impl INodeInterface for FatDir {
             };
 
             return Ok(res);
-            // This is a temporary method for supporting mount
-            // 1. create a new dir as mount point
-            // 2. touch a .mount file with the target path at the folder
-            // use open to open mount point
-            // if dir.iter().count() == 0 {
-
-            // }
-            // return match dir.open_file(".mount") {
-            //     Ok(mut file) => {
-            //         let len = file.seek(SeekFrom::End(0)).unwrap_or(0);
-            //         file.seek(SeekFrom::Start(0)).expect("can't seek");
-            //         let mut buf = vec![0u8; len as usize];
-            //         file.read_exact(&mut buf).expect("can't read file");
-            //         let mount_point = String::from_utf8(buf).expect("can't conver path");
-            //         open(&mount_point)
-            //     }
-            //     Err(_) => Ok(Arc::new(FatDir {
-            //         dir_path: format!("{}/{}", self.dir_path, name),
-            //         filename: String::from(name),
-            //         fs: self.fs.clone(),
-            //         inner: file.to_dir(),
-            //     })),
-            // };
         };
 
         if file.is_file() {
@@ -290,6 +269,7 @@ impl INodeInterface for FatDir {
                 inner: Mutex::new(FatFileInner {
                     inner: file.to_file(),
                     offset: 0,
+                    size: file.len() as usize,
                 }),
             }));
         }
@@ -390,29 +370,34 @@ impl INodeInterface for FatDir {
             }
             let filename = x.file_name();
             let file_bytes = filename.as_bytes();
-            let current_len = size_of::<Dirent>() + file_bytes.len() + 1;
+            let current_len = ceil_div(size_of::<Dirent64>() + file_bytes.len() + 1, 8) * 8;
             if len - (ptr - buf_ptr) < current_len {
                 break;
             }
 
             // let dirent = c2rust_ref(ptr as *mut Dirent);
-            let dirent: &mut Dirent = unsafe { (ptr as *mut Dirent).as_mut() }.unwrap();
+            let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
 
-            dirent.ino = 0;
-            dirent.off = current_len as i64;
+            dirent.ino = 1;
+            dirent.off = 0;
+            // dirent.off = (ptr - buf_ptr) as i64;
             dirent.reclen = current_len as u16;
 
             if x.is_dir() {
-                dirent.ftype = 4;
+                dirent.ftype = 4; // DT_DIR
             } else {
-                dirent.ftype = 0;
+                dirent.ftype = 8; // DT_REF is 8
             }
 
             let buffer = unsafe {
-                core::slice::from_raw_parts_mut(dirent.name.as_mut_ptr(), file_bytes.len() + 1)
+                core::slice::from_raw_parts_mut(
+                    dirent.name.as_mut_ptr(),
+                    current_len - size_of::<Dirent64>(),
+                )
             };
             buffer[..file_bytes.len()].copy_from_slice(file_bytes);
-            buffer[file_bytes.len()] = b'\0';
+            buffer[file_bytes.len()..].fill(0);
+
             ptr = ptr + current_len;
             finished = i + 1;
         }

@@ -1,3 +1,5 @@
+use core::cmp;
+
 use alloc::vec::Vec;
 use executor::current_task;
 use fs::mount::{open, umount};
@@ -335,7 +337,8 @@ pub async fn sys_getdents64(fd: usize, buf_ptr: usize, len: usize) -> Result<usi
     let file = current_task().as_user_task().unwrap().get_fd(fd).unwrap();
 
     let buffer = c2rust_buffer(buf_ptr as *mut u8, len);
-    file.getdents(buffer).map_err(from_vfs)
+    let res = file.getdents(buffer).map_err(from_vfs);
+    res
 }
 
 pub fn sys_lseek(fd: usize, offset: usize, whence: usize) -> Result<usize, LinuxError> {
@@ -445,4 +448,39 @@ pub async fn sys_utimensat(
 
     file.utimes(&mut times).map_err(from_vfs)?;
     Ok(0)
+}
+
+pub async fn sys_readlinkat(
+    dir_fd: usize,
+    path: usize,
+    buffer: usize,
+    buffer_size: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_readlinkat @ dir_fd: {}, path: {:#x}, buffer: {:#x}, size: {}",
+        dir_fd, path, buffer, buffer_size
+    );
+    let filename = c2rust_str(path as *mut i8);
+    let buffer = c2rust_buffer(buffer as *mut u8, buffer_size);
+
+    let user_task = current_task().as_user_task().unwrap();
+
+    let dir = if dir_fd == AT_CWD {
+        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)
+    } else {
+        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
+    }?;
+
+    let file_path = open(&format!("{}/{}", dir.path().map_err(from_vfs)?, filename))
+        .map_err(from_vfs)?
+        .path()
+        .map_err(from_vfs)?;
+
+    let bytes = file_path.as_bytes();
+
+    let rlen = cmp::min(bytes.len(), buffer_size);
+
+    buffer[..rlen].copy_from_slice(&bytes[..rlen]);
+    debug!("sys_readlinkat: rlen: {}", rlen);
+    Ok(rlen)
 }
