@@ -36,7 +36,6 @@ pub async fn sys_mmap(
     );
     let user_task = current_task().as_user_task().unwrap();
     let file = user_task.get_fd(fd);
-    // let file = user_task.inner_map(|x| x.fd_table.get(fd).clone());
 
     let addr = user_task.get_last_free_addr();
 

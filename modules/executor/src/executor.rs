@@ -114,3 +114,11 @@ pub fn task_id_alloc() -> TaskId {
 pub fn current_task() -> Arc<dyn AsyncTask> {
     CURRENT_TASK.lock().as_ref().map(|x| x.clone()).unwrap()
 }
+
+pub fn current_user_task() -> Arc<UserTask> {
+    CURRENT_TASK
+        .lock()
+        .as_ref()
+        .map(|x| x.clone().as_user_task().unwrap())
+        .unwrap()
+}

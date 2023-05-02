@@ -1,15 +1,15 @@
 use crate::syscall::consts::{elf, from_vfs, CloneFlags};
 use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
 use crate::tasks::elf::ElfExtra;
-use crate::tasks::{WaitFutex, WaitPid, FUTEX_TABLE};
+use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid, FUTEX_TABLE};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
-use core::cmp;
 use core::future::Future;
-use executor::{current_task, yield_now, AsyncTask, MemType};
+use core::{cmp, task};
+use executor::{current_task, current_user_task, yield_now, AsyncTask, MemType};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use log::debug;
@@ -393,8 +393,9 @@ pub async fn sys_gettid() -> Result<usize, LinuxError> {
 pub async fn sys_futex(
     uaddr_ptr: usize,
     op: usize,
-    value: i32,
+    value: usize,
     value2: usize,
+    uaddr2: usize,
     value3: usize,
 ) -> Result<usize, LinuxError> {
     let op = if op >= 0x80 { op - 0x80 } else { op };
@@ -404,6 +405,7 @@ pub async fn sys_futex(
     );
     let uaddr = c2rust_ref(uaddr_ptr as *mut i32);
     let flags = FutexFlags::try_from(op).map_err(|_| LinuxError::EINVAL)?;
+    let user_task = current_user_task();
     debug!(
         "sys_futex @ uaddr: {} flags: {:?} value: {}",
         uaddr, flags, value
@@ -411,32 +413,27 @@ pub async fn sys_futex(
 
     match flags {
         FutexFlags::Wait => {
-            if *uaddr == value {
+            if *uaddr == value as i32 {
                 let mut table = FUTEX_TABLE.lock();
                 match table.get_mut(&uaddr_ptr) {
-                    Some(t) => *t += 1,
+                    Some(t) => t.push(user_task.task_id),
                     None => {
-                        table.insert(uaddr_ptr, 1);
+                        table.insert(uaddr_ptr, vec![user_task.task_id]);
                     }
                 }
                 drop(table);
-                WaitFutex(uaddr_ptr).await;
+                WaitFutex(user_task.task_id).await;
                 Ok(0)
             } else {
                 Err(LinuxError::EAGAIN)
             }
         }
         FutexFlags::Wake => {
-            let count = if let Some(t) = FUTEX_TABLE.lock().remove(&uaddr_ptr) {
-                debug!("sys_futex wake {}", t);
-                t
-            } else {
-                0
-            };
+            let count = futex_wake(uaddr_ptr, value);
             yield_now().await;
             Ok(count)
         }
-        FutexFlags::Requeue => todo!(),
+        FutexFlags::Requeue => Ok(futex_requeue(uaddr_ptr, value, uaddr2, value2)),
         _ => {
             return Err(LinuxError::EPERM);
         }
