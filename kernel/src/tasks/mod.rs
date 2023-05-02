@@ -13,7 +13,7 @@ mod async_ops;
 pub mod elf;
 mod initproc;
 
-pub use async_ops::{NextTick, WaitFutex, WaitPid, FUTEX_TABLE};
+pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, FUTEX_TABLE};
 
 #[no_mangle]
 // for avoiding the rust cycle check. user extern and nomangle

@@ -11,7 +11,7 @@ use log::debug;
 use sync::Mutex;
 use vfscore::{
     DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS,
-    StatMode, TimeSpec, VfsError, VfsResult,
+    StatMode, VfsError, VfsResult,
 };
 
 use crate::cache::{cache_read, cached};
@@ -96,7 +96,7 @@ impl INodeInterface for FatFile {
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
         let offset = inner.offset;
-        let len = inner.inner.seek(SeekFrom::End(0)).map_err(as_vfs_err)?;
+        let len = inner.size;
         // read cached file.
         let rlen = match cached(&self.path()?) {
             true => cache_read(&self.path()?, buffer, offset),
@@ -113,6 +113,7 @@ impl INodeInterface for FatFile {
                 rlen
             }
         };
+
         inner.offset += rlen;
         if inner.offset > inner.size {
             inner.size = inner.offset;
@@ -122,8 +123,10 @@ impl INodeInterface for FatFile {
 
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
+
         inner.inner.write_all(buffer).map_err(as_vfs_err)?;
         inner.offset += buffer.len();
+
         if inner.offset > inner.size {
             inner.size = inner.offset;
         }

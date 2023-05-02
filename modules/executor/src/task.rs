@@ -331,13 +331,13 @@ impl UserTask {
         let uaddr = self.inner.lock().clear_child_tid;
         if uaddr != 0 {
             extern "Rust" {
-                fn futex_wake(uaddr: usize);
+                fn futex_wake(uaddr: usize, wake_count: usize) -> usize;
             }
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
                 (paddr_c(addr).addr() as *mut u32).write(0);
-                futex_wake(uaddr);
+                futex_wake(uaddr, 1);
             }
         }
         self.inner.lock().exit_code = Some(exit_code);

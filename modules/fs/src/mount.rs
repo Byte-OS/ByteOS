@@ -1,5 +1,5 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use log::{debug, warn};
+use log::debug;
 use sync::Mutex;
 use vfscore::{INodeInterface, MountedInfo, OpenFlags, VfsError, VfsResult};
 

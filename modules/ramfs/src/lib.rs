@@ -58,6 +58,7 @@ pub struct RamFileInner {
     times: Mutex<[TimeSpec; 3]>, // ctime, atime, mtime.
 }
 
+#[allow(dead_code)]
 pub struct RamLinkInner {
     name: String,
     dir_path: String,
@@ -105,6 +106,7 @@ impl FileContainer {
     }
 }
 
+#[allow(dead_code)]
 pub struct RamLink {
     inner: Arc<RamLinkInner>,
     mi: MountedInfo,

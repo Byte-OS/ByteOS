@@ -140,6 +140,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
                 args[2] as _,
                 args[3] as _,
                 args[4] as _,
+                args[5] as _,
             )
             .await
         }

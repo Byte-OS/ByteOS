@@ -93,7 +93,7 @@ pub fn init() {
             .filter(|x| x.filename.ends_with("dso.so"))
             .collect();
 
-        let lib_fs = get_filesystem(3).root_dir(MountedInfo::default());
+        // let lib_fs = get_filesystem(3).root_dir(MountedInfo::default());
 
         for file in so_files {
             rootfs
