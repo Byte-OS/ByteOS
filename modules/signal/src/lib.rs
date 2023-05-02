@@ -11,6 +11,7 @@ pub trait SignalOps {
 }
 
 bitflags! {
+    #[derive(Debug)]
     pub struct SignalFlags: u32 {
         const SIGDEF = 1; // Default signal handling
         const SIGHUP = 1 << 1;

@@ -1,8 +1,8 @@
-use executor::current_task;
+use executor::{current_task, current_user_task};
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask};
 
-use crate::syscall::func::c2rust_ref;
+use crate::{syscall::func::c2rust_ref, tasks::WaitSignal};
 
 use super::consts::LinuxError;
 
@@ -56,6 +56,9 @@ use super::consts::LinuxError;
 /// TODO: finish sigtimedwait
 pub async fn sys_sigtimedwait() -> Result<usize, LinuxError> {
     debug!("sys_sigtimedwait @ ");
+    WaitSignal(current_user_task()).await;
+    // let task = current_user_task();
+    // task.inner_map(|x| x.signal.has_signal());
     // Err(LinuxError::EAGAIN)
     Ok(0)
 }

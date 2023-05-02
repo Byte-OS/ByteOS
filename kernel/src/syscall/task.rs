@@ -7,8 +7,8 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
+use core::cmp;
 use core::future::Future;
-use core::{cmp, task};
 use executor::{current_task, current_user_task, yield_now, AsyncTask, MemType};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
@@ -422,8 +422,7 @@ pub async fn sys_futex(
                     }
                 }
                 drop(table);
-                WaitFutex(user_task.task_id).await;
-                Ok(0)
+                WaitFutex(user_task.task_id).await
             } else {
                 Err(LinuxError::EAGAIN)
             }
