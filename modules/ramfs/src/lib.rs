@@ -11,8 +11,8 @@ use core::{
 use alloc::{format, string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom, Stat,
-    StatMode, TimeSpec, VfsError, VfsResult, UTIME_OMIT,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom,
+    Stat, StatMode, TimeSpec, VfsError, VfsResult, UTIME_OMIT,
 };
 
 pub struct RamFs {
@@ -300,13 +300,13 @@ impl INodeInterface for RamDir {
         {
             let filename = x.filename();
             let file_bytes = filename.as_bytes();
-            let current_len = size_of::<Dirent>() + file_bytes.len() + 1;
+            let current_len = size_of::<Dirent64>() + file_bytes.len() + 1;
             if len - (ptr - buf_ptr) < current_len {
                 break;
             }
 
             // let dirent = c2rust_ref(ptr as *mut Dirent);
-            let dirent: &mut Dirent = unsafe { (ptr as *mut Dirent).as_mut() }.unwrap();
+            let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
 
             dirent.ino = 0;
             dirent.off = current_len as i64;
