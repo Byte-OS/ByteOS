@@ -2,7 +2,7 @@ use core::future::Future;
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPage};
-use executor::{current_task, thread, AsyncTask, Executor, KernelTask, MemType, UserTask};
+use executor::{current_task, current_user_task, thread, Executor, KernelTask, MemType, UserTask};
 use log::debug;
 
 use crate::syscall::{exec_with_process, syscall};
@@ -13,7 +13,9 @@ mod async_ops;
 pub mod elf;
 mod initproc;
 
-pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, FUTEX_TABLE};
+pub use async_ops::{
+    futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal, FUTEX_TABLE,
+};
 
 #[no_mangle]
 // for avoiding the rust cycle check. user extern and nomangle
@@ -99,8 +101,16 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
 
 pub async fn user_entry_inner() {
     loop {
-        let task = current_task().as_user_task().unwrap();
-        debug!("user_entry, task: {}", task.get_task_id());
+        let task = current_user_task();
+
+        loop {
+            if let Some(signal) = task.inner_map(|mut x| x.signal.handle_signal()) {
+                debug!("handle signal: {:?}", signal);
+            } else {
+                break;
+            }
+        }
+        debug!("user_entry, task: {}", task.task_id);
         let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
 
         if let Some(exit_code) = task.exit_code() {

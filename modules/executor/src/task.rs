@@ -9,10 +9,10 @@ use devfs::{Stdin, Stdout};
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::{File, SeekFrom};
 use log::debug;
-use signal::{SigAction, SigProcMask};
+use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard};
 
-use crate::{task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
+use crate::{signal::SignalList, task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
 
 #[allow(dead_code)]
 pub struct KernelTask {
@@ -146,6 +146,7 @@ pub struct TaskInner {
     pub children: Vec<Arc<UserTask>>,
     pub tms: TMS,
     pub rlimits: Vec<usize>,
+    pub signal: SignalList,
     pub sigmask: SigProcMask,
     pub sigaction: Arc<Mutex<SigAction>>,
     pub set_child_tid: usize,
@@ -202,6 +203,7 @@ impl UserTask {
             sigaction: Arc::new(Mutex::new(SigAction::new())),
             set_child_tid: 0,
             clear_child_tid: 0,
+            signal: SignalList::new(),
         };
 
         Arc::new(Self {
@@ -342,6 +344,11 @@ impl UserTask {
         }
         self.inner.lock().exit_code = Some(exit_code);
         FUTURE_LIST.lock().remove(&self.task_id);
+        self.parent.as_ref().map(|x| {
+            x.clone()
+                .as_user_task()
+                .map(|x| x.inner.lock().signal.add_signal(SignalFlags::SIGCHLD))
+        });
     }
 
     #[inline]
@@ -431,6 +438,7 @@ impl UserTask {
             sigaction: inner.sigaction.clone(),
             set_child_tid: 0,
             clear_child_tid: 0,
+            signal: SignalList::new(),
         };
 
         new_inner.cx.set_ret(0);

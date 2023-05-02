@@ -7,6 +7,7 @@ extern crate logging;
 
 mod executor;
 mod ops;
+mod signal;
 mod task;
 pub mod thread;
 

@@ -2,8 +2,10 @@ use core::{future::Future, pin::Pin, task::Poll};
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use arch::get_time_ms;
-use executor::UserTask;
+use executor::{current_user_task, UserTask};
 use sync::Mutex;
+
+use crate::syscall::consts::LinuxError;
 
 pub static FUTEX_TABLE: Mutex<BTreeMap<usize, Vec<usize>>> = Mutex::new(BTreeMap::new());
 
@@ -40,6 +42,19 @@ impl Future for WaitPid {
     }
 }
 
+pub struct WaitSignal(pub Arc<UserTask>);
+
+impl Future for WaitSignal {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        match self.0.inner_map(|x| x.signal.has_signal()) {
+            true => Poll::Ready(()),
+            false => Poll::Pending,
+        }
+    }
+}
+
 pub fn in_futex(task_id: usize) -> bool {
     let futex_table = FUTEX_TABLE.lock();
     futex_table
@@ -51,12 +66,24 @@ pub fn in_futex(task_id: usize) -> bool {
 pub struct WaitFutex(pub usize);
 
 impl Future for WaitFutex {
-    type Output = ();
+    type Output = Result<usize, LinuxError>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        let signal = current_user_task().inner_map(|inner| inner.signal.clone());
         match in_futex(self.0) {
-            true => Poll::Pending,
-            false => Poll::Ready(()),
+            true => {
+                if signal.has_signal() {
+                    FUTEX_TABLE
+                        .lock()
+                        .values_mut()
+                        .find(|x| x.contains(&self.0))
+                        .map(|x| x.retain(|x| *x != self.0));
+                    Poll::Ready(Err(LinuxError::EINTR))
+                } else {
+                    Poll::Pending
+                }
+            }
+            false => Poll::Ready(Ok(0)),
         }
     }
 }
