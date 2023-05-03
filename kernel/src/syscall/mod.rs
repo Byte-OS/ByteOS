@@ -16,12 +16,12 @@ use self::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
         SYS_EXIT, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS,
         SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETTID,
-        SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP,
-        SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL,
-        SYS_PREAD, SYS_PRLIMIT64, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD,
-        SYS_SENDFILE, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
-        SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT,
-        SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_LSEEK,
+        SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
+        SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_READ, SYS_READLINKAT, SYS_READV,
+        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK,
+        SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME,
+        SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
@@ -153,6 +153,10 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_SENDFILE => sys_sendfile(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
         SYS_TKILL => sys_tkill(args[0] as _, args[1] as _).await,
         SYS_SIGRETURN => sys_sigreturn().await,
+        SYS_GET_ROBUST_LIST => {
+            warn!("SYS_GET_ROBUST_LIST @ ");
+            Ok(0)
+        } // always ok for now
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

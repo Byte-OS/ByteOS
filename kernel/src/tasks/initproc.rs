@@ -50,19 +50,9 @@ fn clear() {
 async fn run_libc_test() -> bool {
     let commands = [
         // "./runtest.exe -w entry-static.exe socket",
-        "./runtest.exe -w entry-static.exe pthread_cancel_points",
-        // "./runtest.exe -w entry-static.exe pthread_robust_detach",
+        "./runtest.exe -w entry-static.exe pthread_condattr_setclock",
         // "./runtest.exe -w entry-dynamic.exe pthread_cancel_sem_wait",
 
-        // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
-        // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
-
-        // "./runtest.exe -w entry-static.exe pthread_cancel",
-
-        // "./runtest.exe -w entry-static.exe pthread_tsd",
-        // "./runtest.exe -w entry-static.exe pthread_cond",
-        // "./runtest.exe -w entry-static.exe pthread_exit_cancel",
-        // "./runtest.exe -w entry-static.exe pthread_once_deadlock",
         // "./runtest.exe -w entry-static.exe pthread_rwlock_ebusy",
         // "./runtest.exe -w entry-static.exe sigprocmask_internal",
         // "./runtest.exe -w entry-static.exe setjmp",
@@ -208,29 +198,29 @@ pub async fn simple_shell() {
 }
 
 pub async fn initproc() {
-    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    // for (i, x) in names
-    //     .split('\n')
-    //     .filter(|x| !x.contains("pthread"))
-    //     .enumerate()
-    // {
-    //     command(x).await;
-    //     info!("No.{} finished!", i);
-    // }
+    let names = include_str!("../../../tools/testcase-step2-dbg/run-static.sh");
+    for (i, x) in names
+        .split('\n')
+        .filter(|x| !x.contains("pthread_condattr_setclock"))
+        .enumerate()
+    {
+        command(x).await;
+        info!("No.{} finished!", i);
+    }
 
-    // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
-    // for (i, x) in names
-    //     .split('\n')
-    //     .filter(|x| !x.contains("pthread") && !x.contains("dlopen") && !x.contains("tls"))
-    //     .enumerate()
-    // {
-    //     command(x).await;
-    //     info!("No.{} finished!", i);
-    // }
+    let names = include_str!("../../../tools/testcase-step2-dbg/run-dynamic.sh");
+    for (i, x) in names
+        .split('\n')
+        .filter(|x| !x.contains("pthread_condattr_setclock"))
+        .enumerate()
+    {
+        command(x).await;
+        info!("No.{} finished!", i);
+    }
 
     // command("busybox sh").await;
     // command("busybox sh busybox_testcode.sh").await;
-    run_libc_test().await;
+    // run_libc_test().await;
     // run_all().await;
 
     // simple_shell().await;
