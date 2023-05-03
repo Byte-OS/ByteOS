@@ -1,9 +1,11 @@
 //! allow dead code in the file
 #![allow(dead_code)]
 
+use arch::Context;
 use bitflags::bitflags;
 use fs::VfsError;
 use num_enum::TryFromPrimitive;
+use signal::SigProcMask;
 
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -90,6 +92,9 @@ pub enum LinuxError {
     ENOTCONN = 107,
     /// Connection refused
     ECONNREFUSED = 111,
+
+    /// custom error code just used in byteos
+    CONTROLFLOWBREAK = 500,
 }
 
 impl LinuxError {
@@ -137,6 +142,8 @@ impl LinuxError {
             ENOTEMPTY => "Directory not empty",
             ENOTCONN => "Transport endpoint is not connected",
             ECONNREFUSED => "Connection refused",
+
+            CONTROLFLOWBREAK => "custom error code just used in byteos"
         }
     }
 
@@ -395,3 +402,34 @@ pub struct Rlimit {
 }
 
 pub const RLIMIT_NOFILE: usize = 7;
+
+bitflags! {
+    #[derive(Clone)]
+    pub struct SignalStackFlags : u32 {
+        const ONSTACK = 1;
+        const DISABLE = 2;
+        const AUTODISARM = 0x80000000;
+    }
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct SignalStack {
+    pub sp: usize,
+    pub flags: SignalStackFlags,
+    pub size: usize,
+}
+
+#[repr(C)]
+#[derive(Clone)]
+pub struct SignalUserContext {
+    pub flags: usize,           // 0
+    pub link: usize,            // 1
+    pub stack: SignalStack,     // 2
+    pub sig_mask: SigProcMask,  // 5
+    pub _pad: [u64; 16],        
+    // pub context: Context,       // pc offset = 22 - 6=16
+    pub pc: usize,
+    pub reserved: [usize; 17],
+    pub fpstate: [usize; 66],
+}

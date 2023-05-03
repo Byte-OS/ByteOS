@@ -9,7 +9,7 @@ use devfs::{Stdin, Stdout};
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::{File, SeekFrom};
 use log::debug;
-use signal::{SigAction, SigProcMask, SignalFlags};
+pub use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard};
 
 use crate::{signal::SignalList, task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
@@ -148,7 +148,7 @@ pub struct TaskInner {
     pub rlimits: Vec<usize>,
     pub signal: SignalList,
     pub sigmask: SigProcMask,
-    pub sigaction: Arc<Mutex<SigAction>>,
+    pub sigaction: Arc<Mutex<[SigAction; 64]>>,
     pub set_child_tid: usize,
     pub clear_child_tid: usize,
 }
@@ -200,7 +200,7 @@ impl UserTask {
             tms: Default::default(),
             rlimits: rlimits_new(),
             sigmask: SigProcMask::new(),
-            sigaction: Arc::new(Mutex::new(SigAction::new())),
+            sigaction: Arc::new(Mutex::new([SigAction::new(); 64])),
             set_child_tid: 0,
             clear_child_tid: 0,
             signal: SignalList::new(),
@@ -352,6 +352,11 @@ impl UserTask {
     }
 
     #[inline]
+    pub fn exit_with_signal(&self, signal: usize) {
+        self.exit(128 + signal);
+    }
+
+    #[inline]
     pub fn fork(
         self: Arc<Self>,
         future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
@@ -422,7 +427,7 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let task_id = task_id_alloc();
-        let inner = self.inner.lock();
+        let mut inner = self.inner.lock();
         let mut new_inner = TaskInner {
             memset: inner.memset.clone(),
             cx: inner.cx.clone(),
@@ -449,6 +454,8 @@ impl UserTask {
             parent: Some(self.clone()),
             inner: Mutex::new(new_inner),
         });
+        inner.children.push(new_task.clone());
+
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 
         thread::spawn(new_task.clone());
