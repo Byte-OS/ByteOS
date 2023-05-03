@@ -1,7 +1,8 @@
 use crate::syscall::consts::{elf, from_vfs, CloneFlags};
 use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
+use crate::syscall::time::{current_nsec, WaitUntilsec};
 use crate::tasks::elf::ElfExtra;
-use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid, FUTEX_TABLE};
+use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
@@ -9,9 +10,10 @@ use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
-use executor::{current_task, current_user_task, yield_now, AsyncTask, MemType};
+use executor::{current_task, current_user_task, select, yield_now, AsyncTask, MemType};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
+use fs::TimeSpec;
 use log::debug;
 use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};
@@ -381,11 +383,9 @@ pub async fn sys_getpid() -> Result<usize, LinuxError> {
 /// sys_getppid() 获取父进程 id
 pub async fn sys_getppid() -> Result<usize, LinuxError> {
     debug!("sys_getppid @ ");
-    current_task()
-        .as_user_task()
-        .unwrap()
+    current_user_task()
         .parent
-        .as_ref()
+        .upgrade()
         .map(|x| x.get_task_id())
         .ok_or(LinuxError::EPERM)
 }
@@ -407,8 +407,8 @@ pub async fn sys_futex(
 ) -> Result<usize, LinuxError> {
     let op = if op >= 0x80 { op - 0x80 } else { op };
     debug!(
-        "sys_futex @ uaddr: {:#x} op: {} value: {:#x}, value1: {:#x}, value2: {:#x}",
-        uaddr_ptr, op, value, value2, value3
+        "sys_futex @ uaddr: {:#x} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
+        uaddr_ptr, op, value, value2, uaddr2, value3
     );
     let uaddr = c2rust_ref(uaddr_ptr as *mut i32);
     let flags = FutexFlags::try_from(op).map_err(|_| LinuxError::EINVAL)?;
@@ -421,7 +421,8 @@ pub async fn sys_futex(
     match flags {
         FutexFlags::Wait => {
             if *uaddr == value as i32 {
-                let mut table = FUTEX_TABLE.lock();
+                let futex_table = user_task.inner.lock().futex_table.clone();
+                let mut table = futex_table.lock();
                 match table.get_mut(&uaddr_ptr) {
                     Some(t) => t.push(user_task.task_id),
                     None => {
@@ -429,17 +430,33 @@ pub async fn sys_futex(
                     }
                 }
                 drop(table);
-                WaitFutex(user_task.task_id).await
+                let wait_func = WaitFutex(futex_table.clone(), user_task.task_id);
+                if value2 != 0 {
+                    let timeout = c2rust_ref(value2 as *mut TimeSpec);
+                    debug!("timeout: {:?}", timeout);
+                    match select(wait_func, WaitUntilsec(current_nsec() + timeout.to_nsec())).await
+                    {
+                        executor::Either::Left((res, _)) => res,
+                        executor::Either::Right(_) => Err(LinuxError::ETIMEDOUT),
+                    }
+                } else {
+                    wait_func.await
+                }
+                // wait_func.await
             } else {
                 Err(LinuxError::EAGAIN)
             }
         }
         FutexFlags::Wake => {
-            let count = futex_wake(uaddr_ptr, value);
+            let futex_table = user_task.inner.lock().futex_table.clone();
+            let count = futex_wake(futex_table, uaddr_ptr, value);
             yield_now().await;
             Ok(count)
         }
-        FutexFlags::Requeue => Ok(futex_requeue(uaddr_ptr, value, uaddr2, value2)),
+        FutexFlags::Requeue => {
+            let futex_table = user_task.inner.lock().futex_table.clone();
+            Ok(futex_requeue(futex_table, uaddr_ptr, value, uaddr2, value2))
+        }
         _ => {
             return Err(LinuxError::EPERM);
         }
@@ -470,3 +487,36 @@ pub async fn sys_sigreturn() -> Result<usize, LinuxError> {
     debug!("sys_sigreturn @ ");
     Err(LinuxError::CONTROLFLOWBREAK)
 }
+
+// pub fn sys_exit_group(exit_code: usize) -> Result<(), RuntimeError> {
+//     let inner = self.inner.borrow_mut();
+//     let mut process = inner.process.borrow_mut();
+//     debug!("exit pid: {}", self.pid);
+//     process.exit(exit_code);
+//     match &process.parent {
+//         Some(parent) => {
+//             let parent = parent.upgrade().unwrap();
+//             let parent = parent.borrow();
+//             remove_vfork_wait(parent.pid);
+
+//             // let end: UserAddr<TimeSpec> = 0x10bb78.into();
+//             // let start: UserAddr<TimeSpec> = 0x10bad0.into();
+
+//             // println!("start: {:?}   end: {:?}",start.transfer(), end.transfer());
+
+//             // let target_end: UserAddr<TimeSpec> = parent.pmm.get_phys_addr(0x10bb78usize.into())?.0.into();
+//             // let target_start: UserAddr<TimeSpec> = parent.pmm.get_phys_addr(0x10bad0usize.into())?.0.into();
+//             // *target_start.transfer() = *start.transfer();
+//             // *target_end.transfer() = *end.transfer();
+
+//             // let task = parent.tasks[0].clone().upgrade().unwrap();
+//             // drop(parent);
+//             // // 处理signal 17 SIGCHLD
+//             // task.signal(17);
+//         }
+//         None => {}
+//     }
+//     debug!("剩余页表: {}", get_free_page_num());
+//     debug!("exit_code: {:#x}", exit_code);
+//     Err(RuntimeError::ChangeTask)
+// }

@@ -1,13 +1,11 @@
 use core::{cmp, future::Future, pin::Pin, task::Poll};
 
-use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
+use alloc::{sync::Arc, vec::Vec};
 use arch::get_time_ms;
-use executor::{current_user_task, UserTask};
+use executor::{current_user_task, FutexTable, UserTask};
 use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;
-
-pub static FUTEX_TABLE: Mutex<BTreeMap<usize, Vec<usize>>> = Mutex::new(BTreeMap::new());
 
 pub struct NextTick(usize);
 
@@ -55,29 +53,29 @@ impl Future for WaitSignal {
     }
 }
 
-pub fn in_futex(task_id: usize) -> bool {
-    let futex_table = FUTEX_TABLE.lock();
+pub fn in_futex(futex_table: Arc<Mutex<FutexTable>>, task_id: usize) -> bool {
+    let futex_table = futex_table.lock();
     futex_table
         .values()
         .find(|x| x.contains(&task_id))
         .is_some()
 }
 
-pub struct WaitFutex(pub usize);
+pub struct WaitFutex(pub Arc<Mutex<FutexTable>>, pub usize);
 
 impl Future for WaitFutex {
     type Output = Result<usize, LinuxError>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let signal = current_user_task().inner_map(|inner| inner.signal.clone());
-        match in_futex(self.0) {
+        match in_futex(self.0.clone(), self.1) {
             true => {
                 if signal.has_signal() {
-                    FUTEX_TABLE
+                    self.0
                         .lock()
                         .values_mut()
-                        .find(|x| x.contains(&self.0))
-                        .map(|x| x.retain(|x| *x != self.0));
+                        .find(|x| x.contains(&self.1))
+                        .map(|x| x.retain(|x| *x != self.1));
                     Poll::Ready(Err(LinuxError::EINTR))
                 } else {
                     Poll::Pending
@@ -89,8 +87,8 @@ impl Future for WaitFutex {
 }
 
 #[no_mangle]
-pub fn futex_wake(uaddr: usize, wake_count: usize) -> usize {
-    let mut futex_table = FUTEX_TABLE.lock();
+pub fn futex_wake(futex_table: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count: usize) -> usize {
+    let mut futex_table = futex_table.lock();
     let que_size = futex_table.get_mut(&uaddr).map(|x| x.len()).unwrap_or(0);
     if que_size == 0 {
         0
@@ -103,8 +101,14 @@ pub fn futex_wake(uaddr: usize, wake_count: usize) -> usize {
     }
 }
 
-pub fn futex_requeue(uaddr: usize, wake_count: usize, uaddr2: usize, reque_count: usize) -> usize {
-    let mut futex_table = FUTEX_TABLE.lock();
+pub fn futex_requeue(
+    futex_table: Arc<Mutex<FutexTable>>,
+    uaddr: usize,
+    wake_count: usize,
+    uaddr2: usize,
+    reque_count: usize,
+) -> usize {
+    let mut futex_table = futex_table.lock();
 
     let waked_size = futex_table
         .get_mut(&uaddr)

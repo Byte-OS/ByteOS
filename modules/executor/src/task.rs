@@ -1,6 +1,12 @@
 use core::{cmp::min, future::Future, mem::size_of, ops::Add, pin::Pin};
 
-use alloc::{boxed::Box, string::String, sync::Arc, vec::Vec};
+use alloc::{
+    boxed::Box,
+    collections::BTreeMap,
+    string::String,
+    sync::{Arc, Weak},
+    vec::Vec,
+};
 use arch::{
     paddr_c, ppn_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage,
     PAGE_SIZE, PTE,
@@ -8,11 +14,13 @@ use arch::{
 use devfs::{Stdin, Stdout};
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::{File, SeekFrom};
-use log::debug;
+use log::{debug, warn};
 pub use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard};
 
 use crate::{signal::SignalList, task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
+
+pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
 #[allow(dead_code)]
 pub struct KernelTask {
@@ -150,6 +158,7 @@ pub struct TaskInner {
     pub sigmask: SigProcMask,
     pub sigaction: Arc<Mutex<[SigAction; 64]>>,
     pub set_child_tid: usize,
+    pub futex_table: Arc<Mutex<FutexTable>>,
     pub clear_child_tid: usize,
 }
 
@@ -158,11 +167,12 @@ pub struct UserTask {
     pub task_id: TaskId,
     pub page_table: PageTable,
     pub inner: Mutex<TaskInner>,
-    pub parent: Option<Arc<dyn AsyncTask>>,
+    pub parent: Weak<dyn AsyncTask>,
 }
 
 impl Drop for UserTask {
     fn drop(&mut self) {
+        warn!("drop user task: {}", self.task_id);
         FUTURE_LIST.lock().remove(&self.task_id);
     }
 }
@@ -170,7 +180,7 @@ impl Drop for UserTask {
 impl UserTask {
     pub fn new(
         future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
-        parent: Option<Arc<dyn AsyncTask>>,
+        parent: Weak<dyn AsyncTask>,
     ) -> Arc<Self> {
         let ppn = Arc::new(frame_alloc().unwrap());
         let page_table = PageTable::from_ppn(ppn.0);
@@ -204,6 +214,7 @@ impl UserTask {
             set_child_tid: 0,
             clear_child_tid: 0,
             signal: SignalList::new(),
+            futex_table: Arc::new(Mutex::new(BTreeMap::new())),
         };
 
         Arc::new(Self {
@@ -333,18 +344,22 @@ impl UserTask {
         let uaddr = self.inner.lock().clear_child_tid;
         if uaddr != 0 {
             extern "Rust" {
-                fn futex_wake(uaddr: usize, wake_count: usize) -> usize;
+                pub fn futex_wake(
+                    task: Arc<Mutex<FutexTable>>,
+                    uaddr: usize,
+                    wake_count: usize,
+                ) -> usize;
             }
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
                 (paddr_c(addr).addr() as *mut u32).write(0);
-                futex_wake(uaddr, 1);
+                futex_wake(self.inner.lock().futex_table.clone(), uaddr, 1);
             }
         }
         self.inner.lock().exit_code = Some(exit_code);
         FUTURE_LIST.lock().remove(&self.task_id);
-        self.parent.as_ref().map(|x| {
+        self.parent.upgrade().map(|x| {
             x.clone()
                 .as_user_task()
                 .map(|x| x.inner.lock().signal.add_signal(SignalFlags::SIGCHLD))
@@ -365,7 +380,8 @@ impl UserTask {
         // it will contains the frame used for page mapping、
         // mmap or text section.
         // and then we can implement COW(copy on write).
-        let new_task = Self::new(future, Some(self.clone()));
+        let parent_task: Arc<dyn AsyncTask> = self.clone();
+        let new_task = Self::new(future, Arc::downgrade(&parent_task));
         // clone fd_table
         new_task.inner.lock().fd_table.0 = self.inner.lock().fd_table.0.clone();
 
@@ -426,6 +442,8 @@ impl UserTask {
         // it will contains the frame used for page mapping、
         // mmap or text section.
         // and then we can implement COW(copy on write).
+        let parent_task: Arc<dyn AsyncTask> = self.clone();
+
         let task_id = task_id_alloc();
         let mut inner = self.inner.lock();
         let mut new_inner = TaskInner {
@@ -442,6 +460,7 @@ impl UserTask {
             sigmask: inner.sigmask.clone(),
             sigaction: inner.sigaction.clone(),
             set_child_tid: 0,
+            futex_table: inner.futex_table.clone(),
             clear_child_tid: 0,
             signal: SignalList::new(),
         };
@@ -451,7 +470,7 @@ impl UserTask {
         let new_task = Arc::new(Self {
             page_table: self.page_table.clone(),
             task_id,
-            parent: Some(self.clone()),
+            parent: Arc::downgrade(&parent_task),
             inner: Mutex::new(new_inner),
         });
         inner.children.push(new_task.clone());

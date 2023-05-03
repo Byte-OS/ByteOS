@@ -12,7 +12,7 @@ mod task;
 pub mod thread;
 
 pub use executor::*;
-pub use futures::future::select;
+pub use futures::future::{select, Either};
 pub use ops::*;
 pub use task::*;
 
