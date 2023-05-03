@@ -143,7 +143,7 @@ impl LinuxError {
             ENOTCONN => "Transport endpoint is not connected",
             ECONNREFUSED => "Connection refused",
 
-            CONTROLFLOWBREAK => "custom error code just used in byteos"
+            CONTROLFLOWBREAK => "custom error code just used in byteos",
         }
     }
 
@@ -423,11 +423,11 @@ pub struct SignalStack {
 #[repr(C)]
 #[derive(Clone)]
 pub struct SignalUserContext {
-    pub flags: usize,           // 0
-    pub link: usize,            // 1
-    pub stack: SignalStack,     // 2
-    pub sig_mask: SigProcMask,  // 5
-    pub _pad: [u64; 16],        
+    pub flags: usize,          // 0
+    pub link: usize,           // 1
+    pub stack: SignalStack,    // 2
+    pub sig_mask: SigProcMask, // 5
+    pub _pad: [u64; 16],
     // pub context: Context,       // pc offset = 22 - 6=16
     pub pc: usize,
     pub reserved: [usize; 17],

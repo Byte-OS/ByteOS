@@ -98,7 +98,7 @@ pub async fn sys_sigaction(sig: usize, act: usize, oldact: usize) -> Result<usiz
     let user_task = current_task().as_user_task().unwrap();
     if oldact != 0 {
         let sigact = c2rust_ref(oldact as *mut SigAction);
-        *sigact = user_task.inner_map(|inner|*inner.sigaction.lock().get(sig).unwrap());
+        *sigact = user_task.inner_map(|inner| *inner.sigaction.lock().get(sig).unwrap());
         debug!("old sigaction: {:#x?}", sigact);
     }
     if act != 0 {

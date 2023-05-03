@@ -7,13 +7,13 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
-use signal::SignalFlags;
 use core::cmp;
 use core::future::Future;
 use executor::{current_task, current_user_task, yield_now, AsyncTask, MemType};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use log::debug;
+use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError};
@@ -444,9 +444,10 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
     debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
     let task = current_user_task();
     let child = task.inner_map(|x| {
-        x.children.iter().find(|x| {
-            x.task_id == tid
-        }).map(|x| x.clone())
+        x.children
+            .iter()
+            .find(|x| x.task_id == tid)
+            .map(|x| x.clone())
     });
     match child {
         Some(child) => {
@@ -454,7 +455,7 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
                 x.signal.add_signal(SignalFlags::from_usize(signum));
             });
             Ok(0)
-        },
+        }
         None => Err(LinuxError::ECHILD),
     }
 }

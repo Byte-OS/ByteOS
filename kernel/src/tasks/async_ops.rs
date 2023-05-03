@@ -1,4 +1,4 @@
-use core::{future::Future, pin::Pin, task::Poll, cmp};
+use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use arch::get_time_ms;
