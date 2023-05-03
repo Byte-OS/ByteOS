@@ -21,7 +21,7 @@ pub fn init() {
     mount(String::from("/"), 0).expect("can't mount to /");
     mount(String::from("/dev"), 1).expect("can't mount to /dev");
     mount(String::from("/tmp"), 2).expect("can't mount to /tmp");
-    mount(String::from("/lib"), 3).expect("can't mount to /lib");
+    mount(String::from("/dev/shm"), 3).expect("can't mount to /lib");
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
@@ -90,6 +90,7 @@ pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
     Err(VfsError::FileNotFound)
 }
 
+#[no_mangle]
 pub fn open_mount(path: &str) -> Option<Arc<dyn INodeInterface>> {
     debug!("open mount: {}", path);
     let mps = MOUNTS.lock().clone();
