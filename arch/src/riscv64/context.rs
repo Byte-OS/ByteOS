@@ -94,7 +94,6 @@ impl ContextOps for Context {
         self.x[12] = ret;
     }
 
-
     fn set_tp(&mut self, tp: usize) {
         self.x[4] = tp;
     }

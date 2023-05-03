@@ -50,11 +50,9 @@ fn clear() {
 async fn run_libc_test() -> bool {
     let commands = [
         // "./runtest.exe -w entry-static.exe socket",
-
         "./runtest.exe -w entry-static.exe pthread_cancel_points",
         "./runtest.exe -w entry-static.exe pthread_robust_detach",
         "./runtest.exe -w entry-dynamic.exe pthread_cancel_sem_wait",
-
         // "./runtest.exe -w entry-static.exe pthread_cancel_sem_wait",
         // "./runtest.exe -w entry-static.exe pthread_cond_smasher",
 

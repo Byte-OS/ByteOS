@@ -19,9 +19,9 @@ use self::{
         SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP,
         SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL,
         SYS_PREAD, SYS_PRLIMIT64, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD,
-        SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGTIMEDWAIT, SYS_STATFS,
-        SYS_TIMES, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
-        SYS_WRITEV, SYS_TKILL, SYS_SIGRETURN,
+        SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGTIMEDWAIT,
+        SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT,
+        SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
@@ -36,7 +36,7 @@ use self::{
     },
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_futex, sys_getcwd, sys_getpid, sys_getppid,
-        sys_gettid, sys_sched_yield, sys_set_tid_address, sys_wait4, sys_tkill, sys_sigreturn,
+        sys_gettid, sys_sched_yield, sys_set_tid_address, sys_sigreturn, sys_tkill, sys_wait4,
     },
     time::{sys_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
 };
@@ -149,7 +149,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_PPOLL => Ok(args[1]), // return request polls always.
         SYS_READLINKAT => {
             sys_readlinkat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
-        },
+        }
         SYS_TKILL => sys_tkill(args[0] as _, args[1] as _).await,
         SYS_SIGRETURN => sys_sigreturn().await,
         _ => {

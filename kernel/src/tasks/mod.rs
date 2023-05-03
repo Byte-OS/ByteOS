@@ -2,11 +2,13 @@ use core::{future::Future, mem::size_of};
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPage};
-use executor::{current_task, current_user_task, thread, Executor, KernelTask, MemType, UserTask, yield_now};
+use executor::{
+    current_task, current_user_task, thread, yield_now, Executor, KernelTask, MemType, UserTask,
+};
 use log::debug;
 use signal::SignalFlags;
 
-use crate::syscall::{exec_with_process, syscall, consts::SignalUserContext, c2rust_ref};
+use crate::syscall::{c2rust_ref, consts::SignalUserContext, exec_with_process, syscall};
 
 use self::initproc::initproc;
 
@@ -123,9 +125,9 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
 
     // let store_cx = cx_ref.clone();
-    
+
     let mut sp = cx_ref.sp();
-    
+
     sp -= 128;
     sp -= size_of::<SignalUserContext>();
     sp = sp / 16 * 16;
@@ -155,7 +157,6 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     cx_ref.clone_from(&store_cx);
     // copy pc from new_pc
     cx_ref.set_sepc(cx.pc);
-
 }
 
 pub async fn user_entry_inner() {
@@ -183,7 +184,7 @@ pub async fn user_entry_inner() {
         }
 
         times += 1;
-        
+
         if times >= 50 {
             times = 0;
             yield_now().await;
