@@ -15,7 +15,7 @@ use crate::syscall::func::c2rust_ref;
 use super::consts::LinuxError;
 
 #[repr(C)]
-struct TimeVal {
+pub struct TimeVal {
     sec: usize,  /* 秒 */
     usec: usize, /* 微秒, 范围在0~999999 */
 }

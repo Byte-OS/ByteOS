@@ -1,11 +1,14 @@
-use core::future::Future;
+use core::{future::Future, mem::size_of};
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPage};
-use executor::{current_task, current_user_task, thread, Executor, KernelTask, MemType, UserTask};
+use executor::{
+    current_task, current_user_task, thread, yield_now, Executor, KernelTask, MemType, UserTask,
+};
 use log::debug;
+use signal::SignalFlags;
 
-use crate::syscall::{exec_with_process, syscall};
+use crate::syscall::{c2rust_ref, consts::SignalUserContext, exec_with_process, syscall};
 
 use self::initproc::initproc;
 
@@ -53,6 +56,9 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
                 .map_or_else(|e| -e.code(), |x| x as isize) as usize;
             debug!("syscall result: {:#X?}", result);
             cx_ref.set_ret(result);
+            if result == (-500 as isize) as usize {
+                return UserTaskControlFlow::Break;
+            }
         }
         arch::TrapType::Time => {
             debug!("time interrupt from user");
@@ -99,19 +105,74 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
     UserTaskControlFlow::Continue
 }
 
+pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
+    let sigaction = task
+        .inner_map(|inner| inner.sigaction.lock().get(signal.num()).unwrap().clone())
+        .clone();
+
+    if sigaction.handler == 0 {
+        match signal {
+            SignalFlags::SIGCANCEL => {
+                current_user_task().exit_with_signal(signal.num());
+            }
+            _ => {}
+        }
+        return;
+    }
+
+    debug!("sigactions: {:#X?}", sigaction);
+
+    let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
+
+    // let store_cx = cx_ref.clone();
+
+    let mut sp = cx_ref.sp();
+
+    sp -= 128;
+    sp -= size_of::<SignalUserContext>();
+    sp = sp / 16 * 16;
+
+    let cx = c2rust_ref(sp as *mut SignalUserContext);
+    let store_cx = cx_ref.clone();
+    task.inner_map(|mut inner| {
+        // cx.context.clone_from(&inner.cx);
+        cx.pc = inner.cx.sepc();
+        cx.sig_mask = sigaction.mask;
+        debug!("pc: {:#X}, mask: {:#X?}", cx.pc, cx.sig_mask);
+        inner.cx.set_sepc(sigaction.handler);
+        inner.cx.set_ra(sigaction.restorer);
+        inner.cx.set_arg0(signal.num());
+        inner.cx.set_arg1(0);
+        inner.cx.set_arg2(sp);
+    });
+
+    loop {
+        if let UserTaskControlFlow::Break = handle_syscall(task.clone(), cx_ref).await {
+            break;
+        }
+    }
+
+    debug!("new pc: {:#X}", cx.pc);
+    // store_cx.set_ret(cx_ref.args()[0]);
+    cx_ref.clone_from(&store_cx);
+    // copy pc from new_pc
+    cx_ref.set_sepc(cx.pc);
+}
+
 pub async fn user_entry_inner() {
+    let mut times = 0;
     loop {
         let task = current_user_task();
-
+        debug!("user_entry, task: {}", task.task_id);
         loop {
             if let Some(signal) = task.inner_map(|mut x| x.signal.handle_signal()) {
-                debug!("handle signal: {:?}", signal);
+                debug!("handle signal: {:?}  num: {}", signal, signal.num());
+                handle_signal(task.clone(), signal.clone()).await;
             } else {
                 break;
             }
         }
-        debug!("user_entry, task: {}", task.task_id);
-        let cx_ref: &mut Context = unsafe { task.get_cx_ptr().as_mut().unwrap() };
+        let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
 
         if let Some(exit_code) = task.exit_code() {
             debug!("program exit with code: {}", exit_code);
@@ -120,6 +181,13 @@ pub async fn user_entry_inner() {
 
         if let UserTaskControlFlow::Break = handle_syscall(task, cx_ref).await {
             break;
+        }
+
+        times += 1;
+
+        if times >= 50 {
+            times = 0;
+            yield_now().await;
         }
 
         // yield_now().await;
