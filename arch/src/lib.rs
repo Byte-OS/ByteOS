@@ -27,6 +27,10 @@ pub trait ContextOps {
     fn set_tp(&mut self, tp: usize);
     fn tp(&self) -> usize;
 
+    fn set_arg0(&mut self, ret: usize);
+    fn set_arg1(&mut self, ret: usize);
+    fn set_arg2(&mut self, ret: usize);
+
     fn syscall_number(&self) -> usize;
     fn args(&self) -> &[usize];
     fn syscall_ok(&mut self);

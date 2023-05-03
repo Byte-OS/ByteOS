@@ -1,4 +1,4 @@
-use core::{future::Future, pin::Pin, task::Poll};
+use core::{future::Future, pin::Pin, task::Poll, cmp};
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use arch::get_time_ms;
@@ -97,7 +97,7 @@ pub fn futex_wake(uaddr: usize, wake_count: usize) -> usize {
     } else {
         let que = futex_table
             .get_mut(&uaddr)
-            .map(|x| x.drain(..wake_count as usize));
+            .map(|x| x.drain(..cmp::min(wake_count as usize, que_size)));
 
         que.map(|x| x.count()).unwrap_or(0)
     }

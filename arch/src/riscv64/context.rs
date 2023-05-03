@@ -82,6 +82,19 @@ impl ContextOps for Context {
         self.x[10] = ret;
     }
 
+    fn set_arg0(&mut self, ret: usize) {
+        self.x[10] = ret;
+    }
+
+    fn set_arg1(&mut self, ret: usize) {
+        self.x[11] = ret;
+    }
+
+    fn set_arg2(&mut self, ret: usize) {
+        self.x[12] = ret;
+    }
+
+
     fn set_tp(&mut self, tp: usize) {
         self.x[4] = tp;
     }
