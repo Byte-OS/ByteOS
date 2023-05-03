@@ -1,11 +1,11 @@
 use core::cmp;
 
 use alloc::vec::Vec;
-use executor::current_task;
+use executor::{current_task, current_user_task};
 use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
 use fs::{OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, WaitBlockingRead, UTIME_NOW};
-use log::debug;
+use log::{debug, warn};
 
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
 use crate::syscall::func::{c2rust_buffer, c2rust_ref, c2rust_str, timespc_now};
@@ -483,4 +483,36 @@ pub async fn sys_readlinkat(
     buffer[..rlen].copy_from_slice(&bytes[..rlen]);
     debug!("sys_readlinkat: rlen: {}", rlen);
     Ok(rlen)
+}
+
+pub async fn sys_sendfile(
+    out_fd: usize,
+    in_fd: usize,
+    offset: usize,
+    count: usize,
+) -> Result<usize, LinuxError> {
+    info!(
+        "out_fd: {}  in_fd: {}  offset: {:#x}   count: {}",
+        out_fd, in_fd, offset, count
+    );
+
+    if offset != 0 {
+        warn!("sys_sendfile offset neq 0");
+    }
+
+    let task = current_user_task();
+
+    let out_file = task.get_fd(out_fd).ok_or(LinuxError::EINVAL)?;
+    let in_file = task.get_fd(in_fd).ok_or(LinuxError::EINVAL)?;
+
+    let rlen = cmp::min(
+        in_file.metadata().map_err(from_vfs)?.size
+            - in_file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?,
+        count,
+    );
+
+    let mut buffer = vec![0u8; rlen];
+
+    in_file.read(&mut buffer).map_err(from_vfs)?;
+    out_file.write(&buffer).map_err(from_vfs)
 }

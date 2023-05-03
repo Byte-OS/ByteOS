@@ -1,12 +1,10 @@
 use arch::console_getchar;
-use log::info;
 use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
 
 pub struct Stdin;
 
 impl INodeInterface for Stdin {
     fn read(&self, buffer: &mut [u8]) -> vfscore::VfsResult<usize> {
-        info!("buffer len: {}", buffer.len());
         assert!(buffer.len() > 0);
         let mut c = console_getchar() as i8;
         loop {
