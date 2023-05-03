@@ -98,12 +98,12 @@ pub async fn sys_sigaction(sig: usize, act: usize, oldact: usize) -> Result<usiz
     let user_task = current_task().as_user_task().unwrap();
     if oldact != 0 {
         let sigact = c2rust_ref(oldact as *mut SigAction);
-        *sigact = user_task.inner_map(|inner| *inner.sigaction.lock());
+        *sigact = user_task.inner_map(|inner| *inner.sigaction.lock().get(sig).unwrap());
         debug!("old sigaction: {:#x?}", sigact);
     }
     if act != 0 {
         let sigact = c2rust_ref(act as *mut SigAction);
-        user_task.inner_map(|inner| *inner.sigaction.lock() = *sigact);
+        user_task.inner_map(|inner| *inner.sigaction.lock().get_mut(sig).unwrap() = *sigact);
         // let proc_mask = c2rust_ref(sigact.mask as *mut SigProcMask);
         debug!("sigaction: {:#x?}", sigact);
     }
