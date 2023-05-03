@@ -16,9 +16,7 @@ mod async_ops;
 pub mod elf;
 mod initproc;
 
-pub use async_ops::{
-    futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal, FUTEX_TABLE,
-};
+pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal};
 
 #[no_mangle]
 // for avoiding the rust cycle check. user extern and nomangle
@@ -202,7 +200,7 @@ pub fn init() {
 }
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) {
-    let task = UserTask::new(user_entry(), Some(current_task()));
+    let task = UserTask::new(user_entry(), Arc::downgrade(&current_task()));
     exec_with_process(task.clone(), filename, args).expect("can't add task to excutor");
     thread::spawn(task.clone());
 }

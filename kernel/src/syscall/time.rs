@@ -43,7 +43,7 @@ pub async fn sys_nanosleep(req_ptr: usize, rem_ptr: usize) -> Result<usize, Linu
         "sys_nanosleep @ req_ptr: {:#x}, req: {:#x}",
         req_ptr, rem_ptr
     );
-    WaitNsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
+    WaitUntilsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
     if rem_ptr != 0 {
         let rem = c2rust_ref(rem_ptr as *mut TimeSpec);
         rem.nsec = 0;
@@ -77,9 +77,9 @@ pub async fn sys_gettime(clock_id: usize, times_ptr: usize) -> Result<usize, Lin
     Ok(0)
 }
 
-pub struct WaitNsec(usize);
+pub struct WaitUntilsec(pub usize);
 
-impl Future for WaitNsec {
+impl Future for WaitUntilsec {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -90,4 +90,8 @@ impl Future for WaitNsec {
             false => Poll::Pending,
         }
     }
+}
+
+pub fn current_nsec() -> usize {
+    RTC_DEVICES.lock()[0].read() as usize
 }

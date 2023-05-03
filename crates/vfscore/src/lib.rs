@@ -176,6 +176,12 @@ pub struct TimeSpec {
     pub nsec: usize, /* 纳秒, 范围在0~999999999 */
 }
 
+impl TimeSpec {
+    pub fn to_nsec(&self) -> usize {
+        self.sec * 1_000_000_000 + self.nsec
+    }
+}
+
 #[repr(C)]
 pub struct Stat {
     pub dev: u64,        // 设备号

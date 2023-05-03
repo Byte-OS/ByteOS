@@ -91,6 +91,8 @@ pub enum LinuxError {
     ENOTEMPTY = 39,
     /// Transport endpoint is not connected
     ENOTCONN = 107,
+    /// Connection time out
+    ETIMEDOUT = 100,
     /// Connection refused
     ECONNREFUSED = 111,
 
@@ -142,6 +144,7 @@ impl LinuxError {
             ENOSYS => "Invalid system call number",
             ENOTEMPTY => "Directory not empty",
             ENOTCONN => "Transport endpoint is not connected",
+            ETIMEDOUT => "Connection time out",
             ECONNREFUSED => "Connection refused",
 
             CONTROLFLOWBREAK => "custom error code just used in byteos",
