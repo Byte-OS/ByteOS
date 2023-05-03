@@ -111,7 +111,7 @@ pub async fn user_entry_inner() {
             }
         }
         debug!("user_entry, task: {}", task.task_id);
-        let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
+        let cx_ref: &mut Context = unsafe { task.get_cx_ptr().as_mut().unwrap() };
 
         if let Some(exit_code) = task.exit_code() {
             debug!("program exit with code: {}", exit_code);

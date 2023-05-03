@@ -115,9 +115,9 @@ impl INodeInterface for FatFile {
         };
 
         inner.offset += rlen;
-        if inner.offset > inner.size {
-            inner.size = inner.offset;
-        }
+        // if inner.offset > inner.size {
+        //     inner.size = inner.offset;
+        // }
         Ok(rlen)
     }
 

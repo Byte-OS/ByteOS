@@ -109,7 +109,13 @@ pub fn exec_with_process<'a>(
     assert_eq!(rsize, file_size);
 
     // 读取elf信息
-    let elf = xmas_elf::ElfFile::new(&buffer).unwrap();
+    let elf = if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
+        elf
+    } else {
+        let mut new_args = vec!["busybox", "sh"];
+        args.iter().for_each(|x| new_args.push(x));
+        return exec_with_process(task, "busybox", new_args);
+    };
     let elf_header = elf.header;
 
     let entry_point = elf.header.pt2.entry_point() as usize;
