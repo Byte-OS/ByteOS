@@ -15,30 +15,33 @@ use self::{
     consts::{
         LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
         SYS_EXIT, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS,
-        SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETTID,
-        SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_LSEEK,
-        SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
-        SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_READ, SYS_READLINKAT, SYS_READV,
-        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK,
-        SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME,
-        SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE,
+        SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL,
+        SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP,
+        SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_READ,
+        SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SETPGID, SYS_SET_TID_ADDRESS,
+        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES,
+        SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
+        SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
-        sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_pread, sys_read,
-        sys_readlinkat, sys_readv, sys_sendfile, sys_statfs, sys_umount2, sys_unlinkat,
-        sys_utimensat, sys_write, sys_writev,
+        sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_ppoll, sys_pread,
+        sys_pselect, sys_read, sys_readlinkat, sys_readv, sys_sendfile, sys_statfs, sys_umount2,
+        sys_unlinkat, sys_utimensat, sys_write, sys_writev,
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_munmap},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigtimedwait},
     sys::{
-        sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_uname,
+        sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_setpgid,
+        sys_uname,
     },
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_futex, sys_getcwd, sys_getpid, sys_getppid,
-        sys_gettid, sys_sched_yield, sys_set_tid_address, sys_sigreturn, sys_tkill, sys_wait4,
+        sys_getrusage, sys_gettid, sys_sched_yield, sys_set_tid_address, sys_sigreturn, sys_tkill,
+        sys_wait4,
     },
-    time::{sys_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
+    time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
 };
 
 pub use func::{c2rust_buffer, c2rust_list, c2rust_ref};
@@ -105,7 +108,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_SET_TID_ADDRESS => sys_set_tid_address(args[0] as _).await,
         SYS_GETTID => sys_gettid().await,
         SYS_LSEEK => sys_lseek(args[0] as _, args[1] as _, args[2] as _),
-        SYS_GETTIME => sys_gettime(args[0] as _, args[1] as _).await,
+        SYS_GETTIME => sys_clock_gettime(args[0] as _, args[1] as _).await,
         SYS_SIGTIMEDWAIT => sys_sigtimedwait().await,
         SYS_PRLIMIT64 => {
             sys_prlimit64(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
@@ -146,7 +149,6 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
-        SYS_PPOLL => Ok(args[1]), // return request polls always.
         SYS_READLINKAT => {
             sys_readlinkat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
         }
@@ -157,6 +159,20 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             warn!("SYS_GET_ROBUST_LIST @ ");
             Ok(0)
         } // always ok for now
+        SYS_PPOLL => sys_ppoll(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_GETRUSAGE => sys_getrusage(args[0] as _, args[1] as _).await,
+        SYS_SETPGID => sys_setpgid(args[0] as _, args[1] as _).await,
+        SYS_PSELECT => {
+            sys_pselect(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+                args[5] as _,
+            )
+            .await
+        }
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

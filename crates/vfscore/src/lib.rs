@@ -98,6 +98,23 @@ bitflags::bitflags! {
         /// Execute/search permission, others.
         const OTHER_EXEC = 0o1;
     }
+
+    #[derive(Debug, Clone)]
+    pub struct PollEvent:u16 {
+        const POLLIN = 0x001;
+        const POLLPRI = 0x002;
+        const POLLOUT = 0x004;
+        const POLLRDNORM = 0x040;
+        const POLLRDBAND = 0x080;
+        const POLLWRNORM = 0x100;
+        const POLLWRBAND = 0x200;
+        const POLLMSG = 0x400;
+        const POLLREMOVE = 0x1000;
+        const POLLRDHUP = 0x2000;
+        const POLLERR = 0x008;
+        const POLLHUP = 0x010;
+        const POLLNVAL = 0x020;
+    }
 }
 
 pub const UTIME_NOW: usize = 0x3fffffff;
@@ -223,6 +240,14 @@ pub struct Dirent64 {
     pub name: [u8; 0], // 文件名
 }
 
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct PollFd {
+    fd: u32,
+    events: PollEvent,
+    revents: PollEvent,
+}
+
 pub trait INodeInterface: Send + Sync {
     fn metadata(&self) -> VfsResult<Metadata> {
         Err(VfsError::NotSupported)
@@ -325,6 +350,10 @@ pub trait INodeInterface: Send + Sync {
     }
 
     fn utimes(&self, _times: &mut [TimeSpec]) -> VfsResult<()> {
+        Err(VfsError::NotSupported)
+    }
+
+    fn poll(&self, _events: PollEvent) -> VfsResult<PollEvent> {
         Err(VfsError::NotSupported)
     }
 }

@@ -1,6 +1,6 @@
-use crate::syscall::consts::{elf, from_vfs, CloneFlags};
+use crate::syscall::consts::{elf, from_vfs, CloneFlags, Rusage};
 use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
-use crate::syscall::time::{current_nsec, WaitUntilsec};
+use crate::syscall::time::{current_nsec, TimeVal, WaitUntilsec};
 use crate::tasks::elf::ElfExtra;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
 use alloc::collections::BTreeMap;
@@ -137,10 +137,10 @@ pub fn exec_with_process<'a>(
     if let Some(header) = header {
         drop(frame_ppn);
         if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
-            let path = "libc.so";
-            let mut new_args = vec![path];
-            args.iter().for_each(|x| new_args.push(x));
-            return exec_with_process(task, path, new_args);
+            let lib_path = "libc.so";
+            let mut new_args = vec![lib_path, path];
+            args[1..].iter().for_each(|x| new_args.push(x));
+            return exec_with_process(task, lib_path, new_args);
         }
     }
 
@@ -168,7 +168,7 @@ pub fn exec_with_process<'a>(
     };
 
     // map stack
-    user_task.frame_alloc_much(VirtPage::from_addr(0x7fffe000), MemType::Stack, 2);
+    user_task.frame_alloc_much(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
     debug!("entry: {:#x}", base + entry_point);
     user_task.inner_map(|mut inner| {
         inner.heap = heap_bottom as usize;
@@ -486,6 +486,23 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
 pub async fn sys_sigreturn() -> Result<usize, LinuxError> {
     debug!("sys_sigreturn @ ");
     Err(LinuxError::CONTROLFLOWBREAK)
+}
+
+pub async fn sys_getrusage(who: usize, usage_ptr: usize) -> Result<usize, LinuxError> {
+    debug!("sys_getrusgae @ who: {}, usage_ptr: {:#x}", who, usage_ptr);
+    let rusage = c2rust_ref(usage_ptr as *mut Rusage);
+
+    let tms = current_user_task().inner_map(|inner| inner.tms);
+    rusage.ru_stime = TimeVal {
+        sec: tms.stime as usize / 1000_000,
+        usec: tms.stime as usize % 1000_000,
+    };
+    rusage.ru_utime = TimeVal {
+        sec: tms.utime as usize / 1000_000,
+        usec: tms.utime as usize % 1000_000,
+    };
+    // Ok(())
+    Ok(0)
 }
 
 // pub fn sys_exit_group(exit_code: usize) -> Result<(), RuntimeError> {

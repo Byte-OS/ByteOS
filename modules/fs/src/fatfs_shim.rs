@@ -495,7 +495,7 @@ impl fatfs::Read for DiskCursor {
             let start = self.offset;
             let end = (self.offset + buf.len()).min(512);
 
-            buf.copy_from_slice(&data[start..end]);
+            buf[..end - start].copy_from_slice(&data[start..end]);
             end - start
         } else {
             // 如果不用同一个数组 会导致读取数据的时候出现问题
@@ -527,7 +527,7 @@ impl fatfs::Write for DiskCursor {
             let start = self.offset;
             let end = (self.offset + buf.len()).min(512);
 
-            data[start..end].clone_from_slice(&buf);
+            data[start..end].clone_from_slice(&buf[..end - start]);
             device.write_block(self.sector as usize, &mut data);
 
             end - start
