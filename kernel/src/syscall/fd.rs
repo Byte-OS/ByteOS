@@ -2,7 +2,7 @@ use core::cmp;
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use executor::{current_task, current_user_task};
+use executor::{current_task, current_user_task, select};
 use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
 use fs::{
@@ -12,6 +12,7 @@ use log::{debug, warn};
 
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
 use crate::syscall::func::{c2rust_buffer, c2rust_ref, c2rust_str, timespc_now};
+use crate::syscall::time::wait_ms;
 
 use super::consts::LinuxError;
 
@@ -42,7 +43,10 @@ pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, 
         .unwrap()
         .get_fd(fd)
         .ok_or(LinuxError::EBADF)?;
-    WaitBlockingRead(file, &mut buffer).await.map_err(from_vfs)
+    match select(WaitBlockingRead(file, &mut buffer), wait_ms(40)).await {
+        executor::Either::Left((rlen, _)) => rlen.map_err(from_vfs),
+        executor::Either::Right(_) => Err(LinuxError::ETIMEDOUT),
+    }
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, LinuxError> {

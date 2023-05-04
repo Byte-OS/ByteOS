@@ -112,6 +112,10 @@ impl Future for WaitUntilsec {
     }
 }
 
+pub fn wait_ms(ms: usize) -> WaitUntilsec {
+    WaitUntilsec(current_nsec() + ms * 0x1000_0000)
+}
+
 pub fn current_nsec() -> usize {
     RTC_DEVICES.lock()[0].read() as usize
 }

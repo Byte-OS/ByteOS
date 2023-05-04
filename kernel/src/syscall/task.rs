@@ -537,3 +537,20 @@ pub async fn sys_getrusage(who: usize, usage_ptr: usize) -> Result<usize, LinuxE
 //     debug!("exit_code: {:#x}", exit_code);
 //     Err(RuntimeError::ChangeTask)
 // }
+
+pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
+    let signal = SignalFlags::from_usize(signum);
+    info!("sys_kill @ pid: {}, signum: {:?}", pid, signal);
+    let user_task = current_user_task();
+
+    match signal {
+        SignalFlags::SIGKILL => {
+            user_task.exit_with_signal(signal.num());
+        }
+        _ => {
+            user_task.inner_map(|mut inner| inner.signal.add_signal(signal.clone()));
+        }
+    }
+
+    Ok(0)
+}
