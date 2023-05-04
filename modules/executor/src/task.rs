@@ -359,6 +359,8 @@ impl UserTask {
         }
         self.inner.lock().exit_code = Some(exit_code);
         FUTURE_LIST.lock().remove(&self.task_id);
+        // recycle memory resouces
+        self.inner.lock().memset.clear();
         self.parent.upgrade().map(|x| {
             x.clone()
                 .as_user_task()
