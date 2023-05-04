@@ -17,7 +17,7 @@ use self::{
         SYS_EXIT, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FUTEX, SYS_GETCWD,
         SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID,
         SYS_GETRUSAGE, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST,
-        SYS_IOCTL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP,
+        SYS_IOCTL, SYS_KILL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP,
         SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT,
         SYS_READ, SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SETPGID,
         SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGTIMEDWAIT,
@@ -38,8 +38,8 @@ use self::{
     },
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_futex, sys_getcwd, sys_getpid, sys_getppid,
-        sys_getrusage, sys_gettid, sys_sched_yield, sys_set_tid_address, sys_sigreturn, sys_tkill,
-        sys_wait4,
+        sys_getrusage, sys_gettid, sys_kill, sys_sched_yield, sys_set_tid_address, sys_sigreturn,
+        sys_tkill, sys_wait4,
     },
     time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
 };
@@ -173,6 +173,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
+        SYS_KILL => sys_kill(args[0] as _, args[1] as _).await,
         SYS_FSYNC => Ok(args[0] as _),
         _ => {
             warn!("unsupported syscall: {}", call_type);
