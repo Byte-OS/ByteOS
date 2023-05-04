@@ -27,19 +27,23 @@ all:
 
 fs-img:
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=40
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=300
 	mkfs.vfat -F 32 $(FS_IMG)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
-	cp -r tools/testcase-step2-dbg/* mount/
+	rm -rf mount/*
+	cp -rf tools/testcase-bench/* mount/
 	sudo umount $(FS_IMG)
 
-build: fs-img
+build:
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) $(OFFLINE)
 
-run: build
+run: fs-img build
 	$(QEMU_EXEC)
 
-debug: build
+justrun: build
+	$(QEMU_EXEC)
+
+debug: fs-img build
 	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
 	tmux split-window -h "riscv64-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \

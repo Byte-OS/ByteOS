@@ -71,7 +71,7 @@ impl DevDir {
         let mut map: BTreeMap<&'static str, Arc<dyn INodeInterface>> = BTreeMap::new();
         map.insert("stdout", Arc::new(stdout::Stdout));
         map.insert("stderr", Arc::new(stdout::Stdout));
-        map.insert("stdin", Arc::new(stdin::Stdin));
+        map.insert("stdin", Arc::new(stdin::Stdin::new()));
         map.insert("null", Arc::new(null::Null));
         map.insert("zero", Arc::new(zero::Zero));
         map.insert("shm", Arc::new(shm::Shm));

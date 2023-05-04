@@ -81,7 +81,7 @@ impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<File>> = vec![FD_NONE; FILE_MAX];
         // let mut file_table = [FD_NONE; FILE_MAX];
-        file_table[0] = Some(Arc::new(Stdin));
+        file_table[0] = Some(Arc::new(Stdin::new()));
         file_table[1] = Some(Arc::new(Stdout));
         file_table[2] = Some(Arc::new(Stdout));
         // file_table.push(Some(Arc::new(Stdin)));

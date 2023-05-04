@@ -6,6 +6,7 @@ const CLOCK_FREQ: usize = 12500000;
 const TICKS_PER_SEC: usize = 100;
 #[allow(dead_code)]
 const MSEC_PER_SEC: usize = 1000;
+const USEC_PER_SEC: usize = 1000_000;
 
 #[allow(dead_code)]
 pub fn get_time_ms() -> usize {
@@ -14,6 +15,10 @@ pub fn get_time_ms() -> usize {
 
 pub fn get_time() -> usize {
     time::read()
+}
+
+pub fn time_to_usec(t: usize) -> usize {
+    t / (CLOCK_FREQ / USEC_PER_SEC)
 }
 
 // 设置下一次时钟中断触发时间

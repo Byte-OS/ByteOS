@@ -4,20 +4,31 @@ use core::{
     task::{Context, Poll},
 };
 
-use arch::get_time;
+use arch::{get_time, time_to_usec};
 use devices::RTC_DEVICES;
 use executor::{current_task, TMS};
 use fs::TimeSpec;
-use log::debug;
+use log::{debug, warn};
 
 use crate::syscall::func::c2rust_ref;
 
 use super::consts::LinuxError;
 
 #[repr(C)]
+#[derive(Clone, Copy)]
 pub struct TimeVal {
-    sec: usize,  /* 秒 */
-    usec: usize, /* 微秒, 范围在0~999999 */
+    pub sec: usize,  /* 秒 */
+    pub usec: usize, /* 微秒, 范围在0~999999 */
+}
+
+impl TimeVal {
+    pub fn now() -> Self {
+        let ns = current_nsec();
+        Self {
+            sec: ns / 1_000_000_000,
+            usec: (ns % 1_000_000_000) / 1000,
+        }
+    }
 }
 
 pub async fn sys_gettimeofday(tv_ptr: usize, timezone_ptr: usize) -> Result<usize, LinuxError> {
@@ -25,10 +36,7 @@ pub async fn sys_gettimeofday(tv_ptr: usize, timezone_ptr: usize) -> Result<usiz
         "sys_gettimeofday @ tv_ptr: {:#x}, timezone: {:#x}",
         tv_ptr, timezone_ptr
     );
-    let ns = RTC_DEVICES.lock()[0].read() as usize;
-    let ts = c2rust_ref(tv_ptr as *mut TimeVal);
-    ts.sec = ns / 1_000_000_000;
-    ts.usec = (ns % 1_000_000_000) / 1000;
+    *c2rust_ref(tv_ptr as *mut TimeVal) = TimeVal::now();
     Ok(0)
 }
 
@@ -63,17 +71,29 @@ pub async fn sys_times(tms_ptr: usize) -> Result<usize, LinuxError> {
     Ok(get_time())
 }
 
-pub async fn sys_gettime(clock_id: usize, times_ptr: usize) -> Result<usize, LinuxError> {
+pub async fn sys_clock_gettime(clock_id: usize, times_ptr: usize) -> Result<usize, LinuxError> {
     debug!(
-        "sys_gettime @ clock_id: {}, times_ptr: {}",
+        "sys_clock_gettime @ clock_id: {}, times_ptr: {}",
         clock_id, times_ptr
     );
 
     let ts = c2rust_ref(times_ptr as *mut TimeSpec);
-    let ns = RTC_DEVICES.lock()[0].read() as usize;
+    let ns = match clock_id {
+        0 => RTC_DEVICES.lock()[0].read() as usize, // CLOCK_REALTIME
+        1 => time_to_usec(get_time()) * 1000,       // CLOCK_MONOTONIC
+        2 => {
+            warn!("CLOCK_PROCESS_CPUTIME_ID not implemented");
+            0
+        }
+        3 => {
+            warn!("CLOCK_THREAD_CPUTIME_ID not implemented");
+            0
+        }
+        _ => return Err(LinuxError::EINVAL),
+    };
 
     ts.sec = ns / 1_000_000_000;
-    ts.nsec = (ns % 1_000_000_000) / 1000;
+    ts.nsec = ns % 1_000_000_000;
     Ok(0)
 }
 

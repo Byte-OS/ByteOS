@@ -1,10 +1,13 @@
 use core::cmp;
 
+use alloc::string::String;
 use alloc::vec::Vec;
 use executor::{current_task, current_user_task};
 use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
-use fs::{OpenFlags, SeekFrom, Stat, StatFS, TimeSpec, WaitBlockingRead, UTIME_NOW};
+use fs::{
+    OpenFlags, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, WaitBlockingRead, UTIME_NOW,
+};
 use log::{debug, warn};
 
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
@@ -97,7 +100,7 @@ pub async fn sys_mkdir_at(dir_fd: usize, path: usize, mode: usize) -> Result<usi
     let path = c2rust_str(path as *mut i8);
     debug!(
         "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
-        dir_fd, path, mode
+        dir_fd as isize, path, mode
     );
     let user_task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
@@ -105,6 +108,9 @@ pub async fn sys_mkdir_at(dir_fd: usize, path: usize, mode: usize) -> Result<usi
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
+    if path == "/" {
+        return Err(LinuxError::EEXIST);
+    }
     dir.mkdir(path).map_err(from_vfs)?;
     Ok(0)
 }
@@ -159,11 +165,15 @@ pub async fn sys_openat(
         "sys_openat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
         fd as isize, filename, open_flags, mode
     );
-    let path = if fd == AT_CWD {
-        user_task.inner.lock().curr_dir.clone() + filename
+    let path = if filename.starts_with("/") {
+        String::from(filename)
     } else {
-        let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-        file.path().map_err(from_vfs)? + "/" + filename
+        if fd == AT_CWD {
+            user_task.inner.lock().curr_dir.clone() + "/" + filename
+        } else {
+            let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+            file.path().map_err(from_vfs)? + "/" + filename
+        }
     };
     let file = match open(&path) {
         Ok(file) => Ok(file),
@@ -198,6 +208,7 @@ pub async fn sys_fstat(fd: usize, stat_ptr: usize) -> Result<usize, LinuxError> 
         .ok_or(LinuxError::EBADF)?
         .stat(stat_ref)
         .map_err(from_vfs)?;
+    stat_ref.mode |= StatMode::OWNER_MASK | StatMode::GROUP_MASK | StatMode::OTHER_MASK;
     Ok(0)
 }
 
@@ -206,10 +217,14 @@ pub async fn sys_fstatat(
     filename_ptr: usize,
     stat_ptr: usize,
 ) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_fstatat @ dir_fd: {}, filename:{:#x}, stat_ptr: {:#x}",
+        dir_fd as isize, filename_ptr, stat_ptr
+    );
     let filename = c2rust_str(filename_ptr as *mut i8);
     debug!(
         "sys_fstatat @ dir_fd: {}, filename:{}, stat_ptr: {:#x}",
-        dir_fd, filename, stat_ptr
+        dir_fd as isize, filename, stat_ptr
     );
     let stat = c2rust_ref(stat_ptr as *mut Stat);
 
@@ -225,6 +240,8 @@ pub async fn sys_fstatat(
         .map_err(from_vfs)?
         .stat(stat)
         .map_err(from_vfs)?;
+
+    stat.mode |= StatMode::OWNER_MASK | StatMode::GROUP_MASK | StatMode::OTHER_MASK;
     Ok(0)
 }
 
@@ -491,7 +508,7 @@ pub async fn sys_sendfile(
     offset: usize,
     count: usize,
 ) -> Result<usize, LinuxError> {
-    info!(
+    debug!(
         "out_fd: {}  in_fd: {}  offset: {:#x}   count: {}",
         out_fd, in_fd, offset, count
     );
@@ -515,4 +532,53 @@ pub async fn sys_sendfile(
 
     in_file.read(&mut buffer).map_err(from_vfs)?;
     out_file.write(&buffer).map_err(from_vfs)
+}
+
+/// TODO: improve it.
+pub async fn sys_ppoll(
+    poll_fds_ptr: usize,
+    nfds: usize,
+    timeout_ptr: usize,
+    sigmask_ptr: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_ppoll @ poll_fds_ptr: {:#X}, nfds: {}, timeout_ptr: {:#X}, sigmask_ptr: {:#X}",
+        poll_fds_ptr, nfds, timeout_ptr, sigmask_ptr
+    );
+    let fds = c2rust_buffer(poll_fds_ptr as *mut PollFd, nfds);
+    debug!("fds: {:?}", fds);
+    // use it temporary
+    if timeout_ptr != 0 {
+        let timeout = c2rust_ref(timeout_ptr as *mut TimeSpec);
+        debug!("timeout: {:?}", timeout);
+        return Ok(0);
+    }
+    Ok(nfds)
+}
+
+/// TODO: improve it.
+pub async fn sys_pselect(
+    max_fdp1: usize,
+    readfds: usize,
+    writefds: usize,
+    exceptfds: usize,
+    timeout_ptr: usize,
+    sigmask: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_pselect @ max_fdp1: {}, readfds: {:#X}, writefds: {:#X}, exceptfds: {:#X}, tsptr: {:#X}, sigmask: {:#X}",
+        max_fdp1, readfds, writefds, exceptfds, timeout_ptr, sigmask
+    );
+    // let fds = c2rust_buffer(poll_fds_ptr as *mut PollFd, nfds);
+    // debug!("fds: {:?}", fds);
+    // use it temporary
+    if timeout_ptr != 0 {
+        let timeout = c2rust_ref(timeout_ptr as *mut TimeSpec);
+        debug!("timeout: {:?}", timeout);
+        return Ok(0);
+    }
+    if exceptfds != 0 {
+        c2rust_buffer(exceptfds as *mut usize, 8).fill(0);
+    }
+    Ok(max_fdp1)
 }

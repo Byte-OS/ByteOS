@@ -37,7 +37,7 @@ impl INodeInterface for PipeReceiver {
                 buffer[i] = x;
             });
 
-        if rlen == 0 && self.sender.upgrade().is_some() {
+        if rlen == 0 && Weak::strong_count(&self.sender) > 0 {
             Err(vfscore::VfsError::Blocking)
         } else {
             Ok(rlen)
