@@ -1,4 +1,4 @@
-use core::cmp::min;
+use core::cmp::{self, min};
 use core::mem::size_of;
 
 use alloc::string::String;
@@ -95,6 +95,12 @@ unsafe impl Send for FatDir {}
 impl INodeInterface for FatFile {
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
+
+        if inner.offset >= inner.size {
+            return Ok(0);
+        }
+        let seek_curr = SeekFrom::Start(inner.offset as _);
+        inner.inner.seek(seek_curr).map_err(as_vfs_err)?;
         let offset = inner.offset;
         let len = inner.size;
         // read cached file.
@@ -115,14 +121,27 @@ impl INodeInterface for FatFile {
         };
 
         inner.offset += rlen;
-        // if inner.offset > inner.size {
-        //     inner.size = inner.offset;
-        // }
         Ok(rlen)
     }
 
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
+
+        // if offset > len
+        let seek_curr = SeekFrom::Start(inner.offset as _);
+        let curr_off = inner.inner.seek(seek_curr).map_err(as_vfs_err)? as usize;
+        if inner.offset != curr_off {
+            let buffer = vec![0u8; 512];
+            loop {
+                let wlen = cmp::min(inner.offset - inner.size, 512);
+
+                if wlen == 0 {
+                    break;
+                }
+                let real_wlen = inner.inner.write(&buffer).map_err(as_vfs_err)?;
+                inner.size += real_wlen;
+            }
+        }
 
         inner.inner.write_all(buffer).map_err(as_vfs_err)?;
         inner.offset += buffer.len();
@@ -183,20 +202,20 @@ impl INodeInterface for FatFile {
 
     fn seek(&self, seek: vfscore::SeekFrom) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
-        inner
-            .inner
-            .seek(match seek {
-                vfscore::SeekFrom::SET(offset) => SeekFrom::Start(offset as u64),
-                vfscore::SeekFrom::CURRENT(offset) => SeekFrom::Current(offset as i64),
-                vfscore::SeekFrom::END(offset) => SeekFrom::End(offset as i64),
-            })
-            .map_or_else(
-                |e| Err(as_vfs_err(e)),
-                |x| {
-                    inner.offset = x as usize;
-                    Ok(x as usize)
-                },
-            )
+        let new_off = match seek {
+            vfscore::SeekFrom::SET(offset) => offset as isize,
+            vfscore::SeekFrom::CURRENT(offset) => inner.offset as isize + offset,
+            vfscore::SeekFrom::END(offset) => inner.size as isize + offset,
+        };
+        if new_off < 0 {
+            return Err(VfsError::InvalidInput);
+        }
+        inner.offset = new_off as usize;
+        Ok(new_off as usize)
+    }
+
+    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
+        Ok(())
     }
 }
 

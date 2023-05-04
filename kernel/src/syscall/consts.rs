@@ -204,6 +204,7 @@ pub const SYS_PPOLL: usize = 73;
 pub const SYS_READLINKAT: usize = 78;
 pub const SYS_FSTATAT: usize = 79;
 pub const SYS_FSTAT: usize = 80;
+pub const SYS_FSYNC: usize = 82;
 pub const SYS_UTIMEAT: usize = 88;
 pub const SYS_EXIT: usize = 93;
 pub const SYS_EXIT_GROUP: usize = 94;
