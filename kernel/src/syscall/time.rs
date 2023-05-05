@@ -79,8 +79,8 @@ pub async fn sys_clock_gettime(clock_id: usize, times_ptr: usize) -> Result<usiz
 
     let ts = c2rust_ref(times_ptr as *mut TimeSpec);
     let ns = match clock_id {
-        0 => RTC_DEVICES.lock()[0].read() as usize, // CLOCK_REALTIME
-        1 => time_to_usec(get_time()) * 1000,       // CLOCK_MONOTONIC
+        0 => current_nsec(),                  // CLOCK_REALTIME
+        1 => time_to_usec(get_time()) * 1000, // CLOCK_MONOTONIC
         2 => {
             warn!("CLOCK_PROCESS_CPUTIME_ID not implemented");
             0
@@ -118,5 +118,7 @@ pub fn wait_ms(ms: usize) -> WaitUntilsec {
 }
 
 pub fn current_nsec() -> usize {
-    RTC_DEVICES.lock()[0].read() as usize
+    // RTC_DEVICES.lock()[0].read() as usize
+    // time_to_usec(get_time())
+    time_to_usec(get_time()) * 1000
 }

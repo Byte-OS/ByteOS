@@ -3,7 +3,7 @@ use core::cmp;
 use alloc::string::String;
 use alloc::vec::Vec;
 use bit_field::BitArray;
-use executor::{current_task, current_user_task, select, yield_now};
+use executor::{current_task, current_user_task, yield_now};
 use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
 use fs::{
@@ -15,7 +15,6 @@ use log::{debug, warn};
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
 use crate::syscall::func::{c2rust_buffer, c2rust_ref, c2rust_str, timespc_now};
 use crate::syscall::time::current_nsec;
-use crate::tasks::WaitSignal;
 
 use super::consts::LinuxError;
 
@@ -46,16 +45,16 @@ pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, 
         .unwrap()
         .get_fd(fd)
         .ok_or(LinuxError::EBADF)?;
-    match select(
-        WaitBlockingRead(file, &mut buffer),
-        WaitSignal(current_user_task()),
-    )
-    .await
-    {
-        executor::Either::Left((rlen, _)) => rlen.map_err(from_vfs),
-        executor::Either::Right(_) => Err(LinuxError::EINTR),
-    }
-    // WaitBlockingRead(file, &mut buffer).await.map_err(from_vfs)
+    // match select(
+    //     WaitBlockingRead(file, &mut buffer),
+    //     WaitSignal(current_user_task()),
+    // )
+    // .await
+    // {
+    //     executor::Either::Left((rlen, _)) => rlen.map_err(from_vfs),
+    //     executor::Either::Right(_) => Err(LinuxError::EINTR),
+    // }
+    WaitBlockingRead(file, &mut buffer).await.map_err(from_vfs)
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, LinuxError> {
@@ -585,6 +584,7 @@ pub async fn sys_pselect(
 
     let timeout = if timeout_ptr != 0 {
         let timeout = c2rust_ref(timeout_ptr as *mut TimeSpec);
+        debug!("timeout: {:?}", timeout);
         current_nsec() + timeout.to_nsec()
     } else {
         usize::MAX
@@ -594,7 +594,7 @@ pub async fn sys_pselect(
         let inner = user_task.inner.lock();
         if readfds != 0 {
             let rfds = c2rust_buffer(readfds as *mut usize, 4);
-            for i in 0..255 {
+            for i in 0..max_fdp1 {
                 if inner.fd_table[i].is_none() {
                     rfds.set_bit(i, false);
                     continue;
@@ -608,8 +608,8 @@ pub async fn sys_pselect(
                         if res.contains(PollEvent::POLLIN) {
                             num += 1;
                             rfds.set_bit(i, true);
-                            rfds.set_bit(i, false)
                         } else {
+                            rfds.set_bit(i, false)
                         }
                     }
                     Err(_) => {
@@ -621,7 +621,7 @@ pub async fn sys_pselect(
         }
         if writefds != 0 {
             let wfds = c2rust_buffer(writefds as *mut usize, 4);
-            for i in 0..255 {
+            for i in 0..max_fdp1 {
                 if inner.fd_table[i].is_none() {
                     wfds.set_bit(i, false);
                     continue;
@@ -643,12 +643,13 @@ pub async fn sys_pselect(
                 }
             }
         }
-        if exceptfds == 0 {
+        if exceptfds != 0 {
             let efds = c2rust_buffer(exceptfds as *mut usize, 4);
-            for i in 0..255 {
+            for i in 0..max_fdp1 {
                 efds.set_bit(i, false);
             }
         }
+        drop(inner);
         if num >= max_fdp1 {
             return Ok(num);
         }
