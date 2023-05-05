@@ -23,6 +23,7 @@ unsafe extern "C" fn _start() -> ! {
         // 0xffffffc0_80000000 -> 0x80000000 (1G)
         arr[2] = PTE::from_addr(0x8000_0000, PTEFlags::VRWX);
         arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
+        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
         arr
     };

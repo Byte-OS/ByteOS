@@ -51,6 +51,7 @@ impl KernelTask {
 
         let arr = page_table.get_pte_list();
         arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
+        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
 
         FUTURE_LIST
@@ -214,6 +215,7 @@ impl UserTask {
 
         let arr = page_table.get_pte_list();
         arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
+        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
 
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));

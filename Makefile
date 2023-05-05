@@ -1,3 +1,4 @@
+NVME := off
 ARCH := riscv64imac
 LOG  := info
 RELEASE := release
@@ -5,14 +6,21 @@ KERNEL_ELF = target/$(ARCH)-unknown-none-elf/$(RELEASE)/kernel
 # SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
 SBI := tools/opensbi-qemu.bin
+features:= 
 QEMU_EXEC := qemu-system-riscv64 \
 				-machine virt \
 				-kernel $(KERNEL_ELF) \
 				-m 128M \
-				-bios $(SBI) \
-				-drive file=$(FS_IMG),if=none,format=raw,id=x0 \
-        		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 \
-				-nographic \
+				-bios $(SBI) 
+ifeq ($(NVME), on)
+QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
+				-device nvme,serial=deadbeef,drive=nvm 
+features += nvme
+else
+QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
+        		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
+endif
+QEMU_EXEC += -nographic \
 				-smp 2
 RUST_BUILD_OPTIONS := 
 
@@ -35,7 +43,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) $(OFFLINE)
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" $(OFFLINE)
 
 run: fs-img build
 	$(QEMU_EXEC)

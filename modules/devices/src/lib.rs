@@ -9,6 +9,8 @@ extern crate alloc;
 
 pub mod device;
 pub mod memory;
+#[cfg(feature = "nvme")]
+pub mod nvme;
 pub mod rtc;
 pub mod virtio;
 
@@ -74,4 +76,6 @@ pub fn prepare_devices() {
             // info!("    {}  {}", child.name, compatible.first());
         }
     }
+    #[cfg(feature = "nvme")]
+    nvme::init();
 }
