@@ -112,6 +112,7 @@ impl Future for WaitUntilsec {
     }
 }
 
+#[allow(dead_code)]
 pub fn wait_ms(ms: usize) -> WaitUntilsec {
     WaitUntilsec(current_nsec() + ms * 0x1000_0000)
 }

@@ -54,7 +54,15 @@ impl INodeInterface for Stdin {
         Ok(())
     }
 
-    fn poll(&self, _events: PollEvent) -> VfsResult<PollEvent> {
-        todo!()
+    fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
+        let mut res = PollEvent::NONE;
+        if events.contains(PollEvent::POLLIN) {
+            let c = console_getchar() as u8;
+            if c != (-1 as i8 as u8) {
+                res |= PollEvent::POLLIN;
+                self.buffer.lock().push_back(c);
+            }
+        }
+        Ok(res)
     }
 }

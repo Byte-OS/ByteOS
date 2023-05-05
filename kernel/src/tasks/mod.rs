@@ -34,7 +34,7 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
     unsafe {
         user_restore(cx_ref);
     }
-    task.inner_map(|mut inner| inner.tms.utime += (get_time() - ustart) as u64);
+    task.inner_map(|inner| inner.tms.utime += (get_time() - ustart) as u64);
 
     let sstart = 0;
     let trap_type = trap_pre_handle(cx_ref);
@@ -99,7 +99,7 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
             }
         }
     }
-    task.inner_map(|mut inner| inner.tms.stime += (get_time() - sstart) as u64);
+    task.inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
     UserTaskControlFlow::Continue
 }
 
@@ -132,7 +132,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
 
     let cx = c2rust_ref(sp as *mut SignalUserContext);
     let store_cx = cx_ref.clone();
-    task.inner_map(|mut inner| {
+    task.inner_map(|inner| {
         // cx.context.clone_from(&inner.cx);
         cx.pc = inner.cx.sepc();
         cx.sig_mask = sigaction.mask;
@@ -145,6 +145,11 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     });
 
     loop {
+        if let Some(exit_code) = task.exit_code() {
+            debug!("program exit with code: {}", exit_code);
+            break;
+        }
+
         if let UserTaskControlFlow::Break = handle_syscall(task.clone(), cx_ref).await {
             break;
         }
@@ -163,7 +168,7 @@ pub async fn user_entry_inner() {
         let task = current_user_task();
         debug!("user_entry, task: {}", task.task_id);
         loop {
-            if let Some(signal) = task.inner_map(|mut x| x.signal.handle_signal()) {
+            if let Some(signal) = task.inner_map(|x| x.signal.handle_signal()) {
                 debug!("handle signal: {:?}  num: {}", signal, signal.num());
                 handle_signal(task.clone(), signal.clone()).await;
             } else {

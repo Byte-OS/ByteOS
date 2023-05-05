@@ -50,7 +50,7 @@ pub async fn sys_prlimit64(
         7 => {
             if new_limit != 0 {
                 let rlimit = c2rust_ref(new_limit as *mut Rlimit);
-                user_task.inner_map(|mut x| {
+                user_task.inner_map(|x| {
                     x.rlimits[7] = rlimit.max;
                 })
             }

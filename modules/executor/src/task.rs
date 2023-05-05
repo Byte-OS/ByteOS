@@ -1,4 +1,10 @@
-use core::{cmp::min, future::Future, mem::size_of, ops::Add, pin::Pin};
+use core::{
+    cmp::min,
+    future::Future,
+    mem::size_of,
+    ops::{Add, Deref, DerefMut},
+    pin::Pin,
+};
 
 use alloc::{
     boxed::Box,
@@ -89,6 +95,20 @@ impl FileTable {
         // file_table.push(Some(Arc::new(Stdout)));
 
         Self(file_table)
+    }
+}
+
+impl Deref for FileTable {
+    type Target = Vec<Option<File>>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for FileTable {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
     }
 }
 
@@ -225,8 +245,8 @@ impl UserTask {
         })
     }
 
-    pub fn inner_map<T>(&self, mut f: impl FnMut(MutexGuard<TaskInner>) -> T) -> T {
-        f(self.inner.lock())
+    pub fn inner_map<T>(&self, mut f: impl FnMut(&mut MutexGuard<TaskInner>) -> T) -> T {
+        f(&mut self.inner.lock())
     }
 
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags) {
@@ -389,7 +409,7 @@ impl UserTask {
 
         new_task.inner.lock().cx.clone_from(&self.inner.lock().cx);
         new_task.inner.lock().cx.set_ret(0);
-        new_task.inner_map(|mut inner| {
+        new_task.inner_map(|inner| {
             inner.curr_dir = self.inner.lock().curr_dir.clone();
         });
         self.inner.lock().children.push(new_task.clone());

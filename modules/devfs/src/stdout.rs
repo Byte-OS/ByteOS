@@ -1,5 +1,5 @@
 use logging::puts;
-use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
+use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsResult};
 
 pub struct Stdout;
 
@@ -21,5 +21,9 @@ impl INodeInterface for Stdout {
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
         Ok(())
+    }
+
+    fn poll(&self, _events: vfscore::PollEvent) -> VfsResult<vfscore::PollEvent> {
+        Ok(PollEvent::POLLOUT)
     }
 }
