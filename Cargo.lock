@@ -268,6 +268,7 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "bit_field",
  "bitflags 2.0.2",
  "devices",
  "executor",

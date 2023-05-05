@@ -2,17 +2,20 @@ use core::cmp;
 
 use alloc::string::String;
 use alloc::vec::Vec;
-use executor::{current_task, current_user_task, select};
+use bit_field::BitArray;
+use executor::{current_task, current_user_task, select, yield_now};
 use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
 use fs::{
-    OpenFlags, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, WaitBlockingRead, UTIME_NOW,
+    OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, WaitBlockingRead,
+    UTIME_NOW,
 };
 use log::{debug, warn};
 
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
 use crate::syscall::func::{c2rust_buffer, c2rust_ref, c2rust_str, timespc_now};
-use crate::syscall::time::wait_ms;
+use crate::syscall::time::current_nsec;
+use crate::tasks::WaitSignal;
 
 use super::consts::LinuxError;
 
@@ -43,10 +46,16 @@ pub async fn sys_read(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, 
         .unwrap()
         .get_fd(fd)
         .ok_or(LinuxError::EBADF)?;
-    match select(WaitBlockingRead(file, &mut buffer), wait_ms(40)).await {
+    match select(
+        WaitBlockingRead(file, &mut buffer),
+        WaitSignal(current_user_task()),
+    )
+    .await
+    {
         executor::Either::Left((rlen, _)) => rlen.map_err(from_vfs),
-        executor::Either::Right(_) => Err(LinuxError::ETIMEDOUT),
+        executor::Either::Right(_) => Err(LinuxError::EINTR),
     }
+    // WaitBlockingRead(file, &mut buffer).await.map_err(from_vfs)
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: usize, count: usize) -> Result<usize, LinuxError> {
@@ -549,8 +558,7 @@ pub async fn sys_ppoll(
         "sys_ppoll @ poll_fds_ptr: {:#X}, nfds: {}, timeout_ptr: {:#X}, sigmask_ptr: {:#X}",
         poll_fds_ptr, nfds, timeout_ptr, sigmask_ptr
     );
-    let fds = c2rust_buffer(poll_fds_ptr as *mut PollFd, nfds);
-    debug!("fds: {:?}", fds);
+    let _fds = c2rust_buffer(poll_fds_ptr as *mut PollFd, nfds);
     // use it temporary
     if timeout_ptr != 0 {
         let timeout = c2rust_ref(timeout_ptr as *mut TimeSpec);
@@ -573,16 +581,80 @@ pub async fn sys_pselect(
         "sys_pselect @ max_fdp1: {}, readfds: {:#X}, writefds: {:#X}, exceptfds: {:#X}, tsptr: {:#X}, sigmask: {:#X}",
         max_fdp1, readfds, writefds, exceptfds, timeout_ptr, sigmask
     );
-    // let fds = c2rust_buffer(poll_fds_ptr as *mut PollFd, nfds);
-    // debug!("fds: {:?}", fds);
-    // use it temporary
-    if timeout_ptr != 0 {
+    let user_task = current_user_task();
+
+    let timeout = if timeout_ptr != 0 {
         let timeout = c2rust_ref(timeout_ptr as *mut TimeSpec);
-        debug!("timeout: {:?}", timeout);
-        return Ok(0);
+        current_nsec() + timeout.to_nsec()
+    } else {
+        usize::MAX
+    };
+    loop {
+        let mut num = 0;
+        let inner = user_task.inner.lock();
+        if readfds != 0 {
+            let rfds = c2rust_buffer(readfds as *mut usize, 4);
+            for i in 0..255 {
+                if inner.fd_table[i].is_none() {
+                    rfds.set_bit(i, false);
+                    continue;
+                }
+                if !rfds.get_bit(i) {
+                    continue;
+                }
+                let file = inner.fd_table[i].clone().unwrap();
+                match file.poll(PollEvent::POLLIN) {
+                    Ok(res) => {
+                        if res.contains(PollEvent::POLLIN) {
+                            num += 1;
+                            rfds.set_bit(i, true);
+                            rfds.set_bit(i, false)
+                        } else {
+                        }
+                    }
+                    Err(_) => {
+                        num += 1;
+                        rfds.set_bit(i, true)
+                    }
+                }
+            }
+        }
+        if writefds != 0 {
+            let wfds = c2rust_buffer(writefds as *mut usize, 4);
+            for i in 0..255 {
+                if inner.fd_table[i].is_none() {
+                    wfds.set_bit(i, false);
+                    continue;
+                }
+                if !wfds.get_bit(i) {
+                    continue;
+                }
+                let file = inner.fd_table[i].clone().unwrap();
+                match file.poll(PollEvent::POLLOUT) {
+                    Ok(res) => {
+                        if res.contains(PollEvent::POLLOUT) {
+                            num += 1;
+                            wfds.set_bit(i, true);
+                            wfds.set_bit(i, false)
+                        } else {
+                        }
+                    }
+                    Err(_) => wfds.set_bit(i, false),
+                }
+            }
+        }
+        if exceptfds == 0 {
+            let efds = c2rust_buffer(exceptfds as *mut usize, 4);
+            for i in 0..255 {
+                efds.set_bit(i, false);
+            }
+        }
+        if num >= max_fdp1 {
+            return Ok(num);
+        }
+        if current_nsec() > timeout {
+            return Ok(0);
+        }
+        yield_now().await;
     }
-    if exceptfds != 0 {
-        c2rust_buffer(exceptfds as *mut usize, 8).fill(0);
-    }
-    Ok(max_fdp1)
 }

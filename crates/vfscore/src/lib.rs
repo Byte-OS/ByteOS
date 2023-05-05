@@ -101,6 +101,7 @@ bitflags::bitflags! {
 
     #[derive(Debug, Clone)]
     pub struct PollEvent:u16 {
+        const NONE = 0;
         const POLLIN = 0x001;
         const POLLPRI = 0x002;
         const POLLOUT = 0x004;

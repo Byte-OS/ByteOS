@@ -77,7 +77,7 @@ pub async fn sys_sigprocmask(how: usize, set: usize, oldset: usize) -> Result<us
     }
     if set != 0 {
         let sigmask = c2rust_ref(set as *mut SigProcMask);
-        user_task.inner_map(|mut inner| inner.sigmask.handle(how, sigmask));
+        user_task.inner_map(|inner| inner.sigmask.handle(how, sigmask));
         debug!("sigmask: {:#x?}", sigmask);
     }
     // Err(LinuxError::EPERM)

@@ -5,20 +5,20 @@ use alloc::{
     sync::{Arc, Weak},
 };
 use sync::Mutex;
-use vfscore::INodeInterface;
+use vfscore::{INodeInterface, PollEvent, VfsResult};
 
 // pipe sender, just can write.
 pub struct PipeSender(Arc<Mutex<VecDeque<u8>>>);
 
 impl INodeInterface for PipeSender {
-    fn write(&self, buffer: &[u8]) -> vfscore::VfsResult<usize> {
+    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         let mut queue = self.0.lock();
         let wlen = buffer.len();
         queue.extend(buffer.iter());
         Ok(wlen)
     }
 
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> vfscore::VfsResult<()> {
+    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
         info!("pipe sender fcntl, cmd: {}, _arg: {}", _cmd, _arg);
         Err(vfscore::VfsError::NotSupported)
     }
@@ -31,7 +31,7 @@ pub struct PipeReceiver {
 }
 
 impl INodeInterface for PipeReceiver {
-    fn read(&self, buffer: &mut [u8]) -> vfscore::VfsResult<usize> {
+    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut queue = self.queue.lock();
         let rlen = cmp::min(queue.len(), buffer.len());
         queue
@@ -48,9 +48,19 @@ impl INodeInterface for PipeReceiver {
         }
     }
 
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> vfscore::VfsResult<()> {
+    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
         info!("pipe receiver fcntl, cmd: {}, _arg: {}", _cmd, _arg);
         Err(vfscore::VfsError::NotSupported)
+    }
+
+    fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
+        let mut res = PollEvent::NONE;
+        if events.contains(PollEvent::POLLIN) {
+            if self.queue.lock().len() > 0 {
+                res |= PollEvent::POLLIN;
+            }
+        }
+        Ok(res)
     }
 }
 

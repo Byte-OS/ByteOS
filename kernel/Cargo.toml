@@ -21,3 +21,4 @@ sync = { path = "../modules/sync" }
 bitflags = "2.0.2"
 signal = { path = "../modules/signal" }
 num_enum = { version = "0.6.1", default-features = false }
+bit_field = "0.10.1"

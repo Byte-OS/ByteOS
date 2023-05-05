@@ -10,7 +10,9 @@ use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
-use executor::{current_task, current_user_task, select, yield_now, AsyncTask, MemType};
+use executor::{
+    current_task, current_user_task, select, yield_now, AsyncTask, MemType, TASK_QUEUE,
+};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use fs::TimeSpec;
@@ -170,7 +172,7 @@ pub fn exec_with_process<'a>(
     // map stack
     user_task.frame_alloc_much(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
     debug!("entry: {:#x}", base + entry_point);
-    user_task.inner_map(|mut inner| {
+    user_task.inner_map(|inner| {
         inner.heap = heap_bottom as usize;
         inner.entry = base + entry_point;
         inner.cx.clear();
@@ -288,7 +290,7 @@ pub async fn sys_clone(
         .then_some(ctid)
         .unwrap_or(0);
 
-    new_task.inner_map(|mut inner| {
+    new_task.inner_map(|inner| {
         inner.clear_child_tid = clear_child_tid;
         // inner.set_child_tid = set_child_tid;
     });
@@ -324,6 +326,18 @@ pub async fn sys_wait4(
     // return LinuxError::ECHILD if there has no child process.
     if curr_task.inner_map(|inner| inner.children.len()) == 0 {
         return Err(LinuxError::ECHILD);
+    }
+
+    if pid != -1 {
+        curr_task
+            .inner_map(|inner| {
+                inner
+                    .children
+                    .iter()
+                    .find(|x| x.task_id == pid as usize)
+                    .map(|x| x.clone())
+            })
+            .ok_or(LinuxError::ECHILD)?;
     }
 
     let child_task = WaitPid(curr_task.clone(), pid).await;
@@ -371,7 +385,7 @@ pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
     current_task()
         .as_user_task()
         .unwrap()
-        .inner_map(|mut inner| inner.clear_child_tid = tid_ptr);
+        .inner_map(|inner| inner.clear_child_tid = tid_ptr);
     Ok(current_task().get_task_id())
 }
 
@@ -474,7 +488,7 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
     });
     match child {
         Some(child) => {
-            child.inner_map(|mut x| {
+            child.inner_map(|x| {
                 x.signal.add_signal(SignalFlags::from_usize(signum));
             });
             Ok(0)
@@ -541,14 +555,39 @@ pub async fn sys_getrusage(who: usize, usage_ptr: usize) -> Result<usize, LinuxE
 pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
     let signal = SignalFlags::from_usize(signum);
     info!("sys_kill @ pid: {}, signum: {:?}", pid, signal);
-    let user_task = current_user_task();
+    debug!("current_user_task: {}", current_user_task().task_id);
+    // let user_task = if current_user_task().task_id == pid {
+    //     current_user_task()
+    // } else {
+    //     current_user_task()
+    //     .inner_map(|x| {
+    //         x.children
+    //             .iter()
+    //             .find(|x| x.task_id == pid)
+    //             .map(|x| x.clone())
+    //             .clone()
+    //     })
+    //     .ok_or(LinuxError::ECHILD)?
+    // };
+    let user_task = TASK_QUEUE
+        .lock()
+        .iter()
+        .find(|x| x.get_task_id() == pid)
+        .map(|x| x.clone())
+        .ok_or(LinuxError::ESRCH)?
+        .as_user_task();
+
+    let user_task = match user_task {
+        Some(t) => t,
+        None => return Err(LinuxError::ESRCH),
+    };
 
     match signal {
         SignalFlags::SIGKILL => {
             user_task.exit_with_signal(signal.num());
         }
         _ => {
-            user_task.inner_map(|mut inner| inner.signal.add_signal(signal.clone()));
+            user_task.inner_map(|inner| inner.signal.add_signal(signal.clone()));
         }
     }
 
