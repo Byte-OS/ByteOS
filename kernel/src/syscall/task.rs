@@ -7,7 +7,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{paddr_c, ppn_c, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
+use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
 use executor::{
@@ -170,7 +170,7 @@ pub fn exec_with_process<'a>(
     };
 
     // map stack
-    user_task.frame_alloc_much(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
+    user_task.frame_alloc_much(VirtPage::from_addr(0x7ffd0000), MemType::Stack, 48);
     debug!("entry: {:#x}", base + entry_point);
     user_task.inner_map(|inner| {
         inner.heap = heap_bottom as usize;
@@ -272,7 +272,6 @@ pub async fn sys_clone(
     tls: usize,   // TLS线程本地存储描述符
     ctid: usize,  // 子线程 id
 ) -> Result<usize, LinuxError> {
-    debug!("{:#X}", flags);
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
         "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {:#x}, tls: {:#x}, ctid: {:#x}",
@@ -507,15 +506,16 @@ pub async fn sys_getrusage(who: usize, usage_ptr: usize) -> Result<usize, LinuxE
     let rusage = c2rust_ref(usage_ptr as *mut Rusage);
 
     let tms = current_user_task().inner_map(|inner| inner.tms);
+    let stime = time_to_usec(tms.stime as _);
+    let utime = time_to_usec(tms.utime as _);
     rusage.ru_stime = TimeVal {
-        sec: tms.stime as usize / 1000_000,
-        usec: tms.stime as usize % 1000_000,
+        sec: stime / 1000_000,
+        usec: stime % 1000_000,
     };
     rusage.ru_utime = TimeVal {
-        sec: tms.utime as usize / 1000_000,
-        usec: tms.utime as usize % 1000_000,
+        sec: utime / 1000_000,
+        usec: utime % 1000_000,
     };
-    // Ok(())
     Ok(0)
 }
 
@@ -554,21 +554,9 @@ pub async fn sys_getrusage(who: usize, usage_ptr: usize) -> Result<usize, LinuxE
 
 pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
     let signal = SignalFlags::from_usize(signum);
-    info!("sys_kill @ pid: {}, signum: {:?}", pid, signal);
+    debug!("sys_kill @ pid: {}, signum: {:?}", pid, signal);
     debug!("current_user_task: {}", current_user_task().task_id);
-    // let user_task = if current_user_task().task_id == pid {
-    //     current_user_task()
-    // } else {
-    //     current_user_task()
-    //     .inner_map(|x| {
-    //         x.children
-    //             .iter()
-    //             .find(|x| x.task_id == pid)
-    //             .map(|x| x.clone())
-    //             .clone()
-    //     })
-    //     .ok_or(LinuxError::ECHILD)?
-    // };
+
     let user_task = TASK_QUEUE
         .lock()
         .iter()
@@ -590,6 +578,8 @@ pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
             user_task.inner_map(|inner| inner.signal.add_signal(signal.clone()));
         }
     }
+
+    yield_now().await;
 
     Ok(0)
 }
