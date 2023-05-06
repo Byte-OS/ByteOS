@@ -398,8 +398,9 @@ pub async fn sys_ioctl(
         "ioctl: fd: {}, request: {:#x}, args: {:#x} {:#x} {:#x}",
         fd, request, arg1, arg2, arg3
     );
-
-    Ok(0)
+    let file = current_user_task().get_fd(fd).ok_or(LinuxError::EINVAL)?;
+    file.ioctl(request, arg1).map_err(from_vfs)
+    // Ok(0)
 }
 
 pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
@@ -599,9 +600,6 @@ pub async fn sys_pselect(
                     rfds.set_bit(i, false);
                     continue;
                 }
-                if !rfds.get_bit(i) {
-                    continue;
-                }
                 let file = inner.fd_table[i].clone().unwrap();
                 match file.poll(PollEvent::POLLIN) {
                     Ok(res) => {
@@ -624,9 +622,6 @@ pub async fn sys_pselect(
             for i in 0..max_fdp1 {
                 if inner.fd_table[i].is_none() {
                     wfds.set_bit(i, false);
-                    continue;
-                }
-                if !wfds.get_bit(i) {
                     continue;
                 }
                 let file = inner.fd_table[i].clone().unwrap();

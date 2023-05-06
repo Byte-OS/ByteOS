@@ -12,3 +12,5 @@ devices = { path = "../devices" }
 arch = { path = "../../arch" }
 log = "0.4"
 sync = { path = "../sync" }
+bitflags = "2.0.2"
+num_enum = { version = "0.6.1", default-features = false }

@@ -121,9 +121,11 @@ name = "devfs"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "bitflags 2.0.2",
  "devices",
  "log",
  "logging",
+ "num_enum",
  "sync",
  "vfscore",
 ]
