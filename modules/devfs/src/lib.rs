@@ -20,11 +20,10 @@ use vfscore::{
 mod null;
 mod sdx;
 mod shm;
-mod stdin;
-mod stdout;
+mod tty;
 mod zero;
 
-pub use {sdx::Sdx, stdin::Stdin, stdout::Stdout};
+pub use {sdx::Sdx, tty::Tty};
 
 pub struct DevFS {
     root_dir: Arc<DevDir>,
@@ -69,9 +68,9 @@ pub struct DevDirContainer {
 impl DevDir {
     pub fn new() -> Self {
         let mut map: BTreeMap<&'static str, Arc<dyn INodeInterface>> = BTreeMap::new();
-        map.insert("stdout", Arc::new(stdout::Stdout));
-        map.insert("stderr", Arc::new(stdout::Stdout));
-        map.insert("stdin", Arc::new(stdin::Stdin::new()));
+        map.insert("stdout", Arc::new(Tty::new()));
+        map.insert("stderr", Arc::new(Tty::new()));
+        map.insert("stdin", Arc::new(Tty::new()));
         map.insert("null", Arc::new(null::Null));
         map.insert("zero", Arc::new(zero::Zero));
         map.insert("shm", Arc::new(shm::Shm));

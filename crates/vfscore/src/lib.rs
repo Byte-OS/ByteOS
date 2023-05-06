@@ -138,6 +138,7 @@ pub enum VfsError {
     Io,
     Blocking,
     NoMountedPoint,
+    NotAPipe,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

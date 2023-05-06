@@ -17,7 +17,7 @@ use arch::{
     paddr_c, ppn_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage,
     PAGE_SIZE, PTE,
 };
-use devfs::{Stdin, Stdout};
+use devfs::Tty;
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::{File, SeekFrom};
 use log::{debug, warn};
@@ -88,12 +88,9 @@ impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<File>> = vec![FD_NONE; FILE_MAX];
         // let mut file_table = [FD_NONE; FILE_MAX];
-        file_table[0] = Some(Arc::new(Stdin::new()));
-        file_table[1] = Some(Arc::new(Stdout));
-        file_table[2] = Some(Arc::new(Stdout));
-        // file_table.push(Some(Arc::new(Stdin)));
-        // file_table.push(Some(Arc::new(Stdout)));
-        // file_table.push(Some(Arc::new(Stdout)));
+        file_table[0] = Some(Arc::new(Tty::new()));
+        file_table[1] = file_table[0].clone();
+        file_table[2] = file_table[0].clone();
 
         Self(file_table)
     }
