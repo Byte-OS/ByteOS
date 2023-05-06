@@ -206,6 +206,7 @@ pub async fn initproc() {
     // }
 
     command("bin/bash").await;
+    // command("bin/bash lmbench_testcode.sh").await;
     // command("bin/busybox sh").await;
     // command("sqlite_test").await;
     // command("lmbench_all lat_syscall -P 1 null").await;
