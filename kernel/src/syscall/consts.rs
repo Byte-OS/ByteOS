@@ -188,6 +188,7 @@ pub const SYS_UNLINKAT: usize = 35;
 pub const SYS_UMOUNT2: usize = 39;
 pub const SYS_MOUNT: usize = 40;
 pub const SYS_STATFS: usize = 43;
+pub const SYS_FACCESSAT: usize = 48;
 pub const SYS_CHDIR: usize = 49;
 pub const SYS_OPENAT: usize = 56;
 pub const SYS_CLOSE: usize = 57;
@@ -252,6 +253,7 @@ pub const SYS_MPROTECT: usize = 226;
 pub const SYS_MUNMAP: usize = 215;
 pub const SYS_WAIT4: usize = 260;
 pub const SYS_PRLIMIT64: usize = 261;
+pub const SYS_FACCESSAT2: usize = 439;
 
 pub const AT_CWD: usize = -100 as isize as usize;
 
