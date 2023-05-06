@@ -197,6 +197,8 @@ impl INodeInterface for FatFile {
         stat.blocks = self.metadata().unwrap().size as u64 / 512;
         stat.rdev = 0; // TODO: add device id
                        // TODO: add A/M/C time
+        stat.atime.nsec = 0;
+        stat.atime.sec = 0;
         Ok(())
     }
 
@@ -551,7 +553,10 @@ impl fatfs::Write for DiskCursor {
 
             end - start
         } else {
-            device.write_block(self.sector as usize, &buf[0..512]);
+            // should copy data from buffer
+            let mut data = vec![0u8; 512];
+            data.copy_from_slice(&buf[..512]);
+            device.write_block(self.sector as usize, &data);
             512
         };
 
