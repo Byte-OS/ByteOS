@@ -47,6 +47,7 @@ bitflags::bitflags! {
         const MAP_ANONYOMUS = 0x8;
     }
 
+    #[derive(Debug)]
     pub struct StatMode: u32 {
         const NULL  = 0;
         /// Type
@@ -202,6 +203,7 @@ impl TimeSpec {
 }
 
 #[repr(C)]
+#[derive(Debug)]
 pub struct Stat {
     pub dev: u64,        // 设备号
     pub ino: u64,        // inode

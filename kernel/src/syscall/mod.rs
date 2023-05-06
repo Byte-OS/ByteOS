@@ -174,7 +174,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             .await
         }
         SYS_KILL => sys_kill(args[0] as _, args[1] as _).await,
-        SYS_FSYNC => Ok(args[0] as _),
+        SYS_FSYNC => Ok(0),
         SYS_FACCESSAT => Ok(0), // always be ok at now.
         SYS_FACCESSAT2 => Ok(0),
         _ => {
