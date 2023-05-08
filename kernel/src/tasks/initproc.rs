@@ -205,7 +205,11 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
-    command("bin/bash").await;
+    // command("bin/sh run-static.sh").await;
+    // command("bin/sh run-dynamic.sh").await;
+    command("bin/sh").await;
+    // command("usr/bin/tcc -run main.c").await;
+    // command("bin/bash").await;
     // command("bin/bash lmbench_testcode.sh").await;
     // command("bin/busybox sh").await;
     // command("sqlite_test").await;

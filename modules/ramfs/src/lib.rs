@@ -453,7 +453,6 @@ impl INodeInterface for RamFile {
         Ok(())
     }
 
-
     fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
         Ok(())
     }

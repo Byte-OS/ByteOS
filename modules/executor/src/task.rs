@@ -380,6 +380,7 @@ impl UserTask {
         FUTURE_LIST.lock().remove(&self.task_id);
         // recycle memory resouces
         self.inner.lock().memset.clear();
+        self.inner.lock().fd_table.clear();
         self.parent.upgrade().map(|x| {
             x.clone()
                 .as_user_task()

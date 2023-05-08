@@ -7,7 +7,6 @@ use alloc::vec::Vec;
 use arch::{ppn_c, PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
-use log::debug;
 use sync::Mutex;
 
 pub const fn floor(a: usize, b: usize) -> usize {
@@ -242,8 +241,6 @@ pub fn init() {
         }
     });
 
-    debug!("free page count: {}", get_free_pages());
-
     // 确保帧分配器一定能工作
     assert!(
         FRAME_ALLOCATOR.lock().0.len() > 0,
@@ -258,7 +255,6 @@ pub fn frame_alloc() -> Option<FrameTracker> {
 
 /// 申请多个空闲连续页表
 pub fn frame_alloc_much(pages: usize) -> Option<Vec<FrameTracker>> {
-    debug!("free page num: {}", get_free_pages());
     FRAME_ALLOCATOR.lock().alloc_much(pages)
 }
 
