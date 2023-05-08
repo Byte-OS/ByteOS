@@ -66,7 +66,6 @@ pub fn rebuild_path(path: &str) -> String {
 #[no_mangle]
 pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
     let path = rebuild_path(path);
-    debug!("open @ {}", path);
 
     let mps = MOUNTS.lock().clone();
     for (mount_point, mi) in mps.iter().rev() {

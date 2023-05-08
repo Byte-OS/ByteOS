@@ -118,7 +118,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         return;
     }
 
-    debug!("sigactions: {:#X?}", sigaction);
+    // debug!("sigactions: {:#X?}", sigaction);
 
     let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
 
@@ -136,7 +136,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         // cx.context.clone_from(&inner.cx);
         cx.pc = inner.cx.sepc();
         cx.sig_mask = sigaction.mask;
-        debug!("pc: {:#X}, mask: {:#X?}", cx.pc, cx.sig_mask);
+        // debug!("pc: {:#X}, mask: {:#X?}", cx.pc, cx.sig_mask);
         inner.cx.set_sepc(sigaction.handler);
         inner.cx.set_ra(sigaction.restorer);
         inner.cx.set_arg0(signal.num());
@@ -155,7 +155,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         }
     }
 
-    debug!("new pc: {:#X}", cx.pc);
+    // debug!("new pc: {:#X}", cx.pc);
     // store_cx.set_ret(cx_ref.args()[0]);
     cx_ref.clone_from(&store_cx);
     // copy pc from new_pc
@@ -169,7 +169,7 @@ pub async fn user_entry_inner() {
         debug!("user_entry, task: {}", task.task_id);
         loop {
             if let Some(signal) = task.inner_map(|x| x.signal.handle_signal()) {
-                debug!("handle signal: {:?}  num: {}", signal, signal.num());
+                // debug!("handle signal: {:?}  num: {}", signal, signal.num());
                 handle_signal(task.clone(), signal.clone()).await;
             } else {
                 break;

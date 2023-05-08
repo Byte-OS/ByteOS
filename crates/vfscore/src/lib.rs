@@ -18,24 +18,26 @@ bitflags::bitflags! {
         const O_WRONLY  =  5;
 
         // these flags get their own bit
-        const O_APPEND    = 0x000008;
         const O_CREAT     = 0x40;
-        const O_DIRECTORY = 0x0200000;
-        const O_EXCL      = 0x000040;
-        const O_NOCTTY    = 0x000080;
-        const O_NOFOLLOW  = 0x000100;
-        const O_TRUNC     = 0x000200;
-        const O_NONBLOCK  = 0x000400;
-        const O_DSYNC     = 0x000800;
-        const O_RSYNC     = 0x001000;
-        const O_SYNC      = 0x002000;
-        const O_CLOEXEC   = 0x004000;
-        const O_PATH      = 0x008000;
-        const O_LARGEFILE = 0x010000;
-        const O_NOATIME   = 0x020000;
-        const O_ASYNC     = 0x040000;
-        const O_TMPFILE   = 0x080000;
-        const O_DIRECT    = 0x100000;
+        const O_APPEND  = 0x400;
+        // const O_APPEND    = 0x000008;
+        // const O_CREAT     = 0x40;
+        // const O_DIRECTORY = 0x0200000;
+        // const O_EXCL      = 0x000040;
+        // const O_NOCTTY    = 0x000080;
+        // const O_NOFOLLOW  = 0x000100;
+        // const O_TRUNC     = 0x000200;
+        // const O_NONBLOCK  = 0x000400;
+        // const O_DSYNC     = 0x000800;
+        // const O_RSYNC     = 0x001000;
+        // const O_SYNC      = 0x002000;
+        // const O_CLOEXEC   = 0x004000;
+        // const O_PATH      = 0x008000;
+        // const O_LARGEFILE = 0x010000;
+        // const O_NOATIME   = 0x020000;
+        // const O_ASYNC     = 0x040000;
+        // const O_TMPFILE   = 0x080000;
+        // const O_DIRECT    = 0x100000;
     }
 }
 

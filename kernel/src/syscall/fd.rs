@@ -202,6 +202,9 @@ pub async fn sys_openat(
             }
         }
     }?;
+    if open_flags.contains(OpenFlags::O_APPEND) {
+        file.seek(SeekFrom::END(0));
+    }
     debug!("file: {:?}", file.path());
     let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     user_task.set_fd(fd, Some(file));
@@ -242,13 +245,18 @@ pub async fn sys_fstatat(
 
     let user_task = current_task().as_user_task().unwrap();
 
-    let dir = if dir_fd == AT_CWD {
-        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)
+    let path = if filename.starts_with("/") {
+        String::from(filename)
     } else {
-        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
-    }?;
+        if dir_fd == AT_CWD {
+            user_task.inner.lock().curr_dir.clone() + "/" + filename
+        } else {
+            let file = user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?;
+            file.path().map_err(from_vfs)? + "/" + filename
+        }
+    };
 
-    open(&format!("{}/{}", dir.path().map_err(from_vfs)?, filename))
+    open(&path)
         .map_err(from_vfs)?
         .stat(stat)
         .map_err(from_vfs)?;

@@ -73,12 +73,10 @@ pub async fn sys_sigprocmask(how: usize, set: usize, oldset: usize) -> Result<us
     if oldset != 0 {
         let sigmask = c2rust_ref(oldset as *mut SigProcMask);
         user_task.inner_map(|inner| *sigmask = inner.sigmask);
-        debug!("sigmask: {:#x?}", sigmask);
     }
     if set != 0 {
         let sigmask = c2rust_ref(set as *mut SigProcMask);
         user_task.inner_map(|inner| inner.sigmask.handle(how, sigmask));
-        debug!("sigmask: {:#x?}", sigmask);
     }
     // Err(LinuxError::EPERM)
     Ok(0)
@@ -99,14 +97,10 @@ pub async fn sys_sigaction(sig: usize, act: usize, oldact: usize) -> Result<usiz
     if oldact != 0 {
         let sigact = c2rust_ref(oldact as *mut SigAction);
         *sigact = user_task.inner_map(|inner| *inner.sigaction.lock().get(sig).unwrap());
-        debug!("old sigaction: {:#x?}", sigact);
     }
     if act != 0 {
         let sigact = c2rust_ref(act as *mut SigAction);
         user_task.inner_map(|inner| *inner.sigaction.lock().get_mut(sig).unwrap() = *sigact);
-        // let proc_mask = c2rust_ref(sigact.mask as *mut SigProcMask);
-        debug!("sigaction: {:#x?}", sigact);
     }
-    // Err(LinuxError::EPERM)
     Ok(0)
 }

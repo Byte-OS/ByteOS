@@ -3,7 +3,6 @@ use core::cmp;
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
 use arch::{ppn_c, PAGE_SIZE};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
-use log::debug;
 use sync::Mutex;
 
 use crate::mount::open;
@@ -18,7 +17,6 @@ static CACHE_TABLE: Mutex<BTreeMap<String, CacheItem>> = Mutex::new(BTreeMap::ne
 /// cached(filename: &str) 判断文件是否被缓存
 /// filename 应包含文件路径，如: 根目录下的 entry-static.exe 为 /entry-static.exe
 pub fn cached(filename: &str) -> bool {
-    debug!("get cached file: {}", filename);
     CACHE_TABLE.lock().contains_key(filename)
 }
 
