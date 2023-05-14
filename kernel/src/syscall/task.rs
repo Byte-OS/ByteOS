@@ -1,6 +1,6 @@
 use crate::syscall::consts::{elf, from_vfs, CloneFlags, Rusage};
 use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
-use crate::syscall::time::{current_nsec, TimeVal, WaitUntilsec};
+use crate::syscall::time::{TimeVal, WaitUntilsec};
 use crate::tasks::elf::ElfExtra;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
 use alloc::collections::BTreeMap;
@@ -8,6 +8,7 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
+use hal::current_nsec;
 use core::cmp;
 use core::future::Future;
 use executor::{

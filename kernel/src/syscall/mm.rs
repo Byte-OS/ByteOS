@@ -1,5 +1,7 @@
+use alloc::sync::Arc;
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
+use executor::MapFile;
 use frame_allocator::ceil_div;
 use log::debug;
 
@@ -52,11 +54,18 @@ pub async fn sys_mmap(
     debug!("sys_mmap @ free addr: {}", addr);
 
     if flags.contains(MapFlags::MAP_SHARED) {
-        user_task.frame_alloc_much(
-            VirtPage::from_addr(addr.into()),
-            executor::MemType::Shared(file.clone(), usize::from(addr) as u32, len as u32),
-            (len + PAGE_SIZE - 1) / PAGE_SIZE,
-        );
+        match file.clone() {
+            Some(file) => user_task.frame_alloc_much(
+                VirtPage::from_addr(addr.into()),
+                executor::MemType::ShareFile(Arc::new(MapFile { file, start, len })),
+                (len + PAGE_SIZE - 1) / PAGE_SIZE,
+            ),
+            None => user_task.frame_alloc_much(
+                VirtPage::from_addr(addr.into()),
+                executor::MemType::Shared,
+                (len + PAGE_SIZE - 1) / PAGE_SIZE,
+            ),
+        };
     } else {
         user_task.frame_alloc_much(
             VirtPage::from_addr(addr.into()),

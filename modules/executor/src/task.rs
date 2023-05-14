@@ -57,7 +57,6 @@ impl KernelTask {
         arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
 
-        log::error!("memtype size: {}", size_of::<MemType>());
         FUTURE_LIST
             .lock()
             .insert(task_id, Box::pin(kernel_entry(future)));
@@ -119,7 +118,8 @@ pub enum MemType {
     CodeSection,
     Stack,
     Mmap,
-    Shared(Option<File>, u32, u32), // file, start, len
+    Shared,
+    ShareFile(Arc<MapFile>), // file, start, len
     Clone,
     PTE,
 }
@@ -132,15 +132,22 @@ pub struct MemTrack {
     pub tracker: Arc<FrameTracker>,
 }
 
+#[derive(Clone)]
+pub struct MapFile {
+    pub file: File,
+    pub start: usize,
+    pub len: usize,
+}
+
 impl Drop for MemTrack {
     fn drop(&mut self) {
         match &self.mem_type {
-            MemType::Shared(file, start, len) => {
-                file.as_ref().map(|file| match Arc::strong_count(file) > 1 {
+            MemType::ShareFile(mapfile) => {
+                match Arc::strong_count(&mapfile.file) > ceil_div(mapfile.len, PAGE_SIZE) {
                     true => {}
                     false => {
-                        let offset = self.vpn.to_addr() as u32 - start;
-                        let wlen = min(len - offset, PAGE_SIZE as u32);
+                        let offset = self.vpn.to_addr() - mapfile.start;
+                        let wlen = min(mapfile.len - offset, PAGE_SIZE);
 
                         let bytes = unsafe {
                             core::slice::from_raw_parts_mut(
@@ -148,11 +155,16 @@ impl Drop for MemTrack {
                                 wlen as usize,
                             )
                         };
-                        file.seek(SeekFrom::SET(offset as usize))
+                        mapfile
+                            .file
+                            .seek(SeekFrom::SET(offset as usize))
                             .expect("can't write data to file");
-                        file.write(bytes).expect("can't write data to file at drop");
+                        mapfile
+                            .file
+                            .write(bytes)
+                            .expect("can't write data to file at drop");
                     }
-                });
+                }
             }
             _ => {}
         }
@@ -440,12 +452,20 @@ impl UserTask {
                 //         PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X,
                 //     );
                 // }
-                MemType::Shared(file, start, len) => {
+                MemType::ShareFile(mapfile) => {
                     new_task.inner.lock().memset.push(MemTrack {
-                        mem_type: MemType::Shared(file.clone(), *start, *len),
+                        mem_type: MemType::ShareFile(mapfile.clone()),
                         vpn: x.vpn,
                         tracker: x.tracker.clone(),
                     });
+                    new_task.map(
+                        x.tracker.0,
+                        x.vpn,
+                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X | PTEFlags::W,
+                    );
+                }
+                MemType::Shared => {
+                    new_task.inner.lock().memset.push(x.clone());
                     new_task.map(
                         x.tracker.0,
                         x.vpn,
