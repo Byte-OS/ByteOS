@@ -9,3 +9,4 @@ edition = "2021"
 arch = { path = "../../arch" }
 log = "0.4"
 frame_allocator = { path = "../frame_allocator" }
+devices = { path = "../devices" }

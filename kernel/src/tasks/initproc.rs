@@ -187,18 +187,18 @@ pub async fn simple_shell() {
 }
 
 pub async fn initproc() {
-    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    // for (i, x) in names.split('\n').enumerate() {
-    //     command(x).await;
-    //     info!("No.{} finished!", i);
-    // }
+    let names = include_str!("../../../tools/testcase-step2/run-static.sh");
+    for (i, x) in names.split('\n').enumerate() {
+        command(x).await;
+        info!("No.{} finished!", i);
+    }
 
-    // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
-    // for (i, x) in names.split('\n').enumerate() {
-    //     command(x).await;
-    //     info!("No.{} finished!", i);
-    // }
-    command("runtest.exe entry-static.exe sscanf_long").await;
+    let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
+    for (i, x) in names.split('\n').enumerate() {
+        command(x).await;
+        info!("No.{} finished!", i);
+    }
+    // command("runtest.exe entry-static.exe stat").await;
 
     // command("bin/sh run-static.sh").await;
     // command("bin/sh run-dynamic.sh").await;

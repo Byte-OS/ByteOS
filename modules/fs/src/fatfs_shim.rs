@@ -199,6 +199,10 @@ impl INodeInterface for FatFile {
                        // TODO: add A/M/C time
         stat.atime.nsec = 0;
         stat.atime.sec = 0;
+        stat.ctime.nsec = 0;
+        stat.ctime.sec = 0;
+        stat.mtime.nsec = 0;
+        stat.mtime.sec = 0;
         Ok(())
     }
 
@@ -365,6 +369,12 @@ impl INodeInterface for FatDir {
         stat.blksize = 512;
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
+        stat.atime.nsec = 0;
+        stat.atime.sec = 0;
+        stat.ctime.nsec = 0;
+        stat.ctime.sec = 0;
+        stat.mtime.nsec = 0;
+        stat.mtime.sec = 0;
         Ok(())
     }
 

@@ -72,20 +72,10 @@ pub fn init() {
     info!("create fatfs mount file");
     {
         // create monnt point dev, tmp
-        let fatfs = get_filesystem(0).root_dir(MountedInfo::default());
-        fatfs.mkdir("dev").expect("can't create devfs dir");
-        fatfs.mkdir("tmp").expect("can't create devfs dir");
-        fatfs.mkdir("lib").expect("can't create devfs dir");
-
-        // create tets file in ramfs
-        get_filesystem(2)
-            .root_dir(MountedInfo::default())
-            .touch("newfile.txt")
-            .expect("can't create file in ramfs")
-            .write(b"test data")
-            .expect("can't create file in ramfs/newfile.txt");
-
         let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
+        rootfs.mkdir("dev").expect("can't create devfs dir");
+        rootfs.mkdir("tmp").expect("can't create devfs dir");
+        rootfs.mkdir("lib").expect("can't create devfs dir");
 
         let so_files: Vec<DirEntry> = rootfs
             .read_dir()
@@ -94,14 +84,10 @@ pub fn init() {
             .filter(|x| x.filename.ends_with("dso.so"))
             .collect();
 
-        // let lib_fs = get_filesystem(3).root_dir(MountedInfo::default());
-
         for file in so_files {
             rootfs
                 .link(&file.filename[3..], &format!("/{}", file.filename))
                 .expect("can't link file");
-            // lib_fs.link(&file.filename[3..], &format!("/{}", file.filename)).expect("can't link file");
-            // lib_fs.link(&file.filename, &format!("/{}", file.filename)).expect("can't link file");
         }
     }
 

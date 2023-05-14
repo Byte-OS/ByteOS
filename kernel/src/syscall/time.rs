@@ -5,9 +5,9 @@ use core::{
 };
 
 use arch::{get_time, time_to_usec};
-use devices::RTC_DEVICES;
 use executor::{current_task, TMS};
 use fs::TimeSpec;
+pub use hal::current_nsec;
 use log::{debug, warn};
 
 use crate::syscall::func::c2rust_ref;
@@ -94,6 +94,7 @@ pub async fn sys_clock_gettime(clock_id: usize, times_ptr: usize) -> Result<usiz
 
     ts.sec = ns / 1_000_000_000;
     ts.nsec = ns % 1_000_000_000;
+    debug!("ts: {:?}", ts);
     Ok(0)
 }
 
@@ -115,10 +116,4 @@ impl Future for WaitUntilsec {
 #[allow(dead_code)]
 pub fn wait_ms(ms: usize) -> WaitUntilsec {
     WaitUntilsec(current_nsec() + ms * 0x1000_0000)
-}
-
-pub fn current_nsec() -> usize {
-    // RTC_DEVICES.lock()[0].read() as usize
-    // time_to_usec(get_time())
-    time_to_usec(get_time()) * 1000
 }
