@@ -9,6 +9,7 @@ mod sbi;
 mod timer;
 
 pub use addr::*;
+pub use boards::*;
 pub use consts::*;
 pub use context::*;
 pub use interrupt::{init_interrupt, trap_pre_handle, user_restore};

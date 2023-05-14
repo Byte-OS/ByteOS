@@ -6,6 +6,8 @@ cfg_if::cfg_if! {
         mod qemu;
         pub use qemu::*;
     } else {
+        pub const CLOCK_FREQ: usize = 12500000;
+
         pub fn init_device(hartid: usize, device_tree: usize) -> (usize, usize) {
             warn!("use default board config");
             (hartid, device_tree)

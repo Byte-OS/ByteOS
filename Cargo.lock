@@ -326,13 +326,14 @@ dependencies = [
  "k210-soc",
  "kmacros",
  "log",
+ "logging",
  "sync",
 ]
 
 [[package]]
 name = "k210-soc"
 version = "0.1.0"
-source = "git+https://github.com/yfblock/k210-soc#438c4a8dcc3cc499ecbf4af4bebf6f4f98516e66"
+source = "git+https://github.com/yfblock/k210-soc#c16d69f50bd4156805ac3f146207da2db6beb300"
 dependencies = [
  "k210-hal",
  "k210-pac",

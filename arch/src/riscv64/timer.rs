@@ -2,7 +2,7 @@ use riscv::register::{sie, sstatus, time};
 
 use crate::set_timer;
 
-const CLOCK_FREQ: usize = 12500000;
+pub use crate::riscv64::boards::CLOCK_FREQ;
 const TICKS_PER_SEC: usize = 100;
 #[allow(dead_code)]
 const MSEC_PER_SEC: usize = 1000;
