@@ -13,6 +13,7 @@ pub mod memory;
 #[cfg(feature = "nvme")]
 pub mod nvme;
 pub mod rtc;
+#[cfg(not(feature = "nvme"))]
 pub mod virtio;
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
@@ -44,6 +45,7 @@ pub fn get_blk_devices() -> Vec<Arc<dyn BlkDriver>> {
 }
 
 pub fn init_drivers() {
+    #[cfg(not(feature = "nvme"))]
     virtio::driver_init();
     rtc::driver_init();
 }

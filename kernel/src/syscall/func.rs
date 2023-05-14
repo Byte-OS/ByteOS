@@ -1,10 +1,11 @@
 use core::ffi::CStr;
 
-use devices::RTC_DEVICES;
 use fs::TimeSpec;
 
+use super::time::current_nsec;
+
 pub fn timespc_now() -> TimeSpec {
-    let ns = RTC_DEVICES.lock()[0].read() as usize;
+    let ns = current_nsec();
 
     TimeSpec {
         sec: ns / 1_000_000_000,

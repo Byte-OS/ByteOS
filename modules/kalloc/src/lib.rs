@@ -3,7 +3,7 @@
 use buddy_system_allocator::LockedHeap;
 
 // 堆大小
-const HEAP_SIZE: usize = 0x0004_0000;
+const HEAP_SIZE: usize = 0x0010_0000;
 
 // 堆空间
 static mut HEAP: [u8; HEAP_SIZE] = [0; HEAP_SIZE];

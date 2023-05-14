@@ -8,7 +8,7 @@ use crate::{PTEFlags, PAGE_ITEM_COUNT, PTE};
 #[no_mangle]
 #[link_section = ".text.entry"]
 unsafe extern "C" fn _start() -> ! {
-    const STACK_SIZE: usize = 0x10000;
+    const STACK_SIZE: usize = 0x8000;
 
     #[link_section = ".bss.stack"]
     static mut STACK: [u8; STACK_SIZE] = [0u8; STACK_SIZE];
