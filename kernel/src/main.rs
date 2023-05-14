@@ -12,7 +12,6 @@ mod modules;
 mod syscall;
 mod tasks;
 
-use arch::PAGE_SIZE;
 use devices;
 use frame_allocator;
 use hal;
@@ -38,7 +37,7 @@ fn main(hart_id: usize, device_tree: usize) {
 
     info!(
         "program size: {}KB",
-        (end as usize - start as usize) / PAGE_SIZE
+        (end as usize - start as usize) / 0x400
     );
 
     // initialize interrupt

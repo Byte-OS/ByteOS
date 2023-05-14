@@ -57,6 +57,7 @@ impl KernelTask {
         arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
 
+        log::error!("memtype size: {}", size_of::<MemType>());
         FUTURE_LIST
             .lock()
             .insert(task_id, Box::pin(kernel_entry(future)));
@@ -118,7 +119,7 @@ pub enum MemType {
     CodeSection,
     Stack,
     Mmap,
-    Shared(Option<File>, usize, usize), // file, start, len
+    Shared(Option<File>, u32, u32), // file, start, len
     Clone,
     PTE,
 }
@@ -138,16 +139,16 @@ impl Drop for MemTrack {
                 file.as_ref().map(|file| match Arc::strong_count(file) > 1 {
                     true => {}
                     false => {
-                        let offset = self.vpn.to_addr() - start;
-                        let wlen = min(len - offset, PAGE_SIZE);
+                        let offset = self.vpn.to_addr() as u32 - start;
+                        let wlen = min(len - offset, PAGE_SIZE as u32);
 
                         let bytes = unsafe {
                             core::slice::from_raw_parts_mut(
                                 ppn_c(self.tracker.0).to_addr() as *mut u8,
-                                wlen,
+                                wlen as usize,
                             )
                         };
-                        file.seek(SeekFrom::SET(offset))
+                        file.seek(SeekFrom::SET(offset as usize))
                             .expect("can't write data to file");
                         file.write(bytes).expect("can't write data to file at drop");
                     }

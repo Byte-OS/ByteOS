@@ -54,7 +54,7 @@ pub async fn sys_mmap(
     if flags.contains(MapFlags::MAP_SHARED) {
         user_task.frame_alloc_much(
             VirtPage::from_addr(addr.into()),
-            executor::MemType::Shared(file.clone(), addr.into(), len),
+            executor::MemType::Shared(file.clone(), usize::from(addr) as u32, len as u32),
             (len + PAGE_SIZE - 1) / PAGE_SIZE,
         );
     } else {
