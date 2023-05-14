@@ -4,3 +4,4 @@ mount/
 sbi-qemu
 kernel-qemu
 byteos.bin
+.cargo/linker-riscv.ld

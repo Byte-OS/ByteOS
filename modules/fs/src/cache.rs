@@ -33,6 +33,7 @@ pub fn cache_read(filename: &str, buffer: &mut [u8], offset: usize) -> usize {
 }
 
 /// cache_file(path: &str) 缓存文件，
+#[allow(dead_code)]
 pub fn cache_file(path: &str) {
     if let Ok(file) = open(path) {
         let len = file.metadata().expect("can't get file metadata").size;
