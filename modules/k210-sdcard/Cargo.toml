@@ -13,3 +13,4 @@ k210-hal = { git = "https://github.com/yfblock/k210-hal" }
 k210-soc = { git = "https://github.com/yfblock/k210-soc" }
 log = "0.4"
 kmacros = { path = "../kmacros" }
+logging = { path = "../logging" }

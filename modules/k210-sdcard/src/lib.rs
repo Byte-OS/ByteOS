@@ -785,14 +785,13 @@ impl BlkDriver for SDCardWrapper {
         // self.0.borrow()
         //     .read_sector(buf, block_id as u32)
         //     .unwrap();
-        let mut data = vec![0u8; 512];
         let sd_card = self.0.lock();
-        let mut result = sd_card.read_sector(&mut data, block_id as u32);
+        let mut result = sd_card.read_sector(buf, block_id as u32);
         let mut cont_cnt = 0;
         while result.is_err() {
             if cont_cnt >= 0 {
                 info!("[sdcard] read_sector(buf, {}) error. Retrying...", block_id);
-                result = sd_card.read_sector(&mut data, block_id as u32);
+                result = sd_card.read_sector(buf, block_id as u32);
             }
             cont_cnt += 1;
             if cont_cnt >= 5 {
@@ -802,7 +801,7 @@ impl BlkDriver for SDCardWrapper {
                     block_id
                 );
                 Self::wait_for_one_sec();
-                if sd_card.read_sector(&mut data, block_id as u32).is_err() {
+                if sd_card.read_sector(buf, block_id as u32).is_err() {
                     sd_card.init();
                     Self::wait_for_one_sec();
                 } else {
@@ -811,7 +810,6 @@ impl BlkDriver for SDCardWrapper {
                 cont_cnt = 0;
             }
         }
-        buf.copy_from_slice(&data);
     }
     fn write_block(&self, block_id: usize, buf: &[u8]) {
         self.0.lock().write_sector(buf, block_id as u32).unwrap();
