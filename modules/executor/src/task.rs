@@ -142,30 +142,28 @@ pub struct MapFile {
 impl Drop for MemTrack {
     fn drop(&mut self) {
         match &self.mem_type {
-            MemType::ShareFile(mapfile) => {
-                match Arc::strong_count(&mapfile.file) > ceil_div(mapfile.len, PAGE_SIZE) {
-                    true => {}
-                    false => {
-                        let offset = self.vpn.to_addr() - mapfile.start;
-                        let wlen = min(mapfile.len - offset, PAGE_SIZE);
+            MemType::ShareFile(mapfile) => match Arc::strong_count(&self.tracker) == 1 {
+                true => {}
+                false => {
+                    let offset = self.vpn.to_addr() - mapfile.start;
+                    let wlen = min(mapfile.len - offset, PAGE_SIZE);
 
-                        let bytes = unsafe {
-                            core::slice::from_raw_parts_mut(
-                                ppn_c(self.tracker.0).to_addr() as *mut u8,
-                                wlen as usize,
-                            )
-                        };
-                        mapfile
-                            .file
-                            .seek(SeekFrom::SET(offset as usize))
-                            .expect("can't write data to file");
-                        mapfile
-                            .file
-                            .write(bytes)
-                            .expect("can't write data to file at drop");
-                    }
+                    let bytes = unsafe {
+                        core::slice::from_raw_parts_mut(
+                            ppn_c(self.tracker.0).to_addr() as *mut u8,
+                            wlen as usize,
+                        )
+                    };
+                    mapfile
+                        .file
+                        .seek(SeekFrom::SET(offset as usize))
+                        .expect("can't write data to file");
+                    mapfile
+                        .file
+                        .write(bytes)
+                        .expect("can't write data to file at drop");
                 }
-            }
+            },
             _ => {}
         }
     }
