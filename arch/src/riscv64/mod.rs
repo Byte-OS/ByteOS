@@ -1,4 +1,5 @@
 mod addr;
+mod boards;
 mod consts;
 mod context;
 mod entry;
@@ -17,11 +18,26 @@ pub use timer::*;
 
 use riscv::register::sstatus;
 
+fn clear_bss() {
+    extern "C" {
+        fn sbss();
+        fn ebss();
+    }
+    unsafe {
+        core::slice::from_raw_parts_mut(sbss as usize as *mut u8, ebss as usize - sbss as usize)
+            .fill(0);
+    }
+}
+
 #[no_mangle]
 extern "C" fn rust_main(hartid: usize, device_tree: usize) {
     extern "Rust" {
         fn main(hartid: usize, device_tree: usize);
     }
+
+    clear_bss();
+
+    let (hartid, device_tree) = boards::init_device(hartid, device_tree);
 
     // 内核中断初始化
     // interrupt::init();
@@ -30,11 +46,6 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
     unsafe {
         // 开启浮点运算
         sstatus::set_fs(sstatus::FS::Dirty);
-
-        // 开启SUM位 让内核可以访问用户空间  踩坑：
-        // only in qemu. eg: qemu is riscv 1.10  NOTE: k210 is riscv 1.9.1
-        // in 1.10 is SUM but in 1.9.1 is PUM which is the opposite meaning with SUM
-        sstatus::set_sum();
 
         main(hartid, device_tree);
     }

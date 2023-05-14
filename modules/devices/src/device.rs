@@ -1,3 +1,5 @@
+use alloc::sync::Arc;
+
 pub enum DeviceType {
     Rtc,
     Block,
@@ -9,11 +11,11 @@ pub trait Driver: Sync + Send {
 
     fn get_id(&self) -> &str;
 
-    fn as_rtc(&self) -> Option<&dyn RtcDriver> {
+    fn as_rtc(self: Arc<Self>) -> Option<Arc<dyn RtcDriver>> {
         None
     }
 
-    fn as_blk(&self) -> Option<&dyn BlkDriver> {
+    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
         None
     }
 }

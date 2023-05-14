@@ -22,6 +22,9 @@ members = [
     "modules/ramfs",
     "modules/executor",
     "modules/signal",
+    "modules/k210-sdcard",
+    "modules/kmacros",
+    "modules/kmacros/impl",
 
     # kernel
     "kernel"

@@ -24,8 +24,8 @@ impl Driver for VirtIOBlock {
         "virtio-blk"
     }
 
-    fn as_blk(&self) -> Option<&dyn crate::device::BlkDriver> {
-        Some(self)
+    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
+        Some(self.clone())
     }
 }
 
