@@ -23,8 +23,8 @@ impl Driver for RtcGoldfish {
         "rtc_goldfish"
     }
 
-    fn as_rtc(&self) -> Option<&dyn RtcDriver> {
-        Some(self)
+    fn as_rtc(self: Arc<Self>) -> Option<Arc<dyn RtcDriver>> {
+        Some(self.clone())
     }
 }
 

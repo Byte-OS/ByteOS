@@ -20,3 +20,4 @@ kheader = { path = "../kheader" }
 frame_allocator = { path = "../frame_allocator" }
 timestamp = { path = "../../crates/timestamp" }
 nvme_driver = { git = "https://github.com/rcore-os/nvme_driver", rev = "8ae0572", optional = true }
+kmacros = { path = "../kmacros" }

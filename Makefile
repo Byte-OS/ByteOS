@@ -1,17 +1,24 @@
 NVME := off
 ARCH := riscv64imac
 LOG  := info
+BOARD:= qemu
 RELEASE := release
 KERNEL_ELF = target/$(ARCH)-unknown-none-elf/$(RELEASE)/kernel
+BIN_FILE = byteos.bin
 # SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
-SBI := tools/opensbi-qemu.bin
+SBI := tools/opensbi-$(BOARD).bin
 features:= 
+K210-SERIALPORT	= /dev/ttyUSB0
+K210-BURNER	= tools/k210/kflash.py
+RUST_BUILD_OPTIONS := 
 QEMU_EXEC := qemu-system-riscv64 \
 				-machine virt \
 				-kernel $(KERNEL_ELF) \
 				-m 128M \
-				-bios $(SBI) 
+				-bios $(SBI) \
+				-nographic \
+				-smp 2
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm 
@@ -20,13 +27,17 @@ else
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
 endif
-QEMU_EXEC += -nographic \
-				-smp 2
-RUST_BUILD_OPTIONS := 
 
 ifeq ($(RELEASE), release)
 	RUST_BUILD_OPTIONS += --release
 endif
+
+ifeq ($(BOARD), k210)
+SBI = tools/rustsbi-k210.bin
+features += k210
+endif
+
+features += board-$(BOARD)
 
 all: 
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --offline
@@ -43,6 +54,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
+	cp .cargo/linker-$(BOARD).ld .cargo/linker-riscv.ld
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" $(OFFLINE)
 
 run: fs-img build
@@ -50,6 +62,18 @@ run: fs-img build
 
 justrun: build
 	$(QEMU_EXEC)
+
+k210-build: build
+	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
+	@cp $(SBI) $(SBI).copy
+	@dd if=$(BIN_FILE) of=$(SBI).copy bs=131072 seek=1
+	@mv $(SBI).copy $(BIN_FILE)
+
+flash: k210-build
+	(which $(K210-BURNER)) || (cd tools && git clone https://github.com/sipeed/kflash.py.git k210)
+	@sudo chmod 777 $(K210-SERIALPORT)
+	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(BIN_FILE)
+	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 
 debug: fs-img build
 	@tmux new-session -d \

@@ -8,9 +8,11 @@ extern crate logging;
 #[macro_use]
 extern crate alloc;
 
+mod modules;
 mod syscall;
 mod tasks;
 
+use arch::PAGE_SIZE;
 use devices;
 use frame_allocator;
 use hal;
@@ -23,11 +25,21 @@ fn main(hart_id: usize, device_tree: usize) {
     //     loop {}
     // }
 
+    extern "C" {
+        fn start();
+        fn end();
+    }
+
     let str = include_str!("banner.txt");
     println!("{}", str);
 
     // initialize logging module
     logging::init();
+
+    info!(
+        "program size: {}KB",
+        (end as usize - start as usize) / PAGE_SIZE
+    );
 
     // initialize interrupt
     hal::interrupt::init();

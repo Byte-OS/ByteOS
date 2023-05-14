@@ -1,7 +1,6 @@
 use alloc::{sync::Arc, vec::Vec};
 use arch::{PAGE_SIZE, VIRT_ADDR_START};
 use frame_allocator::{frame_alloc_much, FrameTracker};
-// use nvme_driver::
 use nvme_driver::{DmaAllocator, IrqController, NvmeInterface};
 use sync::Mutex;
 
@@ -63,8 +62,8 @@ impl Driver for VirtIOBlock {
         "nvme"
     }
 
-    fn as_blk(&self) -> Option<&dyn BlkDriver> {
-        Some(self)
+    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
+        Some(self.clone())
     }
 }
 

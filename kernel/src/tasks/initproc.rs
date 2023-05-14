@@ -207,7 +207,7 @@ pub async fn initproc() {
 
     // command("bin/sh run-static.sh").await;
     // command("bin/sh run-dynamic.sh").await;
-    command("bin/sh").await;
+    // command("bin/sh").await;
     // command("usr/bin/tcc -run main.c").await;
     // command("bin/bash").await;
     // command("bin/bash lmbench_testcode.sh").await;
@@ -223,7 +223,7 @@ pub async fn initproc() {
     // run_libc_test().await;
     // run_all().await;
 
-    // simple_shell().await;
+    simple_shell().await;
     // command("helloworld").await;
     // command("filelist").await;
 }

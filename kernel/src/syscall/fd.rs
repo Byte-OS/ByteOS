@@ -203,7 +203,7 @@ pub async fn sys_openat(
         }
     }?;
     if open_flags.contains(OpenFlags::O_APPEND) {
-        file.seek(SeekFrom::END(0));
+        let _ = file.seek(SeekFrom::END(0));
     }
     debug!("file: {:?}", file.path());
     let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
