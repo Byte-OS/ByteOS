@@ -8,7 +8,6 @@ use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
-use hal::current_nsec;
 use core::cmp;
 use core::future::Future;
 use executor::{
@@ -17,6 +16,7 @@ use executor::{
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use fs::TimeSpec;
+use hal::current_nsec;
 use log::debug;
 use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};

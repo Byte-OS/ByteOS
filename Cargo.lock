@@ -298,7 +298,7 @@ dependencies = [
 [[package]]
 name = "k210-hal"
 version = "0.2.0"
-source = "git+https://github.com/wyfcyx/k210-hal#795ac3f845fb9e16c6edc03a2f0b9287a622a18d"
+source = "git+https://github.com/yfblock/k210-hal#e6702861f6843b929ebaed33dfa152127c72fa3f"
 dependencies = [
  "bitflags 1.3.2",
  "embedded-hal 1.0.0-alpha.1",
@@ -309,7 +309,7 @@ dependencies = [
 [[package]]
 name = "k210-pac"
 version = "0.2.0"
-source = "git+https://github.com/wyfcyx/k210-pac#8f99c1ca7e1c3b218b725ed133c12186a909f3b1"
+source = "git+https://github.com/yfblock/k210-pac#528afdd449048ecdca7bdd593fc26f05275c6854"
 dependencies = [
  "bare-metal 0.2.5",
  "riscv 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -332,7 +332,7 @@ dependencies = [
 [[package]]
 name = "k210-soc"
 version = "0.1.0"
-source = "git+https://github.com/wyfcyx/k210-soc#1462872879e38da974a8017279ffbd39f5b3ec49"
+source = "git+https://github.com/yfblock/k210-soc#438c4a8dcc3cc499ecbf4af4bebf6f4f98516e66"
 dependencies = [
  "k210-hal",
  "k210-pac",
