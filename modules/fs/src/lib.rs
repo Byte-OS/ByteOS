@@ -1,4 +1,6 @@
 #![no_std]
+#![feature(drain_filter)]
+#![feature(associated_type_bounds)]
 
 use core::{
     future::Future,
@@ -13,7 +15,7 @@ use devices::get_blk_devices;
 use mount::umount;
 use ramfs::RamFs;
 use sync::LazyInit;
-use vfscore::{DirEntry, FileSystem, INodeInterface, MountedInfo, VfsResult};
+use vfscore::{DirEntry, FileSystem, MountedInfo, VfsResult};
 
 use crate::{fatfs_shim::Fat32FileSystem, mount::mount};
 
@@ -26,11 +28,12 @@ mod cache;
 mod fatfs_shim;
 pub mod mount;
 pub mod pipe;
+pub mod socket;
 
 pub type File = Arc<dyn INodeInterface>;
 pub use vfscore::{
-    FileType, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, VfsError,
-    UTIME_NOW, UTIME_OMIT,
+    FileType, INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode,
+    TimeSpec, VfsError, UTIME_NOW, UTIME_OMIT,
 };
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 

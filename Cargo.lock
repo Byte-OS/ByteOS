@@ -148,6 +148,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "downcast-rs"
+version = "1.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
+
+[[package]]
 name = "embedded-hal"
 version = "0.2.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -367,6 +373,7 @@ dependencies = [
  "kmacros",
  "log",
  "logging",
+ "lose-net-stack",
  "num_enum",
  "panic_handler",
  "signal",
@@ -465,6 +472,14 @@ version = "0.1.0"
 dependencies = [
  "arch",
  "log",
+]
+
+[[package]]
+name = "lose-net-stack"
+version = "0.1.0"
+source = "git+https://github.com/yfblock/lose-net-stack?rev=f681312#f681312feeaf2f0ffc820b37f8ad3aadc0dcec60"
+dependencies = [
+ "bitflags 1.3.2",
 ]
 
 [[package]]
@@ -783,6 +798,7 @@ name = "vfscore"
 version = "0.1.0"
 dependencies = [
  "bitflags 2.0.2",
+ "downcast-rs",
 ]
 
 [[package]]

@@ -818,5 +818,5 @@ impl BlkDriver for SDCardWrapper {
 
 driver_define!(DRIVERS_INIT, {
     info!("init k210 sdcard");
-    Arc::new(SDCardWrapper::new())
+    Some(Arc::new(SDCardWrapper::new()))
 });

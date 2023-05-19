@@ -171,7 +171,7 @@ pub fn exec_with_process<'a>(
     };
 
     // map stack
-    user_task.frame_alloc_much(VirtPage::from_addr(0x7fffe000), MemType::Stack, 2);
+    user_task.frame_alloc_much(VirtPage::from_addr(0x7fff0000), MemType::Stack, 16);
     debug!("entry: {:#x}", base + entry_point);
     user_task.inner_map(|inner| {
         inner.heap = heap_bottom as usize;

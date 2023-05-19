@@ -1,5 +1,6 @@
 pub mod virtio_blk;
 pub mod virtio_impl;
+pub mod virtio_net;
 
 use core::ptr::NonNull;
 
@@ -35,7 +36,7 @@ fn virtio_device(transport: MmioTransport) {
         DeviceType::Block => virtio_blk::init(transport),
         DeviceType::GPU => info!("unsupport gpu device now"),
         DeviceType::Input => info!("unsupport input device now"),
-        DeviceType::Network => info!("unsupport net device now"),
+        DeviceType::Network => virtio_net::init(transport),
         t => warn!("Unrecognized virtio device: {:?}", t),
     }
 }

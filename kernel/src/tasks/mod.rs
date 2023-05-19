@@ -2,13 +2,18 @@ use core::{future::Future, mem::size_of};
 
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPage};
+use devices::NET_DEVICES;
 use executor::{
     current_task, current_user_task, thread, yield_now, Executor, KernelTask, MemType, UserTask,
 };
+use fs::socket::NetType;
 use log::debug;
+use lose_net_stack::{results::Packet, IPv4, LoseStack, MacAddress, TcpFlags};
 use signal::SignalFlags;
 
-use crate::syscall::{c2rust_ref, consts::SignalUserContext, exec_with_process, syscall};
+use crate::syscall::{
+    c2rust_ref, consts::SignalUserContext, exec_with_process, syscall, PORT_TABLE,
+};
 
 use self::initproc::initproc;
 
@@ -197,9 +202,147 @@ pub async fn user_entry_inner() {
     }
 }
 
+pub async fn handle_net() {
+    let lose_stack = LoseStack::new(
+        IPv4::new(10, 0, 2, 15),
+        MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+    );
+
+    let mut buffer = vec![0u8; 2048];
+    loop {
+        let rlen = NET_DEVICES.lock()[0].recv(&mut buffer).unwrap_or(0);
+        if rlen != 0 {
+            let packet = lose_stack.analysis(&buffer[..rlen]);
+            match packet {
+                Packet::ARP(arp_packet) => {
+                    debug!("receive arp packet: {:?}", arp_packet);
+                    let reply_packet = arp_packet
+                        .reply_packet(lose_stack.ip, lose_stack.mac)
+                        .expect("can't build reply");
+                    NET_DEVICES.lock()[0]
+                        .send(&reply_packet.build_data())
+                        .expect("can't send net data");
+                }
+                Packet::UDP(_) => todo!(),
+                Packet::TCP(tcp_packet) => {
+                    let net = NET_DEVICES.lock()[0].clone();
+                    if tcp_packet.flags == TcpFlags::S {
+                        // receive a tcp connect packet
+                        let mut reply_packet = tcp_packet.ack();
+                        reply_packet.flags = TcpFlags::S | TcpFlags::A;
+                        if let Some(socket) = PORT_TABLE.lock().get(&tcp_packet.dest_port) {
+                            // TODO: create a new socket as the child of this socket.
+                            // and this is receive a child.
+                            // TODO: specific whether it is tcp or udp
+
+                            info!(
+                                "[TCP CONNECT]{}:{}(MAC:{}) -> {}:{}(MAC:{})  len:{}",
+                                tcp_packet.source_ip,
+                                tcp_packet.source_port,
+                                tcp_packet.source_mac,
+                                tcp_packet.dest_ip,
+                                tcp_packet.dest_port,
+                                tcp_packet.dest_mac,
+                                tcp_packet.data_len
+                            );
+                            if socket.net_type == NetType::STEAM {
+                                socket.add_wait_queue(
+                                    tcp_packet.source_ip.to_u32(),
+                                    tcp_packet.source_port,
+                                );
+                                let reply_data = &reply_packet.build_data();
+                                net.send(&reply_data).expect("can't send to net");
+                            }
+                        }
+                    } else if tcp_packet.flags.contains(TcpFlags::F) {
+                        // tcp disconnected
+                        info!(
+                            "[TCP DISCONNECTED]{}:{}(MAC:{}) -> {}:{}(MAC:{})  len:{}",
+                            tcp_packet.source_ip,
+                            tcp_packet.source_port,
+                            tcp_packet.source_mac,
+                            tcp_packet.dest_ip,
+                            tcp_packet.dest_port,
+                            tcp_packet.dest_mac,
+                            tcp_packet.data_len
+                        );
+                        let reply_packet = tcp_packet.ack();
+                        net.send(&reply_packet.build_data())
+                            .expect("can't send to net");
+
+                        let mut end_packet = reply_packet.ack();
+                        end_packet.flags |= TcpFlags::F;
+                        net.send(&end_packet.build_data())
+                            .expect("can't send to net");
+                    } else {
+                        info!(
+                            "{}:{}(MAC:{}) -> {}:{}(MAC:{})  len:{}",
+                            tcp_packet.source_ip,
+                            tcp_packet.source_port,
+                            tcp_packet.source_mac,
+                            tcp_packet.dest_ip,
+                            tcp_packet.dest_port,
+                            tcp_packet.dest_mac,
+                            tcp_packet.data_len
+                        );
+
+                        hexdump(tcp_packet.data.as_ref());
+                        if tcp_packet.flags.contains(TcpFlags::A) && tcp_packet.data_len == 0 {
+                            continue;
+                        }
+
+                        // handle tcp data
+                        // receive_tcp(&mut net, &tcp_packet)
+                    }
+                }
+                Packet::ICMP() => todo!(),
+                Packet::IGMP() => todo!(),
+                Packet::Todo(_) => todo!(),
+                Packet::None => todo!(),
+            }
+        }
+        yield_now().await;
+    }
+}
+
+#[no_mangle]
+pub fn hexdump(data: &[u8]) {
+    const PRELAND_WIDTH: usize = 70;
+    println!("{:-^1$}", " hexdump ", PRELAND_WIDTH);
+    for offset in (0..data.len()).step_by(16) {
+        for i in 0..16 {
+            if offset + i < data.len() {
+                print!("{:02x} ", data[offset + i]);
+            } else {
+                print!("{:02} ", "");
+            }
+        }
+
+        print!("{:>6}", ' ');
+
+        for i in 0..16 {
+            if offset + i < data.len() {
+                let c = data[offset + i];
+                if c >= 0x20 && c <= 0x7e {
+                    print!("{}", c as char);
+                } else {
+                    print!(".");
+                }
+            } else {
+                print!("{:02} ", "");
+            }
+        }
+
+        println!("");
+    }
+    println!("{:-^1$}", " hexdump end ", PRELAND_WIDTH);
+}
+
 pub fn init() {
     let mut exec = Executor::new();
     exec.spawn(KernelTask::new(initproc()));
+    #[cfg(feature = "net")]
+    exec.spawn(KernelTask::new(handle_net()));
     // exec.spawn()
     exec.run();
 }

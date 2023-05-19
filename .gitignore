@@ -5,3 +5,4 @@ sbi-qemu
 kernel-qemu
 byteos.bin
 .cargo/linker-riscv.ld
+packets.pcap

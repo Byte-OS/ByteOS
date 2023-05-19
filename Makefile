@@ -1,4 +1,5 @@
 NVME := off
+NET  := off
 ARCH := riscv64imac
 LOG  := info
 BOARD:= qemu
@@ -28,6 +29,12 @@ QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
 endif
 
+ifeq ($(NET), on)
+QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::2000-:2000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap \
+	-device virtio-net-device,netdev=net0
+features += net
+endif
+
 ifeq ($(RELEASE), release)
 	RUST_BUILD_OPTIONS += --release
 endif
@@ -50,7 +57,7 @@ fs-img:
 	mkfs.vfat -F 32 $(FS_IMG)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	rm -rf mount/*
-	cp -rf tools/testcase-step2-dbg/* mount/
+	cp -rf tools/testcase-bench/* mount/
 	sudo umount $(FS_IMG)
 
 build:

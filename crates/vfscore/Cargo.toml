@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 bitflags = "2.0.2"
+downcast-rs = { version = "1.2.0", default-features = false }
