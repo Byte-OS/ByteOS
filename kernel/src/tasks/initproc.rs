@@ -187,17 +187,17 @@ pub async fn simple_shell() {
 }
 
 pub async fn initproc() {
-    let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    for (i, x) in names.split('\n').enumerate() {
-        command(x).await;
-        info!("No.{} finished!", i);
-    }
+    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
+    // for (i, x) in names.split('\n').enumerate() {
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
+    // }
 
-    let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
-    for (i, x) in names.split('\n').enumerate() {
-        command(x).await;
-        info!("No.{} finished!", i);
-    }
+    // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
+    // for (i, x) in names.split('\n').enumerate() {
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
+    // }
     // command("runtest.exe entry-static.exe stat").await;
 
     // command("bin/sh run-static.sh").await;
@@ -218,7 +218,11 @@ pub async fn initproc() {
     // run_libc_test().await;
     // run_all().await;
 
-    // simple_shell().await;
     // command("helloworld").await;
     // command("filelist").await;
+    #[cfg(feature = "k210")]
+    command("busybox sh").await;
+    #[cfg(not(feature = "k210"))]
+    command("hello_server").await;
+    // simple_shell().await;
 }

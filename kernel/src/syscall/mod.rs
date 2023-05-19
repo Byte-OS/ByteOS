@@ -3,6 +3,7 @@ mod fd;
 mod func;
 mod mm;
 mod signal;
+mod socket;
 mod sys;
 mod task;
 mod time;
@@ -13,16 +14,17 @@ use log::warn;
 
 use self::{
     consts::{
-        LinuxError, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP, SYS_DUP3, SYS_EXECVE,
-        SYS_EXIT, SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC,
-        SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID,
-        SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY,
-        SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP,
-        SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL,
-        SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_READ, SYS_READLINKAT, SYS_READV,
-        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SETPGID, SYS_SET_TID_ADDRESS, SYS_SIGACTION,
-        SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_STATFS, SYS_TIMES, SYS_TKILL,
-        SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        LinuxError, SYS_ACCEPT, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP,
+        SYS_DUP3, SYS_EXECVE, SYS_EXIT, SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL, SYS_FSTAT,
+        SYS_FSTATAT, SYS_FSYNC, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID,
+        SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE, SYS_GETTID, SYS_GETTIME,
+        SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_LISTEN,
+        SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP,
+        SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_READ,
+        SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SETPGID, SYS_SET_TID_ADDRESS,
+        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS,
+        SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4,
+        SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
@@ -32,6 +34,7 @@ use self::{
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_munmap},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigtimedwait},
+    socket::{sys_accept, sys_bind, sys_listen, sys_socket},
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_setpgid,
         sys_uname,
@@ -45,6 +48,7 @@ use self::{
 };
 
 pub use func::{c2rust_buffer, c2rust_list, c2rust_ref};
+pub use socket::PORT_TABLE;
 
 pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
     match call_type {
@@ -177,6 +181,10 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_FSYNC => Ok(0),
         SYS_FACCESSAT => Ok(0), // always be ok at now.
         SYS_FACCESSAT2 => Ok(0),
+        SYS_SOCKET => sys_socket(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_BIND => sys_bind(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
+        SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

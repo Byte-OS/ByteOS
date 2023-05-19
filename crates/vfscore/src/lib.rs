@@ -2,9 +2,12 @@
 
 extern crate alloc;
 
+use core::any::Any;
+
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use downcast_rs::{impl_downcast, Downcast, DowncastSync};
 
 bitflags::bitflags! {
     #[derive(Debug)]
@@ -254,7 +257,7 @@ pub struct PollFd {
     revents: PollEvent,
 }
 
-pub trait INodeInterface: Send + Sync {
+pub trait INodeInterface: DowncastSync + Send + Sync {
     fn metadata(&self) -> VfsResult<Metadata> {
         Err(VfsError::NotSupported)
     }
@@ -363,3 +366,5 @@ pub trait INodeInterface: Send + Sync {
         Err(VfsError::NotSupported)
     }
 }
+
+impl_downcast!(sync INodeInterface);

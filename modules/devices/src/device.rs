@@ -18,6 +18,10 @@ pub trait Driver: Sync + Send {
     fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
         None
     }
+
+    fn as_net(self: Arc<Self>) -> Option<Arc<dyn NetDriver>> {
+        None
+    }
 }
 
 pub trait RtcDriver: Driver {
@@ -28,4 +32,14 @@ pub trait RtcDriver: Driver {
 pub trait BlkDriver: Driver {
     fn read_block(&self, block_id: usize, buf: &mut [u8]);
     fn write_block(&self, block_id: usize, buf: &[u8]);
+}
+
+#[derive(Debug)]
+pub enum NetError {
+    NoData,
+}
+
+pub trait NetDriver: Driver {
+    fn recv(&self, buf: &mut [u8]) -> Result<usize, NetError>;
+    fn send(&self, buf: &[u8]) -> Result<(), NetError>;
 }

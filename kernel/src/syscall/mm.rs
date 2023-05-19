@@ -57,7 +57,11 @@ pub async fn sys_mmap(
         match file.clone() {
             Some(file) => user_task.frame_alloc_much(
                 VirtPage::from_addr(addr.into()),
-                executor::MemType::ShareFile(Arc::new(MapFile { file, start: usize::from(addr), len })),
+                executor::MemType::ShareFile(Arc::new(MapFile {
+                    file,
+                    start: usize::from(addr),
+                    len,
+                })),
                 (len + PAGE_SIZE - 1) / PAGE_SIZE,
             ),
             None => user_task.frame_alloc_much(
