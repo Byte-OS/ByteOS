@@ -188,13 +188,17 @@ pub async fn simple_shell() {
 
 pub async fn initproc() {
     // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    // for (i, x) in names.split('\n').enumerate() {
+    // for (i, x) in names.split('\n').filter(|x| !x.contains("socket")).enumerate() {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
 
     // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
-    // for (i, x) in names.split('\n').enumerate() {
+    // for (i, x) in names
+    //     .split('\n')
+    //     .filter(|x| !x.contains("socket"))
+    //     .enumerate()
+    // {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
@@ -215,6 +219,7 @@ pub async fn initproc() {
     // command("busybox sh").await;
     // command("busybox sh busybox_testcode.sh").await;
     // command("bin/busybox sh lmbench_testcode.sh").await;
+    // command("bin/busybox sh file_speed.sh").await;
     // run_libc_test().await;
     // run_all().await;
 
@@ -223,6 +228,6 @@ pub async fn initproc() {
     #[cfg(feature = "k210")]
     command("busybox sh").await;
     #[cfg(not(feature = "k210"))]
-    command("hello_server").await;
+    command("bin/sh").await;
     // simple_shell().await;
 }

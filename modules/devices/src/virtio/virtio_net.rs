@@ -35,7 +35,10 @@ impl NetDriver for VirtIONet {
         let packet = self.0.lock().receive().map_err(|_| NetError::NoData)?;
         let rlen = cmp::min(buf.len(), packet.packet_len());
         buf[..rlen].copy_from_slice(&packet.packet()[..rlen]);
-        self.0.lock().recycle_rx_buffer(packet);
+        self.0
+            .lock()
+            .recycle_rx_buffer(packet)
+            .expect("can't receive data");
         Ok(rlen)
     }
 

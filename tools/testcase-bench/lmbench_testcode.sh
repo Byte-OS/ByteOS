@@ -15,7 +15,7 @@ busybox touch /var/tmp/lmbench
 ./lmbench_all lat_pipe -P 1
 ./lmbench_all lat_proc -P 1 fork
 ./lmbench_all lat_proc -P 1 exec
-busybox touch /var/tmp/XXX
+busybox touch /var/tmp/hello
 ./lmbench_all lat_proc -P 1 shell
 ./lmbench_all lmdd label="File /var/tmp/XXX write bandwidth:" of=/var/tmp/XXX move=2m fsync=1 print=3
 # unsupport temporarily

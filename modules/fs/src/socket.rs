@@ -1,11 +1,10 @@
-use core::marker::PhantomData;
+use core::{cmp, marker::PhantomData};
 
 use alloc::{
     collections::VecDeque,
     sync::{Arc, Weak},
     vec::Vec,
 };
-use log::debug;
 use sync::Mutex;
 use vfscore::{INodeInterface, Metadata, VfsResult};
 
@@ -36,12 +35,17 @@ pub struct SocketInner<T: SocketOps> {
     pub port: u16,
     pub target_ip: u32,
     pub target_port: u16,
-    pub datas: Vec<Vec<u8>>,
+    pub datas: VecDeque<Vec<u8>>,
     pub queue: VecDeque<WaitQueue>,
+    pub ack: u32,
+    pub seq: u32,
+    pub flags: u8,
+    pub win: u16,
+    pub urg: u16,
 }
 
 pub trait SocketOps: Sync + Send {
-    fn tcp_send(&self, data: &[u8]);
+    fn tcp_send(ip: u32, port: u16, ack: u32, seq: u32, flags: u8, win: u16, urg: u16, data: &[u8]);
 }
 
 #[allow(dead_code)]
@@ -62,6 +66,36 @@ impl<T: SocketOps + 'static> INodeInterface for Socket<T> {
             childrens: 0,
         })
     }
+
+    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+        let mut inner = self.inner.lock();
+        if inner.datas.len() == 0 {
+            return Ok(0);
+        }
+        let rlen = cmp::min(buffer.len(), inner.datas[0].len());
+        buffer[..rlen].copy_from_slice(inner.datas[0].drain(..rlen).as_slice());
+        if inner.datas[0].len() == 0 {
+            inner.datas.pop_front();
+        }
+
+        Ok(rlen)
+    }
+
+    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+        let wlen = buffer.len();
+        let inner = self.inner.lock();
+        T::tcp_send(
+            inner.target_ip,
+            inner.target_port,
+            inner.ack,
+            inner.seq,
+            inner.flags,
+            inner.win,
+            inner.urg,
+            buffer,
+        );
+        Ok(wlen)
+    }
 }
 
 impl<T: SocketOps> Socket<T> {
@@ -75,8 +109,13 @@ impl<T: SocketOps> Socket<T> {
                 port: 0,
                 target_ip: 0,
                 target_port: 0,
-                datas: Vec::new(),
+                datas: VecDeque::new(),
                 queue: VecDeque::new(),
+                ack: 0,
+                seq: 0,
+                flags: 0,
+                win: 0,
+                urg: 0,
             }),
             ops: PhantomData,
         })
@@ -115,8 +154,13 @@ impl<T: SocketOps> Socket<T> {
                     port: inner.port,
                     target_ip: conn.target_ip,
                     target_port: conn.target_port,
-                    datas: Vec::new(),
+                    datas: VecDeque::new(),
                     queue: VecDeque::new(),
+                    ack: 0,
+                    seq: 0,
+                    flags: 0,
+                    win: 0,
+                    urg: 0,
                 }),
                 ops: self.ops,
             });

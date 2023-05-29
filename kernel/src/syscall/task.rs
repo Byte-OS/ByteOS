@@ -91,6 +91,7 @@ pub async fn sys_execve(
 
     let task = current_task().as_user_task().unwrap();
     exec_with_process(task.clone(), filename, args)?;
+    task.before_run();
     Ok(0)
 }
 

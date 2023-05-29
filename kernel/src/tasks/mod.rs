@@ -5,6 +5,7 @@ use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPag
 use devices::NET_DEVICES;
 use executor::{
     current_task, current_user_task, thread, yield_now, Executor, KernelTask, MemType, UserTask,
+    TASK_QUEUE,
 };
 use fs::socket::NetType;
 use log::debug;
@@ -24,7 +25,7 @@ mod initproc;
 pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal};
 
 #[no_mangle]
-// for avoiding the rust cycle check. user extern and nomangle
+// for avoiding the rust cycle check. use extern and nomangle
 pub fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync> {
     Box::new(async { user_entry_inner().await })
 }
@@ -109,6 +110,7 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
 }
 
 pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
+    debug!("handle signal: {:?}", signal);
     let sigaction = task
         .inner_map(|inner| inner.sigaction.lock().get(signal.num()).unwrap().clone())
         .clone();
@@ -202,6 +204,7 @@ pub async fn user_entry_inner() {
     }
 }
 
+#[allow(dead_code)]
 pub async fn handle_net() {
     let lose_stack = LoseStack::new(
         IPv4::new(10, 0, 2, 15),
@@ -210,6 +213,9 @@ pub async fn handle_net() {
 
     let mut buffer = vec![0u8; 2048];
     loop {
+        if TASK_QUEUE.lock().len() == 1 {
+            break;
+        }
         let rlen = NET_DEVICES.lock()[0].recv(&mut buffer).unwrap_or(0);
         if rlen != 0 {
             let packet = lose_stack.analysis(&buffer[..rlen]);
@@ -289,6 +295,29 @@ pub async fn handle_net() {
                         hexdump(tcp_packet.data.as_ref());
                         if tcp_packet.flags.contains(TcpFlags::A) && tcp_packet.data_len == 0 {
                             continue;
+                        }
+
+                        if let Some(socket) = PORT_TABLE.lock().get(&tcp_packet.dest_port) {
+                            let socket_inner = socket.inner.lock();
+                            let client = socket_inner.clients.iter().find(|x| match x.upgrade() {
+                                Some(x) => {
+                                    let client_inner = x.inner.lock();
+                                    client_inner.target_ip == tcp_packet.source_ip.to_u32()
+                                        && client_inner.target_port == tcp_packet.source_port
+                                }
+                                None => false,
+                            });
+
+                            client.map(|x| {
+                                let socket = x.upgrade().unwrap();
+                                let mut socket_inner = socket.inner.lock();
+
+                                socket_inner.datas.push_back(tcp_packet.data.to_vec());
+                                let reply = tcp_packet.reply(&[0u8; 0]);
+                                socket_inner.ack = reply.ack;
+                                socket_inner.seq = reply.seq;
+                                socket_inner.flags = reply.flags.bits();
+                            });
                         }
 
                         // handle tcp data
