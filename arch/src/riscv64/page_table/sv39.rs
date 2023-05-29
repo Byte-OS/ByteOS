@@ -1,4 +1,4 @@
-use core::arch::asm;
+use core::arch::{asm, riscv64::sfence_vma};
 
 use bitflags::bitflags;
 
@@ -140,6 +140,9 @@ impl PageTable {
         }
 
         page_table.get_pte_list()[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags);
+        unsafe {
+            sfence_vma(vpn.to_addr(), 0);
+        }
     }
 
     #[inline]

@@ -21,10 +21,10 @@ use self::{
         SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_LISTEN,
         SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MUNMAP, SYS_NANOSLEEP,
         SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_READ,
-        SYS_READLINKAT, SYS_READV, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SETPGID, SYS_SET_TID_ADDRESS,
-        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS,
-        SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4,
-        SYS_WRITE, SYS_WRITEV,
+        SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO,
+        SYS_SETPGID, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
+        SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME,
+        SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
@@ -34,7 +34,7 @@ use self::{
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_munmap},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigtimedwait},
-    socket::{sys_accept, sys_bind, sys_listen, sys_socket},
+    socket::{sys_accept, sys_bind, sys_listen, sys_recvfrom, sys_sendto, sys_socket},
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_setpgid,
         sys_uname,
@@ -185,8 +185,20 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_BIND => sys_bind(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
         SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_RECVFROM => {
+            sys_recvfrom(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+                args[5] as _,
+            )
+            .await
+        }
+        SYS_SENDTO => sys_sendto(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
         _ => {
-            warn!("unsupported syscall: {}", call_type);
+            // warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)
         }
     }

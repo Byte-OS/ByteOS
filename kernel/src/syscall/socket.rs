@@ -1,10 +1,14 @@
 use alloc::{collections::BTreeMap, sync::Arc};
+use devices::NET_DEVICES;
 use executor::{current_user_task, yield_now, UserTask};
 use fs::socket::{self, NetType, SocketOps};
+use fs::INodeInterface;
 use log::debug;
+use lose_net_stack::packets::tcp::TCPPacket;
+use lose_net_stack::{IPv4, MacAddress, TcpFlags};
 use sync::Mutex;
 
-use crate::syscall::c2rust_ref;
+use crate::syscall::{c2rust_buffer, c2rust_ref};
 
 use super::consts::LinuxError;
 
@@ -13,6 +17,7 @@ type Socket = socket::Socket<SocketOpera>;
 pub static PORT_TABLE: Mutex<BTreeMap<u16, Arc<Socket>>> = Mutex::new(BTreeMap::new());
 
 #[derive(Debug)]
+#[allow(dead_code)]
 struct SocketAddr {
     sa_family: u16,
     sa_data: [u8; 14],
@@ -108,7 +113,57 @@ pub async fn sys_accept(
         .map_err(|_| LinuxError::EINVAL)?;
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     accept(fd, task, socket).await;
-    Ok(0)
+    Ok(fd)
+}
+
+pub async fn sys_recvfrom(
+    socket_fd: usize,
+    buffer_ptr: usize,
+    len: usize,
+    flags: usize,
+    addr: usize,
+    addr_len: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {:#x}, len: {:#x}, flags: {:#x}, addr: {:#x}, addr_len: {:#x}", 
+        socket_fd, buffer_ptr, len, flags, addr, addr_len
+    );
+    let buffer = c2rust_buffer(buffer_ptr as *mut u8, len);
+    let task = current_user_task();
+    let socket = task
+        .get_fd(socket_fd)
+        .ok_or(LinuxError::EINVAL)?
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    let rlen = loop {
+        let rlen = socket.read(buffer).expect("cant recv from socket");
+        if rlen != 0 {
+            break rlen;
+        }
+        yield_now().await;
+    };
+    Ok(rlen)
+}
+
+pub async fn sys_sendto(
+    socket_fd: usize,
+    buffer_ptr: usize,
+    len: usize,
+    flags: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_send @ socket_fd: {:#x}, buffer_ptr: {:#x}, len: {:#x}, flags: {:#x}",
+        socket_fd, buffer_ptr, len, flags
+    );
+    let buffer = c2rust_buffer(buffer_ptr as *mut u8, len);
+    let task = current_user_task();
+    let socket = task
+        .get_fd(socket_fd)
+        .ok_or(LinuxError::EINVAL)?
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    let wlen = socket.write(buffer).expect("can't send to socket");
+    Ok(wlen)
 }
 
 pub fn port_used(port: u16) -> bool {
@@ -133,7 +188,44 @@ pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
 pub struct SocketOpera;
 
 impl SocketOps for SocketOpera {
-    fn tcp_send(&self, data: &[u8]) {
-        todo!()
+    // fn tcp_send(ip: u32, port: u16, ack: usize, data: &[u8]) {
+    //     debug!("tcp send to");
+    //     todo!()
+    // }
+    fn tcp_send(
+        ip: u32,
+        port: u16,
+        ack: u32,
+        seq: u32,
+        flags: u8,
+        win: u16,
+        urg: u16,
+        data: &[u8],
+    ) {
+        // let lose_stack = LoseStack::new(
+        //     IPv4::new(10, 0, 2, 15),
+        //     MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+        // );
+
+        let tcp_packet = TCPPacket {
+            source_ip: IPv4::new(10, 0, 2, 15),
+            source_mac: MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+            source_port: 2000,
+            dest_ip: IPv4::from_u32(ip),
+            dest_mac: MacAddress::new([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
+            dest_port: port,
+            data_len: data.len(),
+            seq,
+            ack,
+            flags: TcpFlags::from_bits_truncate(flags),
+            win,
+            urg,
+            data,
+        };
+        NET_DEVICES.lock()[0]
+            .send(&tcp_packet.build_data())
+            .expect("can't send date to net device");
+        // debug!("tcp send to");
+        // todo!()
     }
 }

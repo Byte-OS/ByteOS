@@ -3,6 +3,7 @@
 #![feature(naked_functions)]
 #![feature(asm_const)]
 #![feature(once_cell)]
+#![feature(stdsimd)]
 
 #[macro_use]
 extern crate log;

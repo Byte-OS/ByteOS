@@ -2,12 +2,10 @@
 
 extern crate alloc;
 
-use core::any::Any;
-
 use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use downcast_rs::{impl_downcast, Downcast, DowncastSync};
+use downcast_rs::{impl_downcast, DowncastSync};
 
 bitflags::bitflags! {
     #[derive(Debug)]

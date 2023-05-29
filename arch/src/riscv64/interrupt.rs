@@ -200,18 +200,28 @@ pub unsafe extern "C" fn user_restore(context: *mut Context) {
         .set    REG_SIZE, 8
         .set    CONTEXT_SIZE, 34
     ",
-        // 我们将会用一个宏来用循环保存寄存器。这是必要的设置
         // 在内核态栈中开一个空间来存储内核态信息
         // 下次发生中断必然会进入中断入口然后恢复这个上下文.
-    "   addi sp, sp, -32*8
+        // 仅保存 Callee-saved regs、gp、tp、ra.
+    "   addi    sp, sp, -18*8
         
-        SAVE_N 1
-        SAVE_N 3
-        .set n, 4
-        .rept 28
-            SAVE_N %n
-            .set n, n+1
-        .endr
+        sd      sp, 8*1(sp)
+        sd      gp, 8*2(sp)
+        sd      tp, 8*3(sp)
+        sd      s0, 8*4(sp)
+        sd      s1, 8*5(sp)
+        sd      s2, 8*6(sp)
+        sd      s3, 8*7(sp)
+        sd      s4, 8*8(sp)
+        sd      s5, 8*9(sp)
+        sd      s6, 8*10(sp)
+        sd      s7, 8*11(sp)
+        sd      s8, 8*12(sp)
+        sd      s9, 8*13(sp)
+        sd      s10, 8*14(sp)
+        sd      s11, 8*15(sp)
+        sd      a0,  8*16(sp)
+        sd      ra,  8*17(sp)
         
         la a1, {uservec}
         csrw stvec, a1
@@ -236,7 +246,6 @@ pub unsafe extern "C" fn user_restore(context: *mut Context) {
         .endr",
         // 恢复 sp（又名 x2）这里最后恢复是为了上面可以正常使用 LOAD 宏    
     r"  LOAD    x2, 2
-        sfence.vma
         sret
     ",
     uservec = sym uservec,
@@ -256,7 +265,7 @@ pub unsafe extern "C" fn uservec() {
         // 因此将中断时用户的 寄存器存在这个地方
     "   csrrw sp, sscratch, sp
         sd tp, 0(sp)
-        ld tp, 10*8(sp) # 加载从x10保存的 context地址
+        ld tp, 16*8(sp) # 加载从x10保存的 context地址
     ",
         // 保存 general registers, 除了 sp, tp
     "   SAVE_TP_N 1
@@ -280,20 +289,31 @@ pub unsafe extern "C" fn uservec() {
     "   ld a0, 0(sp)
         sd a0, 4*8(tp)
     ",
-        // 恢复内核上下文信息
-    "   LOAD_N 1
-        LOAD_N 3
-        .set n, 4
-        .rept 28
-            LOAD_N %n
-            .set n, n+1
-        .endr
+        // 恢复内核上下文信息, 仅恢复 callee-saved 寄存器和 ra、gp、tp
+    "  
+        ld      gp, 8*2(sp)
+        ld      tp, 8*3(sp)
+        ld      s0, 8*4(sp)
+        ld      s1, 8*5(sp)
+        ld      s2, 8*6(sp)
+        ld      s3, 8*7(sp)
+        ld      s4, 8*8(sp)
+        ld      s5, 8*9(sp)
+        ld      s6, 8*10(sp)
+        ld      s7, 8*11(sp)
+        ld      s8, 8*12(sp)
+        ld      s9, 8*13(sp)
+        ld      s10, 8*14(sp)
+        ld      s11, 8*15(sp)
+        ld      ra,  8*17(sp)
+        
+        ld      sp, 8(sp)
     
         la a0, {kernelvec}
         csrw stvec, a0
     ",
         // 回收栈
-    "   addi sp, sp, 32*8
+    "   addi sp, sp, 18*8
         ret
     ", 
     kernelvec = sym kernelvec,
