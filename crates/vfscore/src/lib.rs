@@ -308,10 +308,6 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
-    }
-
     fn flush(&self) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }

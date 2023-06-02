@@ -425,12 +425,12 @@ pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, Linux
     if cmd == fcntl_cmd::DUPFD_CLOEXEC {
         return sys_dup(fd).await;
     }
-    let file = current_task()
-        .as_user_task()
-        .unwrap()
-        .get_fd(fd)
-        .ok_or(LinuxError::EBADF)?;
-    file.fcntl(cmd, arg).map_err(from_vfs).map(|_| 0)
+    // let file = current_task()
+    //     .as_user_task()
+    //     .unwrap()
+    //     .get_fd(fd)
+    //     .ok_or(LinuxError::EBADF)?;
+    Ok(0)
 }
 
 /// information source: https://man7.org/linux/man-pages/man2/utimensat.2.html

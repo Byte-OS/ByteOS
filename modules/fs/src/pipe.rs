@@ -17,11 +17,6 @@ impl INodeInterface for PipeSender {
         queue.extend(buffer.iter());
         Ok(wlen)
     }
-
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
-        info!("pipe sender fcntl, cmd: {}, _arg: {}", _cmd, _arg);
-        Err(vfscore::VfsError::NotSupported)
-    }
 }
 
 // pipe reader, just can read.
@@ -46,11 +41,6 @@ impl INodeInterface for PipeReceiver {
         } else {
             Ok(rlen)
         }
-    }
-
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
-        info!("pipe receiver fcntl, cmd: {}, _arg: {}", _cmd, _arg);
-        Err(vfscore::VfsError::NotSupported)
     }
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
