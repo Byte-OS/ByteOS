@@ -1,10 +1,11 @@
 use core::{
+    ffi::CStr,
     fmt::{Debug, Display},
     ops::Add,
     slice::from_raw_parts_mut,
 };
 
-use crate::{ppn_c, PAGE_SIZE};
+use crate::{paddr_cn, ppn_c, PAGE_SIZE};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub(crate) usize);
@@ -15,8 +16,34 @@ impl From<PhysPage> for PhysAddr {
 }
 
 impl PhysAddr {
+    #[inline]
     pub fn addr(&self) -> usize {
         self.0
+    }
+
+    #[inline]
+    pub fn get_ref<T>(&self) -> *const T {
+        paddr_cn(self.0) as *const T
+    }
+
+    #[inline]
+    pub fn get_mut_ref<T>(&self) -> *mut T {
+        paddr_cn(self.0) as *mut T
+    }
+
+    #[inline]
+    pub fn slice_with_len<T>(&self, len: usize) -> &'static [T] {
+        unsafe { core::slice::from_raw_parts(self.get_ref(), len) }
+    }
+
+    #[inline]
+    pub fn slice_mut_with_len<T>(&self, len: usize) -> &'static mut [T] {
+        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ref(), len) }
+    }
+
+    #[inline]
+    pub fn get_cstr(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.get_ref::<i8>()) }
     }
 }
 
@@ -32,6 +59,65 @@ impl From<usize> for VirtAddr {
 impl From<VirtAddr> for usize {
     fn from(value: VirtAddr) -> Self {
         value.0
+    }
+}
+
+impl VirtAddr {
+    #[inline]
+    pub fn addr(&self) -> usize {
+        self.0
+    }
+
+    #[inline]
+    pub fn get_ptr<T>(&self) -> *const T {
+        self.0 as *const T
+    }
+
+    #[inline]
+    pub fn get_mut_ptr<T>(&self) -> *mut T {
+        self.0 as *mut T
+    }
+
+    #[inline]
+    pub fn get_ref<T>(&self) -> &'static T {
+        unsafe { &*(self.0 as *const T) }
+    }
+
+    #[inline]
+    pub fn get_mut_ref<T>(&self) -> &'static mut T {
+        unsafe { &mut *(self.0 as *mut T) }
+    }
+
+    #[inline]
+    pub fn slice_with_len<T>(&self, len: usize) -> &'static [T] {
+        unsafe { core::slice::from_raw_parts(self.get_ptr(), len) }
+    }
+
+    #[inline]
+    pub fn slice_mut_with_len<T>(&self, len: usize) -> &'static mut [T] {
+        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ptr(), len) }
+    }
+
+    #[inline]
+    pub fn slice_until<T>(&self, is_valid: fn(T) -> bool) -> &'static mut [T] {
+        let ptr = self.addr() as *mut T;
+        unsafe {
+            let mut len = 0;
+            if !ptr.is_null() {
+                loop {
+                    if !is_valid(ptr.add(len).read()) {
+                        break;
+                    }
+                    len += 1;
+                }
+            }
+            core::slice::from_raw_parts_mut(ptr, len)
+        }
+    }
+
+    #[inline]
+    pub fn get_cstr(&self) -> &CStr {
+        unsafe { CStr::from_ptr(self.get_ptr::<i8>()) }
     }
 }
 

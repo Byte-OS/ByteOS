@@ -2,14 +2,12 @@ use executor::current_task;
 use log::{debug, warn};
 
 use crate::syscall::consts::{Rlimit, UTSname};
-use crate::syscall::func::c2rust_ref;
 
-use super::consts::LinuxError;
+use super::consts::{LinuxError, UserRef};
 
-pub async fn sys_uname(uts_ptr: usize) -> Result<usize, LinuxError> {
-    debug!("sys_uname @ uts_ptr: {:#x}", uts_ptr);
-    let uts = c2rust_ref(uts_ptr as *mut UTSname);
-
+pub async fn sys_uname(uts_ptr: UserRef<UTSname>) -> Result<usize, LinuxError> {
+    debug!("sys_uname @ uts_ptr: {}", uts_ptr);
+    let uts = uts_ptr.get_mut();
     // let sys_name = b"ByteOS";
     // let sys_nodename = b"ByteOS";
     // let sys_release = b"release";
@@ -38,24 +36,24 @@ pub async fn sys_uname(uts_ptr: usize) -> Result<usize, LinuxError> {
 pub async fn sys_prlimit64(
     pid: usize,
     resource: usize,
-    new_limit: usize,
-    old_limit: usize,
+    new_limit: UserRef<Rlimit>,
+    old_limit: UserRef<Rlimit>,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_getrlimit @ pid: {}, resource: {}, new_limit: {:#x}, old_limit: {:#x}",
+        "sys_getrlimit @ pid: {}, resource: {}, new_limit: {}, old_limit: {}",
         pid, resource, new_limit, old_limit
     );
     let user_task = current_task().as_user_task().unwrap();
     match resource {
         7 => {
-            if new_limit != 0 {
-                let rlimit = c2rust_ref(new_limit as *mut Rlimit);
+            if new_limit.is_valid() {
+                let rlimit = new_limit.get_mut();
                 user_task.inner_map(|x| {
                     x.rlimits[7] = rlimit.max;
                 })
             }
-            if old_limit != 0 {
-                let rlimit = c2rust_ref(old_limit as *mut Rlimit);
+            if old_limit.is_valid() {
+                let rlimit = old_limit.get_mut();
                 rlimit.max = user_task.inner_map(|inner| inner.rlimits[7]);
                 rlimit.curr = rlimit.max;
             }

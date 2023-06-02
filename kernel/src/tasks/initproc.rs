@@ -187,22 +187,27 @@ pub async fn simple_shell() {
 }
 
 pub async fn initproc() {
-    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    // for (i, x) in names.split('\n').filter(|x| !x.contains("socket")).enumerate() {
-    //     command(x).await;
-    //     info!("No.{} finished!", i);
-    // }
+    let names = include_str!("../../../tools/testcase-step2/run-static.sh");
+    for (i, x) in names
+        .split('\n')
+        .filter(|x| !x.contains("socket"))
+        .enumerate()
+    {
+        command(x).await;
+        info!("No.{} finished!", i);
+    }
 
-    // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
-    // for (i, x) in names
-    //     .split('\n')
-    //     .filter(|x| !x.contains("socket"))
-    //     .enumerate()
-    // {
-    //     command(x).await;
-    //     info!("No.{} finished!", i);
-    // }
-    // command("runtest.exe entry-static.exe stat").await;
+    let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
+    for (i, x) in names
+        .split('\n')
+        .filter(|x| !x.contains("socket"))
+        .enumerate()
+    {
+        command(x).await;
+        info!("No.{} finished!", i);
+    }
+
+    // command("runtest.exe -w entry-static.exe pthread_cond").await;
 
     // command("bin/sh run-static.sh").await;
     // command("bin/sh run-dynamic.sh").await;
@@ -225,9 +230,9 @@ pub async fn initproc() {
 
     // command("helloworld").await;
     // command("filelist").await;
-    #[cfg(feature = "k210")]
-    command("busybox sh").await;
-    #[cfg(not(feature = "k210"))]
-    command("bin/sh").await;
+    // #[cfg(feature = "k210")]
+    // command("busybox sh").await;
+    // #[cfg(not(feature = "k210"))]
+    // command("bin/sh").await;
     // simple_shell().await;
 }

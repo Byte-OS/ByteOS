@@ -2,9 +2,9 @@ use executor::{current_task, current_user_task};
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask};
 
-use crate::{syscall::func::c2rust_ref, tasks::WaitSignal};
+use crate::tasks::WaitSignal;
 
-use super::consts::LinuxError;
+use super::consts::{LinuxError, UserRef};
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。
@@ -63,19 +63,23 @@ pub async fn sys_sigtimedwait() -> Result<usize, LinuxError> {
     Ok(0)
 }
 
-pub async fn sys_sigprocmask(how: usize, set: usize, oldset: usize) -> Result<usize, LinuxError> {
+pub async fn sys_sigprocmask(
+    how: usize,
+    set: UserRef<SigProcMask>,
+    oldset: UserRef<SigProcMask>,
+) -> Result<usize, LinuxError> {
     debug!(
-        "sys_sigprocmask @ how: {:#x}, set: {:#x}, oldset: {:#x}",
+        "sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
         how, set, oldset
     );
     let user_task = current_task().as_user_task().unwrap();
     let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
-    if oldset != 0 {
-        let sigmask = c2rust_ref(oldset as *mut SigProcMask);
+    if oldset.is_valid() {
+        let sigmask = oldset.get_mut();
         user_task.inner_map(|inner| *sigmask = inner.sigmask);
     }
-    if set != 0 {
-        let sigmask = c2rust_ref(set as *mut SigProcMask);
+    if set.is_valid() {
+        let sigmask = set.get_mut();
         user_task.inner_map(|inner| inner.sigmask.handle(how, sigmask));
     }
     // Err(LinuxError::EPERM)
@@ -88,19 +92,21 @@ pub async fn sys_sigprocmask(how: usize, set: usize, oldset: usize) -> Result<us
 /// 那么这个进程中的未阻塞这个信号的线程在收到这个信号都会按同一种方式处理这个信号。
 /// 另外，注意子线程的mask是会从主线程继承而来的。
 
-pub async fn sys_sigaction(sig: usize, act: usize, oldact: usize) -> Result<usize, LinuxError> {
+pub async fn sys_sigaction(
+    sig: usize,
+    act: UserRef<SigAction>,
+    oldact: UserRef<SigAction>,
+) -> Result<usize, LinuxError> {
     debug!(
-        "sys_sigaction @ sig: {}, act: {:#x}, oldact: {:#x}",
+        "sys_sigaction @ sig: {}, act: {}, oldact: {}",
         sig, act, oldact
     );
     let user_task = current_task().as_user_task().unwrap();
-    if oldact != 0 {
-        let sigact = c2rust_ref(oldact as *mut SigAction);
-        *sigact = user_task.inner_map(|inner| *inner.sigaction.lock().get(sig).unwrap());
+    if oldact.is_valid() {
+        *oldact.get_mut() = user_task.inner_map(|inner| *inner.sigaction.lock().get(sig).unwrap());
     }
-    if act != 0 {
-        let sigact = c2rust_ref(act as *mut SigAction);
-        user_task.inner_map(|inner| *inner.sigaction.lock().get_mut(sig).unwrap() = *sigact);
+    if act.is_valid() {
+        user_task.inner_map(|inner| *inner.sigaction.lock().get_mut(sig).unwrap() = *act.get_mut());
     }
     Ok(0)
 }
