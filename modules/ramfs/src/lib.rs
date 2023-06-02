@@ -452,19 +452,11 @@ impl INodeInterface for RamFile {
         }
         Ok(())
     }
-
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
-        Ok(())
-    }
 }
 
 impl INodeInterface for RamLink {
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         self.link_file.stat(stat)
-    }
-
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
-        Ok(())
     }
 
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {

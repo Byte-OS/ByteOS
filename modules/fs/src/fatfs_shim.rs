@@ -219,10 +219,6 @@ impl INodeInterface for FatFile {
         inner.offset = new_off as usize;
         Ok(new_off as usize)
     }
-
-    fn fcntl(&self, _cmd: usize, _arg: usize) -> VfsResult<()> {
-        Ok(())
-    }
 }
 
 impl INodeInterface for FatDir {

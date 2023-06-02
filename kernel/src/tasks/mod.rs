@@ -293,7 +293,6 @@ pub async fn handle_net() {
                             tcp_packet.data_len
                         );
 
-                        hexdump(tcp_packet.data.as_ref());
                         if tcp_packet.flags.contains(TcpFlags::A) && tcp_packet.data_len == 0 {
                             continue;
                         }
@@ -333,39 +332,6 @@ pub async fn handle_net() {
         }
         yield_now().await;
     }
-}
-
-#[no_mangle]
-pub fn hexdump(data: &[u8]) {
-    const PRELAND_WIDTH: usize = 70;
-    println!("{:-^1$}", " hexdump ", PRELAND_WIDTH);
-    for offset in (0..data.len()).step_by(16) {
-        for i in 0..16 {
-            if offset + i < data.len() {
-                print!("{:02x} ", data[offset + i]);
-            } else {
-                print!("{:02} ", "");
-            }
-        }
-
-        print!("{:>6}", ' ');
-
-        for i in 0..16 {
-            if offset + i < data.len() {
-                let c = data[offset + i];
-                if c >= 0x20 && c <= 0x7e {
-                    print!("{}", c as char);
-                } else {
-                    print!(".");
-                }
-            } else {
-                print!("{:02} ", "");
-            }
-        }
-
-        println!("");
-    }
-    println!("{:-^1$}", " hexdump end ", PRELAND_WIDTH);
 }
 
 pub fn init() {

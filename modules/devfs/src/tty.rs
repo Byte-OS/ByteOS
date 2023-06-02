@@ -84,11 +84,6 @@ impl INodeInterface for Tty {
         Err(VfsError::NotAPipe)
     }
 
-    fn fcntl(&self, cmd: usize, arg: usize) -> VfsResult<()> {
-        debug!("fcntl command: {} arg: {}", cmd, arg);
-        Err(vfscore::VfsError::NotSupported)
-    }
-
     fn ioctl(&self, command: usize, arg: usize) -> VfsResult<usize> {
         debug!("command: {} arg: {}", command, arg);
         let cmd = TeletypeCommand::try_from(command as u32).map_err(|_| VfsError::InvalidInput)?;
