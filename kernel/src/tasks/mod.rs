@@ -13,7 +13,8 @@ use lose_net_stack::{results::Packet, IPv4, LoseStack, MacAddress, TcpFlags};
 use signal::SignalFlags;
 
 use crate::syscall::{
-    c2rust_ref, consts::SignalUserContext, exec_with_process, syscall, PORT_TABLE,
+    consts::{SignalUserContext, UserRef},
+    exec_with_process, syscall, PORT_TABLE,
 };
 
 use self::initproc::initproc;
@@ -137,7 +138,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     sp -= size_of::<SignalUserContext>();
     sp = sp / 16 * 16;
 
-    let cx = c2rust_ref(sp as *mut SignalUserContext);
+    let cx = UserRef::<SignalUserContext>::from(sp).get_mut();
     let store_cx = cx_ref.clone();
     task.inner_map(|inner| {
         // cx.context.clone_from(&inner.cx);

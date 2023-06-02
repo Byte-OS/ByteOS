@@ -5,14 +5,12 @@ use core::{
 };
 
 use arch::{get_time, time_to_usec};
-use executor::{current_task, TMS};
+use executor::{current_user_task, TMS};
 use fs::TimeSpec;
 pub use hal::current_nsec;
 use log::{debug, warn};
 
-use crate::syscall::func::c2rust_ref;
-
-use super::consts::LinuxError;
+use super::consts::{LinuxError, UserRef};
 
 #[repr(C)]
 #[derive(Clone, Copy)]
@@ -31,53 +29,47 @@ impl TimeVal {
     }
 }
 
-pub async fn sys_gettimeofday(tv_ptr: usize, timezone_ptr: usize) -> Result<usize, LinuxError> {
+pub async fn sys_gettimeofday(
+    tv_ptr: UserRef<TimeVal>,
+    timezone_ptr: usize,
+) -> Result<usize, LinuxError> {
     debug!(
-        "sys_gettimeofday @ tv_ptr: {:#x}, timezone: {:#x}",
+        "sys_gettimeofday @ tv_ptr: {}, timezone: {:#x}",
         tv_ptr, timezone_ptr
     );
-    *c2rust_ref(tv_ptr as *mut TimeVal) = TimeVal::now();
+    *tv_ptr.get_mut() = TimeVal::now();
     Ok(0)
 }
 
-pub async fn sys_nanosleep(req_ptr: usize, rem_ptr: usize) -> Result<usize, LinuxError> {
-    debug!(
-        "nano sleep @ req_ptr: {:#x}, rem_ptr: {:#x}",
-        req_ptr, rem_ptr
-    );
+pub async fn sys_nanosleep(
+    req_ptr: UserRef<TimeSpec>,
+    rem_ptr: UserRef<TimeSpec>,
+) -> Result<usize, LinuxError> {
+    debug!("sys_nanosleep @ req_ptr: {}, rem_ptr: {}", req_ptr, rem_ptr);
     let ns = current_nsec();
-    let req = c2rust_ref(req_ptr as *mut TimeSpec);
-    debug!(
-        "sys_nanosleep @ req_ptr: {:#x}, req: {:#x}",
-        req_ptr, rem_ptr
-    );
+    let req = req_ptr.get_mut();
     WaitUntilsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
-    if rem_ptr != 0 {
-        let rem = c2rust_ref(rem_ptr as *mut TimeSpec);
-        rem.nsec = 0;
-        rem.sec = 0;
+    if rem_ptr.is_valid() {
+        *rem_ptr.get_mut() = Default::default();
     }
-
     Ok(0)
 }
 
-pub async fn sys_times(tms_ptr: usize) -> Result<usize, LinuxError> {
-    debug!("sys_times @ tms: {:#x}", tms_ptr);
-    let tms = c2rust_ref(tms_ptr as *mut TMS);
-    current_task()
-        .as_user_task()
-        .unwrap()
-        .inner_map(|x| *tms = x.tms);
+pub async fn sys_times(tms_ptr: UserRef<TMS>) -> Result<usize, LinuxError> {
+    debug!("sys_times @ tms: {}", tms_ptr);
+    current_user_task().inner_map(|x| *tms_ptr.get_mut() = x.tms);
     Ok(get_time())
 }
 
-pub async fn sys_clock_gettime(clock_id: usize, times_ptr: usize) -> Result<usize, LinuxError> {
+pub async fn sys_clock_gettime(
+    clock_id: usize,
+    times_ptr: UserRef<TimeSpec>,
+) -> Result<usize, LinuxError> {
     debug!(
         "sys_clock_gettime @ clock_id: {}, times_ptr: {}",
         clock_id, times_ptr
     );
 
-    let ts = c2rust_ref(times_ptr as *mut TimeSpec);
     let ns = match clock_id {
         0 => current_nsec(),                  // CLOCK_REALTIME
         1 => time_to_usec(get_time()) * 1000, // CLOCK_MONOTONIC
@@ -92,9 +84,10 @@ pub async fn sys_clock_gettime(clock_id: usize, times_ptr: usize) -> Result<usiz
         _ => return Err(LinuxError::EINVAL),
     };
 
-    ts.sec = ns / 1_000_000_000;
-    ts.nsec = ns % 1_000_000_000;
-    debug!("ts: {:?}", ts);
+    *times_ptr.get_mut() = TimeSpec {
+        sec: ns / 1_000_000_000,
+        nsec: ns % 1_000_000_000,
+    };
     Ok(0)
 }
 

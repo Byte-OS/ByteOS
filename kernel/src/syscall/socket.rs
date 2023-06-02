@@ -8,9 +8,7 @@ use lose_net_stack::packets::tcp::TCPPacket;
 use lose_net_stack::{IPv4, MacAddress, TcpFlags};
 use sync::Mutex;
 
-use crate::syscall::{c2rust_buffer, c2rust_ref};
-
-use super::consts::LinuxError;
+use super::consts::{LinuxError, UserRef};
 
 type Socket = socket::Socket<SocketOpera>;
 
@@ -57,15 +55,15 @@ pub async fn sys_socket(
 
 pub async fn sys_bind(
     socket_fd: usize,
-    addr_ptr: usize,
+    addr_ptr: UserRef<SocketAddrIn>,
     address_len: usize,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_bind @ socket: {:#x}, addr_ptr: {:#x}, address_len: {:#x}",
+        "sys_bind @ socket: {:#x}, addr_ptr: {}, address_len: {:#x}",
         socket_fd, addr_ptr, address_len
     );
     let task = current_user_task();
-    let socket_addr = c2rust_ref(addr_ptr as *mut SocketAddrIn);
+    let socket_addr = addr_ptr.get_mut();
     let port = socket_addr.in_port.to_be();
     let socket = task
         .get_fd(socket_fd)
@@ -118,17 +116,17 @@ pub async fn sys_accept(
 
 pub async fn sys_recvfrom(
     socket_fd: usize,
-    buffer_ptr: usize,
+    buffer_ptr: UserRef<u8>,
     len: usize,
     flags: usize,
     addr: usize,
     addr_len: usize,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {:#x}, len: {:#x}, flags: {:#x}, addr: {:#x}, addr_len: {:#x}", 
+        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}, addr: {:#x}, addr_len: {:#x}", 
         socket_fd, buffer_ptr, len, flags, addr, addr_len
     );
-    let buffer = c2rust_buffer(buffer_ptr as *mut u8, len);
+    let buffer = buffer_ptr.slice_mut_with_len(len);
     let task = current_user_task();
     let socket = task
         .get_fd(socket_fd)
@@ -147,15 +145,15 @@ pub async fn sys_recvfrom(
 
 pub async fn sys_sendto(
     socket_fd: usize,
-    buffer_ptr: usize,
+    buffer_ptr: UserRef<u8>,
     len: usize,
     flags: usize,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_send @ socket_fd: {:#x}, buffer_ptr: {:#x}, len: {:#x}, flags: {:#x}",
+        "sys_send @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}",
         socket_fd, buffer_ptr, len, flags
     );
-    let buffer = c2rust_buffer(buffer_ptr as *mut u8, len);
+    let buffer = buffer_ptr.slice_mut_with_len(len);
     let task = current_user_task();
     let socket = task
         .get_fd(socket_fd)

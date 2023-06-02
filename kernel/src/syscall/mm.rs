@@ -8,7 +8,7 @@ use log::debug;
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MapFlags;
 use crate::syscall::consts::ProtFlags;
-use crate::syscall::func::c2rust_buffer;
+use crate::syscall::consts::UserRef;
 
 use super::consts::LinuxError;
 
@@ -77,7 +77,7 @@ pub async fn sys_mmap(
             ceil_div(len, PAGE_SIZE),
         );
     }
-    let mut buffer = c2rust_buffer(usize::from(addr) as *mut u8, len);
+    let mut buffer = UserRef::<u8>::from(addr).slice_mut_with_len(len);
 
     if let Some(file) = file {
         let offset = file.seek(fs::SeekFrom::CURRENT(0)).map_err(from_vfs)?;

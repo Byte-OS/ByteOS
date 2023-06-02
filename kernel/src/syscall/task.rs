@@ -1,5 +1,4 @@
 use crate::syscall::consts::{elf, from_vfs, CloneFlags, Rusage};
-use crate::syscall::func::{c2rust_buffer, c2rust_list, c2rust_ref, c2rust_str};
 use crate::syscall::time::{TimeVal, WaitUntilsec};
 use crate::tasks::elf::ElfExtra;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
@@ -7,7 +6,7 @@ use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, VirtAddr, VirtPage, PAGE_SIZE};
+use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, PhysAddr, VirtAddr, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
 use executor::{
@@ -21,14 +20,14 @@ use log::debug;
 use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};
 
-use super::consts::{FutexFlags, LinuxError};
+use super::consts::{FutexFlags, LinuxError, UserRef};
 
 extern "Rust" {
     fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync>;
 }
 
-pub async fn sys_chdir(path_ptr: usize) -> Result<usize, LinuxError> {
-    let path = c2rust_str(path_ptr as *mut i8);
+pub async fn sys_chdir(path_ptr: UserRef<i8>) -> Result<usize, LinuxError> {
+    let path = path_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     debug!("sys_chdir @ path: {}", path);
     // check folder exists
     let dir = open(path).map_err(from_vfs)?;
@@ -46,20 +45,14 @@ pub async fn sys_chdir(path_ptr: usize) -> Result<usize, LinuxError> {
     }
 }
 
-pub async fn sys_getcwd(buf_ptr: usize, size: usize) -> Result<usize, LinuxError> {
-    debug!("sys_getcwd @ buffer_ptr{:#x} size: {}", buf_ptr, size);
-    let buffer = c2rust_buffer(buf_ptr as *mut u8, size);
-    let curr_path = current_task()
-        .as_user_task()
-        .unwrap()
-        .inner
-        .lock()
-        .curr_dir
-        .clone();
+pub async fn sys_getcwd(buf_ptr: UserRef<u8>, size: usize) -> Result<usize, LinuxError> {
+    debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
+    let buffer = buf_ptr.slice_mut_with_len(size);
+    let curr_path = current_user_task().inner.lock().curr_dir.clone();
     let bytes = curr_path.as_bytes();
     let len = cmp::min(bytes.len(), size);
     buffer[..len].copy_from_slice(&bytes[..len]);
-    Ok(buf_ptr)
+    Ok(buf_ptr.into())
 }
 
 pub fn sys_exit(exit_code: isize) -> Result<usize, LinuxError> {
@@ -69,21 +62,22 @@ pub fn sys_exit(exit_code: isize) -> Result<usize, LinuxError> {
 }
 
 pub async fn sys_execve(
-    filename: usize, // *mut i8
-    args: usize,     // *mut *mut i8
-    envp: usize,     // *mut *mut i8
+    filename: UserRef<i8>,      // *mut i8
+    args: UserRef<UserRef<i8>>, // *mut *mut i8
+    envp: UserRef<UserRef<i8>>, // *mut *mut i8
 ) -> Result<usize, LinuxError> {
     // TODO: use map_err insteads of unwrap and unsafe code.
-    let filename = c2rust_str(filename as *mut i8);
-    let args: Vec<&str> = c2rust_list(args as *mut *mut i8, |x| !x.is_null())
+    let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+    let args = args
+        .slice_until_valid(|x| x.is_valid())
         .into_iter()
-        .map(|x| c2rust_str(*x))
+        .map(|x| x.get_cstr().unwrap())
         .collect();
-    let envp: Vec<&str> = c2rust_list(envp as *mut *mut i8, |x| !x.is_null())
+    let envp: Vec<&str> = envp
+        .slice_until_valid(|x| x.is_valid())
         .into_iter()
-        .map(|x| c2rust_str(*x))
+        .map(|x| x.get_cstr().unwrap())
         .collect();
-
     debug!(
         "sys_execve @ filename: {} args: {:?}: envp: {:?}",
         filename, args, envp
@@ -107,11 +101,12 @@ pub fn exec_with_process<'a>(
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
     let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
-    let mut buffer = c2rust_buffer(
-        ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8,
-        file_size,
-    );
-    let rsize = file.read(&mut buffer).map_err(from_vfs)?;
+    // let mut buffer = c2rust_buffer(
+    //     ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8,
+    //     file_size,
+    // );
+    let buffer = PhysAddr::from(frame_ppn.as_ref().unwrap()[0].0).slice_mut_with_len(file_size);
+    let rsize = file.read(buffer).map_err(from_vfs)?;
 
     assert_eq!(rsize, file_size);
 
@@ -272,15 +267,15 @@ pub fn exec_with_process<'a>(
 }
 
 pub async fn sys_clone(
-    flags: usize, // 复制 标志位
-    stack: usize, // 指定新的栈，可以为 0, 0 不处理
-    ptid: usize,  // 父线程 id
-    tls: usize,   // TLS线程本地存储描述符
-    ctid: usize,  // 子线程 id
+    flags: usize,       // 复制 标志位
+    stack: usize,       // 指定新的栈，可以为 0, 0 不处理
+    ptid: UserRef<u32>, // 父线程 id
+    tls: usize,         // TLS线程本地存储描述符
+    ctid: UserRef<u32>, // 子线程 id
 ) -> Result<usize, LinuxError> {
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
-        "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {:#x}, tls: {:#x}, ctid: {:#x}",
+        "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
         flags, stack, ptid, tls, ctid
     );
     let curr_task = current_task().as_user_task().unwrap();
@@ -293,10 +288,10 @@ pub async fn sys_clone(
     let clear_child_tid = flags
         .contains(CloneFlags::CLONE_CHILD_CLEARTID)
         .then_some(ctid)
-        .unwrap_or(0);
+        .unwrap_or(UserRef::from(0));
 
     new_task.inner_map(|inner| {
-        inner.clear_child_tid = clear_child_tid;
+        inner.clear_child_tid = clear_child_tid.addr();
         // inner.set_child_tid = set_child_tid;
     });
 
@@ -308,22 +303,22 @@ pub async fn sys_clone(
         new_task.inner.lock().cx.set_tls(tls);
     }
     if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
-        *c2rust_ref(ptid as *mut u32) = new_task.get_task_id() as _;
+        *ptid.get_mut() = new_task.get_task_id() as _;
     }
     if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
-        *c2rust_ref(ctid as *mut u32) = new_task.get_task_id() as _;
+        *ctid.get_mut() = new_task.get_task_id() as _;
     }
     // yield_now().await;
     Ok(new_task.task_id)
 }
 
 pub async fn sys_wait4(
-    pid: isize,     // 指定进程ID，可为-1等待任何子进程；
-    status: usize,  // 接收状态的指针；
-    options: usize, // WNOHANG，WUNTRACED，WCONTINUED；
+    pid: isize,           // 指定进程ID，可为-1等待任何子进程；
+    status: UserRef<i32>, // 接收状态的指针；
+    options: usize,       // WNOHANG，WUNTRACED，WCONTINUED；
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_wait4 @ pid: {}, status: {:#x}, options: {}",
+        "sys_wait4 @ pid: {}, status: {}, options: {}",
         pid, status, options
     );
     let curr_task = current_task().as_user_task().unwrap();
@@ -354,10 +349,8 @@ pub async fn sys_wait4(
         .drain_filter(|x| x.task_id == child_task.get_task_id());
     debug!("wait pid: {}", child_task.exit_code().unwrap());
 
-    if status != 0 {
-        let status_ref = c2rust_ref(status as *mut i32);
-        *status_ref = (child_task.exit_code().unwrap() as i32) << 8;
-        debug!("waitpid acc: {}", *status_ref);
+    if status.is_valid() {
+        *status.get_mut() = (child_task.exit_code().unwrap() as i32) << 8;
     }
 
     Ok(child_task.task_id)
@@ -417,7 +410,7 @@ pub async fn sys_gettid() -> Result<usize, LinuxError> {
 }
 
 pub async fn sys_futex(
-    uaddr_ptr: usize,
+    uaddr_ptr: UserRef<i32>,
     op: usize,
     value: usize,
     value2: usize,
@@ -426,10 +419,10 @@ pub async fn sys_futex(
 ) -> Result<usize, LinuxError> {
     let op = if op >= 0x80 { op - 0x80 } else { op };
     debug!(
-        "sys_futex @ uaddr: {:#x} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
+        "sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
         uaddr_ptr, op, value, value2, uaddr2, value3
     );
-    let uaddr = c2rust_ref(uaddr_ptr as *mut i32);
+    let uaddr = uaddr_ptr.get_mut();
     let flags = FutexFlags::try_from(op).map_err(|_| LinuxError::EINVAL)?;
     let user_task = current_user_task();
     debug!(
@@ -442,17 +435,16 @@ pub async fn sys_futex(
             if *uaddr == value as i32 {
                 let futex_table = user_task.inner.lock().futex_table.clone();
                 let mut table = futex_table.lock();
-                match table.get_mut(&uaddr_ptr) {
+                match table.get_mut(&uaddr_ptr.addr()) {
                     Some(t) => t.push(user_task.task_id),
                     None => {
-                        table.insert(uaddr_ptr, vec![user_task.task_id]);
+                        table.insert(uaddr_ptr.addr(), vec![user_task.task_id]);
                     }
                 }
                 drop(table);
                 let wait_func = WaitFutex(futex_table.clone(), user_task.task_id);
                 if value2 != 0 {
-                    let timeout = c2rust_ref(value2 as *mut TimeSpec);
-                    debug!("timeout: {:?}", timeout);
+                    let timeout = UserRef::<TimeSpec>::from(value2).get_mut();
                     match select(wait_func, WaitUntilsec(current_nsec() + timeout.to_nsec())).await
                     {
                         executor::Either::Left((res, _)) => res,
@@ -468,13 +460,19 @@ pub async fn sys_futex(
         }
         FutexFlags::Wake => {
             let futex_table = user_task.inner.lock().futex_table.clone();
-            let count = futex_wake(futex_table, uaddr_ptr, value);
+            let count = futex_wake(futex_table, uaddr_ptr.addr(), value);
             yield_now().await;
             Ok(count)
         }
         FutexFlags::Requeue => {
             let futex_table = user_task.inner.lock().futex_table.clone();
-            Ok(futex_requeue(futex_table, uaddr_ptr, value, uaddr2, value2))
+            Ok(futex_requeue(
+                futex_table,
+                uaddr_ptr.addr(),
+                value,
+                uaddr2,
+                value2,
+            ))
         }
         _ => {
             return Err(LinuxError::EPERM);
@@ -507,9 +505,11 @@ pub async fn sys_sigreturn() -> Result<usize, LinuxError> {
     Err(LinuxError::CONTROLFLOWBREAK)
 }
 
-pub async fn sys_getrusage(who: usize, usage_ptr: usize) -> Result<usize, LinuxError> {
-    debug!("sys_getrusgae @ who: {}, usage_ptr: {:#x}", who, usage_ptr);
-    let rusage = c2rust_ref(usage_ptr as *mut Rusage);
+pub async fn sys_getrusage(who: usize, usage_ptr: UserRef<Rusage>) -> Result<usize, LinuxError> {
+    debug!("sys_getrusgae @ who: {}, usage_ptr: {}", who, usage_ptr);
+    // let rusage = c2rust_ref(usage_ptr as *mut Rusage);
+    // let Rusage
+    let rusage = usage_ptr.get_mut();
 
     let tms = current_user_task().inner_map(|inner| inner.tms);
     let stime = time_to_usec(tms.stime as _);

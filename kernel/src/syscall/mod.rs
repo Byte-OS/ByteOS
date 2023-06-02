@@ -47,54 +47,53 @@ use self::{
     time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
 };
 
-pub use func::{c2rust_buffer, c2rust_list, c2rust_ref};
 pub use socket::PORT_TABLE;
 
 pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
     match call_type {
-        SYS_GETCWD => sys_getcwd(args[0] as _, args[1] as _).await,
-        SYS_CHDIR => sys_chdir(args[0] as _).await,
-        SYS_OPENAT => sys_openat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_GETCWD => sys_getcwd(args[0].into(), args[1] as _).await,
+        SYS_CHDIR => sys_chdir(args[0].into()).await,
+        SYS_OPENAT => sys_openat(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
         SYS_DUP => sys_dup(args[0]).await,
         SYS_DUP3 => sys_dup3(args[0], args[1]).await,
         SYS_CLOSE => sys_close(args[0] as _).await,
-        SYS_MKDIRAT => sys_mkdir_at(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_READ => sys_read(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_WRITE => sys_write(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_EXECVE => sys_execve(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_MKDIRAT => sys_mkdir_at(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_READ => sys_read(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_WRITE => sys_write(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_EXECVE => sys_execve(args[0].into(), args[1].into(), args[2].into()).await,
         SYS_EXIT => sys_exit(args[0] as _),
         SYS_BRK => sys_brk(args[0] as _).await,
         SYS_GETPID => sys_getpid().await,
-        SYS_PIPE2 => sys_pipe2(args[0] as _, args[1] as _).await,
-        SYS_GETTIMEOFDAY => sys_gettimeofday(args[0] as _, args[1] as _).await,
-        SYS_NANOSLEEP => sys_nanosleep(args[0] as _, args[1] as _).await,
-        SYS_UNAME => sys_uname(args[0] as _).await,
-        SYS_UNLINKAT => sys_unlinkat(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_FSTAT => sys_fstat(args[0] as _, args[1] as _).await,
+        SYS_PIPE2 => sys_pipe2(args[0].into(), args[1] as _).await,
+        SYS_GETTIMEOFDAY => sys_gettimeofday(args[0].into(), args[1] as _).await,
+        SYS_NANOSLEEP => sys_nanosleep(args[0].into(), args[1].into()).await,
+        SYS_UNAME => sys_uname(args[0].into()).await,
+        SYS_UNLINKAT => sys_unlinkat(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_FSTAT => sys_fstat(args[0] as _, args[1].into()).await,
         SYS_CLONE => {
             sys_clone(
                 args[0] as _,
                 args[1] as _,
-                args[2] as _,
+                args[2].into(),
                 args[3] as _,
-                args[4] as _,
+                args[4].into(),
             )
             .await
         }
-        SYS_WAIT4 => sys_wait4(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_WAIT4 => sys_wait4(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_SCHED_YIELD => sys_sched_yield().await,
         SYS_GETPPID => sys_getppid().await,
         SYS_MOUNT => {
             sys_mount(
-                args[0] as _,
-                args[1] as _,
-                args[2] as _,
+                args[0].into(),
+                args[1].into(),
+                args[2].into(),
                 args[3] as _,
                 args[4] as _,
             )
             .await
         }
-        SYS_UMOUNT2 => sys_umount2(args[0] as _, args[1] as _).await,
+        SYS_UMOUNT2 => sys_umount2(args[0].into(), args[1] as _).await,
         SYS_MMAP => {
             sys_mmap(
                 args[0] as _,
@@ -107,21 +106,21 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             .await
         }
         SYS_MUNMAP => sys_munmap(args[0] as _, args[1] as _).await,
-        SYS_TIMES => sys_times(args[0] as _).await,
-        SYS_GETDENTS => sys_getdents64(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_TIMES => sys_times(args[0].into()).await,
+        SYS_GETDENTS => sys_getdents64(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_SET_TID_ADDRESS => sys_set_tid_address(args[0] as _).await,
         SYS_GETTID => sys_gettid().await,
         SYS_LSEEK => sys_lseek(args[0] as _, args[1] as _, args[2] as _),
-        SYS_GETTIME => sys_clock_gettime(args[0] as _, args[1] as _).await,
+        SYS_GETTIME => sys_clock_gettime(args[0] as _, args[1].into()).await,
         SYS_SIGTIMEDWAIT => sys_sigtimedwait().await,
         SYS_PRLIMIT64 => {
-            sys_prlimit64(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
+            sys_prlimit64(args[0] as _, args[1] as _, args[2].into(), args[3].into()).await
         }
-        SYS_READV => sys_readv(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_WRITEV => sys_writev(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_STATFS => sys_statfs(args[0] as _, args[1] as _).await,
-        SYS_PREAD => sys_pread(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
-        SYS_FSTATAT => sys_fstatat(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_READV => sys_readv(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_WRITEV => sys_writev(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_STATFS => sys_statfs(args[0].into(), args[1].into()).await,
+        SYS_PREAD => sys_pread(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
+        SYS_FSTATAT => sys_fstatat(args[0] as _, args[1].into(), args[2].into()).await,
         SYS_GETEUID => sys_geteuid().await,
         SYS_GETEGID => sys_getegid().await,
         SYS_GETGID => sys_getgid().await,
@@ -138,13 +137,15 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             .await
         }
         SYS_FCNTL => sys_fcntl(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_UTIMEAT => sys_utimensat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
-        SYS_SIGPROCMASK => sys_sigprocmask(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_SIGACTION => sys_sigaction(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_UTIMEAT => {
+            sys_utimensat(args[0] as _, args[1].into(), args[2].into(), args[3] as _).await
+        }
+        SYS_SIGPROCMASK => sys_sigprocmask(args[0] as _, args[1].into(), args[2].into()).await,
+        SYS_SIGACTION => sys_sigaction(args[0] as _, args[1].into(), args[2].into()).await,
         SYS_MPROTECT => sys_mprotect(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_FUTEX => {
             sys_futex(
-                args[0] as _,
+                args[0].into(),
                 args[1] as _,
                 args[2] as _,
                 args[3] as _,
@@ -154,7 +155,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             .await
         }
         SYS_READLINKAT => {
-            sys_readlinkat(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
+            sys_readlinkat(args[0] as _, args[1].into(), args[2].into(), args[3] as _).await
         }
         SYS_SENDFILE => sys_sendfile(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
         SYS_TKILL => sys_tkill(args[0] as _, args[1] as _).await,
@@ -163,16 +164,16 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             warn!("SYS_GET_ROBUST_LIST @ ");
             Ok(0)
         } // always ok for now
-        SYS_PPOLL => sys_ppoll(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
-        SYS_GETRUSAGE => sys_getrusage(args[0] as _, args[1] as _).await,
+        SYS_PPOLL => sys_ppoll(args[0].into(), args[1] as _, args[2].into(), args[3] as _).await,
+        SYS_GETRUSAGE => sys_getrusage(args[0] as _, args[1].into()).await,
         SYS_SETPGID => sys_setpgid(args[0] as _, args[1] as _).await,
         SYS_PSELECT => {
             sys_pselect(
                 args[0] as _,
-                args[1] as _,
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
+                args[1].into(),
+                args[2].into(),
+                args[3].into(),
+                args[4].into(),
                 args[5] as _,
             )
             .await
@@ -182,13 +183,13 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_FACCESSAT => Ok(0), // always be ok at now.
         SYS_FACCESSAT2 => Ok(0),
         SYS_SOCKET => sys_socket(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_BIND => sys_bind(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_BIND => sys_bind(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
         SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_RECVFROM => {
             sys_recvfrom(
                 args[0] as _,
-                args[1] as _,
+                args[1].into(),
                 args[2] as _,
                 args[3] as _,
                 args[4] as _,
@@ -196,7 +197,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
-        SYS_SENDTO => sys_sendto(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_SENDTO => sys_sendto(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
         _ => {
             // warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)
