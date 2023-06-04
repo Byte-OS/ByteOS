@@ -56,7 +56,11 @@ pub async fn sys_getcwd(buf_ptr: UserRef<u8>, size: usize) -> Result<usize, Linu
 }
 
 pub fn sys_exit(exit_code: isize) -> Result<usize, LinuxError> {
-    debug!("sys_exit @ exit_code: {}", exit_code);
+    debug!(
+        "sys_exit @ exit_code: {}  task_id: {}",
+        exit_code,
+        current_task().get_task_id()
+    );
     current_task().as_user_task().unwrap().exit(exit_code as _);
     Ok(0)
 }
@@ -167,16 +171,21 @@ pub fn exec_with_process<'a>(
     };
 
     // map stack
-    user_task.frame_alloc_much(VirtPage::from_addr(0x7fff0000), MemType::Stack, 16);
+    user_task.frame_alloc(VirtPage::from_addr(0x7fff0000), MemType::Stack, 16);
     debug!("entry: {:#x}", base + entry_point);
     user_task.inner_map(|inner| {
         inner.heap = heap_bottom as usize;
         inner.entry = base + entry_point;
-        inner.cx.clear();
-        inner.cx.set_sp(0x8000_0000); // stack top;
-        inner.cx.set_sepc(base + entry_point);
-        inner.cx.set_tls(tls as usize);
     });
+
+    let mut tcb = user_task.tcb.write();
+
+    tcb.cx.clear();
+    tcb.cx.set_sp(0x8000_0000); // stack top;
+    tcb.cx.set_sepc(base + entry_point);
+    tcb.cx.set_tls(tls as usize);
+
+    drop(tcb);
 
     // push stack
     let envp = vec![
@@ -240,7 +249,7 @@ pub fn exec_with_process<'a>(
             let vpn = virt_addr / PAGE_SIZE;
 
             let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
-            let ppn_start = user_task.frame_alloc_much(
+            let ppn_start = user_task.frame_alloc(
                 VirtPage::from_addr(virt_addr),
                 MemType::CodeSection,
                 page_count,
@@ -290,17 +299,16 @@ pub async fn sys_clone(
         .then_some(ctid)
         .unwrap_or(UserRef::from(0));
 
-    new_task.inner_map(|inner| {
-        inner.clear_child_tid = clear_child_tid.addr();
-        // inner.set_child_tid = set_child_tid;
-    });
+    let mut new_tcb = new_task.tcb.write();
+
+    new_tcb.clear_child_tid = clear_child_tid.addr();
 
     if stack != 0 {
-        new_task.inner.lock().cx.set_sp(stack);
+        new_tcb.cx.set_sp(stack);
     }
     // set tls.
     if flags.contains(CloneFlags::CLONE_SETTLS) {
-        new_task.inner.lock().cx.set_tls(tls);
+        new_tcb.cx.set_tls(tls);
     }
     if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
         *ptid.get_mut() = new_task.get_task_id() as _;
@@ -308,6 +316,7 @@ pub async fn sys_clone(
     if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
         *ctid.get_mut() = new_task.get_task_id() as _;
     }
+    drop(new_tcb);
     // yield_now().await;
     Ok(new_task.task_id)
 }
@@ -339,9 +348,11 @@ pub async fn sys_wait4(
             })
             .ok_or(LinuxError::ECHILD)?;
     }
-
     let child_task = WaitPid(curr_task.clone(), pid).await;
-    debug!("wait ok: {}", child_task.get_task_id());
+    debug!(
+        "wait ok: {}",
+        child_task.get_task_id()
+    );
     curr_task
         .inner
         .lock()
@@ -380,10 +391,7 @@ pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
     // information source: https://www.onitroad.com/jc/linux/man-pages/linux/man2/set_tid_address.2.html
 
     debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
-    current_task()
-        .as_user_task()
-        .unwrap()
-        .inner_map(|inner| inner.clear_child_tid = tid_ptr);
+    current_user_task().tcb.write().clear_child_tid = tid_ptr;
     Ok(current_task().get_task_id())
 }
 
@@ -491,9 +499,11 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
     });
     match child {
         Some(child) => {
-            child.inner_map(|x| {
-                x.signal.add_signal(SignalFlags::from_usize(signum));
-            });
+            child
+                .tcb
+                .write()
+                .signal
+                .add_signal(SignalFlags::from_usize(signum));
             Ok(0)
         }
         None => Err(LinuxError::ECHILD),
@@ -581,7 +591,7 @@ pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
             user_task.exit_with_signal(signal.num());
         }
         _ => {
-            user_task.inner_map(|inner| inner.signal.add_signal(signal.clone()));
+            user_task.tcb.write().signal.add_signal(signal.clone());
         }
     }
 

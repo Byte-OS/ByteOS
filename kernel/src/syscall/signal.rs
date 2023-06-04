@@ -74,14 +74,17 @@ pub async fn sys_sigprocmask(
     );
     let user_task = current_task().as_user_task().unwrap();
     let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
+    
+    let mut tcb = user_task.tcb.write();
     if oldset.is_valid() {
         let sigmask = oldset.get_mut();
-        user_task.inner_map(|inner| *sigmask = inner.sigmask);
+        *sigmask = tcb.sigmask;
     }
     if set.is_valid() {
         let sigmask = set.get_mut();
-        user_task.inner_map(|inner| inner.sigmask.handle(how, sigmask));
+        tcb.sigmask.handle(how, sigmask)
     }
+    drop(tcb);
     // Err(LinuxError::EPERM)
     Ok(0)
 }

@@ -4,8 +4,8 @@ use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPage};
 use devices::NET_DEVICES;
 use executor::{
-    current_task, current_user_task, thread, yield_now, Executor, KernelTask, MemType, UserTask,
-    TASK_QUEUE,
+    current_task, current_user_task, thread, yield_now, AsyncTask, Executor, KernelTask, MemType,
+    UserTask, TASK_QUEUE,
 };
 use fs::socket::NetType;
 use log::debug;
@@ -75,35 +75,32 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
         arch::TrapType::StorePageFault(addr) => {
             let vpn = VirtPage::from_addr(addr);
             debug!("store page fault @ {:#x}", addr);
-            let mem_tracker = task
-                .inner
-                .lock()
-                .memset
-                .iter()
-                .find(|x| {
-                    x.vpn == vpn
-                        && match x.mem_type {
-                            MemType::Clone => true,
-                            _ => false,
-                        }
-                })
-                .map(|x| x.tracker.clone());
 
-            match mem_tracker {
-                Some(tracker) => {
-                    let src_ppn = tracker.0;
-                    let dst_ppn = task.frame_alloc(vpn, MemType::CodeSection);
-                    dst_ppn.copy_value_from_another(src_ppn);
-                }
-                None => {
-                    if (0x7fff0000..0x7ffff000).contains(&addr) {
-                        task.frame_alloc(vpn, MemType::Stack);
-                    } else {
-                        debug!("context: {:#X?}", cx_ref);
-                        return UserTaskControlFlow::Break;
-                    }
-                }
-            }
+            // let mem_tracker = task
+            //     .inner
+            //     .lock()
+            //     .memset
+            //     .iter()
+            //     .find(|mem_area| {
+            //         mem_area.map_trackers.iter().find(|x| x.vpn == vpn && mem_area == MemType::Clone)
+            //     })
+            //     .map(|x| x.tracker.clone());
+
+            // match mem_tracker {
+            //     Some(tracker) => {
+            //         let src_ppn = tracker.0;
+            //         let dst_ppn = task.frame_alloc(vpn, MemType::CodeSection);
+            //         dst_ppn.copy_value_from_another(src_ppn);
+            //     }
+            //     None => {
+            //         if (0x7fff0000..0x7ffff000).contains(&addr) {
+            //             task.frame_alloc(vpn, MemType::Stack);
+            //         } else {
+            //             debug!("context: {:#X?}", cx_ref);
+            //             return UserTaskControlFlow::Break;
+            //         }
+            //     }
+            // }
         }
     }
     task.inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
@@ -111,7 +108,11 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
 }
 
 pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
-    debug!("handle signal: {:?}", signal);
+    debug!(
+        "handle signal: {:?} task_id: {}",
+        signal,
+        task.get_task_id()
+    );
     let sigaction = task
         .inner_map(|inner| inner.sigaction.lock().get(signal.num()).unwrap().clone())
         .clone();
@@ -140,17 +141,17 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
 
     let cx = UserRef::<SignalUserContext>::from(sp).get_mut();
     let store_cx = cx_ref.clone();
-    task.inner_map(|inner| {
-        // cx.context.clone_from(&inner.cx);
-        cx.pc = inner.cx.sepc();
-        cx.sig_mask = sigaction.mask;
-        // debug!("pc: {:#X}, mask: {:#X?}", cx.pc, cx.sig_mask);
-        inner.cx.set_sepc(sigaction.handler);
-        inner.cx.set_ra(sigaction.restorer);
-        inner.cx.set_arg0(signal.num());
-        inner.cx.set_arg1(0);
-        inner.cx.set_arg2(sp);
-    });
+
+    let mut tcb = task.tcb.write();
+    cx.pc = tcb.cx.sepc();
+    cx.sig_mask = sigaction.mask;
+    // debug!("pc: {:#X}, mask: {:#X?}", cx.pc, cx.sig_mask);
+    tcb.cx.set_sepc(sigaction.handler);
+    tcb.cx.set_ra(sigaction.restorer);
+    tcb.cx.set_arg0(signal.num());
+    tcb.cx.set_arg1(0);
+    tcb.cx.set_arg2(sp);
+    drop(tcb);
 
     loop {
         if let Some(exit_code) = task.exit_code() {
@@ -171,12 +172,14 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
 }
 
 pub async fn user_entry_inner() {
+    debug!("new_task_inner: {}", current_task().get_task_id());
     let mut times = 0;
     loop {
         let task = current_user_task();
-        debug!("user_entry, task: {}", task.task_id);
+        debug!("task: {}", task.get_task_id());
         loop {
-            if let Some(signal) = task.inner_map(|x| x.signal.handle_signal()) {
+            let signal = task.tcb.write().signal.handle_signal();
+            if let Some(signal) = signal {
                 // debug!("handle signal: {:?}  num: {}", signal, signal.num());
                 handle_signal(task.clone(), signal.clone()).await;
             } else {
@@ -184,13 +187,18 @@ pub async fn user_entry_inner() {
             }
         }
         let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
+        debug!(
+            "user_entry, task: {}, sepc: {:#X}",
+            task.task_id,
+            cx_ref.sepc()
+        );
 
-        if let Some(exit_code) = task.exit_code() {
-            debug!("program exit with code: {}", exit_code);
+        if let UserTaskControlFlow::Break = handle_syscall(task.clone(), cx_ref).await {
             break;
         }
 
-        if let UserTaskControlFlow::Break = handle_syscall(task, cx_ref).await {
+        if let Some(exit_code) = task.exit_code() {
+            debug!("program exit with code: {}", exit_code);
             break;
         }
 
@@ -203,6 +211,7 @@ pub async fn user_entry_inner() {
 
         // yield_now().await;
     }
+    debug!("exit_task: {}", current_task().get_task_id());
 }
 
 #[allow(dead_code)]

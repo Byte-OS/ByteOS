@@ -1,7 +1,5 @@
-use alloc::sync::Arc;
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
-use executor::MapFile;
 use frame_allocator::ceil_div;
 use log::debug;
 
@@ -55,25 +53,24 @@ pub async fn sys_mmap(
 
     if flags.contains(MapFlags::MAP_SHARED) {
         match file.clone() {
-            Some(file) => user_task.frame_alloc_much(
+            Some(file) => user_task.map_frames(
                 VirtPage::from_addr(addr.into()),
-                executor::MemType::ShareFile(Arc::new(MapFile {
-                    file,
-                    start: usize::from(addr),
-                    len,
-                })),
+                executor::MemType::ShareFile,
                 (len + PAGE_SIZE - 1) / PAGE_SIZE,
+                Some(file),
+                usize::from(addr),
+                len,
             ),
-            None => user_task.frame_alloc_much(
+            None => user_task.frame_alloc(
                 VirtPage::from_addr(addr.into()),
                 executor::MemType::Shared,
                 (len + PAGE_SIZE - 1) / PAGE_SIZE,
             ),
         };
     } else {
-        user_task.frame_alloc_much(
+        user_task.frame_alloc(
             VirtPage::from_addr(addr.into()),
-            executor::MemType::CodeSection,
+            executor::MemType::Mmap,
             ceil_div(len, PAGE_SIZE),
         );
     }
@@ -94,8 +91,11 @@ pub async fn sys_munmap(start: usize, len: usize) -> Result<usize, LinuxError> {
     let current_task = current_task().as_user_task().unwrap();
 
     current_task.inner_map(|x| {
-        x.memset
-            .drain_filter(|x| (start..start + len).contains(&x.vpn.to_addr()));
+        x.memset.iter_mut().for_each(|mem_area| {
+            mem_area
+                .mtrackers
+                .drain_filter(|x| (start..start + len).contains(&x.vpn.to_addr()));
+        })
     });
     Ok(0)
 }

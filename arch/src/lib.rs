@@ -54,3 +54,9 @@ pub enum TrapType {
     Unknown,
     StorePageFault(usize),
 }
+
+pub enum MapPageSize {
+    Page4k,
+    Page2m,
+    Page1G,
+}

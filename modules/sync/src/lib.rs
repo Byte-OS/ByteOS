@@ -1,6 +1,8 @@
 #![no_std]
 
-pub use spin::{Mutex, MutexGuard};
+pub use spin::{
+    Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockUpgradableGuard, RwLockWriteGuard,
+};
 
 use core::cell::UnsafeCell;
 use core::fmt;

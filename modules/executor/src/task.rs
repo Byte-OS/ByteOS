@@ -1,10 +1,4 @@
-use core::{
-    cmp::min,
-    future::Future,
-    mem::size_of,
-    ops::{Add, Deref, DerefMut},
-    pin::Pin,
-};
+use core::{future::Future, mem::size_of, ops::Add, pin::Pin};
 
 use alloc::{
     boxed::Box,
@@ -14,17 +8,20 @@ use alloc::{
     vec::Vec,
 };
 use arch::{
-    paddr_c, ppn_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage,
-    PAGE_SIZE, PTE,
+    paddr_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
 };
-use devfs::Tty;
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
-use fs::{File, SeekFrom};
+use fs::File;
 use log::{debug, warn};
 pub use signal::{SigAction, SigProcMask, SignalFlags};
-use sync::{Mutex, MutexGuard};
+use sync::{Mutex, MutexGuard, RwLock};
 
-use crate::{signal::SignalList, task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS};
+use crate::{
+    filetable::{rlimits_new, FileTable},
+    memset::{MapTrack, MemArea, MemType},
+    signal::SignalList,
+    task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS,
+};
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
@@ -46,16 +43,7 @@ impl KernelTask {
         let ppn = Arc::new(frame_alloc().unwrap());
         let page_table = PageTable::from_ppn(ppn.0);
         let task_id = task_id_alloc();
-        let mut memset = Vec::new();
-        memset.push(ppn);
-
-        let arr = page_table.get_pte_list();
-        arr[0] = PTE::from_addr(0x0000_0000, PTEFlags::VRWX);
-        arr[1] = PTE::from_addr(0x4000_0000, PTEFlags::VRWX);
-        arr[2] = PTE::from_addr(0x8000_0000, PTEFlags::VRWX);
-        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
-        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
-        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
+        let memset = vec![ppn];
 
         FUTURE_LIST
             .lock()
@@ -79,119 +67,26 @@ impl AsyncTask for KernelTask {
     }
 }
 
-const FILE_MAX: usize = 255;
-const FD_NONE: Option<File> = Option::None;
-
-// pub struct FileTable(pub [Option<File>; FILE_MAX]);
-
-#[derive(Clone)]
-pub struct FileTable(pub Vec<Option<File>>);
-
-impl FileTable {
-    pub fn new() -> Self {
-        let mut file_table: Vec<Option<File>> = vec![FD_NONE; FILE_MAX];
-        // let mut file_table = [FD_NONE; FILE_MAX];
-        file_table[0] = Some(Arc::new(Tty::new()));
-        file_table[1] = file_table[0].clone();
-        file_table[2] = file_table[0].clone();
-
-        Self(file_table)
-    }
-}
-
-impl Deref for FileTable {
-    type Target = Vec<Option<File>>;
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
-
-impl DerefMut for FileTable {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
-    }
-}
-
-#[derive(Clone)]
-pub enum MemType {
-    CodeSection,
-    Stack,
-    Mmap,
-    Shared,
-    ShareFile(Arc<MapFile>), // file, start, len
-    Clone,
-    PTE,
-}
-
-#[allow(dead_code)]
-#[derive(Clone)]
-pub struct MemTrack {
-    pub mem_type: MemType,
-    pub vpn: VirtPage,
-    pub tracker: Arc<FrameTracker>,
-}
-
-#[derive(Clone)]
-pub struct MapFile {
-    pub file: File,
-    pub start: usize,
-    pub len: usize,
-}
-
-impl Drop for MemTrack {
-    fn drop(&mut self) {
-        match &self.mem_type {
-            MemType::ShareFile(mapfile) => match Arc::strong_count(&self.tracker) == 1 {
-                true => {}
-                false => {
-                    let offset = self.vpn.to_addr() - mapfile.start;
-                    let wlen = min(mapfile.len - offset, PAGE_SIZE);
-
-                    let bytes = unsafe {
-                        core::slice::from_raw_parts_mut(
-                            ppn_c(self.tracker.0).to_addr() as *mut u8,
-                            wlen as usize,
-                        )
-                    };
-                    mapfile
-                        .file
-                        .seek(SeekFrom::SET(offset as usize))
-                        .expect("can't write data to file");
-                    mapfile
-                        .file
-                        .write(bytes)
-                        .expect("can't write data to file at drop");
-                }
-            },
-            _ => {}
-        }
-    }
-}
-
-fn rlimits_new() -> Vec<usize> {
-    let mut rlimits = vec![0usize; 8];
-    rlimits[7] = FILE_MAX;
-    rlimits
-}
-
 pub struct TaskInner {
-    pub memset: Vec<MemTrack>,
-    pub cx: Context,
+    pub memset: Vec<MemArea>,
     pub fd_table: FileTable,
-    pub exit_code: Option<usize>,
     pub curr_dir: String,
     pub heap: usize,
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
     pub tms: TMS,
     pub rlimits: Vec<usize>,
-    pub signal: SignalList,
-    pub sigmask: SigProcMask,
     pub sigaction: Arc<Mutex<[SigAction; 64]>>,
-    pub set_child_tid: usize,
     pub futex_table: Arc<Mutex<FutexTable>>,
+}
+
+pub struct ThreadControlBlock {
+    pub cx: Context,
+    pub exit_code: Option<usize>,
+    pub sigmask: SigProcMask,
     pub clear_child_tid: usize,
+    pub set_child_tid: usize,
+    pub signal: SignalList,
 }
 
 #[allow(dead_code)]
@@ -200,6 +95,7 @@ pub struct UserTask {
     pub page_table: PageTable,
     pub inner: Mutex<TaskInner>,
     pub parent: Weak<dyn AsyncTask>,
+    pub tcb: RwLock<ThreadControlBlock>,
 }
 
 impl Drop for UserTask {
@@ -215,46 +111,46 @@ impl UserTask {
         parent: Weak<dyn AsyncTask>,
     ) -> Arc<Self> {
         let ppn = Arc::new(frame_alloc().unwrap());
-        let page_table = PageTable::from_ppn(ppn.0);
         let task_id = task_id_alloc();
-        let mut memset = Vec::new();
-        memset.push(MemTrack {
-            mem_type: MemType::PTE,
-            vpn: VirtPage::new(0),
-            tracker: ppn,
-        });
-
-        let arr = page_table.get_pte_list();
-        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
-        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
-        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
+        // initialize memset
+        let memset = vec![MemArea::new(
+            MemType::PTE,
+            vec![MapTrack {
+                vpn: VirtPage::new(0),
+                tracker: ppn.clone(),
+            }],
+        )];
 
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 
         let inner = TaskInner {
             memset,
-            cx: Context::new(),
             fd_table: FileTable::new(),
-            exit_code: None,
             curr_dir: String::from("/"),
             heap: 0,
             children: Vec::new(),
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
-            sigmask: SigProcMask::new(),
             sigaction: Arc::new(Mutex::new([SigAction::new(); 64])),
-            set_child_tid: 0,
-            clear_child_tid: 0,
-            signal: SignalList::new(),
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
         };
 
+        let tcb = RwLock::new(ThreadControlBlock {
+            cx: Context::new(),
+            exit_code: None,
+            sigmask: SigProcMask::new(),
+            clear_child_tid: 0,
+            set_child_tid: 0,
+            signal: SignalList::new(),
+        });
+
         Arc::new(Self {
-            page_table,
+            page_table: PageTable::from_ppn(ppn.0),
             task_id,
             parent,
             inner: Mutex::new(inner),
+            tcb,
         })
     }
 
@@ -263,45 +159,31 @@ impl UserTask {
     }
 
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags) {
-        self.page_table.map(ppn, vpn, flags, || {
-            self.frame_alloc(VirtPage::new(0), MemType::PTE)
-        });
+        self.page_table.map(
+            ppn,
+            vpn,
+            flags,
+            || self.frame_alloc(VirtPage::new(0), MemType::PTE, 1),
+            3,
+        );
     }
 
-    #[inline]
-    pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType) -> PhysPage {
-        let tracker = Arc::new(frame_alloc().expect("can't alloc frame in user_task"));
-        let ppn = tracker.0.clone();
-        let mut inner = self.inner.lock();
-
-        // check vpn exists, replace it if exists.
-        let finded = inner
-            .memset
-            .iter_mut()
-            .find(|x| x.vpn.to_addr() != 0 && x.vpn == vpn);
-
-        match finded {
-            Some(f_tracker) => f_tracker.tracker = tracker.clone(),
-            None => {
-                let mem_tracker = MemTrack {
-                    mem_type: mtype,
-                    vpn,
-                    tracker,
-                };
-                inner.memset.push(mem_tracker);
-            }
-        }
-        drop(inner);
-        if vpn.to_addr() != 0 {
-            // TODO: set flags by MemType.
-            self.map(ppn, vpn, PTEFlags::UVRWX);
-        }
-        ppn
+    pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> PhysPage {
+        self.map_frames(vpn, mtype, count, None, 0, 0)
     }
 
-    pub fn frame_alloc_much(&self, vpn: VirtPage, mtype: MemType, count: usize) -> PhysPage {
+    pub fn map_frames(
+        &self,
+        vpn: VirtPage,
+        mtype: MemType,
+        count: usize,
+        file: Option<File>,
+        start: usize,
+        len: usize,
+    ) -> PhysPage {
         assert!(count > 0, "can't alloc count = 0 in user_task frame_alloc");
-        let mut trackers: Vec<_> = frame_alloc_much(count)
+        // alloc trackers and map vpn
+        let trackers: Vec<_> = frame_alloc_much(count)
             .expect("can't alloc frame in user_task")
             .into_iter()
             .enumerate()
@@ -310,46 +192,63 @@ impl UserTask {
                     true => vpn,
                     false => vpn.add(i),
                 };
-                MemTrack {
-                    mem_type: mtype.clone(),
+                MapTrack {
                     vpn,
                     tracker: Arc::new(x),
                 }
             })
             .collect();
-        // add tracker and map memory.
-        trackers.iter().for_each(|target| {
-            let mut inner = self.inner.lock();
-            let finded = inner
-                .memset
-                .iter_mut()
-                .find(|x| x.vpn.to_addr() != 0 && x.vpn == target.vpn);
+        if vpn.to_addr() != 0 {
+            debug!(
+                "map {:#x} @ {:#x} size: {:#x} flags: {:?}",
+                vpn.to_addr(),
+                trackers[0].tracker.0.to_addr(),
+                count * PAGE_SIZE,
+                PTEFlags::UVRWX
+            );
+        }
+        let mut inner = self.inner.lock();
 
-            match finded {
-                Some(f_tracker) => {
-                    f_tracker.tracker = target.tracker.clone();
-                }
-                None => {
-                    inner.memset.push(target.clone());
+        // find map area, such as PTE, CodeSection, etc.
+        let finded_area = inner
+            .memset
+            .iter_mut()
+            .filter(|x| x.mtype != MemType::ShareFile || x.mtype != MemType::Shared)
+            .find(|x| x.mtype == mtype);
+
+        // add tracker and map memory.
+        match finded_area {
+            Some(area) => {
+                for target in trackers.clone() {
+                    area.map(target.vpn, target.tracker)
                 }
             }
-            drop(inner);
-            if vpn.to_addr() != 0 {
-                // TODO: set flags by MemType.
-                self.map(target.tracker.0, target.vpn, PTEFlags::UVRWX);
-            }
-        });
+            None => inner.memset.push(MemArea {
+                mtype,
+                mtrackers: trackers.clone(),
+                file,
+                start,
+                len,
+            }),
+        }
+        drop(inner);
+
+        // map vpn to ppn
+        trackers
+            .clone()
+            .iter()
+            .filter(|x| x.vpn.to_addr() != 0)
+            .for_each(|x| self.map(x.tracker.0, x.vpn, PTEFlags::UVRWX));
         let ppn = trackers[0].tracker.0.clone();
-        self.inner.lock().memset.append(&mut trackers);
         ppn
     }
 
     pub fn get_cx_ptr(&self) -> *mut Context {
-        (&mut self.inner.lock().cx) as *mut Context
+        (&mut self.tcb.write().cx) as *mut Context
     }
 
     pub fn exit_code(&self) -> Option<usize> {
-        self.inner.lock().exit_code
+        self.tcb.read().exit_code
     }
 
     pub fn sbrk(&self, incre: isize) -> usize {
@@ -360,7 +259,7 @@ impl UserTask {
         // need alloc frame page
         if after_page > curr_page {
             for i in curr_page..after_page {
-                self.frame_alloc(VirtPage::new(i + 1), MemType::CodeSection);
+                self.frame_alloc(VirtPage::new(i + 1), MemType::CodeSection, 1);
             }
         }
         let mut inner = self.inner.lock();
@@ -374,7 +273,8 @@ impl UserTask {
 
     #[inline]
     pub fn exit(&self, exit_code: usize) {
-        let uaddr = self.inner.lock().clear_child_tid;
+        let mut tcb_writer = self.tcb.write();
+        let uaddr = tcb_writer.clear_child_tid;
         if uaddr != 0 {
             extern "Rust" {
                 pub fn futex_wake(
@@ -390,16 +290,20 @@ impl UserTask {
                 futex_wake(self.inner.lock().futex_table.clone(), uaddr, 1);
             }
         }
-        self.inner.lock().exit_code = Some(exit_code);
+        tcb_writer.exit_code = Some(exit_code);
+        drop(tcb_writer);
         FUTURE_LIST.lock().remove(&self.task_id);
         // recycle memory resouces
-        self.inner.lock().memset.clear();
+        self.inner.lock().memset.retain(|x| x.mtype != MemType::PTE);
         self.inner.lock().fd_table.clear();
-        self.parent.upgrade().map(|x| {
-            x.clone()
-                .as_user_task()
-                .map(|x| x.inner.lock().signal.add_signal(SignalFlags::SIGCHLD))
-        });
+
+        if let Some(parent) = self.parent.upgrade() {
+            parent.as_user_task().map(|x| {
+                x.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+            });
+        } else {
+            self.inner.lock().children.clear();
+        }
     }
 
     #[inline]
@@ -418,11 +322,12 @@ impl UserTask {
         // and then we can implement COW(copy on write).
         let parent_task: Arc<dyn AsyncTask> = self.clone();
         let new_task = Self::new(future, Arc::downgrade(&parent_task));
+        let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table
         new_task.inner.lock().fd_table.0 = self.inner.lock().fd_table.0.clone();
 
-        new_task.inner.lock().cx.clone_from(&self.inner.lock().cx);
-        new_task.inner.lock().cx.set_ret(0);
+        new_tcb_writer.cx.clone_from(&self.tcb.read().cx);
+        new_tcb_writer.cx.set_ret(0);
         new_task.inner_map(|inner| {
             inner.curr_dir = self.inner.lock().curr_dir.clone();
         });
@@ -431,48 +336,15 @@ impl UserTask {
             .lock()
             .memset
             .iter()
-            .for_each(|x| match &x.mem_type {
-                // 后面再考虑 copy on write 的问题.
-                MemType::Stack | MemType::CodeSection | MemType::Clone => {
-                    new_task
-                        .frame_alloc(x.vpn, x.mem_type.clone())
-                        .copy_value_from_another(x.tracker.0);
-                }
-                // MemType::CodeSection | MemType::Clone => {
-                //     new_task.inner.lock().memset.push(MemTrack {
-                //         mem_type: MemType::Clone,
-                //         vpn: x.vpn,
-                //         tracker: x.tracker.clone(),
-                //     });
-                //     new_task.map(
-                //         x.tracker.0,
-                //         x.vpn,
-                //         PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X,
-                //     );
-                // }
-                MemType::ShareFile(mapfile) => {
-                    new_task.inner.lock().memset.push(MemTrack {
-                        mem_type: MemType::ShareFile(mapfile.clone()),
-                        vpn: x.vpn,
-                        tracker: x.tracker.clone(),
-                    });
-                    new_task.map(
-                        x.tracker.0,
-                        x.vpn,
-                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X | PTEFlags::W,
-                    );
-                }
-                MemType::Shared => {
-                    new_task.inner.lock().memset.push(x.clone());
-                    new_task.map(
-                        x.tracker.0,
-                        x.vpn,
-                        PTEFlags::U | PTEFlags::V | PTEFlags::R | PTEFlags::X | PTEFlags::W,
-                    );
-                }
-                _ => {}
+            .filter(|x| x.mtype != MemType::PTE)
+            .for_each(|x| {
+                let map_area = x.fork();
+                map_area.mtrackers.iter().for_each(|map_track| {
+                    new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
+                });
+                new_task.inner.lock().memset.push(map_area);
             });
-
+        drop(new_tcb_writer);
         thread::spawn(new_task.clone());
         new_task
     }
@@ -486,36 +358,42 @@ impl UserTask {
         // it will contains the frame used for page mapping、
         // mmap or text section.
         // and then we can implement COW(copy on write).
+        let parent_tcb = self.tcb.read();
         let parent_task: Arc<dyn AsyncTask> = self.clone();
 
         let task_id = task_id_alloc();
         let mut inner = self.inner.lock();
-        let mut new_inner = TaskInner {
+        let new_inner = TaskInner {
             memset: inner.memset.clone(),
-            cx: inner.cx.clone(),
             fd_table: inner.fd_table.clone(),
-            exit_code: None,
             curr_dir: inner.curr_dir.clone(),
             heap: inner.heap,
             children: inner.children.clone(),
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
-            sigmask: inner.sigmask.clone(),
             sigaction: inner.sigaction.clone(),
-            set_child_tid: 0,
             futex_table: inner.futex_table.clone(),
-            clear_child_tid: 0,
-            signal: SignalList::new(),
         };
 
-        new_inner.cx.set_ret(0);
+        let tcb = RwLock::new(ThreadControlBlock {
+            cx: parent_tcb.cx.clone(),
+            exit_code: None,
+            sigmask: parent_tcb.sigmask.clone(),
+            clear_child_tid: 0,
+            set_child_tid: 0,
+            signal: SignalList::new(),
+        });
+
+        tcb.write().cx.set_ret(0);
+        drop(parent_tcb);
 
         let new_task = Arc::new(Self {
             page_table: self.page_table.clone(),
             task_id,
             parent: Arc::downgrade(&parent_task),
             inner: Mutex::new(new_inner),
+            tcb,
         });
         inner.children.push(new_task.clone());
 
@@ -526,45 +404,48 @@ impl UserTask {
     }
 
     pub fn push_str(&self, str: &str) -> usize {
+        let mut tcb = self.tcb.write();
+
         const ULEN: usize = size_of::<usize>();
-        let mut inner = self.inner.lock();
         let bytes = str.as_bytes();
         let len = bytes.len();
-        let sp = inner.cx.sp() - (len + ULEN) / ULEN * ULEN;
+        let sp = tcb.cx.sp() - (len + ULEN) / ULEN * ULEN;
 
         let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
         unsafe {
             core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(bytes);
         }
-        inner.cx.set_sp(sp);
+        tcb.cx.set_sp(sp);
         sp
     }
 
     pub fn push_arr(&self, buffer: &[u8]) -> usize {
+        let mut tcb = self.tcb.write();
+
         const ULEN: usize = size_of::<usize>();
-        let mut inner = self.inner.lock();
         let len = buffer.len();
-        let sp = inner.cx.sp() - ceil_div(len, ULEN) * ULEN;
+        let sp = tcb.cx.sp() - ceil_div(len, ULEN) * ULEN;
 
         let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
         unsafe {
             core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(buffer);
         }
-        inner.cx.set_sp(sp);
+        tcb.cx.set_sp(sp);
         sp
     }
 
     pub fn push_num(&self, num: usize) -> usize {
+        let mut tcb = self.tcb.write();
+
         const ULEN: usize = size_of::<usize>();
-        let mut inner = self.inner.lock();
-        let sp = inner.cx.sp() - ULEN;
+        let sp = tcb.cx.sp() - ULEN;
 
         let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
 
         unsafe {
             (phys_sp.addr() as *mut usize).write(num);
         }
-        inner.cx.set_sp(sp);
+        tcb.cx.set_sp(sp);
         sp
     }
 
@@ -574,13 +455,14 @@ impl UserTask {
                 .lock()
                 .memset
                 .iter()
-                .filter(|x| match x.mem_type {
-                    MemType::Stack => false,
-                    _ => true,
-                })
-                .fold(0, |acc, x| match x.vpn.to_addr() > acc {
-                    true => x.vpn.to_addr(),
-                    false => acc,
+                .filter(|x| x.mtype != MemType::Stack)
+                .fold(0, |acc, x| {
+                    x.mtrackers
+                        .iter()
+                        .filter(|x| x.vpn.to_addr() > acc)
+                        .map(|x| x.vpn.to_addr())
+                        .max()
+                        .unwrap_or(acc)
                 })
                 + PAGE_SIZE,
         )
@@ -631,6 +513,7 @@ impl UserTask {
 }
 
 impl AsyncTask for UserTask {
+    #[inline]
     fn get_task_id(&self) -> TaskId {
         self.task_id
     }
