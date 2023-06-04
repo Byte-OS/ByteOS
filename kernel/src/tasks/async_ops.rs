@@ -29,10 +29,12 @@ impl Future for WaitPid {
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let inner = self.0.inner.lock();
-        let res = inner.children.iter().find(|x| {
-            let inner = x.inner.lock();
-            (self.1 == -1 || x.task_id == self.1 as usize) && inner.exit_code.is_some()
-        });
+        let res = inner
+            .children
+            .iter()
+            .find(|x| (self.1 == -1 || x.task_id == self.1 as usize) && x.exit_code().is_some())
+            .cloned();
+        drop(inner);
         match res {
             Some(task) => Poll::Ready(task.clone()),
             None => Poll::Pending,
@@ -46,7 +48,7 @@ impl Future for WaitSignal {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        match self.0.inner_map(|x| x.signal.has_signal()) {
+        match self.0.tcb.read().signal.has_signal() {
             true => Poll::Ready(()),
             false => Poll::Pending,
         }
@@ -67,7 +69,7 @@ impl Future for WaitFutex {
     type Output = Result<usize, LinuxError>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        let signal = current_user_task().inner_map(|inner| inner.signal.clone());
+        let signal = current_user_task().tcb.read().signal.clone();
         match in_futex(self.0.clone(), self.1) {
             true => {
                 if signal.has_signal() {

@@ -10,6 +10,7 @@ use core::{
     task::{Context, Poll},
 };
 use crossbeam_queue::SegQueue;
+use log::debug;
 use sync::Mutex;
 
 use crate::UserTask;
@@ -54,6 +55,7 @@ impl Executor {
     fn run_ready_task(&mut self) {
         let task = TASK_QUEUE.lock().pop_front();
         if let Some(task) = task {
+            debug!("run_task: {}", task.get_task_id());
             task.before_run();
             *CURRENT_TASK.lock() = Some(task.clone());
             let waker = self.create_waker(task.as_ref()).into();

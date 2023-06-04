@@ -6,6 +6,8 @@ extern crate alloc;
 extern crate logging;
 
 mod executor;
+mod filetable;
+mod memset;
 mod ops;
 mod signal;
 mod task;
@@ -16,6 +18,7 @@ use core::{future::Future, pin::Pin, task::Context};
 
 use alloc::boxed::Box;
 pub use executor::*;
+pub use memset::*;
 pub use ops::*;
 pub use task::*;
 

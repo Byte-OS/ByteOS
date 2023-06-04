@@ -207,10 +207,6 @@ pub async fn initproc() {
         info!("No.{} finished!", i);
     }
 
-    // command("runtest.exe -w entry-static.exe pthread_cond").await;
-
-    // command("bin/sh run-static.sh").await;
-    // command("bin/sh run-dynamic.sh").await;
     // command("bin/sh").await;
     // command("usr/bin/tcc -run main.c").await;
     // command("bin/bash").await;
@@ -223,6 +219,7 @@ pub async fn initproc() {
     // command("./lmbench_all lat_pipe -P 1").await;
     // command("busybox sh").await;
     // command("busybox sh busybox_testcode.sh").await;
+    // command("busybox sh lua_testcode.sh").await;
     // command("bin/busybox sh lmbench_testcode.sh").await;
     // command("bin/busybox sh file_speed.sh").await;
     // run_libc_test().await;

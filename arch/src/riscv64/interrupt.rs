@@ -55,7 +55,7 @@ fn kernel_callback(context: &mut Context) -> usize {
     let scause = scause::read();
     let stval = stval::read();
     let int_table = unsafe { interrupt_table() };
-    trace!(
+    debug!(
         "内核态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
         scause.bits(),
         scause.cause(),

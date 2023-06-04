@@ -85,12 +85,24 @@ bitflags! {
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {
-    pub const fn new(addr: PhysAddr) -> Self {
-        Self(addr)
+    pub fn new(addr: PhysAddr) -> Self {
+        let page_table = Self(addr);
+        let arr = page_table.get_pte_list();
+
+        // map kernel addr
+        // 0xffffffc0_00000000 -> 0x00000000 (1G)
+        // 0xffffffc0_40000000 -> 0x40000000 (1G)
+        // 0xffffffc0_80000000 -> 0x80000000 (1G)
+        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
+        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
+        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
+
+        page_table
     }
 
-    pub const fn from_ppn(ppn: PhysPage) -> Self {
-        Self(PhysAddr(ppn.0 << 12))
+    #[inline]
+    pub fn from_ppn(ppn: PhysPage) -> Self {
+        Self::new(PhysAddr(ppn.0 << 12))
     }
 
     #[inline]
@@ -113,19 +125,13 @@ impl PageTable {
     }
 
     #[inline]
-    pub fn map<G>(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, mut falloc: G)
+    pub fn map<G>(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, mut falloc: G, level: usize)
     where
         G: FnMut() -> PhysPage,
     {
-        debug!(
-            "map {:#x} @ {:#x} flags: {:?}",
-            vpn.to_addr(),
-            ppn.to_addr(),
-            flags
-        );
         // TODO: Add huge page support.
         let mut page_table = PageTable(self.0);
-        for i in (1..3).rev() {
+        for i in (1..level).rev() {
             let value = (vpn.0 >> 9 * i) & 0x1ff;
             let pte = &mut page_table.get_pte_list()[value];
             if i == 0 {
