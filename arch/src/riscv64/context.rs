@@ -69,8 +69,8 @@ impl ContextOps for Context {
     }
 
     #[inline]
-    fn args(&self) -> &[usize] {
-        &self.x[10..17]
+    fn args(&self) -> [usize; 7] {
+        self.x[10..17].try_into().expect("args slice force convert")
     }
 
     #[inline]

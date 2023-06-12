@@ -131,6 +131,7 @@ pub fn trap_pre_handle(context: &mut Context) -> TrapType {
             TrapType::Time
         }
         Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
+        Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
         Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
         _ => {
             error!(

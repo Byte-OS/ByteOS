@@ -99,9 +99,6 @@ pub enum LinuxError {
     ETIMEDOUT = 100,
     /// Connection refused
     ECONNREFUSED = 111,
-
-    /// custom error code just used in byteos
-    CONTROLFLOWBREAK = 500,
 }
 
 impl LinuxError {
@@ -150,8 +147,6 @@ impl LinuxError {
             ENOTCONN => "Transport endpoint is not connected",
             ETIMEDOUT => "Connection time out",
             ECONNREFUSED => "Connection refused",
-
-            CONTROLFLOWBREAK => "custom error code just used in byteos",
         }
     }
 
