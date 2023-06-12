@@ -6,5 +6,9 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-buddy_system_allocator = "0.8"
+buddy_system_allocator = "0.9"
 log = "0.4"
+
+# customizable-buddy = "0.0.3"
+sync = { path = "../sync" }
+arch = { path = "../../arch"}

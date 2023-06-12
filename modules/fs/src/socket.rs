@@ -19,6 +19,7 @@ impl NetType {
     pub fn from_usize(value: usize) -> Option<Self> {
         match value {
             1 => Some(Self::STEAM),
+            2 => Some(Self::DGRAME),
             _ => None,
         }
     }
@@ -46,6 +47,7 @@ pub struct SocketInner<T: SocketOps> {
 
 pub trait SocketOps: Sync + Send {
     fn tcp_send(ip: u32, port: u16, ack: u32, seq: u32, flags: u8, win: u16, urg: u16, data: &[u8]);
+    fn udp_send(ip: u32, port: u16, data: &[u8]);
 }
 
 #[allow(dead_code)]
@@ -84,16 +86,24 @@ impl<T: SocketOps + 'static> INodeInterface for Socket<T> {
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         let wlen = buffer.len();
         let inner = self.inner.lock();
-        T::tcp_send(
-            inner.target_ip,
-            inner.target_port,
-            inner.ack,
-            inner.seq,
-            inner.flags,
-            inner.win,
-            inner.urg,
-            buffer,
-        );
+        match self.net_type {
+            NetType::STEAM => {
+                T::tcp_send(
+                    inner.target_ip,
+                    inner.target_port,
+                    inner.ack,
+                    inner.seq,
+                    inner.flags,
+                    inner.win,
+                    inner.urg,
+                    buffer,
+                );
+            }
+            NetType::DGRAME => {
+                T::udp_send(inner.target_ip, inner.target_port, buffer);
+            }
+            NetType::RAW => todo!(),
+        }
         Ok(wlen)
     }
 }

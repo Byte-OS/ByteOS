@@ -166,14 +166,21 @@ impl SigProcMask {
             SigMaskHow::Setmask => mask.mask,
         }
     }
+
+    pub fn masked(&self, signum: usize) -> bool {
+        (self.mask >> signum) & 1 == 0
+    }
 }
 
-/// musl riscv Sigaction
-/// void (*handler)(int);
-//  unsigned long flags;
-//  void (*restorer)(void);
-//  unsigned mask[2];
-//  void *unused;
+// musl riscv Sigaction
+// struct Sigaction {
+//     void (*handler)(int);
+//     unsigned long flags;
+//     void (*restorer)(void);
+//     unsigned mask[2];
+//     void *unused;
+// }
+
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]

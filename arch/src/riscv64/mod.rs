@@ -50,7 +50,6 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
 
         main(hartid, device_tree);
     }
-
     shutdown();
 }
 

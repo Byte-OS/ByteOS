@@ -28,7 +28,7 @@ impl Future for WaitPid {
     type Output = Arc<UserTask>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        let inner = self.0.inner.lock();
+        let inner = self.0.pcb.lock();
         let res = inner
             .children
             .iter()

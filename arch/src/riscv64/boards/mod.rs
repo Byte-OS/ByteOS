@@ -5,6 +5,9 @@ cfg_if::cfg_if! {
     } else if #[cfg(feature = "board-qemu")] {
         mod qemu;
         pub use qemu::*;
+    } else if #[cfg(feature = "board-cv1811h")] {
+        mod cv1811h;
+        pub use cv1811h::*;
     } else {
         pub const CLOCK_FREQ: usize = 12500000;
 

@@ -70,6 +70,9 @@ run: fs-img build
 justrun: build
 	$(QEMU_EXEC)
 
+cv1811h-build: build
+	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
+	scp -r $(BIN_FILE) root@10.0.0.1:/tmpfs/
 k210-build: build
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
 	@cp $(SBI) $(SBI).copy
@@ -77,7 +80,7 @@ k210-build: build
 	@mv $(SBI).copy $(BIN_FILE)
 
 flash: k210-build
-	(which $(K210-BURNER)) || (cd tools && git clone https://github.com/sipeed/kflash.py.git k210)
+	(which $(K`210-BURNER)) || (cd tools && git clone https://github.com/sipeed/kflash.py.git k210)
 	@sudo chmod 777 $(K210-SERIALPORT)
 	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(BIN_FILE)
 	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200

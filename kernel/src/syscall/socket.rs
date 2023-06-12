@@ -5,6 +5,7 @@ use fs::socket::{self, NetType, SocketOps};
 use fs::INodeInterface;
 use log::debug;
 use lose_net_stack::packets::tcp::TCPPacket;
+use lose_net_stack::packets::udp::UDPPacket;
 use lose_net_stack::{IPv4, MacAddress, TcpFlags};
 use sync::Mutex;
 
@@ -64,15 +65,23 @@ pub async fn sys_bind(
     );
     let task = current_user_task();
     let socket_addr = addr_ptr.get_mut();
+
+    if socket_addr.in_port == 0 {
+        socket_addr.in_port = port_alloc().to_be();
+    }
+
     let port = socket_addr.in_port.to_be();
+
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
+
     if port_used(port) {
         return Err(LinuxError::EBUSY);
     }
+
     if port != 0 {
         port_bind(port, socket)
     }
@@ -148,6 +157,8 @@ pub async fn sys_sendto(
     buffer_ptr: UserRef<u8>,
     len: usize,
     flags: usize,
+    addr_ptr: UserRef<SocketAddrIn>,
+    _address_len: usize,
 ) -> Result<usize, LinuxError> {
     debug!(
         "sys_send @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}",
@@ -160,7 +171,19 @@ pub async fn sys_sendto(
         .ok_or(LinuxError::EINVAL)?
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
-    let wlen = socket.write(buffer).expect("can't send to socket");
+
+    let wlen = if socket.net_type == NetType::DGRAME {
+        let socket_addr = addr_ptr.get_mut();
+
+        SocketOpera::udp_send(
+            socket_addr.addr.to_be(),
+            socket_addr.in_port.to_be(),
+            &buffer,
+        );
+        buffer.len()
+    } else {
+        socket.write(buffer).expect("can't send to socket")
+    };
     Ok(wlen)
 }
 
@@ -171,6 +194,15 @@ pub fn port_used(port: u16) -> bool {
 pub fn port_bind(port: u16, socket: Arc<Socket>) {
     socket.bind(port);
     PORT_TABLE.lock().insert(port, socket);
+}
+
+pub fn port_alloc() -> u16 {
+    for i in 3000..65535 {
+        if !PORT_TABLE.lock().contains_key(&i) {
+            return i;
+        }
+    }
+    0
 }
 
 pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
@@ -225,5 +257,32 @@ impl SocketOps for SocketOpera {
             .expect("can't send date to net device");
         // debug!("tcp send to");
         // todo!()
+    }
+
+    fn udp_send(ip: u32, port: u16, data: &[u8]) {
+        let mut ip = if ip == 0 {
+            IPv4::new(10, 0, 2, 15)
+        } else {
+            IPv4::from_u32(ip)
+        };
+        if ip == IPv4::new(127, 0, 0, 1) {
+            ip = IPv4::new(10, 0, 2, 15);
+        }
+        let udp_packet = UDPPacket {
+            source_ip: IPv4::new(10, 0, 2, 15),
+            source_mac: MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+            source_port: 2000,
+            dest_ip: ip,
+            dest_mac: MacAddress::new([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
+            dest_port: port,
+            data_len: data.len(),
+            data,
+        };
+
+        debug!("send_port: {:?}", udp_packet);
+
+        NET_DEVICES.lock()[0]
+            .send(&udp_packet.build_data())
+            .expect("can't send date to net device");
     }
 }
