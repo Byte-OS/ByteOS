@@ -1,221 +1,24 @@
-use core::{future::Future, mem::size_of};
-
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, VirtPage};
+use alloc::{sync::Arc, vec::Vec};
 use devices::NET_DEVICES;
-use executor::{
-    current_task, current_user_task, thread, yield_now, AsyncTask, Executor, KernelTask, MemType,
-    UserTask, TASK_QUEUE,
-};
+use executor::{current_task, thread, yield_now, Executor, KernelTask, UserTask, TASK_QUEUE};
 use fs::socket::NetType;
-use log::{debug, warn};
+use log::debug;
 use lose_net_stack::{results::Packet, IPv4, LoseStack, MacAddress, TcpFlags};
-use signal::SignalFlags;
 
-use crate::syscall::{
-    consts::{SignalUserContext, UserRef},
-    exec_with_process, syscall, PORT_TABLE,
-};
+use crate::syscall::{exec_with_process, PORT_TABLE};
 
-use self::initproc::initproc;
+use self::{initproc::initproc, user::entry::user_entry};
 
 mod async_ops;
 pub mod elf;
 mod initproc;
+mod user;
 
 pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal};
 
-#[no_mangle]
-// for avoiding the rust cycle check. use extern and nomangle
-pub fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync> {
-    Box::new(async { user_entry_inner().await })
-}
-
-enum UserTaskControlFlow {
+pub enum UserTaskControlFlow {
     Continue,
     Break,
-}
-
-async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskControlFlow {
-    let ustart = 0;
-    unsafe {
-        user_restore(cx_ref);
-    }
-    task.inner_map(|inner| inner.tms.utime += (get_time() - ustart) as u64);
-
-    let sstart = 0;
-    let trap_type = trap_pre_handle(cx_ref);
-    match trap_type {
-        arch::TrapType::Breakpoint => {}
-        arch::TrapType::UserEnvCall => {
-            debug!("user env call: {}", cx_ref.syscall_number());
-            // if syscall ok
-            let args = cx_ref.args();
-            let args = [
-                args[0], args[1], args[2], args[3], args[4], args[5], args[6],
-            ];
-            let call_number = cx_ref.syscall_number();
-            cx_ref.syscall_ok();
-            let result = syscall(call_number, args)
-                .await
-                .map_or_else(|e| -e.code(), |x| x as isize) as usize;
-            debug!("syscall result: {:#X?}", result);
-            cx_ref.set_ret(result);
-            if result == (-500 as isize) as usize {
-                return UserTaskControlFlow::Break;
-            }
-        }
-        arch::TrapType::Time => {
-            debug!("time interrupt from user");
-        }
-        arch::TrapType::Unknown => {
-            debug!("unknown trap: {:#x?}", cx_ref);
-            panic!("");
-        }
-        arch::TrapType::StorePageFault(addr) => {
-            let vpn = VirtPage::from_addr(addr);
-            warn!("store page fault @ {:#x}", addr);
-
-            let finded = task
-                .pcb
-                .lock()
-                .memset
-                .iter()
-                .find_map(|mem_area| {
-                    mem_area
-                        .mtrackers
-                        .iter()
-                        .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
-                })
-                .cloned();
-
-            warn!("store page: {:?}", finded);
-
-            match finded {
-                Some(_) => {
-                    // let src_ppn = tracker.0;
-                    // let dst_ppn = task.frame_alloc(vpn, MemType::CodeSection);
-                    // dst_ppn.copy_value_from_another(src_ppn);
-                }
-                None => {
-                    warn!("alloc judge addr: {:#x}", addr);
-                    if (0x7ff00000..0x7ffff000).contains(&addr) {
-                        warn!("alloc");
-                        task.frame_alloc(vpn, MemType::Stack, 1);
-                        warn!("alloc page: {:#x}", addr);
-                    } else {
-                        debug!("context: {:#X?}", cx_ref);
-                        return UserTaskControlFlow::Break;
-                    }
-                }
-            }
-        }
-    }
-    task.inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
-    UserTaskControlFlow::Continue
-}
-
-pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
-    debug!(
-        "handle signal: {:?} task_id: {}",
-        signal,
-        task.get_task_id()
-    );
-
-    let sigaction = task.pcb.lock().sigaction[signal.num()].clone();
-
-    if sigaction.handler == 0 {
-        match signal {
-            SignalFlags::SIGCANCEL => {
-                current_user_task().exit_with_signal(signal.num());
-            }
-            _ => {}
-        }
-        return;
-    }
-    let proc_mask = task.tcb.read().sigmask;
-    task.tcb.write().sigmask = sigaction.mask;
-
-    let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
-
-    let mut sp = cx_ref.sp();
-
-    sp -= 128;
-    sp -= size_of::<SignalUserContext>();
-    sp = sp / 16 * 16;
-
-    let cx = UserRef::<SignalUserContext>::from(sp).get_mut();
-    let store_cx = cx_ref.clone();
-
-    let mut tcb = task.tcb.write();
-    cx.pc = tcb.cx.sepc();
-    cx.sig_mask = sigaction.mask;
-    // debug!("pc: {:#X}, mask: {:#X?}", cx.pc, cx.sig_mask);
-    tcb.cx.set_sepc(sigaction.handler);
-    tcb.cx.set_ra(sigaction.restorer);
-    tcb.cx.set_arg0(signal.num());
-    tcb.cx.set_arg1(0);
-    tcb.cx.set_arg2(sp);
-    drop(tcb);
-
-    loop {
-        if let Some(exit_code) = task.exit_code() {
-            debug!("program exit with code: {}", exit_code);
-            break;
-        }
-
-        if let UserTaskControlFlow::Break = handle_syscall(task.clone(), cx_ref).await {
-            break;
-        }
-    }
-    task.tcb.write().sigmask = proc_mask;
-    // debug!("new pc: {:#X}", cx.pc);
-    // store_cx.set_ret(cx_ref.args()[0]);
-    cx_ref.clone_from(&store_cx);
-    // copy pc from new_pc
-    cx_ref.set_sepc(cx.pc);
-}
-
-pub async fn user_entry_inner() {
-    let mut times = 0;
-    loop {
-        let task = current_user_task();
-        debug!("task: {}", task.get_task_id());
-        loop {
-            let signal = task.tcb.read().signal.try_get_signal();
-            if let Some(signal) = signal {
-                handle_signal(task.clone(), signal.clone()).await;
-                task.tcb.write().signal.remove_signal(signal);
-            } else {
-                break;
-            }
-        }
-        let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
-        debug!(
-            "user_entry, task: {}, sepc: {:#X}",
-            task.task_id,
-            cx_ref.sepc()
-        );
-
-        if let UserTaskControlFlow::Break = handle_syscall(task.clone(), cx_ref).await {
-            break;
-        }
-
-        if let Some(exit_code) = task.exit_code() {
-            debug!("program exit with code: {}", exit_code);
-            break;
-        }
-
-        times += 1;
-
-        if times >= 50 {
-            times = 0;
-            yield_now().await;
-        }
-
-        // yield_now().await;
-    }
-    debug!("exit_task: {}", current_task().get_task_id());
 }
 
 #[allow(dead_code)]

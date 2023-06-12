@@ -209,7 +209,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             .await
         }
         _ => {
-            // warn!("unsupported syscall: {}", call_type);
+            warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)
         }
     }

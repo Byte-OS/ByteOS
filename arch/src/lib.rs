@@ -33,7 +33,7 @@ pub trait ContextOps {
     fn set_arg2(&mut self, ret: usize);
 
     fn syscall_number(&self) -> usize;
-    fn args(&self) -> &[usize];
+    fn args(&self) -> [usize; 7];
     fn syscall_ok(&mut self);
 
     fn set_ret(&mut self, ret: usize);
@@ -53,6 +53,7 @@ pub enum TrapType {
     Time,
     Unknown,
     StorePageFault(usize),
+    InstructionPageFault(usize),
 }
 
 pub enum MapPageSize {

@@ -510,7 +510,7 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
 
 pub async fn sys_sigreturn() -> Result<usize, LinuxError> {
     debug!("sys_sigreturn @ ");
-    Err(LinuxError::CONTROLFLOWBREAK)
+    Ok(0)
 }
 
 pub async fn sys_getrusage(who: usize, usage_ptr: UserRef<Rusage>) -> Result<usize, LinuxError> {

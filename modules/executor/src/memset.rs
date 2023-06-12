@@ -1,8 +1,74 @@
 use alloc::{sync::Arc, vec::Vec};
 use arch::{ppn_c, VirtPage, PAGE_SIZE};
-use core::{cmp::min, fmt::Debug};
+use core::{
+    cmp::min,
+    fmt::Debug,
+    ops::{Deref, DerefMut},
+};
 use frame_allocator::{frame_alloc, FrameTracker};
 use fs::{File, SeekFrom};
+
+pub struct MemSetTrackerIteror<'a> {
+    value: &'a MemSet,
+    area_index: usize,
+    inner_index: usize,
+}
+
+/// The iter for memset trackers.
+impl<'a> Iterator for MemSetTrackerIteror<'a> {
+    type Item = &'a MapTrack;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.area_index >= self.value.0.len() {
+            return None;
+        }
+        let mem_area = &self.value.0[self.area_index];
+        if self.inner_index >= mem_area.mtrackers.len() {
+            return None;
+        }
+        let ans = &mem_area.mtrackers[self.inner_index];
+        self.inner_index += 1;
+
+        if self.inner_index >= mem_area.mtrackers.len() {
+            self.inner_index = 0;
+            self.area_index += 1;
+        }
+        Some(ans)
+    }
+}
+
+/// Memory set for storing the memory and its map relation.
+pub struct MemSet(Vec<MemArea>);
+
+/// Deref for memset, let it iterable
+impl Deref for MemSet {
+    type Target = Vec<MemArea>;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// DerefMut for memset, let it iterable
+impl DerefMut for MemSet {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl<'a> MemSet {
+    pub fn new(vec: Vec<MemArea>) -> Self {
+        Self(vec)
+    }
+
+    pub fn trackers_iter(&'a self) -> MemSetTrackerIteror<'a> {
+        MemSetTrackerIteror {
+            value: self,
+            area_index: 0,
+            inner_index: 0,
+        }
+    }
+}
 
 #[derive(Clone, PartialEq, Debug)]
 pub enum MemType {

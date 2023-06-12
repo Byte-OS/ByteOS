@@ -20,7 +20,7 @@ use crate::{
     filetable::{rlimits_new, FileTable},
     memset::{MapTrack, MemArea, MemType},
     signal::SignalList,
-    task_id_alloc, thread, AsyncTask, TaskId, FUTURE_LIST, TMS,
+    task_id_alloc, thread, AsyncTask, MemSet, TaskId, FUTURE_LIST, TMS,
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
@@ -68,7 +68,7 @@ impl AsyncTask for KernelTask {
 }
 
 pub struct TaskInner {
-    pub memset: Vec<MemArea>,
+    pub memset: MemSet,
     pub fd_table: FileTable,
     pub curr_dir: String,
     pub heap: usize,
@@ -113,13 +113,13 @@ impl UserTask {
         let ppn = Arc::new(frame_alloc().unwrap());
         let task_id = task_id_alloc();
         // initialize memset
-        let memset = vec![MemArea::new(
+        let memset = MemSet::new(vec![MemArea::new(
             MemType::PTE,
             vec![MapTrack {
                 vpn: VirtPage::new(0),
                 tracker: ppn.clone(),
             }],
-        )];
+        )]);
 
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 

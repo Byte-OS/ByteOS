@@ -1,5 +1,6 @@
 #![no_std]
 
+use bit_field::BitField;
 use bitflags::bitflags;
 use num_enum::TryFromPrimitive;
 
@@ -121,8 +122,9 @@ impl SignalFlags {
     #[inline]
     pub fn num(&self) -> usize {
         let bits = self.bits();
+
         for i in 0..64 {
-            if (bits >> i) & 1 == 1 {
+            if bits.get_bit(i) {
                 return i + 1;
             }
         }
@@ -180,7 +182,6 @@ impl SigProcMask {
 //     unsigned mask[2];
 //     void *unused;
 // }
-
 
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
