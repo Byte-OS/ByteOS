@@ -8,7 +8,7 @@ use executor::{
     UserTask, TASK_QUEUE,
 };
 use fs::socket::NetType;
-use log::debug;
+use log::{debug, warn};
 use lose_net_stack::{results::Packet, IPv4, LoseStack, MacAddress, TcpFlags};
 use signal::SignalFlags;
 
@@ -74,33 +74,41 @@ async fn handle_syscall(task: Arc<UserTask>, cx_ref: &mut Context) -> UserTaskCo
         }
         arch::TrapType::StorePageFault(addr) => {
             let vpn = VirtPage::from_addr(addr);
-            debug!("store page fault @ {:#x}", addr);
+            warn!("store page fault @ {:#x}", addr);
 
-            // let mem_tracker = task
-            //     .inner
-            //     .lock()
-            //     .memset
-            //     .iter()
-            //     .find(|mem_area| {
-            //         mem_area.map_trackers.iter().find(|x| x.vpn == vpn && mem_area == MemType::Clone)
-            //     })
-            //     .map(|x| x.tracker.clone());
+            let finded = task
+                .pcb
+                .lock()
+                .memset
+                .iter()
+                .find_map(|mem_area| {
+                    mem_area
+                        .mtrackers
+                        .iter()
+                        .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
+                })
+                .cloned();
 
-            // match mem_tracker {
-            //     Some(tracker) => {
-            //         let src_ppn = tracker.0;
-            //         let dst_ppn = task.frame_alloc(vpn, MemType::CodeSection);
-            //         dst_ppn.copy_value_from_another(src_ppn);
-            //     }
-            //     None => {
-            //         if (0x7fff0000..0x7ffff000).contains(&addr) {
-            //             task.frame_alloc(vpn, MemType::Stack);
-            //         } else {
-            //             debug!("context: {:#X?}", cx_ref);
-            //             return UserTaskControlFlow::Break;
-            //         }
-            //     }
-            // }
+            warn!("store page: {:?}", finded);
+
+            match finded {
+                Some(_) => {
+                    // let src_ppn = tracker.0;
+                    // let dst_ppn = task.frame_alloc(vpn, MemType::CodeSection);
+                    // dst_ppn.copy_value_from_another(src_ppn);
+                }
+                None => {
+                    warn!("alloc judge addr: {:#x}", addr);
+                    if (0x7ff00000..0x7ffff000).contains(&addr) {
+                        warn!("alloc");
+                        task.frame_alloc(vpn, MemType::Stack, 1);
+                        warn!("alloc page: {:#x}", addr);
+                    } else {
+                        debug!("context: {:#X?}", cx_ref);
+                        return UserTaskControlFlow::Break;
+                    }
+                }
+            }
         }
     }
     task.inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
@@ -113,9 +121,8 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         signal,
         task.get_task_id()
     );
-    let sigaction = task
-        .inner_map(|inner| inner.sigaction.lock().get(signal.num()).unwrap().clone())
-        .clone();
+
+    let sigaction = task.pcb.lock().sigaction[signal.num()].clone();
 
     if sigaction.handler == 0 {
         match signal {
@@ -126,12 +133,10 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         }
         return;
     }
-
-    // debug!("sigactions: {:#X?}", sigaction);
+    let proc_mask = task.tcb.read().sigmask;
+    task.tcb.write().sigmask = sigaction.mask;
 
     let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
-
-    // let store_cx = cx_ref.clone();
 
     let mut sp = cx_ref.sp();
 
@@ -163,7 +168,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
             break;
         }
     }
-
+    task.tcb.write().sigmask = proc_mask;
     // debug!("new pc: {:#X}", cx.pc);
     // store_cx.set_ret(cx_ref.args()[0]);
     cx_ref.clone_from(&store_cx);
@@ -172,16 +177,15 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
 }
 
 pub async fn user_entry_inner() {
-    debug!("new_task_inner: {}", current_task().get_task_id());
     let mut times = 0;
     loop {
         let task = current_user_task();
         debug!("task: {}", task.get_task_id());
         loop {
-            let signal = task.tcb.write().signal.handle_signal();
+            let signal = task.tcb.read().signal.try_get_signal();
             if let Some(signal) = signal {
-                // debug!("handle signal: {:?}  num: {}", signal, signal.num());
                 handle_signal(task.clone(), signal.clone()).await;
+                task.tcb.write().signal.remove_signal(signal);
             } else {
                 break;
             }
@@ -229,6 +233,7 @@ pub async fn handle_net() {
         let rlen = NET_DEVICES.lock()[0].recv(&mut buffer).unwrap_or(0);
         if rlen != 0 {
             let packet = lose_stack.analysis(&buffer[..rlen]);
+            debug!("packet: {:?}", packet);
             match packet {
                 Packet::ARP(arp_packet) => {
                     debug!("receive arp packet: {:?}", arp_packet);
@@ -239,7 +244,9 @@ pub async fn handle_net() {
                         .send(&reply_packet.build_data())
                         .expect("can't send net data");
                 }
-                Packet::UDP(_) => todo!(),
+                Packet::UDP(udp_packet) => {
+                    debug!("udp_packet: {:?}", udp_packet);
+                }
                 Packet::TCP(tcp_packet) => {
                     let net = NET_DEVICES.lock()[0].clone();
                     if tcp_packet.flags == TcpFlags::S {
@@ -333,7 +340,7 @@ pub async fn handle_net() {
                         // receive_tcp(&mut net, &tcp_packet)
                     }
                 }
-                Packet::ICMP() => todo!(),
+                Packet::ICMP() => {}
                 Packet::IGMP() => todo!(),
                 Packet::Todo(_) => todo!(),
                 Packet::None => todo!(),

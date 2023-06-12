@@ -27,4 +27,17 @@ impl SignalList {
         }
         None
     }
+
+    pub fn try_get_signal(&self) -> Option<SignalFlags> {
+        for i in 0..64 {
+            if self.signal & (1 << i) != 0 {
+                return Some(SignalFlags::from_bits_truncate(1 << i));
+            }
+        }
+        None
+    }
+
+    pub fn remove_signal(&mut self, signal: SignalFlags) {
+        self.signal &= !signal.bits() as usize;
+    }
 }

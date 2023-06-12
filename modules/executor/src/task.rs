@@ -76,7 +76,7 @@ pub struct TaskInner {
     pub children: Vec<Arc<UserTask>>,
     pub tms: TMS,
     pub rlimits: Vec<usize>,
-    pub sigaction: Arc<Mutex<[SigAction; 64]>>,
+    pub sigaction: [SigAction; 64],
     pub futex_table: Arc<Mutex<FutexTable>>,
 }
 
@@ -93,7 +93,7 @@ pub struct ThreadControlBlock {
 pub struct UserTask {
     pub task_id: TaskId,
     pub page_table: PageTable,
-    pub inner: Mutex<TaskInner>,
+    pub pcb: Arc<Mutex<TaskInner>>,
     pub parent: Weak<dyn AsyncTask>,
     pub tcb: RwLock<ThreadControlBlock>,
 }
@@ -132,7 +132,7 @@ impl UserTask {
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
-            sigaction: Arc::new(Mutex::new([SigAction::new(); 64])),
+            sigaction: [SigAction::new(); 64],
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
         };
 
@@ -149,13 +149,13 @@ impl UserTask {
             page_table: PageTable::from_ppn(ppn.0),
             task_id,
             parent,
-            inner: Mutex::new(inner),
+            pcb: Arc::new(Mutex::new(inner)),
             tcb,
         })
     }
 
     pub fn inner_map<T>(&self, mut f: impl FnMut(&mut MutexGuard<TaskInner>) -> T) -> T {
-        f(&mut self.inner.lock())
+        f(&mut self.pcb.lock())
     }
 
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags) {
@@ -207,7 +207,7 @@ impl UserTask {
                 PTEFlags::UVRWX
             );
         }
-        let mut inner = self.inner.lock();
+        let mut inner = self.pcb.lock();
 
         // find map area, such as PTE, CodeSection, etc.
         let finded_area = inner
@@ -252,7 +252,7 @@ impl UserTask {
     }
 
     pub fn sbrk(&self, incre: isize) -> usize {
-        let inner = self.inner.lock();
+        let inner = self.pcb.lock();
         let curr_page = inner.heap / PAGE_SIZE;
         let after_page = (inner.heap as isize + incre) as usize / PAGE_SIZE;
         drop(inner);
@@ -262,13 +262,13 @@ impl UserTask {
                 self.frame_alloc(VirtPage::new(i + 1), MemType::CodeSection, 1);
             }
         }
-        let mut inner = self.inner.lock();
+        let mut inner = self.pcb.lock();
         inner.heap = (inner.heap as isize + incre) as usize;
         inner.heap
     }
 
     pub fn heap(&self) -> usize {
-        self.inner.lock().heap
+        self.pcb.lock().heap
     }
 
     #[inline]
@@ -287,22 +287,24 @@ impl UserTask {
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
                 (paddr_c(addr).addr() as *mut u32).write(0);
-                futex_wake(self.inner.lock().futex_table.clone(), uaddr, 1);
+                futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
             }
         }
         tcb_writer.exit_code = Some(exit_code);
         drop(tcb_writer);
         FUTURE_LIST.lock().remove(&self.task_id);
-        // recycle memory resouces
-        self.inner.lock().memset.retain(|x| x.mtype != MemType::PTE);
-        self.inner.lock().fd_table.clear();
+        // recycle memory resouces if the pcb just used by this thread
+        if Arc::strong_count(&self.pcb) == 1 {
+            self.pcb.lock().memset.retain(|x| x.mtype != MemType::PTE);
+            self.pcb.lock().fd_table.clear();
+        }
 
         if let Some(parent) = self.parent.upgrade() {
             parent.as_user_task().map(|x| {
                 x.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
             });
         } else {
-            self.inner.lock().children.clear();
+            self.pcb.lock().children.clear();
         }
     }
 
@@ -323,18 +325,20 @@ impl UserTask {
         let parent_task: Arc<dyn AsyncTask> = self.clone();
         let new_task = Self::new(future, Arc::downgrade(&parent_task));
         let mut new_tcb_writer = new_task.tcb.write();
-        // clone fd_table
-        new_task.inner.lock().fd_table.0 = self.inner.lock().fd_table.0.clone();
+        // clone fd_table and clone heap
+        let mut new_pcb = new_task.pcb.lock();
+        let mut pcb = self.pcb.lock();
+
+        new_pcb.fd_table.0 = pcb.fd_table.0.clone();
+        new_pcb.heap = pcb.heap;
 
         new_tcb_writer.cx.clone_from(&self.tcb.read().cx);
         new_tcb_writer.cx.set_ret(0);
-        new_task.inner_map(|inner| {
-            inner.curr_dir = self.inner.lock().curr_dir.clone();
-        });
-        self.inner.lock().children.push(new_task.clone());
-        self.inner
-            .lock()
-            .memset
+        new_pcb.curr_dir = pcb.curr_dir.clone();
+
+        pcb.children.push(new_task.clone());
+        drop(new_pcb);
+        pcb.memset
             .iter()
             .filter(|x| x.mtype != MemType::PTE)
             .for_each(|x| {
@@ -342,7 +346,8 @@ impl UserTask {
                 map_area.mtrackers.iter().for_each(|map_track| {
                     new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
                 });
-                new_task.inner.lock().memset.push(map_area);
+
+                new_task.pcb.lock().memset.push(map_area);
             });
         drop(new_tcb_writer);
         thread::spawn(new_task.clone());
@@ -362,20 +367,7 @@ impl UserTask {
         let parent_task: Arc<dyn AsyncTask> = self.clone();
 
         let task_id = task_id_alloc();
-        let mut inner = self.inner.lock();
-        let new_inner = TaskInner {
-            memset: inner.memset.clone(),
-            fd_table: inner.fd_table.clone(),
-            curr_dir: inner.curr_dir.clone(),
-            heap: inner.heap,
-            children: inner.children.clone(),
-            entry: 0,
-            tms: Default::default(),
-            rlimits: rlimits_new(),
-            sigaction: inner.sigaction.clone(),
-            futex_table: inner.futex_table.clone(),
-        };
-
+        let mut pcb = self.pcb.lock();
         let tcb = RwLock::new(ThreadControlBlock {
             cx: parent_tcb.cx.clone(),
             exit_code: None,
@@ -392,10 +384,10 @@ impl UserTask {
             page_table: self.page_table.clone(),
             task_id,
             parent: Arc::downgrade(&parent_task),
-            inner: Mutex::new(new_inner),
+            pcb: self.pcb.clone(),
             tcb,
         });
-        inner.children.push(new_task.clone());
+        pcb.children.push(new_task.clone());
 
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 
@@ -451,7 +443,7 @@ impl UserTask {
 
     pub fn get_last_free_addr(&self) -> VirtAddr {
         VirtAddr::new(
-            self.inner
+            self.pcb
                 .lock()
                 .memset
                 .iter()
@@ -469,7 +461,7 @@ impl UserTask {
     }
 
     pub fn get_fd(&self, index: usize) -> Option<File> {
-        let inner = self.inner.lock();
+        let inner = self.pcb.lock();
         match index >= inner.rlimits[7] {
             true => None,
             false => inner.fd_table.0[index].clone(),
@@ -477,7 +469,7 @@ impl UserTask {
     }
 
     pub fn set_fd(&self, index: usize, value: Option<File>) {
-        let mut inner = self.inner.lock();
+        let mut inner = self.pcb.lock();
         match index >= inner.rlimits[7] {
             true => {}
             false => inner.fd_table.0[index] = value,
@@ -485,7 +477,7 @@ impl UserTask {
     }
 
     pub fn alloc_fd(&self) -> Option<usize> {
-        let mut inner = self.inner.lock();
+        let mut inner = self.pcb.lock();
         let index = inner
             .fd_table
             .0
@@ -502,7 +494,7 @@ impl UserTask {
     }
 
     pub fn used_fd(&self) -> usize {
-        self.inner
+        self.pcb
             .lock()
             .fd_table
             .0

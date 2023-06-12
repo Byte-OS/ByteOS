@@ -116,7 +116,7 @@ pub async fn sys_mkdir_at(
     );
     let user_task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
-        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)?
+        open(&user_task.pcb.lock().curr_dir).map_err(from_vfs)?
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
@@ -139,7 +139,7 @@ pub async fn sys_unlinkat(
     );
     let user_task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
-        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)?
+        open(&user_task.pcb.lock().curr_dir).map_err(from_vfs)?
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
@@ -176,7 +176,11 @@ pub async fn sys_openat(
 ) -> Result<usize, LinuxError> {
     let user_task = current_task().as_user_task().unwrap();
     let open_flags = OpenFlags::from_bits_truncate(flags);
-    let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+    let filename = if filename.is_valid() {
+        filename.get_cstr().map_err(|_| LinuxError::EINVAL)?
+    } else {
+        ""
+    };
     debug!(
         "sys_openat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
         fd as isize, filename, open_flags, mode
@@ -185,7 +189,7 @@ pub async fn sys_openat(
         String::from(filename)
     } else {
         if fd == AT_CWD {
-            user_task.inner.lock().curr_dir.clone() + "/" + filename
+            user_task.pcb.lock().curr_dir.clone() + "/" + filename
         } else {
             let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
             file.path().map_err(from_vfs)? + "/" + filename
@@ -198,9 +202,7 @@ pub async fn sys_openat(
                 let dir = path.rfind("/").unwrap();
                 let dirpath = &path[..dir + 1];
                 let filename = &path[dir + 1..];
-                let f = open(dirpath).map_err(from_vfs)?.touch(filename).unwrap();
-                debug!("f: {:?}", f.metadata());
-                Ok(f)
+                Ok(open(dirpath).map_err(from_vfs)?.touch(filename).unwrap())
             } else {
                 Err(LinuxError::ENOENT)
             }
@@ -209,11 +211,9 @@ pub async fn sys_openat(
     if open_flags.contains(OpenFlags::O_APPEND) {
         let _ = file.seek(SeekFrom::END(0));
     }
-    debug!("file: {:?}", file.path());
     let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     user_task.set_fd(fd, Some(file));
     debug!("sys_openat @ ret fd: {}", fd);
-
     Ok(fd)
 }
 
@@ -253,7 +253,7 @@ pub async fn sys_fstatat(
         String::from(filename)
     } else {
         if dir_fd == AT_CWD {
-            user_task.inner.lock().curr_dir.clone() + "/" + filename
+            user_task.pcb.lock().curr_dir.clone() + "/" + filename
         } else {
             let file = user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?;
             file.path().map_err(from_vfs)? + "/" + filename
@@ -479,7 +479,7 @@ pub async fn sys_utimensat(
     let user_task = current_task().as_user_task().unwrap();
 
     let dir = if dir_fd == AT_CWD {
-        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)
+        open(&user_task.pcb.lock().curr_dir).map_err(from_vfs)
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
     }?;
@@ -512,7 +512,7 @@ pub async fn sys_readlinkat(
     let user_task = current_task().as_user_task().unwrap();
 
     let dir = if dir_fd == AT_CWD {
-        open(&user_task.inner.lock().curr_dir).map_err(from_vfs)
+        open(&user_task.pcb.lock().curr_dir).map_err(from_vfs)
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
     }?;
@@ -608,7 +608,7 @@ pub async fn sys_pselect(
     };
     loop {
         let mut num = 0;
-        let inner = user_task.inner.lock();
+        let inner = user_task.pcb.lock();
         if readfds.is_valid() {
             let rfds = readfds.slice_mut_with_len(4);
             for i in 0..max_fdp1 {

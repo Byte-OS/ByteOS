@@ -61,10 +61,16 @@ pub fn build_devfs(filesystems: &Vec<Arc<dyn FileSystem>>) -> Arc<DevFS> {
 pub fn init() {
     info!("fs module initialized");
 
-    assert!(get_blk_devices().len() > 0);
+    // assert!(get_blk_devices().len() > 0);
+
     // TODO: Identify the filesystem at the device.
     let mut filesystems: Vec<Arc<dyn FileSystem>> = Vec::new();
-    filesystems.push(Fat32FileSystem::new(0));
+    if get_blk_devices().len() > 0 {
+        filesystems.push(Fat32FileSystem::new(0));
+    } else {
+        filesystems.push(RamFs::new());
+    }
+
     // filesystems.push(DevFS::new());
     filesystems.push(build_devfs(&filesystems));
     filesystems.push(RamFs::new());

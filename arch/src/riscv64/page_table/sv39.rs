@@ -18,6 +18,15 @@ impl PTE {
 
     #[inline]
     pub const fn from_ppn(ppn: usize, flags: PTEFlags) -> Self {
+        // TIPS: This is prepare for the extend bits of T-HEAD C906
+        #[cfg(feature = "board-cv1811h")]
+        if flags.contains(PTEFlags::G) {
+            Self(ppn << 10 | flags.bits() as usize | 7 << 60)
+        } else {
+            Self(ppn << 10 | flags.bits() as usize)
+        }
+
+        #[cfg(not(feature = "board-cv1811h"))]
         Self(ppn << 10 | flags.bits() as usize)
     }
 
@@ -76,6 +85,7 @@ bitflags! {
         const UVRWX = Self::U.bits() | Self::VRWX.bits();
         const UVRW = Self::U.bits() | Self::VRW.bits();
         const GVRWX = Self::G.bits() | Self::VRWX.bits();
+        const ADGVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
 
         const NONE  = 0;
     }
@@ -93,9 +103,9 @@ impl PageTable {
         // 0xffffffc0_00000000 -> 0x00000000 (1G)
         // 0xffffffc0_40000000 -> 0x40000000 (1G)
         // 0xffffffc0_80000000 -> 0x80000000 (1G)
-        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::GVRWX);
-        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::GVRWX);
-        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::GVRWX);
+        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
+        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
+        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
 
         page_table
     }

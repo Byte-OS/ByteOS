@@ -7,6 +7,7 @@ use alloc::vec::Vec;
 use arch::{ppn_c, PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
+use log::info;
 use sync::Mutex;
 
 pub const fn floor(a: usize, b: usize) -> usize {
@@ -229,6 +230,7 @@ pub fn init() {
     extern "C" {
         fn end();
     }
+    info!("initialize frame allocator");
     let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
 
     // 从设备树中获取内存分布

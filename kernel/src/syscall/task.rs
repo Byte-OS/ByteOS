@@ -34,7 +34,7 @@ pub async fn sys_chdir(path_ptr: UserRef<i8>) -> Result<usize, LinuxError> {
     match dir.metadata().unwrap().file_type {
         fs::FileType::Directory => {
             let user_task = current_task().as_user_task().unwrap();
-            let mut inner = user_task.inner.lock();
+            let mut inner = user_task.pcb.lock();
             match path.starts_with("/") {
                 true => inner.curr_dir = String::from(path),
                 false => inner.curr_dir += path,
@@ -48,7 +48,7 @@ pub async fn sys_chdir(path_ptr: UserRef<i8>) -> Result<usize, LinuxError> {
 pub async fn sys_getcwd(buf_ptr: UserRef<u8>, size: usize) -> Result<usize, LinuxError> {
     debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
     let buffer = buf_ptr.slice_mut_with_len(size);
-    let curr_path = current_user_task().inner.lock().curr_dir.clone();
+    let curr_path = current_user_task().pcb.lock().curr_dir.clone();
     let bytes = curr_path.as_bytes();
     let len = cmp::min(bytes.len(), size);
     buffer[..len].copy_from_slice(&bytes[..len]);
@@ -349,12 +349,9 @@ pub async fn sys_wait4(
             .ok_or(LinuxError::ECHILD)?;
     }
     let child_task = WaitPid(curr_task.clone(), pid).await;
-    debug!(
-        "wait ok: {}",
-        child_task.get_task_id()
-    );
+    debug!("wait ok: {}", child_task.get_task_id());
     curr_task
-        .inner
+        .pcb
         .lock()
         .children
         .drain_filter(|x| x.task_id == child_task.get_task_id());
@@ -441,7 +438,7 @@ pub async fn sys_futex(
     match flags {
         FutexFlags::Wait => {
             if *uaddr == value as i32 {
-                let futex_table = user_task.inner.lock().futex_table.clone();
+                let futex_table = user_task.pcb.lock().futex_table.clone();
                 let mut table = futex_table.lock();
                 match table.get_mut(&uaddr_ptr.addr()) {
                     Some(t) => t.push(user_task.task_id),
@@ -467,13 +464,13 @@ pub async fn sys_futex(
             }
         }
         FutexFlags::Wake => {
-            let futex_table = user_task.inner.lock().futex_table.clone();
+            let futex_table = user_task.pcb.lock().futex_table.clone();
             let count = futex_wake(futex_table, uaddr_ptr.addr(), value);
             yield_now().await;
             Ok(count)
         }
         FutexFlags::Requeue => {
-            let futex_table = user_task.inner.lock().futex_table.clone();
+            let futex_table = user_task.pcb.lock().futex_table.clone();
             Ok(futex_requeue(
                 futex_table,
                 uaddr_ptr.addr(),
@@ -497,6 +494,7 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
             .find(|x| x.task_id == tid)
             .map(|x| x.clone())
     });
+
     match child {
         Some(child) => {
             child

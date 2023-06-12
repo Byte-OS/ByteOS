@@ -74,7 +74,7 @@ pub async fn sys_sigprocmask(
     );
     let user_task = current_task().as_user_task().unwrap();
     let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
-    
+
     let mut tcb = user_task.tcb.write();
     if oldset.is_valid() {
         let sigmask = oldset.get_mut();
@@ -106,10 +106,10 @@ pub async fn sys_sigaction(
     );
     let user_task = current_task().as_user_task().unwrap();
     if oldact.is_valid() {
-        *oldact.get_mut() = user_task.inner_map(|inner| *inner.sigaction.lock().get(sig).unwrap());
+        *oldact.get_mut() = user_task.pcb.lock().sigaction[sig];
     }
     if act.is_valid() {
-        user_task.inner_map(|inner| *inner.sigaction.lock().get_mut(sig).unwrap() = *act.get_mut());
+        user_task.pcb.lock().sigaction[sig] = *act.get_mut();
     }
     Ok(0)
 }

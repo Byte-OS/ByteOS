@@ -197,7 +197,17 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
-        SYS_SENDTO => sys_sendto(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
+        SYS_SENDTO => {
+            sys_sendto(
+                args[0] as _,
+                args[1].into(),
+                args[2] as _,
+                args[3] as _,
+                args[4].into(),
+                args[5].into(),
+            )
+            .await
+        }
         _ => {
             // warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)
