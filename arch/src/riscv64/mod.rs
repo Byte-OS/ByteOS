@@ -56,6 +56,8 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
 #[inline]
 pub fn wfi() {
     unsafe {
+        riscv::register::sstatus::clear_sie();
         riscv::asm::wfi();
+        riscv::register::sstatus::set_sie();
     }
 }

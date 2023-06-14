@@ -12,6 +12,7 @@ use self::{initproc::initproc, user::entry::user_entry};
 mod async_ops;
 pub mod elf;
 mod initproc;
+pub mod kernel;
 mod user;
 
 pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal};

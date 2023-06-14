@@ -18,6 +18,8 @@ use hal;
 use kalloc;
 use panic_handler as _;
 
+use crate::tasks::kernel::kernel_interrupt;
+
 #[no_mangle]
 fn main(hart_id: usize, device_tree: usize) {
     // if hart_id != 0 {
@@ -42,6 +44,7 @@ fn main(hart_id: usize, device_tree: usize) {
 
     // initialize interrupt
     hal::interrupt::init();
+    hal::interrupt::reg_kernel_int(kernel_interrupt);
 
     // print boot info
     info!("booting at kernel {}", hart_id);

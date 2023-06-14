@@ -299,6 +299,7 @@ dependencies = [
  "devices",
  "frame_allocator",
  "log",
+ "sync",
 ]
 
 [[package]]

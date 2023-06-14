@@ -38,6 +38,7 @@ impl<'a> Iterator for MemSetTrackerIteror<'a> {
 }
 
 /// Memory set for storing the memory and its map relation.
+#[derive(Debug)]
 pub struct MemSet(Vec<MemArea>);
 
 /// Deref for memset, let it iterable

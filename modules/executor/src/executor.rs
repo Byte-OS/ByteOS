@@ -122,3 +122,10 @@ pub fn current_user_task() -> Arc<UserTask> {
         .map(|x| x.clone().as_user_task().unwrap())
         .unwrap()
 }
+
+pub fn get_current_task() -> Option<Arc<UserTask>> {
+    CURRENT_TASK
+        .lock()
+        .as_ref()
+        .map(|x| x.clone().as_user_task().unwrap())
+}

@@ -62,20 +62,24 @@ fn kernel_callback(context: &mut Context) -> usize {
         stval,
         context.sepc
     );
-    match scause.cause() {
+    let trap_type = match scause.cause() {
         // 中断异常
-        Trap::Exception(Exception::Breakpoint) => context.sepc += 2,
+        Trap::Exception(Exception::Breakpoint) => {
+            context.sepc += 2;
+            TrapType::Breakpoint
+        },
         Trap::Exception(Exception::LoadFault) => {
-            shutdown();
+            TrapType::Unknown
         }
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            (int_table.timer)();
             timer::set_next_timeout();
+            TrapType::Time
         }
         Trap::Exception(Exception::UserEnvCall) => {
             info!("info syscall: {}", context.x[17]);
             context.sepc += 4;
+            TrapType::UserEnvCall
         }
         // // 缺页异常
         // Trap::Exception(Exception::StorePageFault) => handle_page_fault(context, stval),
@@ -89,6 +93,9 @@ fn kernel_callback(context: &mut Context) -> usize {
         //     info!("页面未对齐");
         // }
         // 其他情况，终止当前线程
+        Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
+        Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
+        Trap::Exception(Exception::IllegalInstruction) => TrapType::IllegalInstruction(stval),
         _ => {
             // warn!("未知中断");
             error!(
@@ -100,6 +107,9 @@ fn kernel_callback(context: &mut Context) -> usize {
             );
             panic!("未知中断")
         }
+    };
+    if let Some(func) = int_table {
+        func(context, trap_type);
     }
     context as *const Context as usize
 }
@@ -107,7 +117,6 @@ fn kernel_callback(context: &mut Context) -> usize {
 pub fn trap_pre_handle(context: &mut Context) -> TrapType {
     let scause = scause::read();
     let stval = stval::read();
-    let int_table = unsafe { interrupt_table() };
     trace!(
         "用户态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
         scause.bits(),
@@ -126,12 +135,12 @@ pub fn trap_pre_handle(context: &mut Context) -> TrapType {
         }
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            (int_table.timer)();
             timer::set_next_timeout();
             TrapType::Time
         }
         Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
         Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
+        Trap::Exception(Exception::IllegalInstruction) => TrapType::IllegalInstruction(stval),
         Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
         _ => {
             error!(
