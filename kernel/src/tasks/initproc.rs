@@ -208,7 +208,7 @@ pub async fn initproc() {
         info!("No.{} finished!", i);
     }
 
-    // command("runtest.exe -w entry-static.exe pthread_cancel").await;
+    // command("runtest.exe -w entry-static.exe daemon_failure").await;
 
     // command("bin/sh").await;
     // command("usr/bin/tcc -run main.c").await;
@@ -221,7 +221,7 @@ pub async fn initproc() {
     // command("lmbench_all lat_syscall -P 1 write").await;
     // command("./lmbench_all lat_pipe -P 1").await;
     // command("busybox sh").await;
-    // command("busybox sh busybox_testcode.sh").await;
+    // command("bin/bash busybox_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;
     // command("bin/busybox sh file_speed.sh").await;
@@ -234,5 +234,5 @@ pub async fn initproc() {
     // command("busybox sh").await;
     // #[cfg(not(feature = "k210"))]
     // command("bin/sh").await;
-    simple_shell().await;
+    // simple_shell().await;
 }

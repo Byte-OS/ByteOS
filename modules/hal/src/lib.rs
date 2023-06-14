@@ -1,4 +1,8 @@
 #![no_std]
+#![feature(decl_macro)]
+#![feature(once_cell)]
+#![feature(const_mut_refs)]
+#![feature(const_option)]
 
 extern crate alloc;
 pub mod interrupt;

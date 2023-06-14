@@ -82,6 +82,8 @@ bitflags! {
 
         const VRW   = Self::V.bits() | Self::R.bits() | Self::W.bits();
         const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
+        const UVRX = Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
+        const ADUVRX = Self::A.bits() | Self::D.bits() | Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
         const UVRWX = Self::U.bits() | Self::VRWX.bits();
         const UVRW = Self::U.bits() | Self::VRW.bits();
         const GVRWX = Self::G.bits() | Self::VRWX.bits();

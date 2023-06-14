@@ -9,7 +9,7 @@ use buddy_system_allocator::LockedHeap;
 use log::info;
 
 // 堆大小
-const HEAP_SIZE: usize = 0x000e_0000;
+const HEAP_SIZE: usize = 0x00e0_0000;
 
 // 堆空间
 #[link_section = ".bss.heap"]

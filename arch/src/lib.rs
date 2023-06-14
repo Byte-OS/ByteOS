@@ -44,9 +44,10 @@ pub trait ContextOps {
 }
 
 extern "Rust" {
-    fn interrupt_table() -> IntTable;
+    fn interrupt_table() -> Option<fn(&mut Context, TrapType)>;
 }
 
+#[derive(Debug)]
 pub enum TrapType {
     Breakpoint,
     UserEnvCall,
@@ -54,6 +55,7 @@ pub enum TrapType {
     Unknown,
     StorePageFault(usize),
     InstructionPageFault(usize),
+    IllegalInstruction(usize),
 }
 
 pub enum MapPageSize {

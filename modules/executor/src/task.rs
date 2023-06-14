@@ -87,6 +87,7 @@ pub struct ThreadControlBlock {
     pub clear_child_tid: usize,
     pub set_child_tid: usize,
     pub signal: SignalList,
+    pub exit_signal: u8
 }
 
 #[allow(dead_code)]
@@ -143,6 +144,7 @@ impl UserTask {
             clear_child_tid: 0,
             set_child_tid: 0,
             signal: SignalList::new(),
+            exit_signal: 0
         });
 
         Arc::new(Self {
@@ -291,6 +293,7 @@ impl UserTask {
             }
         }
         tcb_writer.exit_code = Some(exit_code);
+        let exit_signal = tcb_writer.exit_signal;
         drop(tcb_writer);
         FUTURE_LIST.lock().remove(&self.task_id);
         // recycle memory resouces if the pcb just used by this thread
@@ -301,7 +304,11 @@ impl UserTask {
 
         if let Some(parent) = self.parent.upgrade() {
             parent.as_user_task().map(|x| {
-                x.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                if exit_signal != 0 {
+                    x.tcb.write().signal.add_signal(SignalFlags::from_usize(exit_signal as usize));
+                } else {
+                    x.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                }
             });
         } else {
             self.pcb.lock().children.clear();
@@ -355,6 +362,59 @@ impl UserTask {
     }
 
     #[inline]
+    pub fn cow_fork(
+        self: Arc<Self>,
+        future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
+    ) -> Arc<Self> {
+        // Give the frame_tracker in the memset a type.
+        // it will contains the frame used for page mapping、
+        // mmap or text section.
+        // and then we can implement COW(copy on write).
+        let parent_task: Arc<dyn AsyncTask> = self.clone();
+        let new_task = Self::new(future, Arc::downgrade(&parent_task));
+        let mut new_tcb_writer = new_task.tcb.write();
+        // clone fd_table and clone heap
+        let mut new_pcb = new_task.pcb.lock();
+        let mut pcb = self.pcb.lock();
+        new_pcb.fd_table.0 = pcb.fd_table.0.clone();
+        new_pcb.heap = pcb.heap;
+        new_tcb_writer.cx.clone_from(&self.tcb.read().cx);
+        new_tcb_writer.cx.set_ret(0);
+        new_pcb.curr_dir = pcb.curr_dir.clone();
+        pcb.children.push(new_task.clone());
+        drop(new_pcb);
+        pcb.memset
+            .iter()
+            .filter(|x| x.mtype != MemType::PTE)
+            .for_each(|x| {
+                let map_area = x.clone();
+                // let map_area = x.fork();
+                // map_area.mtrackers.iter().for_each(|map_track| {
+                //     new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
+                // });
+                map_area.mtrackers.iter().for_each(|x| {
+                    new_task.map(x.tracker.0, x.vpn, PTEFlags::UVRX);
+                    self.map(x.tracker.0, x.vpn, PTEFlags::UVRX);
+                });
+                new_task.pcb.lock().memset.push(map_area);
+            });
+        // pcb.memset
+        //     .iter()
+        //     .filter(|x| x.mtype != MemType::PTE)
+        //     .for_each(|x| {
+        //         let map_area = x.fork();
+        //         map_area.mtrackers.iter().for_each(|map_track| {
+        //             new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
+        //         });
+
+        //         new_task.pcb.lock().memset.push(map_area);
+        //     });
+        drop(new_tcb_writer);
+        thread::spawn(new_task.clone());
+        new_task
+    }
+
+    #[inline]
     pub fn thread_clone(
         self: Arc<Self>,
         future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
@@ -375,6 +435,7 @@ impl UserTask {
             clear_child_tid: 0,
             set_child_tid: 0,
             signal: SignalList::new(),
+            exit_signal: 0
         });
 
         tcb.write().cx.set_ret(0);

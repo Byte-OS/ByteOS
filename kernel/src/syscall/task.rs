@@ -105,10 +105,6 @@ pub fn exec_with_process<'a>(
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
     let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
-    // let mut buffer = c2rust_buffer(
-    //     ppn_c(frame_ppn.as_ref().unwrap()[0].0).to_addr() as *mut u8,
-    //     file_size,
-    // );
     let buffer = PhysAddr::from(frame_ppn.as_ref().unwrap()[0].0).slice_mut_with_len(file_size);
     let rsize = file.read(buffer).map_err(from_vfs)?;
 
@@ -171,7 +167,7 @@ pub fn exec_with_process<'a>(
     };
 
     // map stack
-    user_task.frame_alloc(VirtPage::from_addr(0x7fff0000), MemType::Stack, 16);
+    user_task.frame_alloc(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
     debug!("entry: {:#x}", base + entry_point);
     user_task.inner_map(|inner| {
         inner.heap = heap_bottom as usize;
@@ -271,7 +267,6 @@ pub fn exec_with_process<'a>(
                 .write(value);
         })
     }
-
     Ok(task)
 }
 
@@ -282,6 +277,7 @@ pub async fn sys_clone(
     tls: usize,         // TLS线程本地存储描述符
     ctid: UserRef<u32>, // 子线程 id
 ) -> Result<usize, LinuxError> {
+    let sig = flags & 0xff;
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
         "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
@@ -291,7 +287,8 @@ pub async fn sys_clone(
 
     let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
         true => curr_task.clone().thread_clone(unsafe { user_entry() }),
-        false => curr_task.clone().fork(unsafe { user_entry() }),
+        // false => curr_task.clone().fork(unsafe { user_entry() }),
+        false => curr_task.clone().cow_fork(unsafe { user_entry() }),
     };
 
     let clear_child_tid = flags
@@ -316,6 +313,7 @@ pub async fn sys_clone(
     if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
         *ctid.get_mut() = new_task.get_task_id() as _;
     }
+    new_tcb.exit_signal = sig as u8;
     drop(new_tcb);
     // yield_now().await;
     Ok(new_task.task_id)
@@ -515,7 +513,6 @@ pub async fn sys_sigreturn() -> Result<usize, LinuxError> {
 
 pub async fn sys_getrusage(who: usize, usage_ptr: UserRef<Rusage>) -> Result<usize, LinuxError> {
     debug!("sys_getrusgae @ who: {}, usage_ptr: {}", who, usage_ptr);
-    // let rusage = c2rust_ref(usage_ptr as *mut Rusage);
     // let Rusage
     let rusage = usage_ptr.get_mut();
 

@@ -1,19 +1,21 @@
-use arch::IntTable;
-use log::trace;
+use arch::{Context, TrapType};
+use sync::LazyInit;
 
-fn timer() {
-    trace!("timer interrupt");
-}
 
 pub fn init() {
     // initialize interrupt
     arch::init_interrupt();
 }
 
-const INT_TABLE: IntTable = IntTable { timer };
+static INT_TABLE: LazyInit<fn(&mut Context, TrapType)> = LazyInit::new();
 
 #[inline(always)]
 #[no_mangle]
-const fn interrupt_table() -> IntTable {
-    INT_TABLE
+fn interrupt_table() -> Option<fn(&mut Context, TrapType)> {
+    INT_TABLE.try_get().copied()
+}
+
+#[inline]
+pub fn reg_kernel_int(f: fn(&mut Context, TrapType)) {
+    INT_TABLE.init_by(f);
 }
