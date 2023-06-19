@@ -188,25 +188,33 @@ pub async fn simple_shell() {
 
 pub async fn initproc() {
     info!("start kernel tasks");
-    let names = include_str!("../../../tools/testcase-step2/run-static.sh");
-    for (i, x) in names
-        .split('\n')
-        .filter(|x| !x.contains("socket"))
-        .enumerate()
-    {
-        command(x).await;
-        info!("No.{} finished!", i);
-    }
+    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
+    // for (i, x) in names
+    //     .split('\n')
+    //     .filter(|x| !x.contains("socket"))
+    //     .enumerate()
+    // {
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
+    // }
 
-    let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
-    for (i, x) in names
-        .split('\n')
-        .filter(|x| !x.contains("socket"))
-        .enumerate()
-    {
-        command(x).await;
-        info!("No.{} finished!", i);
-    }
+    // let names = include_str!("../../../tools/testcase-step2/run-dynamic.sh");
+    // for (i, x) in names
+    //     .split('\n')
+    //     .filter(|x| !x.contains("socket"))
+    //     .enumerate()
+    // {
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
+    // }
+    // command("time-test").await;
+    // command("busybox sh libctest_testcode.sh").await;
+    // command("busybox sh busybox_testcode.sh").await;
+    // command("busybox sh lua_testcode.sh").await;
+    command("busybox sh iozone_testcode.sh").await;
+    // command("busybox sh unixbench_testcode.sh").await;
+    // command("busybox sh cyclictest_testcode.sh").await;
+    // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
 
     // command("runtest.exe -w entry-static.exe daemon_failure").await;
 

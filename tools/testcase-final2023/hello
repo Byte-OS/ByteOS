@@ -1,0 +1,1 @@
+/code/lmbench/bin/riscv64/lmbench_all hello "$@"
