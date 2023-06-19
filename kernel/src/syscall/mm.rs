@@ -1,10 +1,14 @@
+use core::ops::Add;
+
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
 use frame_allocator::ceil_div;
 use log::debug;
 
 use crate::syscall::consts::from_vfs;
+use crate::syscall::consts::MSyncFlags;
 use crate::syscall::consts::MapFlags;
+use crate::syscall::consts::MmapProt;
 use crate::syscall::consts::ProtFlags;
 use crate::syscall::consts::UserRef;
 
@@ -30,8 +34,9 @@ pub async fn sys_mmap(
     off: usize,
 ) -> Result<usize, LinuxError> {
     let flags = MapFlags::from_bits_truncate(flags as _);
-    debug!(
-        "sys_mmap @ start: {:#x}, len: {:#x}, prot: {}, flags: {:?}, fd: {}, offset: {}",
+    let prot = MmapProt::from_bits_truncate(prot as _);
+    info!(
+        "sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
         start, len, prot, flags, fd as isize, off
     );
     let user_task = current_task().as_user_task().unwrap();
@@ -61,11 +66,22 @@ pub async fn sys_mmap(
                 usize::from(addr),
                 len,
             ),
-            None => user_task.frame_alloc(
-                VirtPage::from_addr(addr.into()),
-                executor::MemType::Shared,
-                (len + PAGE_SIZE - 1) / PAGE_SIZE,
-            ),
+            None => {
+                let ppn = user_task.frame_alloc(
+                    VirtPage::from_addr(addr.into()),
+                    executor::MemType::Shared,
+                    (len + PAGE_SIZE - 1) / PAGE_SIZE,
+                );
+
+                for i in 0..(len + PAGE_SIZE - 1) / PAGE_SIZE {
+                    user_task.map(
+                        ppn.add(i),
+                        VirtPage::from_addr(addr.into()).add(i),
+                        prot.into(),
+                    );
+                }
+                ppn
+            }
         };
     } else {
         user_task.frame_alloc(
@@ -107,5 +123,15 @@ pub async fn sys_mprotect(start: usize, len: usize, prot: u32) -> Result<usize, 
         start, len, prot
     );
     // Err(LinuxError::EPERM)
+    Ok(0)
+}
+
+pub async fn sys_msync(addr: usize, len: usize, flags: u32) -> Result<usize, LinuxError> {
+    let flags = MSyncFlags::from_bits_truncate(flags);
+    debug!(
+        "sys_msync @ addr: {:#x} len: {:#x} flags: {:?}",
+        addr, len, flags
+    );
+    // use it temporarily
     Ok(0)
 }

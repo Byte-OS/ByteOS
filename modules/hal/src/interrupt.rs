@@ -1,7 +1,6 @@
 use arch::{Context, TrapType};
 use sync::LazyInit;
 
-
 pub fn init() {
     // initialize interrupt
     arch::init_interrupt();

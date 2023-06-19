@@ -16,7 +16,7 @@ use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use fs::TimeSpec;
 use hal::current_nsec;
-use log::debug;
+use log::{debug, warn};
 use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};
 
@@ -325,7 +325,7 @@ pub async fn sys_wait4(
     status: UserRef<i32>, // 接收状态的指针；
     options: usize,       // WNOHANG，WUNTRACED，WCONTINUED；
 ) -> Result<usize, LinuxError> {
-    debug!(
+    info!(
         "sys_wait4 @ pid: {}, status: {}, options: {}",
         pid, status, options
     );
@@ -347,20 +347,49 @@ pub async fn sys_wait4(
             })
             .ok_or(LinuxError::ECHILD)?;
     }
-    let child_task = WaitPid(curr_task.clone(), pid).await;
-    debug!("wait ok: {}", child_task.get_task_id());
-    curr_task
-        .pcb
-        .lock()
-        .children
-        .drain_filter(|x| x.task_id == child_task.get_task_id());
-    debug!("wait pid: {}", child_task.exit_code().unwrap());
+    if options == 0 {
+        let child_task = WaitPid(curr_task.clone(), pid).await;
 
-    if status.is_valid() {
-        *status.get_mut() = (child_task.exit_code().unwrap() as i32) << 8;
+        debug!("wait ok: {}", child_task.get_task_id());
+        curr_task
+            .pcb
+            .lock()
+            .children
+            .drain_filter(|x| x.task_id == child_task.get_task_id());
+        debug!("wait pid: {}", child_task.exit_code().unwrap());
+
+        if status.is_valid() {
+            *status.get_mut() = (child_task.exit_code().unwrap() as i32) << 8;
+        }
+        Ok(child_task.task_id)
+    } else if options == 1 {
+        let child_task = curr_task
+            .pcb
+            .lock()
+            .children
+            .iter()
+            .find(|x| x.task_id == pid as usize || pid == -1)
+            .cloned();
+        let exit = child_task.clone().map_or(None, |x| x.exit_code());
+        match exit {
+            Some(t1) => {
+                let child_task = child_task.unwrap();
+                curr_task
+                    .pcb
+                    .lock()
+                    .children
+                    .drain_filter(|x| x.task_id == child_task.task_id);
+                if status.is_valid() {
+                    *status.get_mut() = (t1 as i32) << 8;
+                }
+                Ok(0)
+            }
+            None => Ok(0),
+        }
+    } else {
+        warn!("wait4 unsupported options: {}", options);
+        Err(LinuxError::EPERM)
     }
-
-    Ok(child_task.task_id)
 }
 
 pub async fn sys_sched_yield() -> Result<usize, LinuxError> {
@@ -531,38 +560,21 @@ pub async fn sys_getrusage(who: usize, usage_ptr: UserRef<Rusage>) -> Result<usi
     Ok(0)
 }
 
-// pub fn sys_exit_group(exit_code: usize) -> Result<(), RuntimeError> {
-//     let inner = self.inner.borrow_mut();
-//     let mut process = inner.process.borrow_mut();
-//     debug!("exit pid: {}", self.pid);
-//     process.exit(exit_code);
-//     match &process.parent {
-//         Some(parent) => {
-//             let parent = parent.upgrade().unwrap();
-//             let parent = parent.borrow();
-//             remove_vfork_wait(parent.pid);
+pub fn sys_exit_group(exit_code: usize) -> Result<usize, LinuxError> {
+    debug!("sys_exit_group @ exit_code: {}", exit_code);
+    let user_task = current_user_task();
+    user_task.exit(exit_code);
+    let pcb = user_task.pcb.lock();
 
-//             // let end: UserAddr<TimeSpec> = 0x10bb78.into();
-//             // let start: UserAddr<TimeSpec> = 0x10bad0.into();
-
-//             // println!("start: {:?}   end: {:?}",start.transfer(), end.transfer());
-
-//             // let target_end: UserAddr<TimeSpec> = parent.pmm.get_phys_addr(0x10bb78usize.into())?.0.into();
-//             // let target_start: UserAddr<TimeSpec> = parent.pmm.get_phys_addr(0x10bad0usize.into())?.0.into();
-//             // *target_start.transfer() = *start.transfer();
-//             // *target_end.transfer() = *end.transfer();
-
-//             // let task = parent.tasks[0].clone().upgrade().unwrap();
-//             // drop(parent);
-//             // // 处理signal 17 SIGCHLD
-//             // task.signal(17);
-//         }
-//         None => {}
-//     }
-//     debug!("剩余页表: {}", get_free_page_num());
-//     debug!("exit_code: {:#x}", exit_code);
-//     Err(RuntimeError::ChangeTask)
-// }
+    for ctask in pcb
+        .children
+        .iter()
+        .filter(|x| x.task_id != user_task.task_id)
+    {
+        ctask.exit(exit_code);
+    }
+    Ok(0)
+}
 
 pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
     let signal = SignalFlags::from_usize(signum);

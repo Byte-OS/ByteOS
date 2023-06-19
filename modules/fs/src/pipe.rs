@@ -13,9 +13,23 @@ pub struct PipeSender(Arc<Mutex<VecDeque<u8>>>);
 impl INodeInterface for PipeSender {
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         let mut queue = self.0.lock();
-        let wlen = buffer.len();
-        queue.extend(buffer.iter());
-        Ok(wlen)
+        if queue.len() > 0x50000 {
+            Err(vfscore::VfsError::Blocking)
+        } else {
+            let wlen = buffer.len();
+            queue.extend(buffer.iter());
+            Ok(wlen)
+        }
+    }
+
+    fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
+        let mut res = PollEvent::NONE;
+        if events.contains(PollEvent::POLLOUT) {
+            if self.0.lock().len() < 0x50000 {
+                res |= PollEvent::POLLOUT;
+            }
+        }
+        Ok(res)
     }
 }
 

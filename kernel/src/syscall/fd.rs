@@ -9,7 +9,7 @@ use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
 use fs::{
     OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, WaitBlockingRead,
-    UTIME_NOW,
+    WaitBlockingWrite, UTIME_NOW,
 };
 use log::{debug, warn};
 
@@ -61,7 +61,8 @@ pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usi
     );
     let buffer = buf_ptr.slice_with_len(count);
     let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
-    Ok(file.write(buffer).map_err(from_vfs)?)
+    // Ok(file.write(buffer).map_err(from_vfs)?)
+    WaitBlockingWrite(file, &buffer).await.map_err(from_vfs)
 }
 
 pub async fn sys_readv(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<usize, LinuxError> {

@@ -130,3 +130,24 @@ impl<'a> Future for WaitBlockingRead<'a> {
         }
     }
 }
+
+pub struct WaitBlockingWrite<'a>(pub Arc<dyn INodeInterface>, pub &'a [u8]);
+
+impl<'a> Future for WaitBlockingWrite<'a> {
+    type Output = VfsResult<usize>;
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let file = self.0.clone();
+        let buffer = &self.1;
+        match file.write(*buffer) {
+            Ok(wsize) => Poll::Ready(Ok(wsize)),
+            Err(err) => {
+                if let VfsError::Blocking = err {
+                    Poll::Pending
+                } else {
+                    Poll::Ready(Err(err))
+                }
+            }
+        }
+    }
+}
