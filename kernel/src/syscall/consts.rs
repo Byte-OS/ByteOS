@@ -4,7 +4,7 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
-use arch::VirtAddr;
+use arch::{PTEFlags, VirtAddr};
 use bitflags::bitflags;
 use fs::VfsError;
 use num_enum::TryFromPrimitive;
@@ -250,6 +250,7 @@ pub const SYS_CLONE: usize = 220;
 pub const SYS_EXECVE: usize = 221;
 pub const SYS_MMAP: usize = 222;
 pub const SYS_MPROTECT: usize = 226;
+pub const SYS_MSYNC: usize = 227;
 pub const SYS_MUNMAP: usize = 215;
 pub const SYS_WAIT4: usize = 260;
 pub const SYS_PRLIMIT64: usize = 261;
@@ -290,6 +291,20 @@ bitflags! {
         const MAP_FILE            =    0;
     }
 
+    #[derive(Debug, Clone, Copy)]
+    pub struct MmapProt: u32 {
+        const PROT_READ = 1 << 0;
+        const PROT_WRITE = 1 << 1;
+        const PROT_EXEC = 1 << 2;
+    }
+
+    #[derive(Debug)]
+    pub struct MSyncFlags: u32 {
+        const ASYNC = 1 << 0;
+        const INVALIDATE = 1 << 1;
+        const SYNC = 1 << 2;
+    }
+
     #[derive(Debug)]
     pub struct ProtFlags: u32 {
         const PROT_NONE = 0;
@@ -325,6 +340,22 @@ bitflags! {
         const CLONE_NEWPID	        = 0x20000000;
         const CLONE_NEWNET	        = 0x40000000;
         const CLONE_IO	            = 0x80000000;
+    }
+}
+
+impl Into<PTEFlags> for MmapProt {
+    fn into(self) -> PTEFlags {
+        let mut res = PTEFlags::empty();
+        if self.contains(Self::PROT_READ) {
+            res |= PTEFlags::R;
+        }
+        if self.contains(Self::PROT_WRITE) {
+            res |= PTEFlags::W;
+        }
+        if self.contains(Self::PROT_EXEC) {
+            res |= PTEFlags::X;
+        }
+        res
     }
 }
 

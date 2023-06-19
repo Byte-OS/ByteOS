@@ -211,12 +211,11 @@ pub async fn initproc() {
     // command("busybox sh libctest_testcode.sh").await;
     // command("busybox sh busybox_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
-    command("busybox sh iozone_testcode.sh").await;
+    command("busybox sh lmbench_testcode.sh").await;
+    // command("busybox sh iozone_testcode.sh").await;
     // command("busybox sh unixbench_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
-
-    // command("runtest.exe -w entry-static.exe daemon_failure").await;
 
     // command("bin/sh").await;
     // command("usr/bin/tcc -run main.c").await;

@@ -9,6 +9,7 @@ pub struct Context {
     pub x: [usize; 32], // 32 个通用寄存器
     pub sstatus: usize,
     pub sepc: usize,
+    pub fsx: [usize; 2],
 }
 
 impl Context {
@@ -19,6 +20,7 @@ impl Context {
             x: [0usize; 32],
             sstatus: sstatus::read().bits(),
             sepc: 0,
+            fsx: [0; 2],
         }
     }
     // 从另一个上下文复制
@@ -30,6 +32,7 @@ impl Context {
 
         self.sstatus = target.sstatus;
         self.sepc = target.sepc;
+        self.fsx = target.fsx;
     }
 }
 

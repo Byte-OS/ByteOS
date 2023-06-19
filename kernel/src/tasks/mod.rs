@@ -144,10 +144,18 @@ pub async fn handle_net() {
                         // receive_tcp(&mut net, &tcp_packet)
                     }
                 }
-                Packet::ICMP() => {}
-                Packet::IGMP() => todo!(),
-                Packet::Todo(_) => todo!(),
-                Packet::None => todo!(),
+                Packet::ICMP() => {
+                    debug!("receive ICMP packet")
+                }
+                Packet::IGMP() => {
+                    debug!("receive IGMP packet")
+                }
+                Packet::Todo(_) => {
+                    debug!("receive IGMP packet")
+                }
+                Packet::None => {
+                    debug!("receive IGMP packet")
+                }
             }
         }
         yield_now().await;

@@ -24,7 +24,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     // Then use default handler. Exit or do nothing.
     if sigaction.handler == 0 {
         match signal {
-            SignalFlags::SIGCANCEL => {
+            SignalFlags::SIGCANCEL | SignalFlags::SIGSEGV => {
                 current_user_task().exit_with_signal(signal.num());
             }
             _ => {}

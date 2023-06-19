@@ -67,10 +67,8 @@ fn kernel_callback(context: &mut Context) -> usize {
         Trap::Exception(Exception::Breakpoint) => {
             context.sepc += 2;
             TrapType::Breakpoint
-        },
-        Trap::Exception(Exception::LoadFault) => {
-            TrapType::Unknown
         }
+        Trap::Exception(Exception::LoadFault) => TrapType::Unknown,
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             timer::set_next_timeout();
@@ -243,7 +241,12 @@ pub unsafe extern "C" fn user_restore(context: *mut Context) {
     
         LOAD    t0, 32
         LOAD    t1, 33
-    
+        .short 0x2452
+        .short 0x24f2
+    ",
+        // fld  fs0, 272(sp)
+        // fld  fs1, 280(sp)
+    "
         csrw    sstatus, t0
         csrw    sepc, t1
     ",
@@ -294,7 +297,11 @@ pub unsafe extern "C" fn uservec() {
         sd t0, 32*8(tp)
         sd t1, 33*8(tp)
         sd t2, 2*8(tp)
+        .word 0x10823827
+        .word 0x10923c27
     ",
+        // fsd fs0, 272(tp)
+        // fsd fs1, 280(tp)
         // 保存 tp 寄存器，到此处所有的用户态寄存器已经保存
     "   ld a0, 0(sp)
         sd a0, 4*8(tp)
