@@ -288,6 +288,7 @@ pub async fn sys_clone(
     let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
         true => curr_task.clone().thread_clone(unsafe { user_entry() }),
         // false => curr_task.clone().fork(unsafe { user_entry() }),
+        // use cow(Copy On Write) to save memory.
         false => curr_task.clone().cow_fork(unsafe { user_entry() }),
     };
 

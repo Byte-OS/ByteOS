@@ -50,7 +50,9 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
                 task.frame_alloc(vpn, MemType::Stack, 1);
             } else {
                 warn!("task exit with page fault, its context: {:#X?}", cx_ref);
+                drop(pcb);
                 task.exit_with_signal(SignalFlags::SIGABRT.num());
+                debug!("exit");
             }
         }
     }
