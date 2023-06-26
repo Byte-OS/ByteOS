@@ -119,6 +119,7 @@ impl UserTask {
             vec![MapTrack {
                 vpn: VirtPage::new(0),
                 tracker: ppn.clone(),
+                rwx: 0
             }],
         )]);
 
@@ -197,6 +198,7 @@ impl UserTask {
                 MapTrack {
                     vpn,
                     tracker: Arc::new(x),
+                    rwx: 0
                 }
             })
             .collect();
@@ -245,9 +247,15 @@ impl UserTask {
         ppn
     }
 
-    pub fn get_cx_ptr(&self) -> *mut Context {
-        // (&mut self.tcb.read().cx) as *mut Context
-        unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx as _ }
+    // pub fn get_cx_ptr(&self) -> *mut Context {
+    //     // (&mut self.tcb.read().cx) as *mut Context
+    //     unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx as _ }
+    // }
+
+    pub fn force_cx_ref(&self) -> &'static mut Context {
+        unsafe {
+            &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx
+        }
     }
 
     pub fn exit_code(&self) -> Option<usize> {

@@ -86,6 +86,7 @@ pub enum MemType {
 pub struct MapTrack {
     pub vpn: VirtPage,
     pub tracker: Arc<FrameTracker>,
+    pub rwx: u8,
 }
 
 impl Debug for MapTrack {
@@ -136,7 +137,7 @@ impl MemArea {
         if let Some(map_track) = finded_tracker {
             map_track.tracker = tracker;
         } else {
-            self.mtrackers.push(MapTrack { vpn, tracker })
+            self.mtrackers.push(MapTrack { vpn, tracker, rwx: 0 })
         }
     }
     pub fn fork(&self) -> Self {

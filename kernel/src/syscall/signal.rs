@@ -1,6 +1,6 @@
 use executor::{current_task, current_user_task};
 use log::debug;
-use signal::{SigAction, SigMaskHow, SigProcMask};
+use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 
 use crate::tasks::WaitSignal;
 
@@ -100,9 +100,10 @@ pub async fn sys_sigaction(
     act: UserRef<SigAction>,
     oldact: UserRef<SigAction>,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_sigaction @ sig: {}, act: {}, oldact: {}",
-        sig, act, oldact
+    let signal = SignalFlags::from_usize(sig);
+    info!(
+        "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
+        signal, act, oldact
     );
     let user_task = current_task().as_user_task().unwrap();
     if oldact.is_valid() {

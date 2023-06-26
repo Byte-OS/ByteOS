@@ -62,4 +62,5 @@ pub fn init() {
     // cache_file("/runtest.exe");
     // cache_file("/libc.so");
     // cache_file("/busybox");
+    cache_file("lmbench_all");
 }

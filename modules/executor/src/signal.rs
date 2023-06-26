@@ -40,4 +40,8 @@ impl SignalList {
     pub fn remove_signal(&mut self, signal: SignalFlags) {
         self.signal &= !signal.bits() as usize;
     }
+
+    pub fn has_sig(&self, signal: SignalFlags) -> bool {
+        self.signal & !signal.bits() as usize != 0
+    }
 }
