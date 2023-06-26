@@ -1,7 +1,7 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
-use executor::{MemType, UserTask};
+use executor::{MemType, UserTask, current_user_task};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
@@ -20,7 +20,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
     warn!("store/instruction page fault @ {:#x} vpn: {}", addr, vpn);
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
-    let finded = pcb.memset.iter_mut().find_map(|mem_area| {
+    let finded = pcb.memset.iter_mut().filter(|x| x.mtype != MemType::Shared).find_map(|mem_area| {
         mem_area
             .mtrackers
             .iter_mut()
@@ -103,9 +103,18 @@ pub async fn handle_user_interrupt(
                 cx_ref.sepc(),
                 task.page_table.virt_to_phys(cx_ref.sepc().into())
             );
-            panic!("illegal Instruction")
+            // panic!("illegal Instruction")
+            // let signal = current_user_task().tcb.read().signal.clone();
+            // if signal.has_sig(SignalFlags::SIGSEGV) {
+            //     task.exit_with_signal(SignalFlags::SIGSEGV.num());
+            // } else {
+            //     return UserTaskControlFlow::Break
+            // }
+            current_user_task().tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+            return UserTaskControlFlow::Break;
         }
         arch::TrapType::StorePageFault(addr) | arch::TrapType::InstructionPageFault(addr) => {
+            debug!("store page fault");
             user_cow_int(task.clone(), cx_ref, addr)
         }
     }

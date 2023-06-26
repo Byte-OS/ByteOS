@@ -325,7 +325,7 @@ pub async fn sys_wait4(
     status: UserRef<i32>, // 接收状态的指针；
     options: usize,       // WNOHANG，WUNTRACED，WCONTINUED；
 ) -> Result<usize, LinuxError> {
-    info!(
+    debug!(
         "sys_wait4 @ pid: {}, status: {}, options: {}",
         pid, status, options
     );
