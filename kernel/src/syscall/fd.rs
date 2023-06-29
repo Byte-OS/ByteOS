@@ -8,8 +8,7 @@ use executor::{current_task, current_user_task, yield_now, FileItem, FileItemInt
 use fs::mount::{open, umount};
 use fs::pipe::create_pipe;
 use fs::{
-    OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, WaitBlockingRead,
-    WaitBlockingWrite, UTIME_NOW, INodeInterface,
+    OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW, INodeInterface,
 };
 use log::{debug, warn};
 
@@ -107,7 +106,11 @@ pub async fn sys_mkdir_at(
     );
     let user_task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
-        FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default()).map_err(from_vfs)?
+        if path.starts_with("/") {
+            FileItem::fs_open("/", Default::default())
+        } else {
+            FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default())
+        }.map_err(from_vfs)?
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
@@ -130,7 +133,11 @@ pub async fn sys_unlinkat(
     );
     let user_task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
-        FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default()).map_err(from_vfs)?
+        if path.starts_with("/") {
+            FileItem::fs_open("/", Default::default())
+        } else {
+            FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default())
+        }.map_err(from_vfs)?
     } else {
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };

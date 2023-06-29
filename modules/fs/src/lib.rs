@@ -17,7 +17,7 @@ use ramfs::RamFs;
 use sync::LazyInit;
 use vfscore::{DirEntry, FileSystem, MountedInfo, VfsResult};
 
-use crate::{fatfs_shim::Fat32FileSystem, mount::mount};
+use crate::{fatfs_shim::Fat32FileSystem, mount::{mount, open}};
 
 #[macro_use]
 extern crate alloc;
@@ -75,6 +75,7 @@ pub fn init() {
     filesystems.push(build_devfs(&filesystems));
     filesystems.push(RamFs::new());
     filesystems.push(RamFs::new());
+    filesystems.push(RamFs::new());
 
     FILESYSTEMS.init_by(filesystems);
 
@@ -86,6 +87,7 @@ pub fn init() {
         rootfs.mkdir("dev").expect("can't create devfs dir");
         rootfs.mkdir("tmp").expect("can't create devfs dir");
         rootfs.mkdir("lib").expect("can't create devfs dir");
+        rootfs.mkdir("tmp_home").expect("can't create devfs dir");
 
         let so_files: Vec<DirEntry> = rootfs
             .read_dir()
@@ -102,7 +104,13 @@ pub fn init() {
     }
 
     mount::init();
-
+    {
+        let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
+        let tmpfs = open("/tmp_home").expect("can't open /tmp_home");
+        for file in rootfs.read_dir().expect("can't read files") {
+            tmpfs.link(&file.filename, &(String::from("/") + &file.filename)).expect("can't link file to tmpfs");
+        }
+    }
     cache::init();
 }
 

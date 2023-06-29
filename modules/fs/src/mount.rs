@@ -21,7 +21,8 @@ pub fn init() {
     mount(String::from("/"), 0).expect("can't mount to /");
     mount(String::from("/dev"), 1).expect("can't mount to /dev");
     mount(String::from("/tmp"), 2).expect("can't mount to /tmp");
-    mount(String::from("/dev/shm"), 3).expect("can't mount to /lib");
+    mount(String::from("/dev/shm"), 3).expect("can't mount to /dev/shm");
+    mount(String::from("/tmp_home"), 4).expect("can't mount to /tmp_home");
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {

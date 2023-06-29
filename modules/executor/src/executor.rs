@@ -4,7 +4,6 @@ use alloc::{
     sync::Arc,
     task::Wake,
 };
-use arch::switch_to_kernel_page_table;
 use core::{
     future::Future,
     pin::Pin,

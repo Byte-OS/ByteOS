@@ -128,7 +128,7 @@ impl UserTask {
         let inner = TaskInner {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: String::from("/"),
+            curr_dir: String::from("/tmp_home/"),
             heap: 0,
             children: Vec::new(),
             entry: 0,
