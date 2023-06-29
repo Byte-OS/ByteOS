@@ -1,7 +1,7 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
-use executor::{MemType, UserTask, current_user_task};
+use executor::{MemType, UserTask, current_user_task, AsyncTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
@@ -20,7 +20,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
     warn!("store/instruction page fault @ {:#x} vpn: {}", addr, vpn);
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
-    let finded = pcb.memset.iter_mut().filter(|x| x.mtype != MemType::Shared).find_map(|mem_area| {
+    let finded = pcb.memset.iter_mut().rev().filter(|x| x.mtype != MemType::Shared).find_map(|mem_area| {
         mem_area
             .mtrackers
             .iter_mut()

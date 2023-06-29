@@ -17,7 +17,7 @@ pub use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard, RwLock};
 
 use crate::{
-    filetable::{rlimits_new, FileTable},
+    filetable::{rlimits_new, FileTable, FileItem},
     memset::{MapTrack, MemArea, MemType},
     signal::SignalList,
     task_id_alloc, thread, AsyncTask, MemSet, TaskId, FUTURE_LIST, TMS,
@@ -534,7 +534,7 @@ impl UserTask {
         )
     }
 
-    pub fn get_fd(&self, index: usize) -> Option<File> {
+    pub fn get_fd(&self, index: usize) -> Option<FileItem> {
         let inner = self.pcb.lock();
         match index >= inner.rlimits[7] {
             true => None,
@@ -542,7 +542,7 @@ impl UserTask {
         }
     }
 
-    pub fn set_fd(&self, index: usize, value: Option<File>) {
+    pub fn set_fd(&self, index: usize, value: Option<FileItem>) {
         let mut inner = self.pcb.lock();
         match index >= inner.rlimits[7] {
             true => {}

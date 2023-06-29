@@ -4,6 +4,7 @@ use alloc::{
     sync::Arc,
     task::Wake,
 };
+use arch::switch_to_kernel_page_table;
 use core::{
     future::Future,
     pin::Pin,
@@ -53,7 +54,7 @@ impl Executor {
 
     fn run_ready_task(&mut self) {
         let task = TASK_QUEUE.lock().pop_front();
-        if let Some(task) = task {
+        if let Some(task) = &task {
             task.before_run();
             *CURRENT_TASK.lock() = Some(task.clone());
             let waker = self.create_waker(task.as_ref()).into();
@@ -73,9 +74,15 @@ impl Executor {
 
     /// Executes the `hlt` instruction if there are no ready tasks
     fn hlt_if_idle(&self) {
-        if TASK_QUEUE.lock().len() == 0 {
-            arch::wfi();
-        }
+        // let len = TASK_QUEUE.lock().len();
+        // if len != 0 {
+        //     arch::wfi();
+        // }
+
+        // log::error!("hlt if idle");
+        // arch::wfi();
+        // log::error!("end");
+        // log::error!("hlt if idle end: {}", TASK_QUEUE.lock().len());
     }
 
     fn task_id(task: &dyn AsyncTask) -> TaskId {

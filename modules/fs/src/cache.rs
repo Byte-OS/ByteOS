@@ -57,10 +57,10 @@ pub fn cache_file(path: &str) {
 
 /// init() 初始化缓存表
 pub fn init() {
-    // cache_file("/entry-static.exe");
-    // cache_file("/entry-dynamic.exe");
-    // cache_file("/runtest.exe");
-    // cache_file("/libc.so");
-    // cache_file("/busybox");
+    cache_file("/entry-static.exe");
+    cache_file("/entry-dynamic.exe");
+    cache_file("/runtest.exe");
+    cache_file("/libc.so");
+    cache_file("/busybox");
     cache_file("lmbench_all");
 }

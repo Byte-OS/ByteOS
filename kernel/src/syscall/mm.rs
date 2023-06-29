@@ -3,6 +3,7 @@ use core::ops::Add;
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
 use frame_allocator::ceil_div;
+use fs::INodeInterface;
 use log::debug;
 
 use crate::syscall::consts::from_vfs;
@@ -62,7 +63,7 @@ pub async fn sys_mmap(
                 VirtPage::from_addr(addr.into()),
                 executor::MemType::ShareFile,
                 (len + PAGE_SIZE - 1) / PAGE_SIZE,
-                Some(file),
+                Some(file.get_bare_file()),
                 usize::from(addr),
                 len,
             ),
