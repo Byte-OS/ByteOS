@@ -284,6 +284,7 @@ impl INodeInterface for RamDir {
         stat.rdev = 0; // TODO: add device id
         stat.mtime = Default::default();
         stat.atime = Default::default();
+        stat.ctime = Default::default();
         Ok(())
     }
 

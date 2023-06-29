@@ -207,16 +207,17 @@ pub async fn initproc() {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
-    // command("time-test").await;
-    // command("busybox sh libctest_testcode.sh").await;
-    // command("busybox sh busybox_testcode.sh").await;
-    // command("busybox sh lua_testcode.sh").await;
-    // command("busybox sh lmbench_testcode.sh").await;
+    command("time-test").await;
+    command("busybox sh libctest_testcode.sh").await;
+    command("busybox sh busybox_testcode.sh").await;
+    command("busybox sh lua_testcode.sh").await;
+    command("busybox sh lmbench_testcode.sh").await;
     command("busybox sh iozone_testcode.sh").await;
     // command("busybox sh unixbench_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;
+    // command("./runtest.exe -w entry-static.exe fdopen").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
-    // command("./runtest.exe -w entry-dynamic.exe fflush_exit").await;
+    // command("./runtest.exe -w entry-dynamic.exe stat").await;
 
     // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
 
