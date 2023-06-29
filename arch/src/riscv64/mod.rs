@@ -16,6 +16,7 @@ pub use interrupt::{init_interrupt, trap_pre_handle, user_restore};
 pub use page_table::*;
 pub use sbi::*;
 pub use timer::*;
+pub use entry::switch_to_kernel_page_table;
 
 use riscv::register::sstatus;
 

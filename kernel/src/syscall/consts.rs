@@ -173,6 +173,7 @@ pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
         VfsError::Blocking => LinuxError::EAGAIN,
         VfsError::NoMountedPoint => LinuxError::ENOENT,
         VfsError::NotAPipe => LinuxError::EPIPE,
+        VfsError::NotWriteable => LinuxError::EBADF,
     }
 }
 
@@ -187,6 +188,7 @@ pub const SYS_UNLINKAT: usize = 35;
 pub const SYS_UMOUNT2: usize = 39;
 pub const SYS_MOUNT: usize = 40;
 pub const SYS_STATFS: usize = 43;
+pub const SYS_FTRUNCATE: usize = 46;
 pub const SYS_FACCESSAT: usize = 48;
 pub const SYS_CHDIR: usize = 49;
 pub const SYS_OPENAT: usize = 56;

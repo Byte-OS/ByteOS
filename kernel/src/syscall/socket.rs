@@ -1,8 +1,8 @@
 use alloc::{collections::BTreeMap, sync::Arc};
 use devices::NET_DEVICES;
-use executor::{current_user_task, yield_now, UserTask};
-use fs::socket::{self, NetType, SocketOps};
+use executor::{current_user_task, yield_now, UserTask, FileItem};
 use fs::INodeInterface;
+use fs::socket::{self, NetType, SocketOps};
 use log::debug;
 use lose_net_stack::packets::tcp::TCPPacket;
 use lose_net_stack::packets::udp::UDPPacket;
@@ -50,7 +50,7 @@ pub async fn sys_socket(
         domain,
         NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?,
     );
-    task.set_fd(fd, Some(socket));
+    task.set_fd(fd, Some(FileItem::new(socket, Default::default())));
     Ok(fd)
 }
 
@@ -75,6 +75,7 @@ pub async fn sys_bind(
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
@@ -97,6 +98,7 @@ pub async fn sys_listen(socket_fd: usize, backlog: usize) -> Result<usize, Linux
     let task = current_user_task();
     task.get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?
         .listen();
@@ -116,6 +118,7 @@ pub async fn sys_accept(
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
@@ -140,6 +143,7 @@ pub async fn sys_recvfrom(
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
     let rlen = loop {
@@ -169,6 +173,7 @@ pub async fn sys_sendto(
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
@@ -208,7 +213,7 @@ pub fn port_alloc() -> u16 {
 pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
     loop {
         if let Some(new_socket) = socket.accept() {
-            task.set_fd(fd, Some(new_socket));
+            task.set_fd(fd, Some(FileItem::new(new_socket, Default::default())));
             return;
         }
         yield_now().await;

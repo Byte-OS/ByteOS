@@ -88,6 +88,9 @@ pub async fn sys_execve(
     );
 
     let task = current_task().as_user_task().unwrap();
+    // clear memory map
+    // TODO: solve memory conflict
+    // task.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
     exec_with_process(task.clone(), filename, args)?;
     task.before_run();
     Ok(0)
@@ -262,7 +265,6 @@ pub fn exec_with_process<'a>(
 
     if base > 0 {
         relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
-            debug!("addr: {:#X} value: {:#x}", addr, value);
             (paddr_c(user_task.page_table.virt_to_phys(VirtAddr::from(addr))).addr() as *mut usize)
                 .write(value);
         })
@@ -563,16 +565,14 @@ pub async fn sys_getrusage(who: usize, usage_ptr: UserRef<Rusage>) -> Result<usi
 pub fn sys_exit_group(exit_code: usize) -> Result<usize, LinuxError> {
     debug!("sys_exit_group @ exit_code: {}", exit_code);
     let user_task = current_user_task();
-    user_task.exit(exit_code);
-    let pcb = user_task.pcb.lock();
-
-    for ctask in pcb
-        .children
+    let children = user_task.pcb.lock().children.clone();
+    for ctask in children
         .iter()
         .filter(|x| x.task_id != user_task.task_id)
     {
         ctask.exit(exit_code);
     }
+    user_task.exit(exit_code);
     Ok(0)
 }
 

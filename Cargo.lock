@@ -177,6 +177,7 @@ name = "executor"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "bitflags 2.0.2",
  "crossbeam-queue",
  "devfs",
  "frame_allocator",
@@ -186,6 +187,7 @@ dependencies = [
  "logging",
  "signal",
  "sync",
+ "vfscore",
 ]
 
 [[package]]

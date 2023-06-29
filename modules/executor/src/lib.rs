@@ -1,9 +1,12 @@
 #![no_std]
 #![feature(drain_filter)]
+#![feature(async_fn_in_trait)]
 #[macro_use]
 extern crate alloc;
-
 extern crate logging;
+
+#[macro_use]
+extern crate bitflags;
 
 mod executor;
 mod filetable;
@@ -21,6 +24,7 @@ pub use executor::*;
 pub use memset::*;
 pub use ops::*;
 pub use task::*;
+pub use filetable::{FileItem, FileItemInterface, FileOptions};
 
 // tms_utime记录的是进程执行用户代码的时间.
 // tms_stime记录的是进程执行内核代码的时间.

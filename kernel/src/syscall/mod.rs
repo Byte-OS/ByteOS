@@ -24,13 +24,13 @@ use self::{
         SYS_PSELECT, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_YIELD,
         SYS_SENDFILE, SYS_SENDTO, SYS_SETPGID, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK,
         SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV, SYS_FTRUNCATE,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
         sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_ppoll, sys_pread,
         sys_pselect, sys_read, sys_readlinkat, sys_readv, sys_sendfile, sys_statfs, sys_umount2,
-        sys_unlinkat, sys_utimensat, sys_write, sys_writev,
+        sys_unlinkat, sys_utimensat, sys_write, sys_writev, sys_ftruncate,
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_msync, sys_munmap},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigtimedwait},
@@ -210,6 +210,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         }
         SYS_MSYNC => sys_msync(args[0], args[1], args[2] as _).await,
         SYS_EXIT_GROUP => sys_exit_group(args[0]),
+        SYS_FTRUNCATE => sys_ftruncate(args[0], args[1]).await,
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

@@ -11,16 +11,20 @@ bitflags::bitflags! {
     #[derive(Debug)]
     pub struct OpenFlags: usize {
         // reserve 3 bits for the access mode
-        const O_ACCMODE =  0x0007;
-        const O_EXEC    =  1;
-        const O_RDONLY  =  2;
-        const O_RDWR    =  3;
-        const O_SEARCH  =  4;
-        const O_WRONLY  =  5;
+        // const O_ACCMODE =  0x0007;
+        // const O_EXEC    =  1;
+        // const O_RDONLY  =  2;
+        // const O_RDWR    =  3;
+        // const O_SEARCH  =  4;
+        // const O_WRONLY  =  5;
+        const O_RDONLY = 0;
+        const O_WRONLY = 1;
+        const O_RDWR   = 2;
+        const O_ACCMODE = 3;
 
         // these flags get their own bit
         const O_CREAT     = 0x40;
-        const O_APPEND  = 0x400;
+        const O_APPEND    = 0x400;
         // const O_APPEND    = 0x000008;
         // const O_CREAT     = 0x40;
         // const O_DIRECTORY = 0x0200000;
@@ -143,6 +147,7 @@ pub enum VfsError {
     Blocking,
     NoMountedPoint,
     NotAPipe,
+    NotWriteable,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq)]

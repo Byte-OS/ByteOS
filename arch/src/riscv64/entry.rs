@@ -1,3 +1,5 @@
+use core::arch::riscv64::sfence_vma_all;
+
 use crate::VIRT_ADDR_START;
 use crate::{PTEFlags, PAGE_ITEM_COUNT, PTE};
 
@@ -69,4 +71,11 @@ unsafe extern "C" fn _start() -> ! {
         virt_addr_start = const VIRT_ADDR_START,
         options(noreturn),
     )
+}
+
+pub fn switch_to_kernel_page_table() {
+    unsafe {
+        riscv::register::satp::set(riscv::register::satp::Mode::Sv39, 0, (PAGE_TABLE.as_ptr() as usize & !VIRT_ADDR_START ) >> 12);
+        sfence_vma_all();
+    }
 }

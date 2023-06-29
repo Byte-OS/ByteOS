@@ -4,7 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use arch::{console_getchar, console_putchar};
+use arch::{console_getchar, console_putchar, switch_to_kernel_page_table};
 use executor::{current_task, yield_now, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{mount::open, File, FileType, OpenFlags};
@@ -211,11 +211,14 @@ pub async fn initproc() {
     // command("busybox sh libctest_testcode.sh").await;
     // command("busybox sh busybox_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
-    command("busybox sh lmbench_testcode.sh").await;
-    // command("busybox sh iozone_testcode.sh").await;
+    // command("busybox sh lmbench_testcode.sh").await;
+    command("busybox sh iozone_testcode.sh").await;
     // command("busybox sh unixbench_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
+    // command("./runtest.exe -w entry-dynamic.exe fflush_exit").await;
+
+    // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
 
     // command("bin/sh").await;
     // command("usr/bin/tcc -run main.c").await;
@@ -242,4 +245,6 @@ pub async fn initproc() {
     // #[cfg(not(feature = "k210"))]
     // command("bin/sh").await;
     // simple_shell().await;
+
+    // switch_to_kernel_page_table();
 }
