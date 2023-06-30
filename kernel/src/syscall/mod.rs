@@ -2,6 +2,7 @@ pub mod consts;
 mod fd;
 mod func;
 mod mm;
+mod shm;
 mod signal;
 mod socket;
 mod sys;
@@ -24,7 +25,7 @@ use self::{
         SYS_PSELECT, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_YIELD,
         SYS_SENDFILE, SYS_SENDTO, SYS_SETPGID, SYS_SET_TID_ADDRESS, SYS_SIGACTION, SYS_SIGPROCMASK,
         SYS_SIGRETURN, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV, SYS_FTRUNCATE,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV, SYS_FTRUNCATE, SYS_SHMGET, SYS_SHMAT, SYS_SHMCTL,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_getdents64, sys_ioctl,
@@ -44,7 +45,7 @@ use self::{
         sys_getpid, sys_getppid, sys_getrusage, sys_gettid, sys_kill, sys_sched_yield,
         sys_set_tid_address, sys_sigreturn, sys_tkill, sys_wait4,
     },
-    time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_times},
+    time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_times}, shm::{sys_shmget, sys_shmat, sys_shmctl},
 };
 
 pub use socket::PORT_TABLE;
@@ -211,6 +212,9 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_MSYNC => sys_msync(args[0], args[1], args[2] as _).await,
         SYS_EXIT_GROUP => sys_exit_group(args[0]),
         SYS_FTRUNCATE => sys_ftruncate(args[0], args[1]).await,
+        SYS_SHMGET => sys_shmget(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_SHMAT => sys_shmat(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_SHMCTL => sys_shmctl(args[0] as _, args[1] as _, args[2] as _).await,
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

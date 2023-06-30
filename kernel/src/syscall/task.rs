@@ -280,6 +280,10 @@ pub async fn sys_clone(
     ctid: UserRef<u32>, // 子线程 id
 ) -> Result<usize, LinuxError> {
     let sig = flags & 0xff;
+    debug!(
+        "sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+        flags, stack, ptid, tls, ctid
+    );
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
         "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
