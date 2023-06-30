@@ -59,7 +59,11 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
 
     loop {
         if let Some(exit_code) = task.exit_code() {
-            debug!("program exit with code: {}", exit_code);
+            debug!(
+                "program exit with code: {}  task_id: {}",
+                exit_code,
+                task.get_task_id()
+            );
             break;
         }
 

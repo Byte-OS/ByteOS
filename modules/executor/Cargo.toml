@@ -19,3 +19,4 @@ signal = { path = "../signal" }
 bitflags = "2.0.2"
 vfscore = { path = "../../crates/vfscore" }
 # async-trait = "0.1.68"
+hal = { path = "../hal" }

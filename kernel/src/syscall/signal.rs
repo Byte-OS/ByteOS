@@ -1,8 +1,8 @@
-use executor::{current_task, current_user_task};
+use executor::{current_task, current_user_task, yield_now};
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 
-use crate::tasks::WaitSignal;
+use crate::tasks::{user::entry::check_timer, WaitSignal};
 
 use super::consts::{LinuxError, UserRef};
 
@@ -113,4 +113,22 @@ pub async fn sys_sigaction(
         user_task.pcb.lock().sigaction[sig] = *act.get_mut();
     }
     Ok(0)
+}
+
+pub async fn sys_sigsuspend(sigset: UserRef<SignalFlags>) -> Result<usize, LinuxError> {
+    let task = current_user_task();
+    let signal = sigset.get_ref();
+    debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
+    loop {
+        check_timer(&task).await;
+        let tcb = task.tcb.read();
+        if tcb.signal.has_signal() {
+            break;
+        }
+        drop(tcb);
+        yield_now().await;
+    }
+    debug!("sys_sigsuspend @ sigset: {:?}", signal);
+    Err(LinuxError::EINTR)
+    // Ok(0)
 }

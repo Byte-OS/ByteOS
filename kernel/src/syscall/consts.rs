@@ -7,10 +7,9 @@ use core::marker::PhantomData;
 use arch::{PTEFlags, VirtAddr};
 use bitflags::bitflags;
 use fs::VfsError;
+use hal::TimeVal;
 use num_enum::TryFromPrimitive;
 use signal::SigProcMask;
-
-use super::time::TimeVal;
 
 #[repr(i32)]
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -217,11 +216,13 @@ pub const SYS_FUTEX: usize = 98;
 pub const SYS_SET_ROBUST_LIST: usize = 99;
 pub const SYS_GET_ROBUST_LIST: usize = 100;
 pub const SYS_NANOSLEEP: usize = 101;
+pub const SYS_SETITIMER: usize = 103;
 pub const SYS_GETTIME: usize = 113;
 pub const SYS_SCHED_YIELD: usize = 124;
 pub const SYS_KILL: usize = 129;
 pub const SYS_TKILL: usize = 130;
 pub const SYS_TGKILL: usize = 131;
+pub const SYS_SIGSUSPEND: usize = 133;
 pub const SYS_SIGACTION: usize = 134;
 pub const SYS_SIGPROCMASK: usize = 135;
 pub const SYS_SIGTIMEDWAIT: usize = 137;

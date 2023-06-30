@@ -1,5 +1,6 @@
 use core::{
     future::Future,
+    ops::Add,
     pin::Pin,
     task::{Context, Poll},
 };
@@ -8,26 +9,10 @@ use arch::{get_time, time_to_usec};
 use executor::{current_user_task, TMS};
 use fs::TimeSpec;
 pub use hal::current_nsec;
+use hal::{ITimerVal, TimeVal};
 use log::{debug, warn};
 
 use super::consts::{LinuxError, UserRef};
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct TimeVal {
-    pub sec: usize,  /* 秒 */
-    pub usec: usize, /* 微秒, 范围在0~999999 */
-}
-
-impl TimeVal {
-    pub fn now() -> Self {
-        let ns = current_nsec();
-        Self {
-            sec: ns / 1_000_000_000,
-            usec: (ns % 1_000_000_000) / 1000,
-        }
-    }
-}
 
 pub async fn sys_gettimeofday(
     tv_ptr: UserRef<TimeVal>,
@@ -109,4 +94,37 @@ impl Future for WaitUntilsec {
 #[allow(dead_code)]
 pub fn wait_ms(ms: usize) -> WaitUntilsec {
     WaitUntilsec(current_nsec() + ms * 0x1000_0000)
+}
+
+pub async fn sys_setitimer(
+    which: usize,
+    times_ptr: UserRef<ITimerVal>,
+    old_timer_ptr: UserRef<ITimerVal>,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_setitimer @ which: {} times_ptr: {} old_timer_ptr: {}",
+        which, times_ptr, old_timer_ptr
+    );
+
+    if which == 0 {
+        let task = current_user_task();
+        let mut pcb = task.pcb.lock();
+        if times_ptr.is_valid() {
+            let new_timer = times_ptr.get_ref();
+            log::error!("timer: {:?}", times_ptr.get_ref());
+            pcb.timer[0].timer = *new_timer;
+            pcb.timer[0].next = TimeVal::now().add(pcb.timer[0].timer.value);
+            if new_timer.value.sec == 0 && new_timer.value.usec == 0 {
+                pcb.timer[0].next = Default::default();
+                pcb.timer[0].last = Default::default();
+            }
+        }
+        if old_timer_ptr.is_valid() {
+            log::error!("old_timer: {:?}", old_timer_ptr.get_ref());
+            *old_timer_ptr.get_mut() = pcb.timer[0].timer;
+        }
+        Ok(0)
+    } else {
+        Err(LinuxError::EPERM)
+    }
 }
