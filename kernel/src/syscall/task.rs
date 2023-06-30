@@ -354,7 +354,7 @@ pub async fn sys_wait4(
             .ok_or(LinuxError::ECHILD)?;
     }
     if options == 0 {
-        let child_task = WaitPid(curr_task.clone(), pid).await;
+        let child_task = WaitPid(curr_task.clone(), pid).await?;
 
         debug!("wait ok: {}", child_task.get_task_id());
         curr_task

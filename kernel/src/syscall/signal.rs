@@ -120,7 +120,7 @@ pub async fn sys_sigsuspend(sigset: UserRef<SignalFlags>) -> Result<usize, Linux
     let signal = sigset.get_ref();
     debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
     loop {
-        check_timer(&task).await;
+        check_timer(&task);
         let tcb = task.tcb.read();
         if tcb.signal.has_signal() {
             break;
