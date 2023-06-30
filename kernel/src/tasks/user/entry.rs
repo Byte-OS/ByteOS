@@ -17,7 +17,7 @@ pub fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync> {
     Box::new(async { user_entry_inner().await })
 }
 
-pub async fn check_timer(task: &Arc<UserTask>) {
+pub fn check_timer(task: &Arc<UserTask>) {
     let mut pcb = task.pcb.lock();
     let timer = &mut pcb.timer[0];
     if timer.next > timer.last {
@@ -36,7 +36,7 @@ pub async fn user_entry_inner() {
         debug!("task: {}", task.get_task_id());
 
         // check timer
-        check_timer(&task).await;
+        check_timer(&task);
 
         loop {
             let signal = task.tcb.read().signal.try_get_signal();
