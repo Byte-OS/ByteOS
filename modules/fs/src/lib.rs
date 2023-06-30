@@ -92,20 +92,19 @@ pub fn init() {
         rootfs.mkdir("lib").expect("can't create devfs dir");
         rootfs.mkdir("tmp_home").expect("can't create devfs dir");
 
-        let so_files: Vec<DirEntry> = rootfs
-            .read_dir()
-            .expect("can't read files")
-            .into_iter()
-            .filter(|x| x.filename.ends_with("dso.so"))
-            .collect();
+        // let so_files: Vec<DirEntry> = rootfs
+        //     .read_dir()
+        //     .expect("can't read files")
+        //     .into_iter()
+        //     .filter(|x| x.filename.ends_with("dso.so"))
+        //     .collect();
 
-        for file in so_files {
-            rootfs
-                .link(&file.filename[3..], &format!("/{}", file.filename))
-                .expect("can't link file");
-        }
+        // for file in so_files {
+        //     rootfs
+        //         .link(&file.filename[3..], &format!("/{}", file.filename))
+        //         .expect("can't link file");
+        // }
     }
-
     mount::init();
     {
         let rootfs = get_filesystem(0).root_dir(MountedInfo::default());

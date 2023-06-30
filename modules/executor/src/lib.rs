@@ -23,6 +23,7 @@ use core::{future::Future, pin::Pin, task::Context};
 use alloc::boxed::Box;
 pub use executor::*;
 pub use filetable::{FileItem, FileItemInterface, FileOptions};
+use hal::{ITimerVal, TimeVal};
 pub use memset::*;
 pub use ops::*;
 pub use task::*;
@@ -97,4 +98,11 @@ where
 
         Poll::Pending
     }
+}
+
+#[derive(Debug, Clone, Copy, Default)]
+pub struct ProcessTimer {
+    pub timer: ITimerVal,
+    pub next: TimeVal,
+    pub last: TimeVal,
 }

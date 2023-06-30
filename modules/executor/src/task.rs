@@ -21,7 +21,7 @@ use crate::{
     memset::{MapTrack, MemArea, MemType},
     shm::MapedSharedMemory,
     signal::SignalList,
-    task_id_alloc, thread, AsyncTask, MemSet, TaskId, FUTURE_LIST, TMS,
+    task_id_alloc, thread, AsyncTask, MemSet, ProcessTimer, TaskId, FUTURE_LIST, TMS,
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
@@ -80,6 +80,7 @@ pub struct ProcessControlBlock {
     pub sigaction: [SigAction; 64],
     pub futex_table: Arc<Mutex<FutexTable>>,
     pub shms: Vec<MapedSharedMemory>,
+    pub timer: [ProcessTimer; 3],
 }
 
 pub struct ThreadControlBlock {
@@ -139,6 +140,7 @@ impl UserTask {
             sigaction: [SigAction::new(); 64],
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
             shms: vec![],
+            timer: [Default::default(); 3],
         };
 
         let tcb = RwLock::new(ThreadControlBlock {
@@ -408,41 +410,22 @@ impl UserTask {
         pcb.children.push(new_task.clone());
         new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
+        // cow fork
         pcb.memset
             .iter()
             .filter(|x| x.mtype != MemType::PTE)
             .for_each(|x| {
                 let map_area = x.clone();
-                // let map_area = x.fork();
-                // map_area.mtrackers.iter().for_each(|map_track| {
-                //     new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
-                // });
                 map_area.mtrackers.iter().for_each(|x| {
                     new_task.map(x.tracker.0, x.vpn, PTEFlags::UVRX);
                     self.map(x.tracker.0, x.vpn, PTEFlags::UVRX);
                 });
                 new_task.pcb.lock().memset.push(map_area);
             });
-        // pcb.memset
-        //     .iter()
-        //     .filter(|x| x.mtype != MemType::PTE)
-        //     .for_each(|x| {
-        //         let map_area = x.fork();
-        //         map_area.mtrackers.iter().for_each(|map_track| {
-        //             new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
-        //         });
-
-        //         new_task.pcb.lock().memset.push(map_area);
-        //     });
         drop(new_tcb_writer);
-        warn!("shm map");
+        // copy shm and map them
         pcb.shms.iter().for_each(|x| {
             x.mem.trackers.iter().enumerate().for_each(|(i, tracker)| {
-                warn!(
-                    "shm map {} @ {}",
-                    VirtPage::from_addr(x.start).add(i),
-                    tracker.0
-                );
                 new_task.map(
                     tracker.0,
                     VirtPage::from_addr(x.start).add(i),

@@ -183,6 +183,7 @@ dependencies = [
  "frame_allocator",
  "fs",
  "futures",
+ "hal",
  "log",
  "logging",
  "signal",

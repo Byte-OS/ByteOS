@@ -1,9 +1,12 @@
 use core::future::Future;
 
 use alloc::boxed::Box;
+use alloc::sync::Arc;
 use arch::ContextOps;
-use executor::{current_task, current_user_task, yield_now, AsyncTask};
+use executor::{current_task, current_user_task, yield_now, AsyncTask, UserTask};
+use hal::TimeVal;
 use log::debug;
+use signal::SignalFlags;
 
 use crate::tasks::user::{handle_user_interrupt, signal::handle_signal};
 use crate::tasks::UserTaskControlFlow;
@@ -14,11 +17,26 @@ pub fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync> {
     Box::new(async { user_entry_inner().await })
 }
 
+pub async fn check_timer(task: &Arc<UserTask>) {
+    let mut pcb = task.pcb.lock();
+    let timer = &mut pcb.timer[0];
+    if timer.next > timer.last {
+        let now = TimeVal::now();
+        if now >= timer.next {
+            task.tcb.write().signal.add_signal(SignalFlags::SIGALRM);
+            timer.last = timer.next;
+        }
+    }
+}
+
 pub async fn user_entry_inner() {
     let mut times = 0;
     loop {
         let task = current_user_task();
         debug!("task: {}", task.get_task_id());
+
+        // check timer
+        check_timer(&task).await;
 
         loop {
             let signal = task.tcb.read().signal.try_get_signal();
@@ -28,6 +46,15 @@ pub async fn user_entry_inner() {
             } else {
                 break;
             }
+        }
+
+        if let Some(exit_code) = task.exit_code() {
+            debug!(
+                "program exit with code: {}  task_id: {}  with  inner",
+                exit_code,
+                task.get_task_id()
+            );
+            break;
         }
 
         // let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
@@ -43,7 +70,11 @@ pub async fn user_entry_inner() {
         }
 
         if let Some(exit_code) = task.exit_code() {
-            debug!("program exit with code: {}", exit_code);
+            debug!(
+                "program exit with code: {}  task_id: {}  with  inner",
+                exit_code,
+                task.get_task_id()
+            );
             break;
         }
 

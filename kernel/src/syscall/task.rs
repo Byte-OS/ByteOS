@@ -1,5 +1,5 @@
 use crate::syscall::consts::{elf, from_vfs, CloneFlags, Rusage};
-use crate::syscall::time::{TimeVal, WaitUntilsec};
+use crate::syscall::time::WaitUntilsec;
 use crate::tasks::elf::ElfExtra;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
 use alloc::collections::BTreeMap;
@@ -15,7 +15,7 @@ use executor::{
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
 use fs::TimeSpec;
-use hal::current_nsec;
+use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
 use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};

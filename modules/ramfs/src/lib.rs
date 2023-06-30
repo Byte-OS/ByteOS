@@ -456,6 +456,10 @@ impl INodeInterface for RamFile {
 }
 
 impl INodeInterface for RamLink {
+    fn metadata(&self) -> VfsResult<Metadata> {
+        self.link_file.metadata()
+    }
+
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         self.link_file.stat(stat)
     }
