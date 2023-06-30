@@ -1,7 +1,7 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
-use executor::{MemType, UserTask, current_user_task};
+use executor::{current_user_task, MemType, UserTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
@@ -17,16 +17,26 @@ pub mod signal;
 /// copy page or remap page.
 pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
-    warn!("store/instruction page fault @ {:#x} vpn: {}   ppn: {}", addr, vpn, task.page_table.virt_to_phys(addr.into()));
+    warn!(
+        "store/instruction page fault @ {:#x} vpn: {}   ppn: {}",
+        addr,
+        vpn,
+        task.page_table.virt_to_phys(addr.into())
+    );
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
-    let finded = pcb.memset.iter_mut().rev().filter(|x| x.mtype != MemType::Shared).find_map(|mem_area| {
-        mem_area
-            .mtrackers
-            .iter_mut()
-            // .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
-            .find(|x| x.vpn == vpn)
-    });
+    let finded = pcb
+        .memset
+        .iter_mut()
+        .rev()
+        .filter(|x| x.mtype != MemType::Shared)
+        .find_map(|mem_area| {
+            mem_area
+                .mtrackers
+                .iter_mut()
+                // .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
+                .find(|x| x.vpn == vpn)
+        });
 
     match finded {
         Some(map_track) => {
@@ -110,7 +120,11 @@ pub async fn handle_user_interrupt(
             // } else {
             //     return UserTaskControlFlow::Break
             // }
-            current_user_task().tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+            current_user_task()
+                .tcb
+                .write()
+                .signal
+                .add_signal(SignalFlags::SIGSEGV);
             return UserTaskControlFlow::Break;
         }
         arch::TrapType::StorePageFault(addr) | arch::TrapType::InstructionPageFault(addr) => {

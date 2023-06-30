@@ -17,8 +17,9 @@ pub use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard, RwLock};
 
 use crate::{
-    filetable::{rlimits_new, FileTable, FileItem},
+    filetable::{rlimits_new, FileItem, FileTable},
     memset::{MapTrack, MemArea, MemType},
+    shm::MapedSharedMemory,
     signal::SignalList,
     task_id_alloc, thread, AsyncTask, MemSet, TaskId, FUTURE_LIST, TMS,
 };
@@ -67,7 +68,7 @@ impl AsyncTask for KernelTask {
     }
 }
 
-pub struct TaskInner {
+pub struct ProcessControlBlock {
     pub memset: MemSet,
     pub fd_table: FileTable,
     pub curr_dir: String,
@@ -78,6 +79,7 @@ pub struct TaskInner {
     pub rlimits: Vec<usize>,
     pub sigaction: [SigAction; 64],
     pub futex_table: Arc<Mutex<FutexTable>>,
+    pub shms: Vec<MapedSharedMemory>,
 }
 
 pub struct ThreadControlBlock {
@@ -94,7 +96,7 @@ pub struct ThreadControlBlock {
 pub struct UserTask {
     pub task_id: TaskId,
     pub page_table: PageTable,
-    pub pcb: Arc<Mutex<TaskInner>>,
+    pub pcb: Arc<Mutex<ProcessControlBlock>>,
     pub parent: Weak<dyn AsyncTask>,
     pub tcb: RwLock<ThreadControlBlock>,
 }
@@ -119,13 +121,13 @@ impl UserTask {
             vec![MapTrack {
                 vpn: VirtPage::new(0),
                 tracker: ppn.clone(),
-                rwx: 0
+                rwx: 0,
             }],
         )]);
 
         FUTURE_LIST.lock().insert(task_id, Pin::from(future));
 
-        let inner = TaskInner {
+        let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
             curr_dir: String::from("/tmp_home/"),
@@ -136,6 +138,7 @@ impl UserTask {
             rlimits: rlimits_new(),
             sigaction: [SigAction::new(); 64],
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
+            shms: vec![],
         };
 
         let tcb = RwLock::new(ThreadControlBlock {
@@ -157,7 +160,7 @@ impl UserTask {
         })
     }
 
-    pub fn inner_map<T>(&self, mut f: impl FnMut(&mut MutexGuard<TaskInner>) -> T) -> T {
+    pub fn inner_map<T>(&self, mut f: impl FnMut(&mut MutexGuard<ProcessControlBlock>) -> T) -> T {
         f(&mut self.pcb.lock())
     }
 
@@ -198,7 +201,7 @@ impl UserTask {
                 MapTrack {
                     vpn,
                     tracker: Arc::new(x),
-                    rwx: 0
+                    rwx: 0,
                 }
             })
             .collect();
@@ -253,9 +256,7 @@ impl UserTask {
     // }
 
     pub fn force_cx_ref(&self) -> &'static mut Context {
-        unsafe {
-            &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx
-        }
+        unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx }
     }
 
     pub fn exit_code(&self) -> Option<usize> {
@@ -357,6 +358,7 @@ impl UserTask {
         new_pcb.curr_dir = pcb.curr_dir.clone();
 
         pcb.children.push(new_task.clone());
+        new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
         pcb.memset
             .iter()
@@ -370,6 +372,15 @@ impl UserTask {
                 new_task.pcb.lock().memset.push(map_area);
             });
         drop(new_tcb_writer);
+        // map shms
+        warn!("map shms");
+        pcb.shms.iter().enumerate().for_each(|(i, x)| {
+            new_task.map(
+                x.mem.trackers[i].0,
+                VirtPage::from_addr(x.start).add(i),
+                PTEFlags::UVRWX,
+            );
+        });
         thread::spawn(new_task.clone());
         new_task
     }
@@ -395,6 +406,7 @@ impl UserTask {
         new_tcb_writer.cx.set_ret(0);
         new_pcb.curr_dir = pcb.curr_dir.clone();
         pcb.children.push(new_task.clone());
+        new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
         pcb.memset
             .iter()
@@ -423,6 +435,21 @@ impl UserTask {
         //         new_task.pcb.lock().memset.push(map_area);
         //     });
         drop(new_tcb_writer);
+        warn!("shm map");
+        pcb.shms.iter().for_each(|x| {
+            x.mem.trackers.iter().enumerate().for_each(|(i, tracker)| {
+                warn!(
+                    "shm map {} @ {}",
+                    VirtPage::from_addr(x.start).add(i),
+                    tracker.0
+                );
+                new_task.map(
+                    tracker.0,
+                    VirtPage::from_addr(x.start).add(i),
+                    PTEFlags::UVRWX,
+                );
+            });
+        });
         thread::spawn(new_task.clone());
         new_task
     }
@@ -516,22 +543,34 @@ impl UserTask {
     }
 
     pub fn get_last_free_addr(&self) -> VirtAddr {
-        VirtAddr::new(
-            self.pcb
-                .lock()
-                .memset
-                .iter()
-                .filter(|x| x.mtype != MemType::Stack)
-                .fold(0, |acc, x| {
-                    x.mtrackers
-                        .iter()
-                        .filter(|x| x.vpn.to_addr() > acc && x.vpn.to_addr() <= u32::MAX as usize)
-                        .map(|x| x.vpn.to_addr())
-                        .max()
-                        .unwrap_or(acc)
-                })
-                + PAGE_SIZE,
-        )
+        let map_last = self
+            .pcb
+            .lock()
+            .memset
+            .iter()
+            .filter(|x| x.mtype != MemType::Stack)
+            .fold(0, |acc, x| {
+                x.mtrackers
+                    .iter()
+                    .filter(|x| x.vpn.to_addr() > acc && x.vpn.to_addr() <= u32::MAX as usize)
+                    .map(|x| x.vpn.to_addr())
+                    .max()
+                    .unwrap_or(acc)
+            })
+            + PAGE_SIZE;
+        let shm_last = self.pcb.lock().shms.iter().fold(0, |acc, v| {
+            if v.start + v.size > acc {
+                v.start + v.size
+            } else {
+                acc
+            }
+        });
+
+        VirtAddr::new(if map_last > shm_last {
+            map_last
+        } else {
+            shm_last
+        })
     }
 
     pub fn get_fd(&self, index: usize) -> Option<FileItem> {

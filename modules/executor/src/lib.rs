@@ -12,6 +12,7 @@ mod executor;
 mod filetable;
 mod memset;
 mod ops;
+pub mod shm;
 mod signal;
 mod task;
 pub mod thread;
@@ -21,10 +22,10 @@ use core::{future::Future, pin::Pin, task::Context};
 
 use alloc::boxed::Box;
 pub use executor::*;
+pub use filetable::{FileItem, FileItemInterface, FileOptions};
 pub use memset::*;
 pub use ops::*;
 pub use task::*;
-pub use filetable::{FileItem, FileItemInterface, FileOptions};
 
 // tms_utime记录的是进程执行用户代码的时间.
 // tms_stime记录的是进程执行内核代码的时间.

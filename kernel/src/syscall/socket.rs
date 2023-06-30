@@ -1,8 +1,8 @@
 use alloc::{collections::BTreeMap, sync::Arc};
 use devices::NET_DEVICES;
-use executor::{current_user_task, yield_now, UserTask, FileItem};
-use fs::INodeInterface;
+use executor::{current_user_task, yield_now, FileItem, UserTask};
 use fs::socket::{self, NetType, SocketOps};
+use fs::INodeInterface;
 use log::debug;
 use lose_net_stack::packets::tcp::TCPPacket;
 use lose_net_stack::packets::udp::UDPPacket;

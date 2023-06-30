@@ -75,7 +75,11 @@ unsafe extern "C" fn _start() -> ! {
 
 pub fn switch_to_kernel_page_table() {
     unsafe {
-        riscv::register::satp::set(riscv::register::satp::Mode::Sv39, 0, (PAGE_TABLE.as_ptr() as usize & !VIRT_ADDR_START ) >> 12);
+        riscv::register::satp::set(
+            riscv::register::satp::Mode::Sv39,
+            0,
+            (PAGE_TABLE.as_ptr() as usize & !VIRT_ADDR_START) >> 12,
+        );
         sfence_vma_all();
     }
 }

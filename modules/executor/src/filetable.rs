@@ -1,9 +1,9 @@
 use core::ops::{Deref, DerefMut};
 
-use alloc::{sync::Arc, vec::Vec, string::String};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use devfs::Tty;
-use fs::{INodeInterface, VfsError, mount::open, WaitBlockingWrite, WaitBlockingRead};
-use vfscore::{DirEntry, Metadata, OpenFlags, MMapFlags, Stat, StatFS, TimeSpec, PollEvent};
+use fs::{mount::open, INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite};
+use vfscore::{DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, Stat, StatFS, TimeSpec};
 
 const FILE_MAX: usize = 255;
 const FD_NONE: Option<FileItem> = Option::None;
@@ -15,7 +15,10 @@ pub struct FileTable(pub Vec<Option<FileItem>>);
 impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<FileItem>> = vec![FD_NONE; FILE_MAX];
-        file_table[..3].fill(Some(FileItem::new(Arc::new(Tty::new()), Default::default())));
+        file_table[..3].fill(Some(FileItem::new(
+            Arc::new(Tty::new()),
+            Default::default(),
+        )));
         Self(file_table)
     }
 }
@@ -59,7 +62,7 @@ impl Default for FileOptions {
 #[derive(Clone)]
 pub struct FileItem {
     pub inner: Arc<dyn INodeInterface>,
-    pub options: FileOptions
+    pub options: FileOptions,
 }
 
 pub trait FileItemInterface: INodeInterface {
@@ -69,10 +72,7 @@ pub trait FileItemInterface: INodeInterface {
 
 impl FileItem {
     pub fn new(inner: Arc<dyn INodeInterface>, options: FileOptions) -> Self {
-        Self {
-            inner,
-            options
-        }
+        Self { inner, options }
     }
 
     pub fn get_bare_file(&self) -> Arc<dyn INodeInterface> {
@@ -82,7 +82,7 @@ impl FileItem {
     pub fn fs_open(path: &str, options: FileOptions) -> Result<Self, VfsError> {
         Ok(Self {
             inner: open(path)?,
-            options
+            options,
         })
     }
 
@@ -93,7 +93,7 @@ impl FileItem {
         } else {
             Err(VfsError::NotWriteable)
         }
-    } 
+    }
 }
 
 #[allow(dead_code)]
