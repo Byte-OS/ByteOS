@@ -17,7 +17,7 @@ pub mod signal;
 /// copy page or remap page.
 pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
-    warn!("store/instruction page fault @ {:#x} vpn: {}", addr, vpn);
+    warn!("store/instruction page fault @ {:#x} vpn: {}   ppn: {}", addr, vpn, task.page_table.virt_to_phys(addr.into()));
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
     let finded = pcb.memset.iter_mut().rev().filter(|x| x.mtype != MemType::Shared).find_map(|mem_area| {

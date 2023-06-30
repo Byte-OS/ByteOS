@@ -525,7 +525,7 @@ impl UserTask {
                 .fold(0, |acc, x| {
                     x.mtrackers
                         .iter()
-                        .filter(|x| x.vpn.to_addr() > acc)
+                        .filter(|x| x.vpn.to_addr() > acc && x.vpn.to_addr() <= u32::MAX as usize)
                         .map(|x| x.vpn.to_addr())
                         .max()
                         .unwrap_or(acc)

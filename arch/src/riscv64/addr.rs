@@ -154,6 +154,11 @@ impl Add<usize> for PhysPage {
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtPage(pub(crate) usize);
+impl From<VirtAddr> for VirtPage {
+    fn from(value: VirtAddr) -> Self {
+        Self(value.0 >> 12)
+    }
+}
 
 impl PhysPage {
     #[inline]
