@@ -137,7 +137,11 @@ impl MemArea {
         if let Some(map_track) = finded_tracker {
             map_track.tracker = tracker;
         } else {
-            self.mtrackers.push(MapTrack { vpn, tracker, rwx: 0 })
+            self.mtrackers.push(MapTrack {
+                vpn,
+                tracker,
+                rwx: 0,
+            })
         }
     }
     pub fn fork(&self) -> Self {

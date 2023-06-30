@@ -201,6 +201,7 @@ pub const SYS_WRITE: usize = 64;
 pub const SYS_READV: usize = 65;
 pub const SYS_WRITEV: usize = 66;
 pub const SYS_PREAD: usize = 67;
+pub const SYS_PWRITE: usize = 68;
 pub const SYS_SENDFILE: usize = 71;
 pub const SYS_PSELECT: usize = 72;
 pub const SYS_PPOLL: usize = 73;

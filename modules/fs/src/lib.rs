@@ -17,7 +17,10 @@ use ramfs::RamFs;
 use sync::LazyInit;
 use vfscore::{DirEntry, FileSystem, MountedInfo, VfsResult};
 
-use crate::{fatfs_shim::Fat32FileSystem, mount::{mount, open}};
+use crate::{
+    fatfs_shim::Fat32FileSystem,
+    mount::{mount, open},
+};
 
 #[macro_use]
 extern crate alloc;
@@ -108,7 +111,9 @@ pub fn init() {
         let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
         let tmpfs = open("/tmp_home").expect("can't open /tmp_home");
         for file in rootfs.read_dir().expect("can't read files") {
-            tmpfs.link(&file.filename, &(String::from("/") + &file.filename)).expect("can't link file to tmpfs");
+            tmpfs
+                .link(&file.filename, &(String::from("/") + &file.filename))
+                .expect("can't link file to tmpfs");
         }
     }
     cache::init();

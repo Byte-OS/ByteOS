@@ -570,10 +570,7 @@ pub fn sys_exit_group(exit_code: usize) -> Result<usize, LinuxError> {
     debug!("sys_exit_group @ exit_code: {}", exit_code);
     let user_task = current_user_task();
     let children = user_task.pcb.lock().children.clone();
-    for ctask in children
-        .iter()
-        .filter(|x| x.task_id != user_task.task_id)
-    {
+    for ctask in children.iter().filter(|x| x.task_id != user_task.task_id) {
         ctask.exit(exit_code);
     }
     user_task.exit(exit_code);
