@@ -2,7 +2,7 @@ use signal::SignalFlags;
 
 #[derive(Debug, Clone)]
 pub struct SignalList {
-    signal: usize,
+    pub signal: usize,
 }
 
 impl SignalList {
@@ -42,6 +42,7 @@ impl SignalList {
     }
 
     pub fn has_sig(&self, signal: SignalFlags) -> bool {
-        self.signal & !signal.bits() as usize != 0
+        // self.signal & !signal.bits() as usize != 0
+        self.signal & signal.bits() as usize != 0
     }
 }

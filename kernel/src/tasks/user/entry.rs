@@ -3,10 +3,11 @@ use core::future::Future;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use arch::ContextOps;
+use executor::signal::SignalList;
 use executor::{current_task, current_user_task, yield_now, AsyncTask, UserTask};
 use hal::TimeVal;
 use log::debug;
-use signal::SignalFlags;
+use signal::{SignalFlags, SigProcMask};
 
 use crate::tasks::user::{handle_user_interrupt, signal::handle_signal};
 use crate::tasks::UserTaskControlFlow;
@@ -29,6 +30,12 @@ pub fn check_timer(task: &Arc<UserTask>) {
     }
 }
 
+pub fn mask_signal_list(mask: SigProcMask, list: SignalList) -> SignalList {
+    SignalList {
+        signal: !mask.mask & list.signal,
+    }
+}
+
 pub async fn user_entry_inner() {
     let mut times = 0;
     loop {
@@ -39,8 +46,10 @@ pub async fn user_entry_inner() {
         check_timer(&task);
 
         loop {
-            let signal = task.tcb.read().signal.try_get_signal();
+            let sig_mask = task.tcb.read().sigmask;
+            let signal = mask_signal_list(sig_mask, task.tcb.read().signal.clone()).try_get_signal();
             if let Some(signal) = signal {
+                debug!("mask: {:?}", sig_mask);
                 handle_signal(task.clone(), signal.clone()).await;
                 task.tcb.write().signal.remove_signal(signal);
             } else {
