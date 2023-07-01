@@ -156,6 +156,29 @@ pub async fn sys_recvfrom(
     Ok(rlen)
 }
 
+pub async fn sys_getsockname(
+    socket_fd: usize,
+    addr_ptr: UserRef<SocketAddrIn>,
+    len: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_getsockname @ socket_fd: {:#x}, addr_ptr: {}, len: {:#x}",
+        socket_fd, addr_ptr, len
+    );
+    Ok(0)
+}
+
+pub async fn sys_setsockopt(
+    socket: usize,
+    level: usize,
+    optname: usize,
+    optval: usize,
+    optlen: usize,
+) -> Result<usize, LinuxError> {
+    debug!("sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
+    Ok(0)
+}
+
 pub async fn sys_sendto(
     socket_fd: usize,
     buffer_ptr: UserRef<u8>,
@@ -270,9 +293,9 @@ impl SocketOps for SocketOpera {
         } else {
             IPv4::from_u32(ip)
         };
-        if ip == IPv4::new(127, 0, 0, 1) {
-            ip = IPv4::new(10, 0, 2, 15);
-        }
+        // if ip == IPv4::new(127, 0, 0, 1) {
+        //     ip = IPv4::new(10, 0, 2, 15);
+        // }
         let udp_packet = UDPPacket {
             source_ip: IPv4::new(10, 0, 2, 15),
             source_mac: MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
