@@ -354,9 +354,10 @@ pub async fn sys_wait4(
             .ok_or(LinuxError::ECHILD)?;
     }
     if options == 0 {
+        debug!("children:{:?}", curr_task.pcb.lock().children.iter().count());
         let child_task = WaitPid(curr_task.clone(), pid).await?;
 
-        debug!("wait ok: {}", child_task.get_task_id());
+        debug!("wait ok: {}  waiter: {}", child_task.get_task_id(), curr_task.get_task_id());
         curr_task
             .pcb
             .lock()
@@ -388,6 +389,7 @@ pub async fn sys_wait4(
                 if status.is_valid() {
                     *status.get_mut() = (t1 as i32) << 8;
                 }
+                // Ok(child_task.get_task_id())
                 Ok(0)
             }
             None => Ok(0),

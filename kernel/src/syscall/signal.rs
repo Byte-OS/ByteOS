@@ -82,6 +82,7 @@ pub async fn sys_sigprocmask(
     }
     if set.is_valid() {
         let sigmask = set.get_mut();
+        debug!("mask: {:?}", sigmask);
         tcb.sigmask.handle(how, sigmask)
     }
     drop(tcb);
@@ -129,6 +130,7 @@ pub async fn sys_sigsuspend(sigset: UserRef<SignalFlags>) -> Result<usize, Linux
         yield_now().await;
     }
     debug!("sys_sigsuspend @ sigset: {:?}", signal);
-    Err(LinuxError::EINTR)
-    // Ok(0)
+    // Err(LinuxError::EINTR)
+    // Err(LinuxError::EPERM)
+    Ok(0)
 }

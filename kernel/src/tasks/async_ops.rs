@@ -2,7 +2,7 @@ use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
 use arch::get_time_ms;
-use executor::{current_user_task, FutexTable, UserTask};
+use executor::{current_user_task, FutexTable, UserTask, AsyncTask};
 use signal::SignalFlags;
 use sync::Mutex;
 

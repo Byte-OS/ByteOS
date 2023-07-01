@@ -153,7 +153,7 @@ impl SigMaskHow {
 
 #[derive(Debug, Clone, Copy)]
 pub struct SigProcMask {
-    mask: usize,
+    pub mask: usize,
 }
 
 impl SigProcMask {

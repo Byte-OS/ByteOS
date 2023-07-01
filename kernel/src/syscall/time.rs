@@ -118,6 +118,7 @@ pub async fn sys_setitimer(
                 pcb.timer[0].next = Default::default();
                 pcb.timer[0].last = Default::default();
             }
+            log::error!("process timer: {:?}", pcb.timer[0]);
         }
         if old_timer_ptr.is_valid() {
             log::error!("old_timer: {:?}", old_timer_ptr.get_ref());

@@ -13,7 +13,7 @@ mod filetable;
 mod memset;
 mod ops;
 pub mod shm;
-mod signal;
+pub mod signal;
 mod task;
 pub mod thread;
 

@@ -218,7 +218,9 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-static.exe fdopen").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
     // command("./runtest.exe -w entry-dynamic.exe stat").await;
-
+    // command("./looper 2 ./multi.sh 1").await;
+    // command("busybox sh ./multi.sh 1").await;
+    // command("busybox sh ./tst.sh ./sort.src").await;
     // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
 
     // command("bin/sh").await;
