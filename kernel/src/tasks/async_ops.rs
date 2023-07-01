@@ -2,13 +2,10 @@ use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
 use arch::get_time_ms;
-use executor::{current_user_task, FutexTable, UserTask, AsyncTask};
-use signal::SignalFlags;
+use executor::{current_user_task, FutexTable, UserTask};
 use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;
-
-use super::user::entry::check_timer;
 
 pub struct NextTick(usize);
 
@@ -38,10 +35,6 @@ impl Future for WaitPid {
             .find(|x| (self.1 == -1 || x.task_id == self.1 as usize) && x.exit_code().is_some())
             .cloned();
         drop(inner);
-        check_timer(&self.0);
-        if self.0.tcb.read().signal.has_sig(SignalFlags::SIGALRM) {
-            return Poll::Ready(Err(LinuxError::EPERM));
-        }
         match res {
             Some(task) => Poll::Ready(Ok(task.clone())),
             None => Poll::Pending,

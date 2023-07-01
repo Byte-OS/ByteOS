@@ -389,8 +389,9 @@ pub async fn sys_wait4(
                 if status.is_valid() {
                     *status.get_mut() = (t1 as i32) << 8;
                 }
-                // Ok(child_task.get_task_id())
-                Ok(0)
+                // TIPS: This is a small change.
+                Ok(child_task.get_task_id())
+                // Ok(0)
             }
             None => Ok(0),
         }
