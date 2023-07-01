@@ -1,7 +1,9 @@
 #![no_std]
 
 extern crate alloc;
-extern crate log;
+
+mod meminfo;
+mod mounts;
 
 use core::mem::size_of;
 
@@ -11,79 +13,55 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
+use meminfo::MemInfo;
+use mounts::Mounts;
 use sync::Mutex;
 use vfscore::{
     DirEntry, Dirent64, FileSystem, FileType, INodeInterface, MountedInfo, StatMode, VfsError,
     VfsResult,
 };
 
-mod null;
-mod rtc;
-mod sdx;
-mod shm;
-mod tty;
-mod zero;
-
-pub use {sdx::Sdx, tty::Tty};
-
-pub struct DevFS {
-    root_dir: Arc<DevDir>,
+pub struct ProcFS {
+    root: Arc<ProcDir>,
 }
 
-impl DevFS {
+impl ProcFS {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
-            root_dir: Arc::new(DevDir::new()),
-        })
-    }
-
-    pub fn new_with_dir(dev: DevDir) -> Arc<Self> {
-        Arc::new(Self {
-            root_dir: Arc::new(dev),
+            root: ProcDir::new(),
         })
     }
 }
 
-impl FileSystem for DevFS {
+impl FileSystem for ProcFS {
     fn root_dir(&'static self, _mi: MountedInfo) -> Arc<dyn INodeInterface> {
         Arc::new(DevDirContainer {
-            inner: self.root_dir.clone(),
+            inner: self.root.clone(),
             dents_off: Mutex::new(0),
         })
     }
 
     fn name(&self) -> &str {
-        "devfs"
+        "procfs"
     }
 }
 
-pub struct DevDir {
+pub struct ProcDir {
     map: BTreeMap<&'static str, Arc<dyn INodeInterface>>,
 }
 
-pub struct DevDirContainer {
-    inner: Arc<DevDir>,
-    dents_off: Mutex<usize>,
+impl ProcDir {
+    pub fn new() -> Arc<ProcDir> {
+        let mut map: BTreeMap<&str, Arc<dyn INodeInterface>> = BTreeMap::new();
+        map.insert("mounts", Arc::new(Mounts::new()));
+        map.insert("meminfo", Arc::new(MemInfo::new()));
+        Arc::new(ProcDir { map })
+    }
 }
 
-impl DevDir {
-    pub fn new() -> Self {
-        let mut map: BTreeMap<&'static str, Arc<dyn INodeInterface>> = BTreeMap::new();
-        map.insert("stdout", Arc::new(Tty::new()));
-        map.insert("stderr", Arc::new(Tty::new()));
-        map.insert("stdin", Arc::new(Tty::new()));
-        map.insert("null", Arc::new(null::Null));
-        map.insert("zero", Arc::new(zero::Zero));
-        map.insert("shm", Arc::new(shm::Shm));
-        map.insert("rtc", Arc::new(rtc::Rtc));
-        // map.insert("tty", Arc::new(stdout::Stdout));
-
-        Self { map }
-    }
-
-    pub fn add(&mut self, path: &'static str, node: Arc<dyn INodeInterface>) {
-        self.map.insert(path, node);
-    }
+pub struct DevDirContainer {
+    inner: Arc<ProcDir>,
+    dents_off: Mutex<usize>,
 }
 
 impl INodeInterface for DevDirContainer {

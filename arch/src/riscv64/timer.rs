@@ -30,6 +30,7 @@ pub fn time_to_nsec(t: usize) -> usize {
 }
 
 // 设置下一次时钟中断触发时间
+#[inline]
 pub fn set_next_timeout() {
     // 调用sbi设置定时器
     set_timer(time::read() + CLOCK_FREQ / TICKS_PER_SEC);

@@ -7,7 +7,7 @@ use bit_field::BitArray;
 use executor::{
     current_task, current_user_task, yield_now, FileItem, FileItemInterface, FileOptions,
 };
-use fs::mount::{open, umount};
+use fs::mount::{open, rebuild_path, umount};
 use fs::pipe::create_pipe;
 use fs::{
     INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
@@ -121,7 +121,20 @@ pub async fn sys_mkdir_at(
     if path == "/" {
         return Err(LinuxError::EEXIST);
     }
-    dir.mkdir(path).map_err(from_vfs)?;
+
+    let path_str = rebuild_path(path);
+    let paths: Vec<&str> = path_str.split("/").collect();
+    let mut pfile = dir.inner;
+    for i in paths.into_iter().filter(|x| *x != "") {
+        let f = pfile.open(i, OpenFlags::O_RDWR);
+        if f.is_err() {
+            pfile.mkdir(i).map_err(from_vfs)?;
+        } else {
+            pfile = f.unwrap();
+        }
+    }
+    // a simple method
+    // dir.mkdir(path).map_err(from_vfs)?;
     Ok(0)
 }
 
@@ -520,7 +533,11 @@ pub async fn sys_utimensat(
         dir
     } else {
         let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
-        let file_path = format!("{}/{}", dir.path().map_err(from_vfs)?, path);
+        let file_path = if path.starts_with("/") {
+            String::from(path)
+        } else {
+            format!("{}/{}", dir.path().map_err(from_vfs)?, path)
+        };
         FileItem::fs_open(&file_path, Default::default()).map_err(from_vfs)?
     };
 

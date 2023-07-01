@@ -15,12 +15,12 @@ const SBI_REMOTE_SFENCE_VMA_ASID: usize = 7;
 const SBI_SHUTDOWN: usize = 8;
 
 // SBI 调用
-fn sbi_call(which: usize, arg0: usize, arg1: usize, arg2: usize) -> i32 {
+fn sbi_call(which: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
     let mut ret;
     unsafe {
         asm!("ecall",
         in("a7") which,
-        inlateout("a0") arg0 as i32 => ret,
+        inlateout("a0") arg0 => ret,
         in("a1") arg1,
         in("a2") arg2);
     }

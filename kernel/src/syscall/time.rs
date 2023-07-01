@@ -111,17 +111,17 @@ pub async fn sys_setitimer(
         let mut pcb = task.pcb.lock();
         if times_ptr.is_valid() {
             let new_timer = times_ptr.get_ref();
-            log::error!("timer: {:?}", times_ptr.get_ref());
+            // log::error!("timer: {:?}", times_ptr.get_ref());
             pcb.timer[0].timer = *new_timer;
             pcb.timer[0].next = TimeVal::now().add(pcb.timer[0].timer.value);
             if new_timer.value.sec == 0 && new_timer.value.usec == 0 {
                 pcb.timer[0].next = Default::default();
                 pcb.timer[0].last = Default::default();
             }
-            log::error!("process timer: {:?}", pcb.timer[0]);
+            // log::error!("process timer: {:?}", pcb.timer[0]);
         }
         if old_timer_ptr.is_valid() {
-            log::error!("old_timer: {:?}", old_timer_ptr.get_ref());
+            // log::error!("old_timer: {:?}", old_timer_ptr.get_ref());
             *old_timer_ptr.get_mut() = pcb.timer[0].timer;
         }
         Ok(0)

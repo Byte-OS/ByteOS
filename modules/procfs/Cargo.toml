@@ -1,5 +1,5 @@
 [package]
-name = "ramfs"
+name = "procfs"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,7 +7,4 @@ edition = "2021"
 
 [dependencies]
 vfscore = { path = "../../crates/vfscore" }
-log = "0.4"
 sync = { path = "../sync" }
-frame_allocator = { path = "../frame_allocator" }
-arch = { path = "../../arch" }

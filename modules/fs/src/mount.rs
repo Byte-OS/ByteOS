@@ -23,6 +23,8 @@ pub fn init() {
     mount(String::from("/tmp"), 2).expect("can't mount to /tmp");
     mount(String::from("/dev/shm"), 3).expect("can't mount to /dev/shm");
     mount(String::from("/tmp_home"), 4).expect("can't mount to /tmp_home");
+    mount(String::from("/var"), 5).expect("can't mount to /var");
+    mount(String::from("/proc"), 6).expect("can't mount to /proc");
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
@@ -62,6 +64,19 @@ pub fn rebuild_path(path: &str) -> String {
                 vec
             })
             .join("/")
+}
+
+pub fn split_parent(path: &str) -> (String, String) {
+    let path = rebuild_path(path);
+    let rindex = path.rfind("/");
+    if let Some(rindex) = rindex {
+        (
+            String::from(&path[..rindex]),
+            String::from(&path[rindex + 1..]),
+        )
+    } else {
+        (String::from("."), path)
+    }
 }
 
 #[no_mangle]

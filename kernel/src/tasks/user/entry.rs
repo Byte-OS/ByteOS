@@ -7,7 +7,7 @@ use executor::signal::SignalList;
 use executor::{current_task, current_user_task, yield_now, AsyncTask, UserTask};
 use hal::TimeVal;
 use log::debug;
-use signal::{SignalFlags, SigProcMask};
+use signal::{SigProcMask, SignalFlags};
 
 use crate::tasks::user::{handle_user_interrupt, signal::handle_signal};
 use crate::tasks::UserTaskControlFlow;
@@ -47,7 +47,8 @@ pub async fn user_entry_inner() {
 
         loop {
             let sig_mask = task.tcb.read().sigmask;
-            let signal = mask_signal_list(sig_mask, task.tcb.read().signal.clone()).try_get_signal();
+            let signal =
+                mask_signal_list(sig_mask, task.tcb.read().signal.clone()).try_get_signal();
             if let Some(signal) = signal {
                 debug!("mask: {:?}", sig_mask);
                 handle_signal(task.clone(), signal.clone()).await;

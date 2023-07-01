@@ -20,13 +20,14 @@ use self::{
         SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS,
         SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE,
         SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL,
-        SYS_KILL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC,
-        SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64,
-        SYS_PSELECT, SYS_PWRITE, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM,
-        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SET_TID_ADDRESS,
-        SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
-        SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_TIMES, SYS_TKILL,
-        SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT,
+        SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL,
+        SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ, SYS_READLINKAT, SYS_READV,
+        SYS_RECVFROM, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID,
+        SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK,
+        SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO,
+        SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4,
+        SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -39,8 +40,8 @@ use self::{
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{sys_accept, sys_bind, sys_listen, sys_recvfrom, sys_sendto, sys_socket},
     sys::{
-        sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_prlimit64, sys_setpgid,
-        sys_uname,
+        sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
+        sys_prlimit64, sys_setpgid, sys_uname,
     },
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_exit_group, sys_futex, sys_getcwd,
@@ -213,6 +214,8 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
+        SYS_KLOGCTL => sys_klogctl(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_SYSINFO => sys_info(args[0].into()).await,
         SYS_MSYNC => sys_msync(args[0], args[1], args[2] as _).await,
         SYS_EXIT_GROUP => sys_exit_group(args[0]),
         SYS_FTRUNCATE => sys_ftruncate(args[0], args[1]).await,
