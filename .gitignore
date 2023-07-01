@@ -6,3 +6,4 @@ kernel-qemu
 byteos.bin
 .cargo/linker-riscv.ld
 packets.pcap
+.gdb_history

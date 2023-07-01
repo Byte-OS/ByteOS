@@ -89,3 +89,27 @@ pub async fn sys_setpgid(pid: usize, pgid: usize) -> Result<usize, LinuxError> {
     warn!("set_pgid @ pid: {}, pgid: {}", pid, pgid);
     Ok(0)
 }
+
+pub async fn sys_klogctl(
+    log_type: usize,
+    buf: UserRef<u8>,
+    len: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_klogctl @ log_type: {:?} buf: {:?} len: {:?}",
+        log_type, buf, len
+    );
+    if buf.is_valid() {
+        let path = buf.get_cstr().expect("can't log file to control");
+        println!("{}", path);
+    }
+    Ok(0)
+}
+
+pub async fn sys_info(meminfo: UserRef<u8>) -> Result<usize, LinuxError> {
+    debug!("sys_info: {}", meminfo);
+    if meminfo.is_valid() {
+        *meminfo.get_mut() = 3;
+    }
+    Ok(0)
+}

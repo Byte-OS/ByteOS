@@ -13,9 +13,10 @@ use alloc::{string::String, sync::Arc, vec::Vec};
 use devfs::{DevDir, DevFS, Sdx};
 use devices::get_blk_devices;
 use mount::umount;
+use procfs::ProcFS;
 use ramfs::RamFs;
 use sync::LazyInit;
-use vfscore::{DirEntry, FileSystem, MountedInfo, VfsResult};
+use vfscore::{FileSystem, MountedInfo, VfsResult};
 
 use crate::{
     fatfs_shim::Fat32FileSystem,
@@ -79,6 +80,8 @@ pub fn init() {
     filesystems.push(RamFs::new());
     filesystems.push(RamFs::new());
     filesystems.push(RamFs::new());
+    filesystems.push(RamFs::new());
+    filesystems.push(ProcFS::new());
 
     FILESYSTEMS.init_by(filesystems);
 
@@ -88,9 +91,11 @@ pub fn init() {
         // create monnt point dev, tmp
         let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
         rootfs.mkdir("dev").expect("can't create devfs dir");
-        rootfs.mkdir("tmp").expect("can't create devfs dir");
-        rootfs.mkdir("lib").expect("can't create devfs dir");
-        rootfs.mkdir("tmp_home").expect("can't create devfs dir");
+        rootfs.mkdir("tmp").expect("can't create tmp dir");
+        rootfs.mkdir("lib").expect("can't create lib dir");
+        rootfs.mkdir("tmp_home").expect("can't create tmp_home dir");
+        rootfs.mkdir("var").expect("can't create var dir");
+        rootfs.mkdir("proc").expect("can't create proc dir");
 
         // let so_files: Vec<DirEntry> = rootfs
         //     .read_dir()
@@ -107,9 +112,29 @@ pub fn init() {
     }
     mount::init();
     {
+        // let cache_file = vec!["busybox", "entry-static.exe", "runtest.exe"];
         let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
         let tmpfs = open("/tmp_home").expect("can't open /tmp_home");
         for file in rootfs.read_dir().expect("can't read files") {
+            // let mut buffer = vec![0u8; 512];
+            // if cache_file.contains(&file.filename.as_str()) {
+            //     info!("cache file {} in tmp_home", file.filename);
+            //     let rfile = rootfs
+            //         .open(&file.filename, OpenFlags::O_RDWR)
+            //         .expect("can't open file before cache");
+            //     let dfile = tmpfs
+            //         .touch(&file.filename)
+            //         .expect("can't touch file before cache");
+            //     let mut rsize = 0;
+            //     loop {
+            //         rsize = rfile.read(&mut buffer).expect("can't read file");
+            //         if rsize == 0 {
+            //             break;
+            //         }
+            //         dfile.write(&buffer[..rsize]).expect("can't write file");
+            //     }
+            //     continue;
+            // }
             tmpfs
                 .link(&file.filename, &(String::from("/") + &file.filename))
                 .expect("can't link file to tmpfs");

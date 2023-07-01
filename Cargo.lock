@@ -124,6 +124,7 @@ dependencies = [
  "arch",
  "bitflags 2.0.2",
  "devices",
+ "hal",
  "log",
  "logging",
  "num_enum",
@@ -228,6 +229,7 @@ dependencies = [
  "frame_allocator",
  "log",
  "logging",
+ "procfs",
  "ramfs",
  "sync",
  "vfscore",
@@ -590,6 +592,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "procfs"
+version = "0.1.0"
+dependencies = [
+ "sync",
+ "vfscore",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -602,6 +612,8 @@ dependencies = [
 name = "ramfs"
 version = "0.1.0"
 dependencies = [
+ "arch",
+ "frame_allocator",
  "log",
  "sync",
  "vfscore",

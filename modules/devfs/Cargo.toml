@@ -14,3 +14,4 @@ log = "0.4"
 sync = { path = "../sync" }
 bitflags = "2.0.2"
 num_enum = { version = "0.6.1", default-features = false }
+hal = { path = "../hal" }

@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(drain_filter)]
 
+#[macro_use]
 extern crate alloc;
 
 use core::{
@@ -9,6 +10,8 @@ use core::{
 };
 
 use alloc::{format, string::String, sync::Arc, vec::Vec};
+use arch::PAGE_SIZE;
+use frame_allocator::{ceil_div, frame_alloc, FrameTracker};
 use sync::Mutex;
 use vfscore::{
     DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom,
@@ -53,7 +56,9 @@ pub struct RamDirInner {
 // TODO: use frame insteads of Vec.
 pub struct RamFileInner {
     name: String,
-    content: Mutex<Vec<u8>>,
+    // content: Mutex<Vec<u8>>,
+    len: Mutex<usize>,
+    pages: Mutex<Vec<FrameTracker>>,
     dir_path: String,
     times: Mutex<[TimeSpec; 3]>, // ctime, atime, mtime.
 }
@@ -141,9 +146,11 @@ impl INodeInterface for RamDir {
 
         let new_inner = Arc::new(RamFileInner {
             name: String::from(name),
-            content: Mutex::new(Vec::new()),
+            // content: Mutex::new(Vec::new()),
             dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
             times: Mutex::new([Default::default(); 3]),
+            len: Mutex::new(0),
+            pages: Mutex::new(vec![]),
         });
 
         let new_file = Arc::new(RamFile {
@@ -216,7 +223,8 @@ impl INodeInterface for RamDir {
             .map(|x| match x {
                 FileContainer::File(file) => DirEntry {
                     filename: file.name.clone(),
-                    len: file.content.lock().len(),
+                    // len: file.content.lock().len(),
+                    len: *file.len.lock(),
                     file_type: FileType::File,
                 },
                 FileContainer::Dir(dir) => DirEntry {
@@ -361,40 +369,79 @@ pub struct RamFile {
 
 impl INodeInterface for RamFile {
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-        let offset = *self.offset.lock();
-        let file_size = self.inner.content.lock().len();
+        let mut offset = *self.offset.lock();
+        let mut buffer_off = 0;
+        // let file_size = self.inner.content.lock().len();
+        let file_size = *self.inner.len.lock();
+        let inner = self.inner.pages.lock();
+
         match offset >= file_size {
             true => Ok(0),
             false => {
                 let read_len = min(buffer.len(), file_size - offset);
-                let content = self.inner.content.lock();
-                buffer[..read_len].copy_from_slice(&content[offset..(offset + read_len)]);
-                *self.offset.lock() += read_len;
+                let mut last_len = read_len;
+                // let content = self.inner.content.lock();
+                // buffer[..read_len].copy_from_slice(&content[offset..(offset + read_len)]);
+                loop {
+                    let curr_size = cmp::min(PAGE_SIZE - offset % PAGE_SIZE, last_len);
+                    if curr_size == 0 {
+                        break;
+                    }
+                    let index = offset / PAGE_SIZE;
+                    let page_data = inner[index].0.get_buffer();
+                    buffer[buffer_off..buffer_off + curr_size].copy_from_slice(
+                        &page_data[offset % PAGE_SIZE..offset % PAGE_SIZE + curr_size],
+                    );
+                    offset += curr_size;
+                    last_len -= curr_size;
+                    buffer_off += curr_size;
+                }
+                *self.offset.lock() = offset;
                 Ok(read_len)
             }
         }
     }
 
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
-        let offset = *self.offset.lock();
-        let file_size = self.inner.content.lock().len();
-        let wsize = buffer.len();
+        let mut offset = *self.offset.lock();
+        let mut buffer_off = 0;
+        let pages = ceil_div(offset + buffer.len(), PAGE_SIZE);
 
-        let part1 = cmp::min(file_size - offset, wsize);
-        let mut content = self.inner.content.lock();
-        content[offset..offset + part1].copy_from_slice(&buffer[..part1]);
-        // extend content if offset + buffer > content.len()
-        content.extend_from_slice(&buffer[part1..]);
+        let mut inner = self.inner.pages.lock();
 
-        *self.offset.lock() += wsize;
-        Ok(wsize)
+        for _ in inner.len()..pages {
+            inner.push(frame_alloc().expect("can't alloc frame in ram fs"));
+        }
+
+        let mut wsize = buffer.len();
+        loop {
+            let curr_size = cmp::min(PAGE_SIZE - offset % PAGE_SIZE, wsize);
+            if curr_size == 0 {
+                break;
+            }
+            let index = offset / PAGE_SIZE;
+            let page_data = inner[index].0.get_buffer();
+            page_data[offset % PAGE_SIZE..offset % PAGE_SIZE + curr_size]
+                .copy_from_slice(&buffer[buffer_off..buffer_off + curr_size]);
+            offset += curr_size;
+            buffer_off += curr_size;
+            wsize -= curr_size;
+        }
+
+        *self.offset.lock() = offset;
+        let file_size = *self.inner.len.lock();
+        if offset > file_size {
+            *self.inner.len.lock() = offset;
+        }
+        Ok(buffer.len())
     }
 
     fn seek(&self, seek: SeekFrom) -> VfsResult<usize> {
         let new_off = match seek {
             SeekFrom::SET(off) => off as isize,
             SeekFrom::CURRENT(off) => *self.offset.lock() as isize + off,
-            SeekFrom::END(off) => self.inner.content.lock().len() as isize + off,
+            // SeekFrom::END(off) => self.inner.content.lock().len() as isize + off,
+            SeekFrom::END(off) => *self.inner.len.lock() as isize + off,
         };
         match new_off >= 0 {
             true => {
@@ -406,7 +453,8 @@ impl INodeInterface for RamFile {
     }
 
     fn truncate(&self, size: usize) -> VfsResult<()> {
-        self.inner.content.lock().drain(size..);
+        // self.inner.content.lock().drain(size..);
+        *self.inner.len.lock() = size;
         Ok(())
     }
 
@@ -415,7 +463,8 @@ impl INodeInterface for RamFile {
             filename: &self.inner.name,
             inode: 0,
             file_type: FileType::File,
-            size: self.inner.content.lock().len(),
+            // size: self.inner.content.lock().len(),
+            size: *self.inner.len.lock(),
             childrens: 0,
         })
     }
@@ -434,7 +483,8 @@ impl INodeInterface for RamFile {
         stat.nlink = 1;
         stat.uid = 0;
         stat.gid = 0;
-        stat.size = self.inner.content.lock().len() as u64;
+        // stat.size = self.inner.content.lock().len() as u64;
+        stat.size = *self.inner.len.lock() as u64;
         stat.blksize = 512;
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id

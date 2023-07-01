@@ -5,7 +5,7 @@ use core::{
     slice::from_raw_parts_mut,
 };
 
-use crate::{paddr_cn, ppn_c, PAGE_SIZE};
+use crate::{paddr_cn, ppn_c, PAGE_SIZE, VIRT_ADDR_START};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub(crate) usize);
@@ -174,6 +174,13 @@ impl PhysPage {
     #[inline]
     pub const fn to_addr(&self) -> usize {
         self.0 << 12
+    }
+
+    #[inline]
+    pub const fn get_buffer(&self) -> &'static mut [u8] {
+        unsafe {
+            core::slice::from_raw_parts_mut((self.0 << 12 | VIRT_ADDR_START) as *mut u8, PAGE_SIZE)
+        }
     }
 
     #[inline]

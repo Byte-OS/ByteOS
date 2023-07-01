@@ -105,6 +105,12 @@ pub fn exec_with_process<'a>(
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     debug!("exec: {:?}", args);
 
+    if path == "/bin/true" {
+        let ctask = task.as_user_task().unwrap();
+        ctask.exit(0);
+        return Ok(ctask);
+    }
+
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
     let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
@@ -191,6 +197,7 @@ pub fn exec_with_process<'a>(
         "LD_LIBRARY_PATH=/",
         "PS1=\x1b[1m\x1b[32mByteOS\x1b[0m:\x1b[1m\x1b[34m\\w\x1b[0m\\$ \0",
         "PATH=/:/bin:/usr/bin",
+        "UB_BINDIR=./",
     ];
     let envp: Vec<usize> = envp
         .into_iter()
@@ -353,11 +360,18 @@ pub async fn sys_wait4(
             })
             .ok_or(LinuxError::ECHILD)?;
     }
-    if options == 0 {
-        debug!("children:{:?}", curr_task.pcb.lock().children.iter().count());
+    if options == 0 || options == 2 || options == 3 {
+        debug!(
+            "children:{:?}",
+            curr_task.pcb.lock().children.iter().count()
+        );
         let child_task = WaitPid(curr_task.clone(), pid).await?;
 
-        debug!("wait ok: {}  waiter: {}", child_task.get_task_id(), curr_task.get_task_id());
+        debug!(
+            "wait ok: {}  waiter: {}",
+            child_task.get_task_id(),
+            curr_task.get_task_id()
+        );
         curr_task
             .pcb
             .lock()
@@ -578,6 +592,7 @@ pub fn sys_exit_group(exit_code: usize) -> Result<usize, LinuxError> {
     }
     user_task.exit(exit_code);
     Ok(0)
+    // Err(LinuxError::EPERM)
 }
 
 pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {

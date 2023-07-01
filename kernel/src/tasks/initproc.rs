@@ -207,12 +207,12 @@ pub async fn initproc() {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
-    // command("time-test").await;
-    // command("busybox sh libctest_testcode.sh").await;
-    // command("busybox sh busybox_testcode.sh").await;
-    // command("busybox sh lua_testcode.sh").await;
-    // command("busybox sh lmbench_testcode.sh").await;
-    // command("busybox sh iozone_testcode.sh").await;
+    command("time-test").await;
+    command("busybox sh libctest_testcode.sh").await;
+    command("busybox sh busybox_testcode.sh").await;
+    command("busybox sh lua_testcode.sh").await;
+    command("busybox ash lmbench_testcode.sh").await;
+    command("busybox sh iozone_testcode.sh").await;
     command("busybox sh unixbench_testcode.sh").await;
     // command("busybox sh cyclictest_tescode.sh").await;
     // command("./runtest.exe -w entry-static.exe fdopen").await;
@@ -233,7 +233,6 @@ pub async fn initproc() {
     // command("lmbench_all lat_syscall -P 1 read").await;
     // command("lmbench_all lat_syscall -P 1 write").await;
     // command("./lmbench_all lat_pipe -P 1").await;
-    // command("busybox sh").await;
     // command("bin/bash busybox_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;
