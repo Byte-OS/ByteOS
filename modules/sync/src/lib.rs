@@ -2,6 +2,7 @@
 
 pub use spin::{
     Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockUpgradableGuard, RwLockWriteGuard,
+    lazy::Lazy
 };
 
 use core::cell::UnsafeCell;
