@@ -188,10 +188,10 @@ pub async fn sys_recvfrom(
     len: usize,
     flags: usize,
     addr: UserRef<SocketAddrIn>,
-    addr_len: usize,
+    addr_len: UserRef<usize>,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}, addr: {:#x?}, addr_len: {:#x}", 
+        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}, addr: {:#x?}, addr_len: {:#x?}", 
         socket_fd, buffer_ptr, len, flags, addr, addr_len
     );
     let buffer = buffer_ptr.slice_mut_with_len(len);
@@ -203,19 +203,16 @@ pub async fn sys_recvfrom(
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
-    let remote = if addr.is_valid() {
-        let socket_addr = addr.get_mut();
-        Some(SocketAddrV4::new(
-            socket_addr.addr,
-            socket_addr.in_port.to_be(),
-        ))
-    } else {
-        None
-    };
-    debug!("try to receive socket data from {:?}", remote);
-    let data = socket.inner.recv_from(remote).expect("buffer");
+    let (data, remote) = socket.inner.recv_from().expect("buffer");
     let rlen = cmp::min(data.len(), buffer.len());
     buffer[..rlen].copy_from_slice(&data[..rlen]);
+
+    if addr.is_valid() {
+        let socket_addr = addr.get_mut();
+        socket_addr.in_port = remote.port().to_be();
+        socket_addr.family = 2;
+        socket_addr.addr = *remote.ip();
+    }
     Ok(rlen)
 }
 
