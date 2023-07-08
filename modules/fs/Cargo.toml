@@ -16,7 +16,6 @@ ramfs = { path = "../ramfs" }
 procfs = { path = "../procfs" }
 frame_allocator = { path = "../frame_allocator" }
 arch = { path = "../../arch" }
-lose-net-stack = { git = "https://github.com/yfblock/lose-net-stack", rev = "ce80fe3", features = ["log"]}
 
 [dependencies.fatfs]
 git = "https://github.com/yfblock/rust-fatfs.git"

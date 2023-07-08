@@ -9,17 +9,18 @@ mod sys;
 mod task;
 mod time;
 
+pub use socket::NET_SERVER;
 pub use task::exec_with_process;
 
 use log::warn;
 
 use self::{
     consts::{
-        LinuxError, SYS_ACCEPT, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_DUP,
-        SYS_DUP3, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL,
-        SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS,
-        SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE,
-        SYS_GETSOCKNAME, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID,
+        LinuxError, SYS_ACCEPT, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_CONNECT,
+        SYS_DUP, SYS_DUP3, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2,
+        SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD,
+        SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID,
+        SYS_GETRUSAGE, SYS_GETSOCKNAME, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID,
         SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT,
         SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
         SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ,
@@ -27,7 +28,7 @@ use self::{
         SYS_SETITIMER, SYS_SETPGID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL,
         SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND,
         SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV, SYS_CONNECT,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -39,8 +40,8 @@ use self::{
     shm::{sys_shmat, sys_shmctl, sys_shmget},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
-        sys_accept, sys_bind, sys_getsockname, sys_listen, sys_recvfrom, sys_sendto,
-        sys_setsockopt, sys_socket, sys_connect,
+        sys_accept, sys_bind, sys_connect, sys_getsockname, sys_listen, sys_recvfrom, sys_sendto,
+        sys_setsockopt, sys_socket,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
@@ -200,7 +201,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
                 args[1].into(),
                 args[2] as _,
                 args[3] as _,
-                args[4] as _,
+                args[4].into(),
                 args[5] as _,
             )
             .await

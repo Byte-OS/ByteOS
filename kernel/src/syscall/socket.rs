@@ -3,25 +3,24 @@ use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
 use executor::{current_user_task, yield_now, FileItem, UserTask};
-use fs::socket::{NetType, self, SocketWrapper};
-use fs::INodeInterface;
 use log::debug;
-use lose_net_stack::connection::{NetServer, tcp};
+use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
 
-
 use lose_net_stack::MacAddress;
-use sync::{Lazy, LazyInit};
+use sync::Lazy;
+
+use crate::socket::{self, NetType};
 
 use super::consts::{LinuxError, UserRef};
 
-type Socket = socket::Socket<NetMod>;
+type Socket = socket::Socket;
 
 #[derive(Debug)]
 pub struct NetMod;
 
 impl NetInterface for NetMod {
-    fn send(data: &[u8]) {
+    fn send(_data: &[u8]) {
         debug!("do nothing");
         // NET.lock().as_mut().unwrap().send(data);
     }
@@ -31,10 +30,12 @@ impl NetInterface for NetMod {
     }
 }
 
-pub static NET_SERVER: Lazy<Arc<NetServer<NetMod>>> = Lazy::new(|| Arc::new(NetServer::new(
-    MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
-    Ipv4Addr::new(10, 0, 2, 15)
-)));
+pub static NET_SERVER: Lazy<Arc<NetServer<NetMod>>> = Lazy::new(|| {
+    Arc::new(NetServer::new(
+        MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+        Ipv4Addr::new(10, 0, 2, 15),
+    ))
+});
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -94,19 +95,6 @@ pub async fn sys_bind(
         .map_err(|_| LinuxError::EINVAL)?;
 
     let net_server = NET_SERVER.clone();
-
-    if socket_addr.in_port == 0 {
-        socket_addr.in_port = match socket.net_type {
-            NetType::STEAM => {
-                net_server.alloc_tcp_port()
-            },
-            NetType::DGRAME => {
-                net_server.alloc_udp_port()
-            },
-            NetType::RAW => 0,
-        }.to_be();
-    }
-
     let port = socket_addr.in_port.to_be();
 
     match socket.net_type {
@@ -114,29 +102,21 @@ pub async fn sys_bind(
             if net_server.tcp_is_used(port) {
                 return Err(LinuxError::EBUSY);
             }
-        },
+        }
         NetType::DGRAME => {
             if net_server.udp_is_used(port) {
                 return Err(LinuxError::EBUSY);
             }
-        },
-        NetType::RAW => {},
+        }
+        NetType::RAW => {}
     }
 
-    if port != 0 {
-        // port_bind(port, socket)
-        match socket.net_type {
-            NetType::STEAM => {
-                let server = net_server.listen_tcp(port).expect("can't listen to UDP");
-                socket.inner.init_by(SocketWrapper::TcpServer(server));
-            },
-            NetType::DGRAME => {
-                let server = net_server.listen_udp(port).expect("can't listen to UDP");
-                socket.inner.init_by(SocketWrapper::Udp(server));
-            },
-            NetType::RAW => {},
-        }
-    }
+    // if port != 0 {
+    //     // port_bind(port, socket)
+    //     socket.inner.clone().bind(SocketAddrV4::new(socket_addr.addr, port));
+    // }
+    let local = SocketAddrV4::new(socket_addr.addr, port);
+    socket.inner.clone().bind(local);
     debug!("socket_addr: {:#x?}", socket_addr);
     Ok(0)
 }
@@ -152,6 +132,7 @@ pub async fn sys_listen(socket_fd: usize, backlog: usize) -> Result<usize, Linux
         .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?
+        .inner
         .listen();
     Ok(0)
 }
@@ -193,24 +174,10 @@ pub async fn sys_connect(
         .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
-    let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
 
-    if !socket.inner.is_init() {
-        let port = NET_SERVER.alloc_tcp_port();
-        socket.inner.init_by(SocketWrapper::TcpServer(NET_SERVER.listen_tcp(port).expect("can't create socket udp @ send")));
-    }
     let socket_addr = socket_addr.get_mut();
     let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
-    match socket.inner.try_get().unwrap() {
-        SocketWrapper::TcpServer(tcp_serve) => {
-            let tcp_conn = tcp_serve.connect(remote).ok_or(LinuxError::EMFILE)?;
-            let inner: LazyInit<SocketWrapper<NetMod>> = LazyInit::new();
-            inner.init_by(SocketWrapper::TcpConnection(tcp_conn));
-            let new_socket = Socket::new(socket.domain, socket.net_type);
-            task.set_fd(fd, Some(FileItem::new(new_socket, Default::default())));
-        },
-        _ => {}
-    }
+    socket.inner.connect(remote);
     // Ok(fd)
     Ok(0)
 }
@@ -220,11 +187,11 @@ pub async fn sys_recvfrom(
     buffer_ptr: UserRef<u8>,
     len: usize,
     flags: usize,
-    addr: usize,
+    addr: UserRef<SocketAddrIn>,
     addr_len: usize,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}, addr: {:#x}, addr_len: {:#x}", 
+        "sys_recvfrom @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}, addr: {:#x?}, addr_len: {:#x}", 
         socket_fd, buffer_ptr, len, flags, addr, addr_len
     );
     let buffer = buffer_ptr.slice_mut_with_len(len);
@@ -235,22 +202,21 @@ pub async fn sys_recvfrom(
         .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
-    match socket.inner.try_get().unwrap() {
-        SocketWrapper::Udp(udp_client) => {
-            let rlen = loop {
-                if let Some(buf) = udp_client.receve_from() {
-                    let rlen = cmp::min(buf.data.len(), buffer.len());
-                    buffer[..rlen].copy_from_slice(&buf.data[..rlen]);
-                    break rlen;
-                }
-                yield_now().await;
-            };
-            Ok(rlen)
-        },
-        _ => {
-            Err(LinuxError::EPERM)
-        }
-    }
+
+    let remote = if addr.is_valid() {
+        let socket_addr = addr.get_mut();
+        Some(SocketAddrV4::new(
+            socket_addr.addr,
+            socket_addr.in_port.to_be(),
+        ))
+    } else {
+        None
+    };
+    debug!("try to receive socket data from {:?}", remote);
+    let data = socket.inner.recv_from(remote).expect("buffer");
+    let rlen = cmp::min(data.len(), buffer.len());
+    buffer[..rlen].copy_from_slice(&data[..rlen]);
+    Ok(rlen)
 }
 
 pub async fn sys_getsockname(
@@ -262,6 +228,21 @@ pub async fn sys_getsockname(
         "sys_getsockname @ socket_fd: {:#x}, addr_ptr: {}, len: {:#x}",
         socket_fd, addr_ptr, len
     );
+    let task = current_user_task();
+    let socket = task
+        .get_fd(socket_fd)
+        .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    if addr_ptr.is_valid() {
+        let socket_address = socket.inner.get_local().expect("can't get socket address");
+        let socket_addr = addr_ptr.get_mut();
+        socket_addr.family = 2;
+        socket_addr.addr = *socket_address.ip();
+        socket_addr.in_port = socket_address.port().to_be();
+        debug!("socket address: {:?}", socket_address);
+    }
     Ok(0)
 }
 
@@ -297,31 +278,37 @@ pub async fn sys_sendto(
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
-    if !socket.inner.is_init() {
-        let port = NET_SERVER.alloc_udp_port();
-        socket.inner.init_by(SocketWrapper::Udp(NET_SERVER.listen_udp(port).expect("can't create socket udp @ send")));
+    if socket.inner.get_local().unwrap().port() == 0 {
+        socket
+            .inner
+            .clone()
+            .bind(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     }
-    match socket.inner.try_get().unwrap() {
-        SocketWrapper::Udp(udp_client) => {
-            let socket_addr = addr_ptr.get_mut();
-            udp_client.sendto(SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be()), &buffer);
-            // SocketOpera::udp_send(
-            //     socket_addr.addr.to_be(),
-            //     socket_addr.in_port.to_be(),
-            //     &buffer,
-            // );
-            Ok(buffer.len())
-        },
-        _ => {
-            Err(LinuxError::EPERM)
-        }
-    }
+
+    let remote = if addr_ptr.is_valid() {
+        let socket_addr = addr_ptr.get_mut();
+        Some(SocketAddrV4::new(
+            socket_addr.addr,
+            socket_addr.in_port.to_be(),
+        ))
+    } else {
+        None
+    };
+
+    let wlen = socket.inner.sendto(buffer, remote).expect("buffer");
+    Ok(wlen)
 }
 
 pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
     loop {
-        if let Some(new_socket) = socket.accept() {
-            task.set_fd(fd, Some(FileItem::new(new_socket, Default::default())));
+        if let Ok(new_socket) = socket.inner.accept() {
+            task.set_fd(
+                fd,
+                Some(FileItem::new(
+                    Socket::new_with_inner(socket.domain, socket.net_type, new_socket),
+                    Default::default(),
+                )),
+            );
             return;
         }
         yield_now().await;
