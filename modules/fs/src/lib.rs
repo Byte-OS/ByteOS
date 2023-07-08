@@ -32,7 +32,6 @@ mod cache;
 mod fatfs_shim;
 pub mod mount;
 pub mod pipe;
-pub mod socket;
 
 pub type File = Arc<dyn INodeInterface>;
 

@@ -1,8 +1,7 @@
 #![no_std]
 
 pub use spin::{
-    Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockUpgradableGuard, RwLockWriteGuard,
-    lazy::Lazy
+    lazy::Lazy, Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockUpgradableGuard, RwLockWriteGuard,
 };
 
 use core::cell::UnsafeCell;

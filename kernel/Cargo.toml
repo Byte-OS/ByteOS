@@ -27,5 +27,6 @@ num_enum = { version = "0.6.1", default-features = false }
 bit_field = "0.10.1"
 kmacros = { path = "../modules/kmacros" }
 k210-sdcard = { path = "../modules/k210-sdcard", optional = true }
-# lose-net-stack = { git = "https://github.com/yfblock/lose-net-stack", rev = "f681312"}
-lose-net-stack = { git = "https://github.com/yfblock/lose-net-stack", rev = "ce80fe3", features = ["log"]}
+lose-net-stack = { git = "https://github.com/yfblock/lose-net-stack", rev = "8d287e6", features = ["log"]}
+# lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
+vfscore = { path = "../crates/vfscore" }

@@ -10,6 +10,7 @@ extern crate logging;
 extern crate alloc;
 
 mod modules;
+mod socket;
 mod syscall;
 mod tasks;
 
