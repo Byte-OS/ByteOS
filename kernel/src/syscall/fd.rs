@@ -470,6 +470,12 @@ pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, Linux
     if cmd == fcntl_cmd::DUPFD_CLOEXEC {
         return sys_dup(fd).await;
     }
+    if cmd == fcntl_cmd::GETFD {
+        return Ok(1);
+    }
+    if cmd == fcntl_cmd::GETFL {
+        return Ok(2048);
+    }
     // let file = current_task()
     //     .as_user_task()
     //     .unwrap()

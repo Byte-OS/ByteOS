@@ -216,7 +216,10 @@ pub async fn initproc() {
     // command("busybox sh unixbench_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;
     // command("./runtest.exe -w entry-static.exe fdopen").await;
-    command("./runtest.exe -w entry-static.exe socket").await;
+    // command("./runtest.exe -w entry-static.exe socket").await;
+    // command("./runtest.exe -w entry-dynamic.exe socket").await;
+    command("busybox sh netperf_testcode.sh").await;
+    // command("busybox sh iperf_testcode.sh").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
     // command("./runtest.exe -w entry-dynamic.exe stat").await;
     // command("./looper 2 ./multi.sh 1").await;

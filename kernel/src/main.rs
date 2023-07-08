@@ -2,6 +2,7 @@
 #![no_std]
 #![feature(exclusive_range_pattern)]
 #![feature(drain_filter)]
+#![feature(ip_in_core)]
 
 #[macro_use]
 extern crate logging;

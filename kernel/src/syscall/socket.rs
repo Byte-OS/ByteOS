@@ -1,19 +1,40 @@
-use alloc::{collections::BTreeMap, sync::Arc};
-use devices::NET_DEVICES;
+use core::cmp;
+use core::net::{Ipv4Addr, SocketAddrV4};
+
+use alloc::sync::Arc;
 use executor::{current_user_task, yield_now, FileItem, UserTask};
-use fs::socket::{self, NetType, SocketOps};
+use fs::socket::{NetType, self, SocketWrapper};
 use fs::INodeInterface;
 use log::debug;
-use lose_net_stack::packets::tcp::TCPPacket;
-use lose_net_stack::packets::udp::UDPPacket;
-use lose_net_stack::{IPv4, MacAddress, TcpFlags};
-use sync::Mutex;
+use lose_net_stack::connection::{NetServer, tcp};
+use lose_net_stack::net_trait::NetInterface;
+
+
+use lose_net_stack::MacAddress;
+use sync::{Lazy, LazyInit};
 
 use super::consts::{LinuxError, UserRef};
 
-type Socket = socket::Socket<SocketOpera>;
+type Socket = socket::Socket<NetMod>;
 
-pub static PORT_TABLE: Mutex<BTreeMap<u16, Arc<Socket>>> = Mutex::new(BTreeMap::new());
+#[derive(Debug)]
+pub struct NetMod;
+
+impl NetInterface for NetMod {
+    fn send(data: &[u8]) {
+        debug!("do nothing");
+        // NET.lock().as_mut().unwrap().send(data);
+    }
+
+    fn local_mac_address() -> MacAddress {
+        MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56])
+    }
+}
+
+pub static NET_SERVER: Lazy<Arc<NetServer<NetMod>>> = Lazy::new(|| Arc::new(NetServer::new(
+    MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
+    Ipv4Addr::new(10, 0, 2, 15)
+)));
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -27,7 +48,7 @@ struct SocketAddr {
 pub struct SocketAddrIn {
     family: u16,
     in_port: u16,
-    addr: u32,
+    addr: Ipv4Addr,
     sin_zero: [u8; 8],
 }
 
@@ -46,10 +67,9 @@ pub async fn sys_socket(
         "net_type: {:?}",
         NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?
     );
-    let socket = Socket::new(
-        domain,
-        NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?,
-    );
+    let net_type = NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?;
+
+    let socket = Socket::new(domain, net_type);
     task.set_fd(fd, Some(FileItem::new(socket, Default::default())));
     Ok(fd)
 }
@@ -66,12 +86,6 @@ pub async fn sys_bind(
     let task = current_user_task();
     let socket_addr = addr_ptr.get_mut();
 
-    if socket_addr.in_port == 0 {
-        socket_addr.in_port = port_alloc().to_be();
-    }
-
-    let port = socket_addr.in_port.to_be();
-
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
@@ -79,12 +93,49 @@ pub async fn sys_bind(
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
-    if port_used(port) {
-        return Err(LinuxError::EBUSY);
+    let net_server = NET_SERVER.clone();
+
+    if socket_addr.in_port == 0 {
+        socket_addr.in_port = match socket.net_type {
+            NetType::STEAM => {
+                net_server.alloc_tcp_port()
+            },
+            NetType::DGRAME => {
+                net_server.alloc_udp_port()
+            },
+            NetType::RAW => 0,
+        }.to_be();
+    }
+
+    let port = socket_addr.in_port.to_be();
+
+    match socket.net_type {
+        NetType::STEAM => {
+            if net_server.tcp_is_used(port) {
+                return Err(LinuxError::EBUSY);
+            }
+        },
+        NetType::DGRAME => {
+            if net_server.udp_is_used(port) {
+                return Err(LinuxError::EBUSY);
+            }
+        },
+        NetType::RAW => {},
     }
 
     if port != 0 {
-        port_bind(port, socket)
+        // port_bind(port, socket)
+        match socket.net_type {
+            NetType::STEAM => {
+                let server = net_server.listen_tcp(port).expect("can't listen to UDP");
+                socket.inner.init_by(SocketWrapper::TcpServer(server));
+            },
+            NetType::DGRAME => {
+                let server = net_server.listen_udp(port).expect("can't listen to UDP");
+                socket.inner.init_by(SocketWrapper::Udp(server));
+            },
+            NetType::RAW => {},
+        }
     }
     debug!("socket_addr: {:#x?}", socket_addr);
     Ok(0)
@@ -126,6 +177,44 @@ pub async fn sys_accept(
     Ok(fd)
 }
 
+pub async fn sys_connect(
+    socket_fd: usize,
+    socket_addr: UserRef<SocketAddrIn>,
+    len: usize,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_connect @ socket_fd: {:#x}, socket_addr: {:#x?}, len: {:#x}",
+        socket_fd, socket_addr, len
+    );
+    let task = current_user_task();
+    let socket = task
+        .get_fd(socket_fd)
+        .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+
+    if !socket.inner.is_init() {
+        let port = NET_SERVER.alloc_tcp_port();
+        socket.inner.init_by(SocketWrapper::TcpServer(NET_SERVER.listen_tcp(port).expect("can't create socket udp @ send")));
+    }
+    let socket_addr = socket_addr.get_mut();
+    let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
+    match socket.inner.try_get().unwrap() {
+        SocketWrapper::TcpServer(tcp_serve) => {
+            let tcp_conn = tcp_serve.connect(remote).ok_or(LinuxError::EMFILE)?;
+            let inner: LazyInit<SocketWrapper<NetMod>> = LazyInit::new();
+            inner.init_by(SocketWrapper::TcpConnection(tcp_conn));
+            let new_socket = Socket::new(socket.domain, socket.net_type);
+            task.set_fd(fd, Some(FileItem::new(new_socket, Default::default())));
+        },
+        _ => {}
+    }
+    // Ok(fd)
+    Ok(0)
+}
+
 pub async fn sys_recvfrom(
     socket_fd: usize,
     buffer_ptr: UserRef<u8>,
@@ -146,14 +235,22 @@ pub async fn sys_recvfrom(
         .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
-    let rlen = loop {
-        let rlen = socket.read(buffer).expect("cant recv from socket");
-        if rlen != 0 {
-            break rlen;
+    match socket.inner.try_get().unwrap() {
+        SocketWrapper::Udp(udp_client) => {
+            let rlen = loop {
+                if let Some(buf) = udp_client.receve_from() {
+                    let rlen = cmp::min(buf.data.len(), buffer.len());
+                    buffer[..rlen].copy_from_slice(&buf.data[..rlen]);
+                    break rlen;
+                }
+                yield_now().await;
+            };
+            Ok(rlen)
+        },
+        _ => {
+            Err(LinuxError::EPERM)
         }
-        yield_now().await;
-    };
-    Ok(rlen)
+    }
 }
 
 pub async fn sys_getsockname(
@@ -200,37 +297,25 @@ pub async fn sys_sendto(
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
-    let wlen = if socket.net_type == NetType::DGRAME {
-        let socket_addr = addr_ptr.get_mut();
-
-        SocketOpera::udp_send(
-            socket_addr.addr.to_be(),
-            socket_addr.in_port.to_be(),
-            &buffer,
-        );
-        buffer.len()
-    } else {
-        socket.write(buffer).expect("can't send to socket")
-    };
-    Ok(wlen)
-}
-
-pub fn port_used(port: u16) -> bool {
-    PORT_TABLE.lock().contains_key(&port)
-}
-
-pub fn port_bind(port: u16, socket: Arc<Socket>) {
-    socket.bind(port);
-    PORT_TABLE.lock().insert(port, socket);
-}
-
-pub fn port_alloc() -> u16 {
-    for i in 3000..65535 {
-        if !PORT_TABLE.lock().contains_key(&i) {
-            return i;
+    if !socket.inner.is_init() {
+        let port = NET_SERVER.alloc_udp_port();
+        socket.inner.init_by(SocketWrapper::Udp(NET_SERVER.listen_udp(port).expect("can't create socket udp @ send")));
+    }
+    match socket.inner.try_get().unwrap() {
+        SocketWrapper::Udp(udp_client) => {
+            let socket_addr = addr_ptr.get_mut();
+            udp_client.sendto(SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be()), &buffer);
+            // SocketOpera::udp_send(
+            //     socket_addr.addr.to_be(),
+            //     socket_addr.in_port.to_be(),
+            //     &buffer,
+            // );
+            Ok(buffer.len())
+        },
+        _ => {
+            Err(LinuxError::EPERM)
         }
     }
-    0
 }
 
 pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
@@ -240,77 +325,5 @@ pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
             return;
         }
         yield_now().await;
-    }
-}
-
-pub struct SocketOpera;
-
-impl SocketOps for SocketOpera {
-    // fn tcp_send(ip: u32, port: u16, ack: usize, data: &[u8]) {
-    //     debug!("tcp send to");
-    //     todo!()
-    // }
-    fn tcp_send(
-        ip: u32,
-        port: u16,
-        ack: u32,
-        seq: u32,
-        flags: u8,
-        win: u16,
-        urg: u16,
-        data: &[u8],
-    ) {
-        // let lose_stack = LoseStack::new(
-        //     IPv4::new(10, 0, 2, 15),
-        //     MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
-        // );
-
-        let tcp_packet = TCPPacket {
-            source_ip: IPv4::new(10, 0, 2, 15),
-            source_mac: MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
-            source_port: 2000,
-            dest_ip: IPv4::from_u32(ip),
-            dest_mac: MacAddress::new([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
-            dest_port: port,
-            data_len: data.len(),
-            seq,
-            ack,
-            flags: TcpFlags::from_bits_truncate(flags),
-            win,
-            urg,
-            data,
-        };
-        NET_DEVICES.lock()[0]
-            .send(&tcp_packet.build_data())
-            .expect("can't send date to net device");
-        // debug!("tcp send to");
-        // todo!()
-    }
-
-    fn udp_send(ip: u32, port: u16, data: &[u8]) {
-        let mut ip = if ip == 0 {
-            IPv4::new(10, 0, 2, 15)
-        } else {
-            IPv4::from_u32(ip)
-        };
-        // if ip == IPv4::new(127, 0, 0, 1) {
-        //     ip = IPv4::new(10, 0, 2, 15);
-        // }
-        let udp_packet = UDPPacket {
-            source_ip: IPv4::new(10, 0, 2, 15),
-            source_mac: MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
-            source_port: 2000,
-            dest_ip: ip,
-            dest_mac: MacAddress::new([0xff, 0xff, 0xff, 0xff, 0xff, 0xff]),
-            dest_port: port,
-            data_len: data.len(),
-            data,
-        };
-
-        debug!("send_port: {:?}", udp_packet);
-
-        NET_DEVICES.lock()[0]
-            .send(&udp_packet.build_data())
-            .expect("can't send date to net device");
     }
 }

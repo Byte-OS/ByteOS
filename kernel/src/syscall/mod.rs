@@ -27,7 +27,7 @@ use self::{
         SYS_SETITIMER, SYS_SETPGID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL,
         SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND,
         SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV, SYS_CONNECT,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -40,7 +40,7 @@ use self::{
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
         sys_accept, sys_bind, sys_getsockname, sys_listen, sys_recvfrom, sys_sendto,
-        sys_setsockopt, sys_socket,
+        sys_setsockopt, sys_socket, sys_connect,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
@@ -53,8 +53,6 @@ use self::{
     },
     time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_setitimer, sys_times},
 };
-
-pub use socket::PORT_TABLE;
 
 pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
     match call_type {
@@ -195,6 +193,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_BIND => sys_bind(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
         SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_CONNECT => sys_connect(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_RECVFROM => {
             sys_recvfrom(
                 args[0] as _,
