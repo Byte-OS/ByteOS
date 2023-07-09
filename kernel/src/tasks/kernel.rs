@@ -1,11 +1,13 @@
 use super::user::user_cow_int;
-use arch::{Context, TrapType};
+use arch::{Context, TrapType, VIRT_ADDR_START};
 use executor::get_current_task;
-use log::debug;
 
 pub fn kernel_interrupt(_cx: &mut Context, trap_type: TrapType) {
     match trap_type {
         TrapType::StorePageFault(addr) | TrapType::InstructionPageFault(addr) => {
+            if addr > VIRT_ADDR_START {
+                panic!("kernel error: {:#x}", addr);
+            }
             // judge whether it is trigger by a user_task handler.
             if let Some(task) = get_current_task() {
                 // let cx_ref = unsafe { task.get_cx_ptr().as_mut() }.unwrap();
@@ -24,7 +26,7 @@ pub fn kernel_interrupt(_cx: &mut Context, trap_type: TrapType) {
         }
         _ => {
             // warn!("trap_type: {:?}  context: {:#x?}", trap_type, cx);
-            debug!("kernel_interrupt");
+            // debug!("kernel_interrupt");
         }
     };
 }

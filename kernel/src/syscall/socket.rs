@@ -177,7 +177,8 @@ pub async fn sys_connect(
 
     let socket_addr = socket_addr.get_mut();
     let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
-    socket.inner.connect(remote);
+    socket.inner.clone().connect(remote);
+    yield_now().await;
     // Ok(fd)
     Ok(0)
 }
@@ -251,6 +252,17 @@ pub async fn sys_setsockopt(
     optlen: usize,
 ) -> Result<usize, LinuxError> {
     debug!("sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
+    Ok(0)
+}
+
+pub async fn sys_getsockopt(
+    socket: usize,
+    level: usize,
+    optname: usize,
+    optval: usize,
+    optlen: usize,
+) -> Result<usize, LinuxError> {
+    debug!("sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
     Ok(0)
 }
 

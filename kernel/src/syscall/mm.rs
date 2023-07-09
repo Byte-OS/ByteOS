@@ -2,9 +2,11 @@ use core::ops::Add;
 
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
+use executor::AsyncTask;
 use frame_allocator::ceil_div;
 use fs::INodeInterface;
 use log::debug;
+use log::warn;
 
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MSyncFlags;
@@ -36,11 +38,11 @@ pub async fn sys_mmap(
 ) -> Result<usize, LinuxError> {
     let flags = MapFlags::from_bits_truncate(flags as _);
     let prot = MmapProt::from_bits_truncate(prot as _);
-    info!(
-        "sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
-        start, len, prot, flags, fd as isize, off
-    );
     let user_task = current_task().as_user_task().unwrap();
+    info!(
+        "[task: {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
+        user_task.get_task_id(), start, len, prot, flags, fd as isize, off
+    );
     let file = user_task.get_fd(fd);
 
     let addr = user_task.get_last_free_addr();
@@ -55,7 +57,7 @@ pub async fn sys_mmap(
         VirtAddr::new(start)
     };
 
-    debug!("sys_mmap @ free addr: {}", addr);
+    warn!("sys_mmap @ free addr: {}", addr);
 
     if flags.contains(MapFlags::MAP_SHARED) {
         match file.clone() {

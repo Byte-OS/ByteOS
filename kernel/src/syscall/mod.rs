@@ -20,15 +20,16 @@ use self::{
         SYS_DUP, SYS_DUP3, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2,
         SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD,
         SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPGID, SYS_GETPID, SYS_GETPPID,
-        SYS_GETRUSAGE, SYS_GETSOCKNAME, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID,
-        SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT,
-        SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
-        SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ,
-        SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO,
-        SYS_SETITIMER, SYS_SETPGID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL,
-        SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND,
-        SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_GETRUSAGE, SYS_GETSOCKNAME, SYS_GETSOCKOPT, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY,
+        SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK,
+        SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP,
+        SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE,
+        SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_YIELD, SYS_SENDFILE,
+        SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SETSID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS,
+        SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
+        SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES,
+        SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
+        SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -40,8 +41,8 @@ use self::{
     shm::{sys_shmat, sys_shmctl, sys_shmget},
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
-        sys_accept, sys_bind, sys_connect, sys_getsockname, sys_listen, sys_recvfrom, sys_sendto,
-        sys_setsockopt, sys_socket,
+        sys_accept, sys_bind, sys_connect, sys_getsockname, sys_getsockopt, sys_listen,
+        sys_recvfrom, sys_sendto, sys_setsockopt, sys_socket,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
@@ -50,7 +51,7 @@ use self::{
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_exit_group, sys_futex, sys_getcwd,
         sys_getpid, sys_getppid, sys_getrusage, sys_gettid, sys_kill, sys_sched_yield,
-        sys_set_tid_address, sys_sigreturn, sys_tkill, sys_wait4,
+        sys_set_tid_address, sys_setsid, sys_sigreturn, sys_tkill, sys_wait4,
     },
     time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_setitimer, sys_times},
 };
@@ -236,7 +237,18 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
+        SYS_GETSOCKOPT => {
+            sys_getsockopt(
+                args[0] as _,
+                args[1] as _,
+                args[2] as _,
+                args[3] as _,
+                args[4] as _,
+            )
+            .await
+        }
         SYS_GETSOCKNAME => sys_getsockname(args[0] as _, args[1].into(), args[2] as _).await,
+        SYS_SETSID => sys_setsid().await,
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

@@ -3,8 +3,8 @@ use core::arch::{asm, riscv64::sfence_vma};
 use bitflags::bitflags;
 
 use crate::{
-    current_page_table, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
-    VIRT_ADDR_START,
+    current_page_table, sigtrx::get_trx_mapping, PhysAddr, PhysPage, VirtAddr, VirtPage,
+    PAGE_ITEM_COUNT, PAGE_SIZE, VIRT_ADDR_START,
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -108,7 +108,7 @@ impl PageTable {
         arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
         arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
-
+        arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
         page_table
     }
 

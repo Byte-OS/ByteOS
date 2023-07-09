@@ -1,7 +1,7 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
-use executor::{current_user_task, MemType, UserTask};
+use executor::{current_user_task, AsyncTask, MemType, UserTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
@@ -18,10 +18,11 @@ pub mod signal;
 pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
-        "store/instruction page fault @ {:#x} vpn: {}   ppn: {}",
+        "store/instruction page fault @ {:#x} vpn: {} ppn: {} task_id: {}",
         addr,
         vpn,
-        task.page_table.virt_to_phys(addr.into())
+        task.page_table.virt_to_phys(addr.into()),
+        task.get_task_id()
     );
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
@@ -60,7 +61,6 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
                 warn!("task exit with page fault, its context: {:#X?}", cx_ref);
                 // task.exit_with_signal(SignalFlags::SIGABRT.num());
                 task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
-                debug!("exit");
             }
         }
     }
@@ -97,7 +97,7 @@ pub async fn handle_user_interrupt(
             cx_ref.set_ret(result);
         }
         arch::TrapType::Time => {
-            debug!("time interrupt from user");
+            // debug!("time interrupt from user");
         }
         arch::TrapType::Unknown => {
             debug!("unknown trap: {:#x?}", cx_ref);

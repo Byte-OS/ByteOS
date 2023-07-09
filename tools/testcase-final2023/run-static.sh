@@ -25,7 +25,7 @@
 ./runtest.exe -w entry-static.exe search_tsearch
 ./runtest.exe -w entry-static.exe setjmp
 ./runtest.exe -w entry-static.exe snprintf
-# ./runtest.exe -w entry-static.exe socket
+./runtest.exe -w entry-static.exe socket
 ./runtest.exe -w entry-static.exe sscanf
 ./runtest.exe -w entry-static.exe sscanf_long
 ./runtest.exe -w entry-static.exe stat

@@ -1,7 +1,7 @@
 use core::mem::size_of;
 
 use alloc::sync::Arc;
-use arch::ContextOps;
+use arch::{ContextOps, SIG_RETURN_ADDR};
 use executor::{current_user_task, AsyncTask, UserTask};
 use log::debug;
 use signal::SignalFlags;
@@ -51,6 +51,9 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     tcb.cx.set_sp(sp);
     tcb.cx.set_sepc(sigaction.handler);
     tcb.cx.set_ra(sigaction.restorer);
+    if sigaction.restorer == 0 {
+        tcb.cx.set_ra(SIG_RETURN_ADDR);
+    }
     tcb.cx.set_arg0(signal.num());
     tcb.cx.set_arg1(0);
     tcb.cx.set_arg2(sp);
@@ -72,12 +75,21 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         // };
         let cx_ref = task.force_cx_ref();
 
-        debug!("task sepc: {:#x}", cx_ref.sepc);
+        debug!(
+            "[task: {}]task sepc: {:#x}",
+            task.get_task_id(),
+            cx_ref.sepc
+        );
 
         if let UserTaskControlFlow::Break = handle_user_interrupt(task.clone(), cx_ref).await {
             break;
         }
     }
+    info!(
+        "handle signal: {:?} task: {} ended",
+        signal,
+        task.get_task_id()
+    );
     // restore sigmask to the mask before doing the signal.
     task.tcb.write().sigmask = task_mask;
     // store_cx.set_ret(cx_ref.args()[0]);

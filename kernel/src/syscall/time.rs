@@ -5,12 +5,15 @@ use core::{
     task::{Context, Poll},
 };
 
+use alloc::boxed::Box;
 use arch::{get_time, time_to_usec};
-use executor::{current_user_task, TMS};
+use executor::{current_task, current_user_task, select, TMS};
 use fs::TimeSpec;
 pub use hal::current_nsec;
 use hal::{ITimerVal, TimeVal};
 use log::{debug, warn};
+
+use crate::tasks::WaitHandleAbleSignal;
 
 use super::consts::{LinuxError, UserRef};
 
@@ -30,14 +33,30 @@ pub async fn sys_nanosleep(
     req_ptr: UserRef<TimeSpec>,
     rem_ptr: UserRef<TimeSpec>,
 ) -> Result<usize, LinuxError> {
-    debug!("sys_nanosleep @ req_ptr: {}, rem_ptr: {}", req_ptr, rem_ptr);
+    debug!(
+        "[task: {}] sys_nanosleep @ req_ptr: {}, rem_ptr: {}",
+        current_task().get_task_id(),
+        req_ptr,
+        rem_ptr
+    );
     let ns = current_nsec();
     let req = req_ptr.get_mut();
-    WaitUntilsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
+    let task = current_user_task();
+    debug!("nano sleep {} nseconds", req.sec * 1_000_000_000 + req.nsec);
+
+    let res = match select(
+        WaitHandleAbleSignal(task),
+        WaitUntilsec(ns + req.sec * 1_000_000_000 + req.nsec),
+    )
+    .await
+    {
+        executor::Either::Right(_) => Ok(0),
+        executor::Either::Left(_) => Err(LinuxError::EINTR),
+    };
     if rem_ptr.is_valid() {
         *rem_ptr.get_mut() = Default::default();
     }
-    Ok(0)
+    res
 }
 
 pub async fn sys_times(tms_ptr: UserRef<TMS>) -> Result<usize, LinuxError> {

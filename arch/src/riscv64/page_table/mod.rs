@@ -1,3 +1,4 @@
+pub mod sigtrx;
 mod sv39;
 
 use riscv::register::satp;

@@ -1,3 +1,5 @@
+use core::cmp;
+
 use alloc::sync::Arc;
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
@@ -85,6 +87,24 @@ impl INodeInterface for Socket {
 
     //     Ok(rlen)
     // }
+
+    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+        match self.inner.recv_from() {
+            Ok((data, _)) => {
+                let wlen = cmp::min(data.len(), buffer.len());
+                buffer[..wlen].copy_from_slice(&data[..wlen]);
+                Ok(wlen)
+            }
+            Err(_err) => Err(vfscore::VfsError::Blocking),
+        }
+    }
+
+    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+        match self.inner.sendto(&buffer, None) {
+            Ok(len) => Ok(len),
+            Err(_err) => Err(vfscore::VfsError::NotWriteable),
+        }
+    }
 
     // fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
     //     let wlen = buffer.len();

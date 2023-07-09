@@ -27,7 +27,7 @@
 ./runtest.exe -w entry-dynamic.exe sem_init
 ./runtest.exe -w entry-dynamic.exe setjmp
 ./runtest.exe -w entry-dynamic.exe snprintf
-# ./runtest.exe -w entry-dynamic.exe socket
+./runtest.exe -w entry-dynamic.exe socket
 ./runtest.exe -w entry-dynamic.exe sscanf
 ./runtest.exe -w entry-dynamic.exe sscanf_long
 ./runtest.exe -w entry-dynamic.exe stat

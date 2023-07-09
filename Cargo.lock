@@ -486,7 +486,6 @@ dependencies = [
 [[package]]
 name = "lose-net-stack"
 version = "0.1.0"
-source = "git+https://github.com/yfblock/lose-net-stack?rev=2b2ff17#2b2ff172bf13d140646f504b9395aaa31409c1a6"
 dependencies = [
  "bitflags 1.3.2",
  "log",
