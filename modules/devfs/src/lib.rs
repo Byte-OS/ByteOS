@@ -22,6 +22,7 @@ mod rtc;
 mod sdx;
 mod shm;
 mod tty;
+mod urandom;
 mod zero;
 
 pub use {sdx::Sdx, tty::Tty};
@@ -76,6 +77,7 @@ impl DevDir {
         map.insert("zero", Arc::new(zero::Zero));
         map.insert("shm", Arc::new(shm::Shm));
         map.insert("rtc", Arc::new(rtc::Rtc));
+        map.insert("urandom", Arc::new(urandom::Urandom));
         // map.insert("tty", Arc::new(stdout::Stdout));
 
         Self { map }

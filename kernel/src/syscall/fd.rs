@@ -232,7 +232,8 @@ pub async fn sys_openat(
         }
     }?;
     if open_flags.contains(OpenFlags::O_APPEND) {
-        let _ = file.seek(SeekFrom::END(0));
+        file.seek(SeekFrom::END(0))
+            .expect("can't seek to end of file");
     }
     let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     user_task.set_fd(fd, Some(FileItem::new(file, options)));

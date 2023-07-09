@@ -40,7 +40,6 @@ pub async fn user_entry_inner() {
     let mut times = 0;
     loop {
         let task = current_user_task();
-        debug!("task: {}", task.get_task_id());
 
         // check timer
         check_timer(&task);

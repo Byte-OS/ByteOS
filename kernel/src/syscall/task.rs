@@ -329,7 +329,7 @@ pub async fn sys_clone(
     }
     new_tcb.exit_signal = sig as u8;
     drop(new_tcb);
-    // yield_now().await;
+    yield_now().await;
     Ok(new_task.task_id)
 }
 
@@ -474,13 +474,13 @@ pub async fn sys_futex(
     value3: usize,
 ) -> Result<usize, LinuxError> {
     let op = if op >= 0x80 { op - 0x80 } else { op };
+    let user_task = current_user_task();
     debug!(
-        "sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
-        uaddr_ptr, op, value, value2, uaddr2, value3
+        "[task: {}] sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
+        user_task.get_task_id(), uaddr_ptr, op, value, value2, uaddr2, value3
     );
     let uaddr = uaddr_ptr.get_mut();
     let flags = FutexFlags::try_from(op).map_err(|_| LinuxError::EINVAL)?;
-    let user_task = current_user_task();
     debug!(
         "sys_futex @ uaddr: {} flags: {:?} value: {}",
         uaddr, flags, value
@@ -624,5 +624,9 @@ pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
 
     yield_now().await;
 
+    Ok(0)
+}
+
+pub async fn sys_setsid() -> Result<usize, LinuxError> {
     Ok(0)
 }

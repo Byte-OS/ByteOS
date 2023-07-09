@@ -11,7 +11,9 @@ mod initproc;
 pub mod kernel;
 pub mod user;
 
-pub use async_ops::{futex_requeue, futex_wake, NextTick, WaitFutex, WaitPid, WaitSignal};
+pub use async_ops::{
+    futex_requeue, futex_wake, NextTick, WaitFutex, WaitHandleAbleSignal, WaitPid, WaitSignal,
+};
 
 pub enum UserTaskControlFlow {
     Continue,

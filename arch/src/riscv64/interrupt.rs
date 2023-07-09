@@ -5,7 +5,7 @@ use riscv::register::{
     stval,
 };
 
-use crate::{interrupt_table, riscv64::context::Context, shutdown, TrapType};
+use crate::{interrupt_table, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
 
 use super::timer;
 
@@ -36,6 +36,7 @@ global_asm!(
 
 // 设置中断
 pub fn init_interrupt() {
+    crate::riscv64::page_table::sigtrx::init();
     // 输出内核信息
     unsafe {
         asm!("csrw stvec, a0", in("a0") kernelvec as usize);
@@ -68,7 +69,12 @@ fn kernel_callback(context: &mut Context) -> usize {
             context.sepc += 2;
             TrapType::Breakpoint
         }
-        Trap::Exception(Exception::LoadFault) => TrapType::Unknown,
+        Trap::Exception(Exception::LoadFault) => {
+            if stval > VIRT_ADDR_START {
+                panic!("kernel error: {:#x}", stval);
+            }
+            TrapType::Unknown
+        }
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             timer::set_next_timeout();

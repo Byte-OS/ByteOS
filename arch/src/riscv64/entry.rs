@@ -8,7 +8,7 @@ const STACK_SIZE: usize = 0x8000;
 #[link_section = ".bss.stack"]
 static mut STACK: [u8; STACK_SIZE] = [0u8; STACK_SIZE];
 
-#[link_section = ".data.prepage"]
+#[link_section = ".data.prepage.entry"]
 static mut PAGE_TABLE: [PTE; PAGE_ITEM_COUNT] = {
     let mut arr: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
     // 初始化页表信息

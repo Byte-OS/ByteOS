@@ -77,6 +77,9 @@ impl INodeInterface for Tty {
                 self.buffer.lock().push_back(c);
             }
         }
+        if events.contains(PollEvent::POLLOUT) {
+            res |= PollEvent::POLLOUT;
+        }
         Ok(res)
     }
 

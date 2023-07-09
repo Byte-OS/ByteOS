@@ -7,6 +7,8 @@ use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;
 
+use super::user::entry::mask_signal_list;
+
 pub struct NextTick(usize);
 
 impl Future for NextTick {
@@ -84,6 +86,23 @@ impl Future for WaitFutex {
                 }
             }
             false => Poll::Ready(Ok(0)),
+        }
+    }
+}
+
+pub struct WaitHandleAbleSignal(pub Arc<UserTask>);
+
+impl Future for WaitHandleAbleSignal {
+    type Output = ();
+
+    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+        let task = &self.0;
+        let sig_mask = task.tcb.read().sigmask;
+        let has_signal = mask_signal_list(sig_mask, task.tcb.read().signal.clone()).has_signal();
+
+        match has_signal {
+            true => Poll::Ready(()),
+            false => Poll::Pending,
         }
     }
 }
