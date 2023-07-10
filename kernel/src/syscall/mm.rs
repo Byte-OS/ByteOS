@@ -40,7 +40,7 @@ pub async fn sys_mmap(
     let prot = MmapProt::from_bits_truncate(prot as _);
     let user_task = current_task().as_user_task().unwrap();
     info!(
-        "[task: {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
+        "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
         user_task.get_task_id(), start, len, prot, flags, fd as isize, off
     );
     let file = user_task.get_fd(fd);

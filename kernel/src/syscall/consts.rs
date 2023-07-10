@@ -256,6 +256,7 @@ pub const SYS_SENDTO: usize = 206;
 pub const SYS_RECVFROM: usize = 207;
 pub const SYS_SETSOCKOPT: usize = 208;
 pub const SYS_GETSOCKOPT: usize = 209;
+pub const SYS_SHUTDOWN: usize = 210;
 pub const SYS_BRK: usize = 214;
 pub const SYS_CLONE: usize = 220;
 pub const SYS_EXECVE: usize = 221;

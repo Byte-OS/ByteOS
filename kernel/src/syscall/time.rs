@@ -5,9 +5,8 @@ use core::{
     task::{Context, Poll},
 };
 
-use alloc::boxed::Box;
 use arch::{get_time, time_to_usec};
-use executor::{current_task, current_user_task, select, TMS};
+use executor::{current_task, current_user_task, select, TMS, AsyncTask};
 use fs::TimeSpec;
 pub use hal::current_nsec;
 use hal::{ITimerVal, TimeVal};
@@ -34,7 +33,7 @@ pub async fn sys_nanosleep(
     rem_ptr: UserRef<TimeSpec>,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "[task: {}] sys_nanosleep @ req_ptr: {}, rem_ptr: {}",
+        "[task {}] sys_nanosleep @ req_ptr: {}, rem_ptr: {}",
         current_task().get_task_id(),
         req_ptr,
         rem_ptr
@@ -120,14 +119,19 @@ pub async fn sys_setitimer(
     times_ptr: UserRef<ITimerVal>,
     old_timer_ptr: UserRef<ITimerVal>,
 ) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "sys_setitimer @ which: {} times_ptr: {} old_timer_ptr: {}",
-        which, times_ptr, old_timer_ptr
+        "[task {}] sys_setitimer @ which: {} times_ptr: {} old_timer_ptr: {}",
+        task.get_task_id(), which, times_ptr, old_timer_ptr
     );
 
     if which == 0 {
-        let task = current_user_task();
         let mut pcb = task.pcb.lock();
+        if old_timer_ptr.is_valid() {
+            // log::error!("old_timer: {:?}", old_timer_ptr.get_ref());
+            *old_timer_ptr.get_mut() = pcb.timer[0].timer;
+        }
+
         if times_ptr.is_valid() {
             let new_timer = times_ptr.get_ref();
             // log::error!("timer: {:?}", times_ptr.get_ref());
@@ -138,10 +142,6 @@ pub async fn sys_setitimer(
                 pcb.timer[0].last = Default::default();
             }
             // log::error!("process timer: {:?}", pcb.timer[0]);
-        }
-        if old_timer_ptr.is_valid() {
-            // log::error!("old_timer: {:?}", old_timer_ptr.get_ref());
-            *old_timer_ptr.get_mut() = pcb.timer[0].timer;
         }
         Ok(0)
     } else {

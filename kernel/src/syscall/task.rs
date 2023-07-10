@@ -4,13 +4,14 @@ use crate::tasks::elf::ElfExtra;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
 use alloc::collections::BTreeMap;
 use alloc::string::String;
+use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, PhysAddr, VirtAddr, VirtPage, PAGE_SIZE};
 use core::cmp;
 use core::future::Future;
 use executor::{
-    current_task, current_user_task, select, yield_now, AsyncTask, MemType, TASK_QUEUE,
+    current_task, current_user_task, select, yield_now, AsyncTask, MemType, TASK_QUEUE, UserTask,
 };
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
@@ -287,16 +288,16 @@ pub async fn sys_clone(
     ctid: UserRef<u32>, // 子线程 id
 ) -> Result<usize, LinuxError> {
     let sig = flags & 0xff;
+    let curr_task = current_task().as_user_task().unwrap();
     debug!(
-        "sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
-        flags, stack, ptid, tls, ctid
+        "[task {}] sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+        curr_task.get_task_id(), flags, stack, ptid, tls, ctid
     );
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
-        "sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
-        flags, stack, ptid, tls, ctid
+        "[task {}] sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
+        curr_task.get_task_id(),flags, stack, ptid, tls, ctid
     );
-    let curr_task = current_task().as_user_task().unwrap();
 
     let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
         true => curr_task.clone().thread_clone(unsafe { user_entry() }),
@@ -453,6 +454,7 @@ pub async fn sys_getppid() -> Result<usize, LinuxError> {
     debug!("sys_getppid @ ");
     current_user_task()
         .parent
+        .read()
         .upgrade()
         .map(|x| x.get_task_id())
         .ok_or(LinuxError::EPERM)
@@ -476,7 +478,7 @@ pub async fn sys_futex(
     let op = if op >= 0x80 { op - 0x80 } else { op };
     let user_task = current_user_task();
     debug!(
-        "[task: {}] sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
+        "[task {}] sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
         user_task.get_task_id(), uaddr_ptr, op, value, value2, uaddr2, value3
     );
     let uaddr = uaddr_ptr.get_mut();
@@ -628,5 +630,15 @@ pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
 }
 
 pub async fn sys_setsid() -> Result<usize, LinuxError> {
+    let user_task = current_user_task();
+    debug!("[task {}] sys_setsid", user_task.get_task_id());
+    let parent = user_task.parent.read().clone();
+
+    if let Some(parent) = parent.upgrade() {
+        if let Some(parent) = parent.as_user_task() {
+            parent.pcb.lock().children.retain(|x| x.get_task_id() != user_task.get_task_id());
+        }
+        *user_task.parent.write() = Weak::<UserTask>::new();
+    }
     Ok(0)
 }
