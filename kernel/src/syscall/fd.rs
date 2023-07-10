@@ -5,7 +5,7 @@ use alloc::vec::Vec;
 use arch::VirtAddr;
 use bit_field::BitArray;
 use executor::{
-    current_task, current_user_task, yield_now, FileItem, FileItemInterface, FileOptions,
+    current_task, current_user_task, yield_now, FileItem, FileItemInterface, FileOptions, AsyncTask,
 };
 use fs::mount::{open, rebuild_path, umount};
 use fs::pipe::create_pipe;
@@ -37,13 +37,14 @@ pub async fn sys_dup3(fd_src: usize, fd_dst: usize) -> Result<usize, LinuxError>
 }
 
 pub async fn sys_read(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "sys_read @ fd: {} buf_ptr: {:?} count: {}",
-        fd as isize, buf_ptr, count
+        "[task {}] sys_read @ fd: {} buf_ptr: {:?} count: {}",
+        task.get_task_id(), fd as isize, buf_ptr, count
     );
 
     let mut buffer = buf_ptr.slice_mut_with_len(count);
-    let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
+    let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
     file.async_read(&mut buffer).await.map_err(from_vfs)
 }
 
@@ -91,8 +92,8 @@ pub async fn sys_writev(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<
 }
 
 pub async fn sys_close(fd: usize) -> Result<usize, LinuxError> {
-    debug!("sys_close @ fd: {}", fd as isize);
-    let user_task = current_task().as_user_task().unwrap();
+    let user_task = current_user_task();
+    debug!("[task {}] sys_close @ fd: {}", user_task.get_task_id(), fd as isize);
     user_task.set_fd(fd, None);
     Ok(0)
 }
@@ -642,22 +643,25 @@ pub async fn sys_ppoll(
 
 /// TODO: improve it.
 pub async fn sys_pselect(
-    max_fdp1: usize,
+    mut max_fdp1: usize,
     readfds: UserRef<usize>,
     writefds: UserRef<usize>,
     exceptfds: UserRef<usize>,
     timeout_ptr: UserRef<TimeSpec>,
     sigmask: usize,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_pselect @ max_fdp1: {}, readfds: {}, writefds: {}, exceptfds: {}, tsptr: {}, sigmask: {:#X}",
-        max_fdp1, readfds, writefds, exceptfds, timeout_ptr, sigmask
-    );
     let user_task = current_user_task();
+    debug!(
+        "[task {}] sys_pselect @ max_fdp1: {}, readfds: {}, writefds: {}, exceptfds: {}, tsptr: {}, sigmask: {:#X}",
+        user_task.get_task_id(), max_fdp1, readfds, writefds, exceptfds, timeout_ptr, sigmask
+    );
+
+    // limit max fdp1
+    max_fdp1 = cmp::min(max_fdp1, 255);
 
     let timeout = if timeout_ptr.is_valid() {
         let timeout = timeout_ptr.get_mut();
-        debug!("timeout: {:?}", timeout);
+        debug!("[task {}] timeout: {:?}", user_task.get_task_id(), timeout);
         current_nsec() + timeout.to_nsec()
     } else {
         usize::MAX
@@ -702,8 +706,8 @@ pub async fn sys_pselect(
                         if res.contains(PollEvent::POLLOUT) {
                             num += 1;
                             wfds.set_bit(i, true);
-                            wfds.set_bit(i, false)
                         } else {
+                            wfds.set_bit(i, false)
                         }
                     }
                     Err(_) => wfds.set_bit(i, false),
@@ -725,6 +729,85 @@ pub async fn sys_pselect(
         }
         yield_now().await;
     }
+    // let mut rfds_r = [0usize; 4];
+    // let mut wfds_r = [0usize; 4];
+    // let mut _efds_r = [0usize; 4];
+    // loop {
+    //     yield_now().await;
+    //     let mut num = 0;
+    //     let inner = user_task.pcb.lock();
+    //     if readfds.is_valid() {
+    //         let rfds = readfds.slice_mut_with_len(4);
+    //         for i in 0..max_fdp1 {
+    //             // iprove it
+    //             // if !rfds.get_bit(i) {
+    //             //     continue;
+    //             // }
+    //             if inner.fd_table[i].is_none() {
+    //                 rfds_r.set_bit(i, false);
+    //                 continue;
+    //             }
+    //             let file = inner.fd_table[i].clone().unwrap();
+    //             match file.poll(PollEvent::POLLIN) {
+    //                 Ok(res) => {
+    //                     if res.contains(PollEvent::POLLIN) {
+    //                         num += 1;
+    //                         rfds_r.set_bit(i, true);
+    //                     } else {
+    //                         rfds_r.set_bit(i, false)
+    //                     }
+    //                 }
+    //                 Err(_) => {
+    //                     num += 1;
+    //                     rfds_r.set_bit(i, true)
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     if writefds.is_valid() {
+    //         let wfds = writefds.slice_mut_with_len(4);
+    //         for i in 0..max_fdp1 {
+    //             // if !wfds.get_bit(i) {
+    //             //     continue;
+    //             // }
+    //             if inner.fd_table[i].is_none() {
+    //                 wfds_r.set_bit(i, false);
+    //                 continue;
+    //             }
+    //             let file = inner.fd_table[i].clone().unwrap();
+    //             match file.poll(PollEvent::POLLOUT) {
+    //                 Ok(res) => {
+    //                     if res.contains(PollEvent::POLLOUT) {
+    //                         num += 1;
+    //                         wfds_r.set_bit(i, true);
+    //                     } else {
+    //                         wfds_r.set_bit(i, false);
+    //                     }
+    //                 }
+    //                 Err(_) => wfds_r.set_bit(i, false),
+    //             }
+    //         }
+    //     }
+    //     if exceptfds.is_valid() {
+    //         let efds = exceptfds.slice_mut_with_len(4);
+    //         for i in 0..max_fdp1 {
+    //             efds.set_bit(i, false);
+    //         }
+    //     }
+    //     drop(inner);
+    //     if num !=0 {
+    //         if readfds.is_valid() {
+    //             readfds.slice_mut_with_len(4).copy_from_slice(&rfds_r);
+    //         }
+    //         if writefds.is_valid() {
+    //             writefds.slice_mut_with_len(4).copy_from_slice(&wfds_r);
+    //         }
+    //         return Ok(num);
+    //     }
+    //     if current_nsec() > timeout {
+    //         return Ok(0);
+    //     }
+    // }
 }
 
 pub async fn sys_ftruncate(fields: usize, len: usize) -> Result<usize, LinuxError> {

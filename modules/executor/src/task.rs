@@ -98,7 +98,7 @@ pub struct UserTask {
     pub task_id: TaskId,
     pub page_table: PageTable,
     pub pcb: Arc<Mutex<ProcessControlBlock>>,
-    pub parent: Weak<dyn AsyncTask>,
+    pub parent: RwLock<Weak<dyn AsyncTask>>,
     pub tcb: RwLock<ThreadControlBlock>,
 }
 
@@ -156,7 +156,7 @@ impl UserTask {
         Arc::new(Self {
             page_table: PageTable::from_ppn(ppn.0),
             task_id,
-            parent,
+            parent: RwLock::new(parent),
             pcb: Arc::new(Mutex::new(inner)),
             tcb,
         })
@@ -315,7 +315,7 @@ impl UserTask {
             self.pcb.lock().children.clear();
         }
 
-        if let Some(parent) = self.parent.upgrade() {
+        if let Some(parent) = self.parent.read().upgrade() {
             parent.as_user_task().map(|x| {
                 if exit_signal != 0 {
                     x.tcb
@@ -467,7 +467,7 @@ impl UserTask {
         let new_task = Arc::new(Self {
             page_table: self.page_table.clone(),
             task_id,
-            parent: Arc::downgrade(&parent_task),
+            parent: RwLock::new(Arc::downgrade(&parent_task)),
             pcb: self.pcb.clone(),
             tcb,
         });

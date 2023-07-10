@@ -32,9 +32,5 @@ pub fn init() {
 }
 
 pub fn get_trx_mapping() -> usize {
-    debug!(
-        "trx: {:#x}",
-        unsafe { TRX_STEP2.as_ptr() as usize } & !VIRT_ADDR_START
-    );
     unsafe { TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START }
 }

@@ -1,13 +1,15 @@
-use core::cmp;
+use core::{cmp, net::SocketAddrV4};
 
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
 use fs::INodeInterface;
+
 use lose_net_stack::net_trait::SocketInterface;
-use vfscore::{Metadata, VfsResult};
+use vfscore::{Metadata, VfsResult, PollEvent};
 
 use crate::syscall::NET_SERVER;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
+#[allow(dead_code)]
 pub enum NetType {
     STEAM,
     DGRAME,
@@ -50,6 +52,13 @@ impl Socket {
         })
     }
 
+    pub fn recv_from(&self) -> VfsResult<(Vec<u8>, SocketAddrV4)> {
+        match self.inner.recv_from() {
+            Ok((data, remote)) => Ok((data, remote)),
+            Err(_err) => Err(vfscore::VfsError::Blocking),
+        }
+    }
+
     pub fn new_with_inner(
         domain: usize,
         net_type: NetType,
@@ -74,20 +83,6 @@ impl INodeInterface for Socket {
         })
     }
 
-    // fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-    //     let mut inner = self.inner.lock();
-    //     if inner.datas.len() == 0 {
-    //         return Ok(0);
-    //     }
-    //     let rlen = cmp::min(buffer.len(), inner.datas[0].len());
-    //     buffer[..rlen].copy_from_slice(inner.datas[0].drain(..rlen).as_slice());
-    //     if inner.datas[0].len() == 0 {
-    //         inner.datas.pop_front();
-    //     }
-
-    //     Ok(rlen)
-    // }
-
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
         match self.inner.recv_from() {
             Ok((data, _)) => {
@@ -106,27 +101,19 @@ impl INodeInterface for Socket {
         }
     }
 
-    // fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
-    //     let wlen = buffer.len();
-    //     let inner = self.inner.lock();
-    //     match self.net_type {
-    //         NetType::STEAM => {
-    //             T::tcp_send(
-    //                 inner.target_ip,
-    //                 inner.target_port,
-    //                 inner.ack,
-    //                 inner.seq,
-    //                 inner.flags,
-    //                 inner.win,
-    //                 inner.urg,
-    //                 buffer,
-    //             );
-    //         }
-    //         NetType::DGRAME => {
-    //             T::udp_send(inner.target_ip, inner.target_port, buffer);
-    //         }
-    //         NetType::RAW => todo!(),
-    //     }
-    //     Ok(wlen)
-    // }
+    fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
+        let mut res = PollEvent::NONE;
+        if !self.inner.is_closed().unwrap() {
+            if events.contains(PollEvent::POLLIN) {
+                if self.inner.readable().unwrap() {
+                    res |= PollEvent::POLLIN;
+                }
+            }
+            if events.contains(PollEvent::POLLOUT) {
+                res |= PollEvent::POLLOUT;
+            }
+        }
+        Ok(res)
+    }
+
 }

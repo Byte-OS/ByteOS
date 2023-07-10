@@ -29,7 +29,7 @@ use self::{
         SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
         SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES,
         SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
-        SYS_WRITEV,
+        SYS_WRITEV, SYS_SHUTDOWN,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -42,7 +42,7 @@ use self::{
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
         sys_accept, sys_bind, sys_connect, sys_getsockname, sys_getsockopt, sys_listen,
-        sys_recvfrom, sys_sendto, sys_setsockopt, sys_socket,
+        sys_recvfrom, sys_sendto, sys_setsockopt, sys_socket, sys_shutdown,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
@@ -249,6 +249,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         }
         SYS_GETSOCKNAME => sys_getsockname(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_SETSID => sys_setsid().await,
+        SYS_SHUTDOWN => sys_shutdown(args[0] as _, args[1] as _).await,
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

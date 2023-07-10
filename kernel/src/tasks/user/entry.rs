@@ -69,7 +69,7 @@ pub async fn user_entry_inner() {
         // let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
         let cx_ref = task.force_cx_ref();
         debug!(
-            "user_entry, task: {}, sepc: {:#X}",
+            "[task {}] user_entry sepc: {:#X}",
             task.task_id,
             cx_ref.sepc()
         );
