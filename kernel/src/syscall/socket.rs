@@ -2,7 +2,7 @@ use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
-use executor::{current_user_task, yield_now, FileItem, UserTask, AsyncTask};
+use executor::{current_user_task, yield_now, AsyncTask, FileItem, UserTask};
 use log::debug;
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
@@ -133,6 +133,7 @@ pub async fn sys_listen(socket_fd: usize, backlog: usize) -> Result<usize, Linux
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?
         .inner
+        .clone()
         .listen();
     Ok(0)
 }
@@ -142,11 +143,14 @@ pub async fn sys_accept(
     socket_addr: usize,
     len: usize,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_accept @ socket_fd: {:#x}, socket_addr: {:#x}, len: {:#x}",
-        socket_fd, socket_addr, len
-    );
     let task = current_user_task();
+    debug!(
+        "[task {}] sys_accept @ socket_fd: {:#x}, socket_addr: {:#x}, len: {:#x}",
+        task.get_task_id(),
+        socket_fd,
+        socket_addr,
+        len
+    );
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
@@ -203,7 +207,6 @@ pub async fn sys_recvfrom(
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
 
-        
     let (data, remote) = loop {
         let res = socket.recv_from();
 
@@ -269,7 +272,9 @@ pub async fn sys_getsockopt(
     optval: usize,
     optlen: usize,
 ) -> Result<usize, LinuxError> {
-    debug!("sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
+    let task = current_user_task();
+    debug!("[task {}] sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", 
+    task.get_task_id(), socket, level, optname, optval, optlen);
     Ok(0)
 }
 
@@ -284,7 +289,11 @@ pub async fn sys_sendto(
     let task = current_user_task();
     debug!(
         "[task {}] sys_send @ socket_fd: {:#x}, buffer_ptr: {}, len: {:#x}, flags: {:#x}",
-        task.get_task_id(), socket_fd, buffer_ptr, len, flags
+        task.get_task_id(),
+        socket_fd,
+        buffer_ptr,
+        len,
+        flags
     );
     let buffer = buffer_ptr.slice_mut_with_len(len);
     let socket = task
@@ -319,10 +328,21 @@ pub async fn sys_sendto(
 
 pub async fn sys_shutdown(socket_fd: usize, how: usize) -> Result<usize, LinuxError> {
     let task = current_user_task();
-    debug!("[task {}] sys_shutdown socket_fd: {:#x}, how: {:#x}", task.get_task_id(), socket_fd, how);
+    debug!(
+        "[task {}] sys_shutdown socket_fd: {:#x}, how: {:#x}",
+        task.get_task_id(),
+        socket_fd,
+        how
+    );
+    task.get_fd(socket_fd)
+        .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?
+        .inner
+        .close();
     Ok(0)
 }
-
 
 pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
     loop {

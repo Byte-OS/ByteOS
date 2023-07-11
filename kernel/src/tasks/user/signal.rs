@@ -75,11 +75,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         // };
         let cx_ref = task.force_cx_ref();
 
-        debug!(
-            "[task {}]task sepc: {:#x}",
-            task.get_task_id(),
-            cx_ref.sepc
-        );
+        debug!("[task {}]task sepc: {:#x}", task.get_task_id(), cx_ref.sepc);
 
         if let UserTaskControlFlow::Break = handle_user_interrupt(task.clone(), cx_ref).await {
             break;

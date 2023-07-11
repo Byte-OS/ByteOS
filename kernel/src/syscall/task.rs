@@ -11,7 +11,7 @@ use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, PhysAddr, VirtAddr, VirtPag
 use core::cmp;
 use core::future::Future;
 use executor::{
-    current_task, current_user_task, select, yield_now, AsyncTask, MemType, TASK_QUEUE, UserTask,
+    current_task, current_user_task, select, yield_now, AsyncTask, MemType, UserTask, TASK_QUEUE,
 };
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::mount::open;
@@ -291,12 +291,22 @@ pub async fn sys_clone(
     let curr_task = current_task().as_user_task().unwrap();
     debug!(
         "[task {}] sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
-        curr_task.get_task_id(), flags, stack, ptid, tls, ctid
+        curr_task.get_task_id(),
+        flags,
+        stack,
+        ptid,
+        tls,
+        ctid
     );
     let flags = CloneFlags::from_bits_truncate(flags);
     debug!(
         "[task {}] sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
-        curr_task.get_task_id(),flags, stack, ptid, tls, ctid
+        curr_task.get_task_id(),
+        flags,
+        stack,
+        ptid,
+        tls,
+        ctid
     );
 
     let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
@@ -339,11 +349,11 @@ pub async fn sys_wait4(
     status: UserRef<i32>, // 接收状态的指针；
     options: usize,       // WNOHANG，WUNTRACED，WCONTINUED；
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_wait4 @ pid: {}, status: {}, options: {}",
-        pid, status, options
-    );
     let curr_task = current_task().as_user_task().unwrap();
+    debug!(
+        "[task {}] sys_wait4 @ pid: {}, status: {}, options: {}",
+        curr_task.get_task_id(), pid, status, options
+    );
 
     // return LinuxError::ECHILD if there has no child process.
     if curr_task.inner_map(|inner| inner.children.len()) == 0 {
@@ -636,7 +646,11 @@ pub async fn sys_setsid() -> Result<usize, LinuxError> {
 
     if let Some(parent) = parent.upgrade() {
         if let Some(parent) = parent.as_user_task() {
-            parent.pcb.lock().children.retain(|x| x.get_task_id() != user_task.get_task_id());
+            parent
+                .pcb
+                .lock()
+                .children
+                .retain(|x| x.get_task_id() != user_task.get_task_id());
         }
         *user_task.parent.write() = Weak::<UserTask>::new();
     }

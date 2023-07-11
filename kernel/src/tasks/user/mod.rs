@@ -92,7 +92,11 @@ pub async fn handle_user_interrupt(
                 .await
                 .map_or_else(|e| -e.code(), |x| x as isize) as usize;
 
-            debug!("[task {}] syscall result: {:#X?}", task.get_task_id(), result);
+            debug!(
+                "[task {}] syscall result: {:#X?}",
+                task.get_task_id(),
+                result
+            );
 
             cx_ref.set_ret(result);
         }

@@ -6,7 +6,7 @@ use core::{
 };
 
 use arch::{get_time, time_to_usec};
-use executor::{current_task, current_user_task, select, TMS, AsyncTask};
+use executor::{current_task, current_user_task, select, AsyncTask, TMS};
 use fs::TimeSpec;
 pub use hal::current_nsec;
 use hal::{ITimerVal, TimeVal};
@@ -68,9 +68,12 @@ pub async fn sys_clock_gettime(
     clock_id: usize,
     times_ptr: UserRef<TimeSpec>,
 ) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "sys_clock_gettime @ clock_id: {}, times_ptr: {}",
-        clock_id, times_ptr
+        "[task {}] sys_clock_gettime @ clock_id: {}, times_ptr: {}",
+        task.get_task_id(),
+        clock_id,
+        times_ptr
     );
 
     let ns = match clock_id {
@@ -122,7 +125,10 @@ pub async fn sys_setitimer(
     let task = current_user_task();
     debug!(
         "[task {}] sys_setitimer @ which: {} times_ptr: {} old_timer_ptr: {}",
-        task.get_task_id(), which, times_ptr, old_timer_ptr
+        task.get_task_id(),
+        which,
+        times_ptr,
+        old_timer_ptr
     );
 
     if which == 0 {
