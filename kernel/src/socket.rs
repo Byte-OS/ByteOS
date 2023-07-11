@@ -4,7 +4,7 @@ use alloc::{sync::Arc, vec::Vec};
 use fs::INodeInterface;
 
 use lose_net_stack::net_trait::SocketInterface;
-use vfscore::{Metadata, VfsResult, PollEvent};
+use vfscore::{Metadata, PollEvent, VfsResult};
 
 use crate::syscall::NET_SERVER;
 
@@ -104,16 +104,15 @@ impl INodeInterface for Socket {
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
         if !self.inner.is_closed().unwrap() {
-            if events.contains(PollEvent::POLLIN) {
-                if self.inner.readable().unwrap() {
-                    res |= PollEvent::POLLIN;
-                }
-            }
             if events.contains(PollEvent::POLLOUT) {
                 res |= PollEvent::POLLOUT;
             }
         }
+        if events.contains(PollEvent::POLLIN) {
+            if self.inner.readable().unwrap() {
+                res |= PollEvent::POLLIN;
+            }
+        }
         Ok(res)
     }
-
 }

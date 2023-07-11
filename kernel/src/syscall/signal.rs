@@ -1,8 +1,11 @@
-use executor::{current_task, current_user_task, yield_now};
+use executor::{current_task, current_user_task, yield_now, AsyncTask};
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 
-use crate::tasks::{user::entry::check_timer, WaitSignal};
+use crate::tasks::{
+    user::entry::check_timer,
+    WaitSignal,
+};
 
 use super::consts::{LinuxError, UserRef};
 
@@ -68,11 +71,14 @@ pub async fn sys_sigprocmask(
     set: UserRef<SigProcMask>,
     oldset: UserRef<SigProcMask>,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
-        how, set, oldset
-    );
     let user_task = current_task().as_user_task().unwrap();
+    debug!(
+        "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
+        user_task.get_task_id(),
+        how,
+        set,
+        oldset
+    );
     let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
 
     let mut tcb = user_task.tcb.write();
@@ -82,7 +88,6 @@ pub async fn sys_sigprocmask(
     }
     if set.is_valid() {
         let sigmask = set.get_mut();
-        debug!("mask: {:?}", sigmask);
         tcb.sigmask.handle(how, sigmask)
     }
     drop(tcb);

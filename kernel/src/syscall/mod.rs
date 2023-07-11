@@ -26,10 +26,10 @@ use self::{
         SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE,
         SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_YIELD, SYS_SENDFILE,
         SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SETSID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS,
-        SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
-        SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES,
-        SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
-        SYS_WRITEV, SYS_SHUTDOWN,
+        SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN, SYS_SIGACTION, SYS_SIGPROCMASK,
+        SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO,
+        SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4,
+        SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -42,7 +42,7 @@ use self::{
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
         sys_accept, sys_bind, sys_connect, sys_getsockname, sys_getsockopt, sys_listen,
-        sys_recvfrom, sys_sendto, sys_setsockopt, sys_socket, sys_shutdown,
+        sys_recvfrom, sys_sendto, sys_setsockopt, sys_shutdown, sys_socket,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
