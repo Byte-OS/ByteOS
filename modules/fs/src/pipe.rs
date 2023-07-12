@@ -25,7 +25,7 @@ impl INodeInterface for PipeSender {
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
         if events.contains(PollEvent::POLLOUT) {
-            if self.0.lock().len() < 0x50000 {
+            if self.0.lock().len() <= 0x50000 {
                 res |= PollEvent::POLLOUT;
             }
         }
@@ -62,6 +62,11 @@ impl INodeInterface for PipeReceiver {
         if events.contains(PollEvent::POLLIN) {
             if self.queue.lock().len() > 0 {
                 res |= PollEvent::POLLIN;
+            }
+        }
+        if events.contains(PollEvent::POLLERR) {
+            if self.queue.lock().len() == 0 && Weak::strong_count(&self.sender) == 0 {
+                res |= PollEvent::POLLERR;
             }
         }
         Ok(res)
