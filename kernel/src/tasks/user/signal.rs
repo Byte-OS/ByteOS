@@ -22,6 +22,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
 
     // if there doesn't have signal handler.
     // Then use default handler. Exit or do nothing.
+    // SIG_ERR = -1, SIG_DEF(default) = 0, SIG_IGN = 1(ignore)
     if sigaction.handler == 0 {
         match signal {
             SignalFlags::SIGCANCEL | SignalFlags::SIGSEGV => {
@@ -29,6 +30,10 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
             }
             _ => {}
         }
+        return;
+    }
+    // ignore signal if the handler of is SIG_IGN(1)
+    if sigaction.handler == 1 {
         return;
     }
 
