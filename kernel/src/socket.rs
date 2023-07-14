@@ -2,7 +2,6 @@ use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
 use fs::INodeInterface;
-
 use lose_net_stack::net_trait::SocketInterface;
 use vfscore::{Metadata, PollEvent, VfsResult};
 
@@ -36,6 +35,17 @@ pub struct Socket {
 unsafe impl Sync for Socket {}
 unsafe impl Send for Socket {}
 
+impl Drop for Socket {
+    fn drop(&mut self) {
+        log::debug!("strong count: {}", Arc::strong_count(&self.inner));
+        // TIPS: the socke table map will consume a strong reference.
+        if !self.inner.is_closed().unwrap() && (Arc::strong_count(&self.inner) == 2 || Arc::strong_count(&self.inner) == 1) {
+            self.inner.close().expect("cant close socket when droping socket in os.");
+        }
+        // self.inner.close();
+    }
+}
+
 impl Socket {
     pub fn new(domain: usize, net_type: NetType) -> Arc<Self> {
         let inner: Arc<dyn SocketInterface> = match net_type {
@@ -53,6 +63,7 @@ impl Socket {
     }
 
     pub fn recv_from(&self) -> VfsResult<(Vec<u8>, SocketAddrV4)> {
+        log::warn!("try to recv data from {}", self.inner.get_local().unwrap());
         match self.inner.recv_from() {
             Ok((data, remote)) => Ok((data, remote)),
             Err(_err) => Err(vfscore::VfsError::Blocking),

@@ -1,4 +1,4 @@
-use core::{future::Future, mem::size_of, ops::Add, pin::Pin};
+use core::{future::Future, mem::size_of, ops::Add};
 
 use alloc::{
     boxed::Box,
@@ -21,7 +21,7 @@ use crate::{
     memset::{MapTrack, MemArea, MemType},
     shm::MapedSharedMemory,
     signal::SignalList,
-    task_id_alloc, thread, AsyncTask, MemSet, ProcessTimer, TaskId, FUTURE_LIST, TMS,
+    task_id_alloc, thread, AsyncTask, MemSet, ProcessTimer, TaskId, FUTURE_LIST, TMS, TaskFutureItem,
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
@@ -40,7 +40,7 @@ impl Drop for KernelTask {
 }
 
 impl KernelTask {
-    pub fn new(future: impl Future<Output = ()> + Sync + Send + 'static) -> Arc<Self> {
+    pub fn new(future: impl Future<Output = ()> + 'static) -> Arc<Self> {
         let ppn = Arc::new(frame_alloc().unwrap());
         let page_table = PageTable::from_ppn(ppn.0);
         let task_id = task_id_alloc();
@@ -48,7 +48,7 @@ impl KernelTask {
 
         FUTURE_LIST
             .lock()
-            .insert(task_id, Box::pin(kernel_entry(future)));
+            .insert(task_id, TaskFutureItem(Box::pin(kernel_entry(future))));
 
         Arc::new(Self {
             page_table,
@@ -81,11 +81,12 @@ pub struct ProcessControlBlock {
     pub futex_table: Arc<Mutex<FutexTable>>,
     pub shms: Vec<MapedSharedMemory>,
     pub timer: [ProcessTimer; 3],
+    pub threads: Vec<Weak<UserTask>>,
+    pub exit_code: Option<usize>,
 }
 
 pub struct ThreadControlBlock {
     pub cx: Context,
-    pub exit_code: Option<usize>,
     pub sigmask: SigProcMask,
     pub clear_child_tid: usize,
     pub set_child_tid: usize,
@@ -96,6 +97,7 @@ pub struct ThreadControlBlock {
 #[allow(dead_code)]
 pub struct UserTask {
     pub task_id: TaskId,
+    pub process_id: TaskId,
     pub page_table: PageTable,
     pub pcb: Arc<Mutex<ProcessControlBlock>>,
     pub parent: RwLock<Weak<dyn AsyncTask>>,
@@ -111,7 +113,7 @@ impl Drop for UserTask {
 
 impl UserTask {
     pub fn new(
-        future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
+        future: impl Future<Output = ()> + 'static,
         parent: Weak<dyn AsyncTask>,
     ) -> Arc<Self> {
         let ppn = Arc::new(frame_alloc().unwrap());
@@ -126,7 +128,7 @@ impl UserTask {
             }],
         )]);
 
-        FUTURE_LIST.lock().insert(task_id, Pin::from(future));
+        FUTURE_LIST.lock().insert(task_id, TaskFutureItem(Box::pin(future)));
 
         let inner = ProcessControlBlock {
             memset,
@@ -141,11 +143,12 @@ impl UserTask {
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
             shms: vec![],
             timer: [Default::default(); 3],
+            exit_code: None,
+            threads: Vec::new()
         };
 
         let tcb = RwLock::new(ThreadControlBlock {
             cx: Context::new(),
-            exit_code: None,
             sigmask: SigProcMask::new(),
             clear_child_tid: 0,
             set_child_tid: 0,
@@ -153,13 +156,16 @@ impl UserTask {
             exit_signal: 0,
         });
 
-        Arc::new(Self {
+        let task = Arc::new(Self {
             page_table: PageTable::from_ppn(ppn.0),
             task_id,
+            process_id: task_id,
             parent: RwLock::new(parent),
             pcb: Arc::new(Mutex::new(inner)),
             tcb,
-        })
+        });
+        task.pcb.lock().threads.push(Arc::downgrade(&task));
+        task
     }
 
     pub fn inner_map<T>(&self, mut f: impl FnMut(&mut MutexGuard<ProcessControlBlock>) -> T) -> T {
@@ -262,7 +268,7 @@ impl UserTask {
     }
 
     pub fn exit_code(&self) -> Option<usize> {
-        self.tcb.read().exit_code
+        self.pcb.lock().exit_code
     }
 
     pub fn sbrk(&self, incre: isize) -> usize {
@@ -287,7 +293,7 @@ impl UserTask {
 
     #[inline]
     pub fn exit(&self, exit_code: usize) {
-        let mut tcb_writer = self.tcb.write();
+        let tcb_writer = self.tcb.write();
         let uaddr = tcb_writer.clear_child_tid;
         if uaddr != 0 {
             extern "Rust" {
@@ -304,10 +310,11 @@ impl UserTask {
                 futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
             }
         }
-        tcb_writer.exit_code = Some(exit_code);
+        self.pcb.lock().exit_code = Some(exit_code);
         let exit_signal = tcb_writer.exit_signal;
         drop(tcb_writer);
         FUTURE_LIST.lock().remove(&self.task_id);
+
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
             self.pcb.lock().memset.retain(|x| x.mtype != MemType::PTE);
@@ -339,7 +346,7 @@ impl UserTask {
     #[inline]
     pub fn fork(
         self: Arc<Self>,
-        future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
+        future: impl Future<Output = ()> + 'static,
     ) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
@@ -390,7 +397,7 @@ impl UserTask {
     #[inline]
     pub fn cow_fork(
         self: Arc<Self>,
-        future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
+        future: impl Future<Output = ()> + 'static,
     ) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
@@ -440,20 +447,18 @@ impl UserTask {
     #[inline]
     pub fn thread_clone(
         self: Arc<Self>,
-        future: Box<dyn Future<Output = ()> + Sync + Send + 'static>,
+        future: impl Future<Output = ()> + 'static,
     ) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_tcb = self.tcb.read();
-        let parent_task: Arc<dyn AsyncTask> = self.clone();
 
         let task_id = task_id_alloc();
         let mut pcb = self.pcb.lock();
         let tcb = RwLock::new(ThreadControlBlock {
             cx: parent_tcb.cx.clone(),
-            exit_code: None,
             sigmask: parent_tcb.sigmask.clone(),
             clear_child_tid: 0,
             set_child_tid: 0,
@@ -467,13 +472,15 @@ impl UserTask {
         let new_task = Arc::new(Self {
             page_table: self.page_table.clone(),
             task_id,
-            parent: RwLock::new(Arc::downgrade(&parent_task)),
+            process_id: self.task_id,
+            parent: RwLock::new(self.parent.read().clone()),
             pcb: self.pcb.clone(),
             tcb,
         });
-        pcb.children.push(new_task.clone());
+        pcb.threads.push(Arc::downgrade(&new_task));
+        // pcb.children.push(new_task.clone());
 
-        FUTURE_LIST.lock().insert(task_id, Pin::from(future));
+        FUTURE_LIST.lock().insert(task_id, TaskFutureItem(Box::pin(future)));
 
         thread::spawn(new_task.clone());
         new_task
@@ -615,7 +622,7 @@ impl AsyncTask for UserTask {
     }
 }
 
-pub async fn kernel_entry(future: impl Future<Output = ()> + Sync + Send + 'static) {
+pub async fn kernel_entry(future: impl Future<Output = ()> + 'static) {
     debug!("kernel_entry");
     future.await;
 }

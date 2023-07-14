@@ -3,6 +3,7 @@
 #![feature(exclusive_range_pattern)]
 #![feature(drain_filter)]
 #![feature(ip_in_core)]
+#![feature(async_closure)]
 
 #[macro_use]
 extern crate logging;
@@ -12,6 +13,7 @@ extern crate alloc;
 mod modules;
 mod socket;
 mod syscall;
+mod task_cache;
 mod tasks;
 
 use devices;

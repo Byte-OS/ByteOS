@@ -22,11 +22,20 @@ pub trait AsyncTask: Send + Sync {
     }
 }
 
+// pub struct TaskCollection {
+//     pub tasks: BTreeMap<usize, PinedFuture>,
+// }
+
+pub struct TaskFutureItem(pub PinedFuture);
+
+unsafe impl Send for TaskFutureItem {}
+unsafe impl Sync for TaskFutureItem {}
+
 pub type TaskId = usize;
-type PinedFuture = Pin<Box<dyn Future<Output = ()> + Send>>;
+type PinedFuture = Pin<Box<dyn Future<Output = ()>>>;
 pub static CURRENT_TASK: Mutex<Option<Arc<dyn AsyncTask>>> = Mutex::new(None);
 
-pub static FUTURE_LIST: Mutex<BTreeMap<usize, PinedFuture>> = Mutex::new(BTreeMap::new());
+pub static FUTURE_LIST: Mutex<BTreeMap<usize, TaskFutureItem>> = Mutex::new(BTreeMap::new());
 pub static TASK_QUEUE: Mutex<VecDeque<Arc<dyn AsyncTask>>> = Mutex::new(VecDeque::new());
 /// wake queue, not use at current.
 pub static WAKE_QUEUE: SegQueue<TaskId> = SegQueue::new();
@@ -62,7 +71,7 @@ impl Executor {
             let future = FUTURE_LIST.lock().remove(&task.get_task_id());
 
             if let Some(mut future) = future {
-                match future.as_mut().poll(&mut context) {
+                match future.0.as_mut().poll(&mut context) {
                     Poll::Ready(()) => {} // task done
                     Poll::Pending => TASK_QUEUE.lock().push_back(task.clone()),
                 }
