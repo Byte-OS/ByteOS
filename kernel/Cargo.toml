@@ -30,3 +30,5 @@ k210-sdcard = { path = "../modules/k210-sdcard", optional = true }
 # lose-net-stack = { git = "https://github.com/yfblock/lose-net-stack", rev = "2b2ff17", features = ["log"]}
 lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
 vfscore = { path = "../crates/vfscore" }
+async-recursion = "1.0.4"
+futures-lite = { version = "1.13.0", default-features = false, features=["alloc"] }

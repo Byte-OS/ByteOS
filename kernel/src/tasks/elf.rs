@@ -1,4 +1,6 @@
-use alloc::vec::Vec;
+use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
+use arch::{PAGE_SIZE, VirtPage, ContextOps};
+use executor::{UserTask, MemType, AsyncTask};
 use log::warn;
 use xmas_elf::{
     program::Type,
@@ -7,7 +9,7 @@ use xmas_elf::{
     ElfFile,
 };
 
-use crate::syscall::consts::LinuxError;
+use crate::syscall::consts::{elf, LinuxError};
 
 pub trait ElfExtra {
     fn get_ph_addr(&self) -> Result<u64, LinuxError>;
@@ -97,4 +99,89 @@ impl ElfExtra for ElfFile<'_> {
         // panic!("STOP");
         Ok(res)
     }
+}
+
+pub fn init_task_stack(
+    user_task: Arc<UserTask>,
+    args: Vec<String>,
+    base: usize,
+    path: &str,
+    entry_point: usize,
+    ph_count: usize,
+    ph_entry_size: usize,
+    ph_addr: usize,
+    heap_bottom: usize,
+    tls: usize
+) {
+    // map stack
+    user_task.frame_alloc(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
+    log::debug!("[task {}] entry: {:#x}", user_task.get_task_id(), base + entry_point);
+    user_task.inner_map(|inner| {
+        inner.heap = heap_bottom;
+        inner.entry = base + entry_point;
+    });
+
+    let mut tcb = user_task.tcb.write();
+
+    tcb.cx.clear();
+    tcb.cx.set_sp(0x8000_0000); // stack top;
+    tcb.cx.set_sepc(base + entry_point);
+    tcb.cx.set_tls(tls);
+
+    drop(tcb);
+    
+    // push stack
+    let envp = vec![
+        "LD_LIBRARY_PATH=/",
+        "PS1=\x1b[1m\x1b[32mByteOS\x1b[0m:\x1b[1m\x1b[34m\\w\x1b[0m\\$ \0",
+        "PATH=/:/bin:/usr/bin",
+        "UB_BINDIR=./",
+    ];
+    let envp: Vec<usize> = envp
+        .into_iter()
+        .rev()
+        .map(|x| user_task.push_str(x))
+        .collect();
+    let args: Vec<usize> = args
+        .into_iter()
+        .rev()
+        .map(|x| user_task.push_str(&x))
+        .collect();
+
+    let random_ptr = user_task.push_arr(&[0u8; 16]);
+    let mut auxv = BTreeMap::new();
+    auxv.insert(elf::AT_PLATFORM, user_task.push_str("riscv"));
+    auxv.insert(elf::AT_EXECFN, user_task.push_str(path));
+    // auxv.insert(elf::AT_PHNUM, elf_header.pt2.ph_count() as usize);
+    auxv.insert(elf::AT_PHNUM, ph_count);
+    auxv.insert(elf::AT_PAGESZ, PAGE_SIZE);
+    auxv.insert(elf::AT_ENTRY, base + entry_point);
+    // auxv.insert(elf::AT_PHENT, elf_header.pt2.ph_entry_size() as usize);
+    auxv.insert(elf::AT_PHENT, ph_entry_size);
+    // auxv.insert(elf::AT_PHDR, base + elf.get_ph_addr().unwrap_or(0) as usize);
+    auxv.insert(elf::AT_PHDR, base + ph_addr);
+    auxv.insert(elf::AT_GID, 0);
+    auxv.insert(elf::AT_EGID, 0);
+    auxv.insert(elf::AT_UID, 0);
+    auxv.insert(elf::AT_EUID, 0);
+    auxv.insert(elf::AT_SECURE, 0);
+    auxv.insert(elf::AT_RANDOM, random_ptr);
+
+    // auxv top
+    user_task.push_num(0);
+    // TODO: push auxv
+    auxv.iter().for_each(|(key, v)| {
+        user_task.push_num(*v);
+        user_task.push_num(*key);
+    });
+
+    user_task.push_num(0);
+    envp.iter().for_each(|x| {
+        user_task.push_num(*x);
+    });
+    user_task.push_num(0);
+    args.iter().for_each(|x| {
+        user_task.push_num(*x);
+    });
+    user_task.push_num(args.len());
 }

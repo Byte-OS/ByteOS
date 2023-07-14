@@ -1,15 +1,15 @@
-use crate::syscall::consts::{elf, from_vfs, CloneFlags, Rusage};
+use crate::syscall::consts::{from_vfs, CloneFlags, Rusage};
 use crate::syscall::time::WaitUntilsec;
-use crate::tasks::elf::ElfExtra;
+use crate::tasks::elf::{init_task_stack, ElfExtra};
+use crate::tasks::user::entry::user_entry;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
-use alloc::collections::BTreeMap;
 use alloc::string::String;
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, PhysAddr, VirtAddr, VirtPage, PAGE_SIZE};
+use async_recursion::async_recursion;
 use core::cmp;
-use core::future::Future;
 use executor::{
     current_task, current_user_task, select, yield_now, AsyncTask, MemType, UserTask, TASK_QUEUE,
 };
@@ -22,10 +22,6 @@ use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError, UserRef};
-
-extern "Rust" {
-    fn user_entry() -> Box<dyn Future<Output = ()> + Send + Sync>;
-}
 
 pub async fn sys_chdir(path_ptr: UserRef<i8>) -> Result<usize, LinuxError> {
     let path = path_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
@@ -92,16 +88,17 @@ pub async fn sys_execve(
     // clear memory map
     // TODO: solve memory conflict
     // task.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
-    exec_with_process(task.clone(), filename, args)?;
+    exec_with_process(task.clone(), filename, args).await?;
     task.before_run();
     Ok(0)
 }
 
-pub fn exec_with_process<'a>(
+#[async_recursion(?Send)]
+pub async fn exec_with_process<'a>(
     task: Arc<dyn AsyncTask>,
     path: &'a str,
     args: Vec<&'a str>,
-) -> Result<Arc<dyn AsyncTask>, LinuxError> {
+) -> Result<Arc<UserTask>, LinuxError> {
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     debug!("exec: {:?}", args);
@@ -126,11 +123,12 @@ pub fn exec_with_process<'a>(
     } else {
         let mut new_args = vec!["busybox", "sh"];
         args.iter().for_each(|x| new_args.push(x));
-        return exec_with_process(task, "busybox", new_args);
+        return exec_with_process(task, "busybox", new_args).await;
     };
     let elf_header = elf.header;
 
     let entry_point = elf.header.pt2.entry_point() as usize;
+    // this assert ensures that the file is elf file.
     assert_eq!(
         elf_header.pt1.magic,
         [0x7f, 0x45, 0x4c, 0x46],
@@ -149,7 +147,7 @@ pub fn exec_with_process<'a>(
             let lib_path = "libc.so";
             let mut new_args = vec![lib_path, path];
             args[1..].iter().for_each(|x| new_args.push(x));
-            return exec_with_process(task, lib_path, new_args);
+            return exec_with_process(task, lib_path, new_args).await;
         }
     }
 
@@ -176,74 +174,18 @@ pub fn exec_with_process<'a>(
         Err(_) => (0, vec![]),
     };
 
-    // map stack
-    user_task.frame_alloc(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
-    debug!("entry: {:#x}", base + entry_point);
-    user_task.inner_map(|inner| {
-        inner.heap = heap_bottom as usize;
-        inner.entry = base + entry_point;
-    });
-
-    let mut tcb = user_task.tcb.write();
-
-    tcb.cx.clear();
-    tcb.cx.set_sp(0x8000_0000); // stack top;
-    tcb.cx.set_sepc(base + entry_point);
-    tcb.cx.set_tls(tls as usize);
-
-    drop(tcb);
-
-    // push stack
-    let envp = vec![
-        "LD_LIBRARY_PATH=/",
-        "PS1=\x1b[1m\x1b[32mByteOS\x1b[0m:\x1b[1m\x1b[34m\\w\x1b[0m\\$ \0",
-        "PATH=/:/bin:/usr/bin",
-        "UB_BINDIR=./",
-    ];
-    let envp: Vec<usize> = envp
-        .into_iter()
-        .rev()
-        .map(|x| user_task.push_str(x))
-        .collect();
-    let args: Vec<usize> = args
-        .into_iter()
-        .rev()
-        .map(|x| user_task.push_str(&x))
-        .collect();
-
-    let random_ptr = user_task.push_arr(&[0u8; 16]);
-    let mut auxv = BTreeMap::new();
-    auxv.insert(elf::AT_PLATFORM, user_task.push_str("riscv"));
-    auxv.insert(elf::AT_EXECFN, user_task.push_str(path));
-    auxv.insert(elf::AT_PHNUM, elf_header.pt2.ph_count() as usize);
-    auxv.insert(elf::AT_PAGESZ, PAGE_SIZE);
-    auxv.insert(elf::AT_ENTRY, base + entry_point);
-    auxv.insert(elf::AT_PHENT, elf_header.pt2.ph_entry_size() as usize);
-    auxv.insert(elf::AT_PHDR, base + elf.get_ph_addr().unwrap_or(0) as usize);
-    auxv.insert(elf::AT_GID, 0);
-    auxv.insert(elf::AT_EGID, 0);
-    auxv.insert(elf::AT_UID, 0);
-    auxv.insert(elf::AT_EUID, 0);
-    auxv.insert(elf::AT_SECURE, 0);
-    auxv.insert(elf::AT_RANDOM, random_ptr);
-
-    // auxv top
-    user_task.push_num(0);
-    // TODO: push auxv
-    auxv.iter().for_each(|(key, v)| {
-        user_task.push_num(*v);
-        user_task.push_num(*key);
-    });
-
-    user_task.push_num(0);
-    envp.iter().for_each(|x| {
-        user_task.push_num(*x);
-    });
-    user_task.push_num(0);
-    args.iter().for_each(|x| {
-        user_task.push_num(*x);
-    });
-    user_task.push_num(args.len());
+    init_task_stack(
+        user_task.clone(),
+        args,
+        base,
+        path,
+        entry_point,
+        elf_header.pt2.ph_count() as usize,
+        elf_header.pt2.ph_entry_size() as usize,
+        elf.get_ph_addr().unwrap_or(0) as usize,
+        heap_bottom as usize,
+        tls as usize
+    );
 
     // map sections.
     elf.program_iter()
@@ -277,7 +219,7 @@ pub fn exec_with_process<'a>(
                 .write(value);
         })
     }
-    Ok(task)
+    Ok(user_task)
 }
 
 pub async fn sys_clone(
@@ -310,10 +252,10 @@ pub async fn sys_clone(
     );
 
     let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
-        true => curr_task.clone().thread_clone(unsafe { user_entry() }),
+        true => curr_task.clone().thread_clone(user_entry()),
         // false => curr_task.clone().fork(unsafe { user_entry() }),
         // use cow(Copy On Write) to save memory.
-        false => curr_task.clone().cow_fork(unsafe { user_entry() }),
+        false => curr_task.clone().cow_fork(user_entry()),
     };
 
     let clear_child_tid = flags
@@ -352,7 +294,10 @@ pub async fn sys_wait4(
     let curr_task = current_task().as_user_task().unwrap();
     debug!(
         "[task {}] sys_wait4 @ pid: {}, status: {}, options: {}",
-        curr_task.get_task_id(), pid, status, options
+        curr_task.get_task_id(),
+        pid,
+        status,
+        options
     );
 
     // return LinuxError::ECHILD if there has no child process.
@@ -456,7 +401,7 @@ pub async fn sys_set_tid_address(tid_ptr: usize) -> Result<usize, LinuxError> {
 
 /// sys_getpid() 获取进程 id
 pub async fn sys_getpid() -> Result<usize, LinuxError> {
-    Ok(current_task().get_task_id())
+    Ok(current_user_task().process_id)
 }
 
 /// sys_getppid() 获取父进程 id
@@ -552,15 +497,21 @@ pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
     debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
     let task = current_user_task();
     let child = task.inner_map(|x| {
-        x.children
+        x.threads
             .iter()
-            .find(|x| x.task_id == tid)
+            .find(|x| {
+                match x.upgrade() {
+                    Some(thread) => thread.task_id == tid,
+                    None => false
+                }
+            })
             .map(|x| x.clone())
     });
 
     match child {
         Some(child) => {
             child
+                .upgrade().unwrap()
                 .tcb
                 .write()
                 .signal
@@ -609,8 +560,13 @@ pub fn sys_exit_group(exit_code: usize) -> Result<usize, LinuxError> {
 
 pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
     let signal = SignalFlags::from_usize(signum);
-    debug!("sys_kill @ pid: {}, signum: {:?}", pid, signal);
-    debug!("current_user_task: {}", current_user_task().task_id);
+    let curr_task = current_task();
+    debug!(
+        "[task {}] sys_kill @ pid: {}, signum: {:?}",
+        curr_task.get_task_id(),
+        pid,
+        signal
+    );
 
     let user_task = TASK_QUEUE
         .lock()
@@ -627,7 +583,8 @@ pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
 
     match signal {
         SignalFlags::SIGKILL => {
-            user_task.exit_with_signal(signal.num());
+            user_task.tcb.write().signal.add_signal(signal.clone());
+            // user_task.exit_with_signal(signal.num());
         }
         _ => {
             user_task.tcb.write().signal.add_signal(signal.clone());

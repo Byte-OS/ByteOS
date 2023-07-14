@@ -58,11 +58,11 @@ pub async fn sys_socket(
     net_type: usize,
     protocol: usize,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_socket @ domain: {:#x}, net_type: {:#x}, protocol: {:#x}",
-        domain, net_type, protocol
-    );
     let task = current_user_task();
+    debug!(
+        "[task {}] sys_socket @ domain: {:#x}, net_type: {:#x}, protocol: {:#x}",
+        task.get_task_id(), domain, net_type, protocol
+    );
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     debug!(
         "net_type: {:?}",
@@ -80,11 +80,11 @@ pub async fn sys_bind(
     addr_ptr: UserRef<SocketAddrIn>,
     address_len: usize,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_bind @ socket: {:#x}, addr_ptr: {}, address_len: {:#x}",
-        socket_fd, addr_ptr, address_len
-    );
     let task = current_user_task();
+    debug!(
+        "[task {}] sys_bind @ socket: {:#x}, addr_ptr: {}, address_len: {:#x}",
+        task.get_task_id(), socket_fd, addr_ptr, address_len
+    );
     let socket_addr = addr_ptr.get_mut();
 
     let socket = task
@@ -122,11 +122,11 @@ pub async fn sys_bind(
 }
 
 pub async fn sys_listen(socket_fd: usize, backlog: usize) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_listen @ socket_fd: {:#x}, backlog: {:#x}",
-        socket_fd, backlog
-    );
     let task = current_user_task();
+    debug!(
+        "[task {}] sys_listen @ socket_fd: {:#x}, backlog: {:#x}",
+        task.get_task_id(), socket_fd, backlog
+    );
     task.get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
         .get_bare_file()
@@ -158,7 +158,7 @@ pub async fn sys_accept(
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
-    accept(fd, task, socket).await;
+    accept(fd, task, socket).await?;
     Ok(fd)
 }
 
@@ -167,11 +167,11 @@ pub async fn sys_connect(
     socket_addr: UserRef<SocketAddrIn>,
     len: usize,
 ) -> Result<usize, LinuxError> {
-    debug!(
-        "sys_connect @ socket_fd: {:#x}, socket_addr: {:#x?}, len: {:#x}",
-        socket_fd, socket_addr, len
-    );
     let task = current_user_task();
+    debug!(
+        "[task {}] sys_connect @ socket_fd: {:#x}, socket_addr: {:#x?}, len: {:#x}",
+        task.get_task_id(), socket_fd, socket_addr, len
+    );
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
@@ -261,7 +261,7 @@ pub async fn sys_setsockopt(
     optval: usize,
     optlen: usize,
 ) -> Result<usize, LinuxError> {
-    debug!("sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
+    log::warn!("sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
     Ok(0)
 }
 
@@ -344,7 +344,7 @@ pub async fn sys_shutdown(socket_fd: usize, how: usize) -> Result<usize, LinuxEr
     Ok(0)
 }
 
-pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
+pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) -> Result<(), LinuxError> {
     loop {
         if let Ok(new_socket) = socket.inner.accept() {
             task.set_fd(
@@ -354,7 +354,10 @@ pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) {
                     Default::default(),
                 )),
             );
-            return;
+            return Ok(());
+        }
+        if task.tcb.read().signal.has_signal() {
+            return Err(LinuxError::EINTR);
         }
         yield_now().await;
     }

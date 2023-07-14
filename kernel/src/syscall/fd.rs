@@ -1,23 +1,28 @@
 use core::cmp;
 
+use alloc::boxed::Box;
 use alloc::string::String;
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use arch::VirtAddr;
 use bit_field::BitArray;
 use executor::{
-    current_task, current_user_task, yield_now, AsyncTask, FileItem, FileItemInterface, FileOptions,
+    current_task, current_user_task, select, yield_now, AsyncTask, FileItem,
+    FileOptions, UserTask,
 };
 use fs::mount::{open, rebuild_path, umount};
 use fs::pipe::create_pipe;
 use fs::{
     INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
-    UTIME_NOW,
+    WaitBlockingRead, WaitBlockingWrite, UTIME_NOW,
 };
 use log::{debug, warn};
+use signal::SignalFlags;
 
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
 use crate::syscall::time::current_nsec;
+use crate::tasks::WaitSignal;
 
 use super::consts::{LinuxError, UserRef};
 
@@ -36,7 +41,7 @@ pub async fn sys_dup3(fd_src: usize, fd_dst: usize) -> Result<usize, LinuxError>
     Ok(fd_dst)
 }
 
-pub async fn sys_read(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usize, LinuxError> {
+pub async fn sys_read(fd: usize, buf_ptr: UserRef<u8>, count: usize) -> Result<usize, LinuxError> {
     let task = current_user_task();
     debug!(
         "[task {}] sys_read @ fd: {} buf_ptr: {:?} count: {}",
@@ -46,19 +51,58 @@ pub async fn sys_read(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usiz
         count
     );
 
-    let mut buffer = buf_ptr.slice_mut_with_len(count);
+    let buffer = buf_ptr.slice_mut_with_len(count);
     let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-    file.async_read(&mut buffer).await.map_err(from_vfs)
+    // file.async_read(buffer).await.map_err(from_vfs)
+
+    // this was interrupted.
+    // match select(WaitBlockingRead(file.inner.clone(), buffer), WaitSignal(task)).await {
+    //     executor::Either::Left((res, _)) => res.map_err(from_vfs),
+    //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
+    // }
+
+    async fn wait_for_kill(task: Arc<UserTask>) -> () {
+        let task = task.clone();
+        loop {
+            if task.tcb.read().signal.has_sig(SignalFlags::SIGKILL) {
+                return;
+            }
+            yield_now().await;
+        }
+    }
+
+    match select(
+        WaitBlockingRead(file.inner.clone(), buffer),
+        Box::pin(wait_for_kill(task.clone())),
+    )
+    .await
+    {
+        executor::Either::Left((res, _)) => res.map_err(from_vfs),
+        executor::Either::Right(_) => Err(LinuxError::EAGAIN),
+    }
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "sys_write @ fd: {} buf_ptr: {:?} count: {}",
-        fd as isize, buf_ptr, count
+        "[task {}] sys_write @ fd: {} buf_ptr: {:?} count: {}",
+        task.get_task_id(),
+        fd as isize,
+        buf_ptr,
+        count
     );
     let buffer = buf_ptr.slice_with_len(count);
     let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
-    file.async_write(buffer).await.map_err(from_vfs)
+    // file.async_write(buffer).await.map_err(from_vfs)
+    match select(
+        WaitBlockingWrite(file.inner.clone(), buffer),
+        WaitSignal(task),
+    )
+    .await
+    {
+        executor::Either::Left((res, _)) => res.map_err(from_vfs),
+        executor::Either::Right(_) => Err(LinuxError::EAGAIN),
+    }
 }
 
 pub async fn sys_readv(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<usize, LinuxError> {
@@ -738,7 +782,7 @@ pub async fn sys_pselect(
     // }
     let mut rfds_r = [0usize; 4];
     let mut wfds_r = [0usize; 4];
-    let mut _efds_r = [0usize; 4];
+    let mut efds_r = [0usize; 4];
     loop {
         yield_now().await;
         let mut num = 0;
@@ -748,6 +792,7 @@ pub async fn sys_pselect(
             for i in 0..max_fdp1 {
                 // iprove it
                 if !rfds.get_bit(i) {
+                    rfds_r.set_bit(i, false);
                     continue;
                 }
                 if inner.fd_table[i].is_none() {
@@ -764,10 +809,7 @@ pub async fn sys_pselect(
                             rfds_r.set_bit(i, false)
                         }
                     }
-                    Err(_) => {
-                        num += 1;
-                        rfds_r.set_bit(i, true)
-                    }
+                    Err(_) => rfds_r.set_bit(i, false),
                 }
             }
         }
@@ -798,30 +840,52 @@ pub async fn sys_pselect(
         if exceptfds.is_valid() {
             let efds = exceptfds.slice_mut_with_len(4);
             for i in 0..max_fdp1 {
-                efds.set_bit(i, false);
+                // iprove it
+                if !efds.get_bit(i) {
+                    continue;
+                }
+                if inner.fd_table[i].is_none() {
+                    efds_r.set_bit(i, false);
+                    continue;
+                }
+                let file = inner.fd_table[i].clone().unwrap();
+                match file.poll(PollEvent::POLLERR) {
+                    Ok(res) => {
+                        if res.contains(PollEvent::POLLERR) {
+                            num += 1;
+                            efds_r.set_bit(i, true);
+                        } else {
+                            efds_r.set_bit(i, false)
+                        }
+                    }
+                    Err(_) => efds_r.set_bit(i, false),
+                }
             }
         }
         drop(inner);
-        // if num != 0 {
-        //     if readfds.is_valid() {
-        //         readfds.slice_mut_with_len(4).copy_from_slice(&rfds_r);
-        //     }
-        //     if writefds.is_valid() {
-        //         writefds.slice_mut_with_len(4).copy_from_slice(&wfds_r);
-        //     }
-        //     return Ok(num);
-        // }
-        if num >= max_fdp1 {
+        if num != 0 {
             if readfds.is_valid() {
                 readfds.slice_mut_with_len(4).copy_from_slice(&rfds_r);
             }
             if writefds.is_valid() {
                 writefds.slice_mut_with_len(4).copy_from_slice(&wfds_r);
             }
+            if exceptfds.is_valid() {
+                exceptfds.slice_mut_with_len(4).copy_from_slice(&efds_r);
+            }
             return Ok(num);
         }
 
         if current_nsec() > timeout {
+            if readfds.is_valid() {
+                readfds.slice_mut_with_len(4).copy_from_slice(&rfds_r);
+            }
+            if writefds.is_valid() {
+                writefds.slice_mut_with_len(4).copy_from_slice(&wfds_r);
+            }
+            if exceptfds.is_valid() {
+                exceptfds.slice_mut_with_len(4).copy_from_slice(&efds_r);
+            }
             return Ok(0);
         }
     }

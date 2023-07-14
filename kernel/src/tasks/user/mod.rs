@@ -15,7 +15,7 @@ pub mod signal;
 /// Copy on write.
 /// call this function when trigger store/instruction page fault.
 /// copy page or remap page.
-pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
+pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
         "store/instruction page fault @ {:#x} vpn: {} ppn: {} task_id: {}",
@@ -58,7 +58,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut Context, addr: usize) {
             if (0x7ff00000..0x7ffff000).contains(&addr) {
                 task.frame_alloc(vpn, MemType::Stack, 1);
             } else {
-                warn!("task exit with page fault, its context: {:#X?}", cx_ref);
+                // warn!("task exit with page fault, its context: {:#X?}", cx_ref);
                 // task.exit_with_signal(SignalFlags::SIGABRT.num());
                 task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
             }
@@ -111,14 +111,14 @@ pub async fn handle_user_interrupt(
             let vpn = VirtPage::from_addr(addr);
             warn!("store/instruction page fault @ {:#x} vpn: {}", addr, vpn);
             warn!("the fault occurs @ {:#x}", cx_ref.sepc());
-            warn!("user_task map: {:#x?}", task.pcb.lock().memset);
+            // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
             warn!(
                 "mapped ppn addr: {:#x} @ {}",
                 cx_ref.sepc(),
                 task.page_table.virt_to_phys(cx_ref.sepc().into())
             );
             // panic!("illegal Instruction")
-            // let signal = current_user_task().tcb.read().signal.clone();
+            // let signal = task.tcb.read().signal.clone();
             // if signal.has_sig(SignalFlags::SIGSEGV) {
             //     task.exit_with_signal(SignalFlags::SIGSEGV.num());
             // } else {

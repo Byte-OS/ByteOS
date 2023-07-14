@@ -2,10 +2,7 @@ use executor::{current_task, current_user_task, yield_now, AsyncTask};
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 
-use crate::tasks::{
-    user::entry::check_timer,
-    WaitSignal,
-};
+use crate::tasks::{user::entry::check_timer, WaitSignal};
 
 use super::consts::{LinuxError, UserRef};
 

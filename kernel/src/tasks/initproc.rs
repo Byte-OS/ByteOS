@@ -207,18 +207,18 @@ pub async fn initproc() {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
-    // command("time-test").await;
-    // command("busybox sh libctest_testcode.sh").await;
-    // command("busybox sh busybox_testcode.sh").await;
-    // command("busybox sh lua_testcode.sh").await;
-    // command("busybox ash lmbench_testcode.sh").await;
-    // command("busybox sh iozone_testcode.sh").await;
+    command("time-test").await;
+    command("busybox sh libctest_testcode.sh").await;
+    command("busybox sh busybox_testcode.sh").await;
+    command("busybox sh lua_testcode.sh").await;
+    command("busybox sh lmbench_testcode.sh").await;
+    command("busybox sh iozone_testcode.sh").await;
     // command("busybox sh unixbench_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cancel_points").await;
     // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
-    // command("./runtest.exe -w entry-static.exe fdopen").await;
-    // command("./runtest.exe -w entry-static.exe socket").await;
-    // command("./runtest.exe -w entry-dynamic.exe socket").await;
+    // command("./runtest.exe -w entry-static.exe pthread_condattr_setclock").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
     command("busybox sh netperf_testcode.sh").await;
     // command("busybox sh iperf_testcode.sh").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
@@ -229,6 +229,7 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
 
     // command("bin/sh").await;
+    // command("busybox sh").await;
     // command("usr/bin/tcc -run main.c").await;
     // command("bin/bash").await;
     // command("bin/bash lmbench_testcode.sh").await;

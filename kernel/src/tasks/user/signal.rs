@@ -17,6 +17,12 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
         task.get_task_id()
     );
 
+    // if the signal is SIGKILL, then exit the task immediately.
+    // the SIGKILL can't be catched and be ignored.
+    if signal == SignalFlags::SIGKILL {
+        task.exit_with_signal(signal.num());
+    }
+
     // get the signal action for the signal.
     let sigaction = task.pcb.lock().sigaction[signal.num()].clone();
 
@@ -62,7 +68,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     tcb.cx.set_arg0(signal.num());
     tcb.cx.set_arg1(0);
     tcb.cx.set_arg2(sp);
-    info!("context: {:#X?}", tcb.cx);
+    // info!("context: {:#X?}", tcb.cx);
     drop(tcb);
 
     loop {
