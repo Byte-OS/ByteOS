@@ -41,7 +41,13 @@ pub async fn user_entry() {
             if let Some(signal) = signal {
                 debug!("mask: {:?}", sig_mask);
                 handle_signal(task.clone(), signal.clone()).await;
-                task.tcb.write().signal.remove_signal(signal);
+                let mut tcb = task.tcb.write();
+                tcb.signal.remove_signal(signal.clone());
+                // check if it is a real time signal
+                if let Some(index) = signal.real_time_index() && tcb.signal_queue[index] > 0 {
+                    tcb.signal.add_signal(signal.clone());
+                    tcb.signal_queue[index] -= 1;
+                }
             } else {
                 break;
             }
@@ -52,7 +58,7 @@ pub async fn user_entry() {
         check_timer(&task);
 
         check_signal().await;
-        
+
         // check for task exit status.
         if let Some(exit_code) = task.exit_code() {
             debug!(
@@ -68,7 +74,7 @@ pub async fn user_entry() {
             task.task_id,
             cx_ref.sepc()
         );
-        
+
         let res = future::or(handle_user_interrupt(task.clone(), cx_ref), async {
             loop {
                 check_signal().await;

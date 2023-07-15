@@ -3,6 +3,7 @@ use core::{cmp, net::SocketAddrV4};
 use alloc::{sync::Arc, vec::Vec};
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
+use sync::Mutex;
 use vfscore::{Metadata, PollEvent, VfsResult};
 
 use crate::syscall::NET_SERVER;
@@ -25,11 +26,18 @@ impl NetType {
     }
 }
 
+#[derive(Clone)]
+pub struct SocketOptions {
+    pub wsize: usize,
+    pub rsize: usize,
+}
+
 #[allow(dead_code)]
 pub struct Socket {
     pub domain: usize,
     pub net_type: NetType,
     pub inner: Arc<dyn SocketInterface>,
+    pub options: Mutex<SocketOptions>,
 }
 
 unsafe impl Sync for Socket {}
@@ -39,8 +47,11 @@ impl Drop for Socket {
     fn drop(&mut self) {
         log::debug!("strong count: {}", Arc::strong_count(&self.inner));
         // TIPS: the socke table map will consume a strong reference.
-        if !self.inner.is_closed().unwrap() && (Arc::strong_count(&self.inner) == 2 || Arc::strong_count(&self.inner) == 1) {
-            self.inner.close().expect("cant close socket when droping socket in os.");
+        if !self.inner.is_closed().unwrap()
+            && (Arc::strong_count(&self.inner) == 2 || Arc::strong_count(&self.inner) == 1)
+        {
+            // self.inner.close().expect("cant close socket when droping socket in os.");
+            self.inner.close();
         }
         // self.inner.close();
     }
@@ -59,6 +70,7 @@ impl Socket {
             domain,
             net_type,
             inner,
+            options: Mutex::new(SocketOptions { wsize: 0, rsize: 0 }),
         })
     }
 
@@ -79,7 +91,39 @@ impl Socket {
             domain,
             net_type,
             inner,
+            options: Mutex::new(SocketOptions { wsize: 0, rsize: 0 }),
         })
+    }
+
+    pub fn reuse(&self, port: u16) -> Self {
+        // NET_SERVER.get_tcp(port)
+        match self.inner.get_protocol().unwrap() {
+            lose_net_stack::connection::SocketType::TCP => {
+                if let Some(socket_inner) = NET_SERVER.get_tcp(&port) {
+                    Self {
+                        domain: self.domain,
+                        net_type: self.net_type,
+                        inner: socket_inner,
+                        options: Mutex::new(self.options.lock().clone()),
+                    }
+                } else {
+                    unreachable!("can't reusetcp in blank tcp")
+                }
+            }
+            lose_net_stack::connection::SocketType::UDP => {
+                if let Some(socket_inner) = NET_SERVER.get_udp(&port) {
+                    Self {
+                        domain: self.domain,
+                        net_type: self.net_type,
+                        inner: socket_inner,
+                        options: Mutex::new(self.options.lock().clone()),
+                    }
+                } else {
+                    unreachable!("can't reusetcp in blank udp")
+                }
+            }
+            lose_net_stack::connection::SocketType::RAW => todo!(),
+        }
     }
 }
 
@@ -97,9 +141,10 @@ impl INodeInterface for Socket {
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
         match self.inner.recv_from() {
             Ok((data, _)) => {
-                let wlen = cmp::min(data.len(), buffer.len());
-                buffer[..wlen].copy_from_slice(&data[..wlen]);
-                Ok(wlen)
+                let rlen = cmp::min(data.len(), buffer.len());
+                buffer[..rlen].copy_from_slice(&data[..rlen]);
+                self.options.lock().rsize += rlen;
+                Ok(rlen)
             }
             Err(_err) => Err(vfscore::VfsError::Blocking),
         }
@@ -107,7 +152,10 @@ impl INodeInterface for Socket {
 
     fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
         match self.inner.sendto(&buffer, None) {
-            Ok(len) => Ok(len),
+            Ok(len) => {
+                self.options.lock().wsize += len;
+                Ok(len)
+            }
             Err(_err) => Err(vfscore::VfsError::NotWriteable),
         }
     }

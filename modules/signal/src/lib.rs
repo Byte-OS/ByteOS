@@ -11,6 +11,8 @@ pub trait SignalOps {
     fn sigmask(&self) -> usize;
 }
 
+pub const REAL_TIME_SIGNAL_NUM: usize = 33;
+
 bitflags! {
     #[derive(Debug, PartialEq, Eq, Clone)]
     pub struct SignalFlags: u64 {
@@ -129,6 +131,16 @@ impl SignalFlags {
             }
         }
         0
+    }
+
+    #[inline]
+    pub fn is_real_time(&self) -> bool {
+        self.bits() & 0xFFFFFFFE00000000 != 0
+    }
+
+    #[inline]
+    pub fn real_time_index(&self) -> Option<usize> {
+        self.is_real_time().then(|| self.num() - 32)
     }
 }
 

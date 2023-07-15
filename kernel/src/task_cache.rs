@@ -1,8 +1,7 @@
 #![allow(dead_code)]
 
-/// This mod is due to implemente the exec map, 
+/// This mod is due to implemente the exec map,
 /// just need to map this file to accelerate the execution.
-
 use alloc::{string::String, sync::Arc, vec::Vec};
 use arch::VirtPage;
 use frame_allocator::FrameTracker;

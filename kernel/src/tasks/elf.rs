@@ -1,6 +1,6 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use arch::{PAGE_SIZE, VirtPage, ContextOps};
-use executor::{UserTask, MemType, AsyncTask};
+use arch::{ContextOps, VirtPage, PAGE_SIZE};
+use executor::{AsyncTask, MemType, UserTask};
 use log::warn;
 use xmas_elf::{
     program::Type,
@@ -111,11 +111,15 @@ pub fn init_task_stack(
     ph_entry_size: usize,
     ph_addr: usize,
     heap_bottom: usize,
-    tls: usize
+    tls: usize,
 ) {
     // map stack
     user_task.frame_alloc(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
-    log::debug!("[task {}] entry: {:#x}", user_task.get_task_id(), base + entry_point);
+    log::debug!(
+        "[task {}] entry: {:#x}",
+        user_task.get_task_id(),
+        base + entry_point
+    );
     user_task.inner_map(|inner| {
         inner.heap = heap_bottom;
         inner.entry = base + entry_point;
@@ -129,7 +133,7 @@ pub fn init_task_stack(
     tcb.cx.set_tls(tls);
 
     drop(tcb);
-    
+
     // push stack
     let envp = vec![
         "LD_LIBRARY_PATH=/",

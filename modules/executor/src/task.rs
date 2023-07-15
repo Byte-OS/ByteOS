@@ -13,6 +13,7 @@ use arch::{
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
+use signal::REAL_TIME_SIGNAL_NUM;
 pub use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard, RwLock};
 
@@ -21,7 +22,8 @@ use crate::{
     memset::{MapTrack, MemArea, MemType},
     shm::MapedSharedMemory,
     signal::SignalList,
-    task_id_alloc, thread, AsyncTask, MemSet, ProcessTimer, TaskId, FUTURE_LIST, TMS, TaskFutureItem,
+    task_id_alloc, thread, AsyncTask, MemSet, ProcessTimer, TaskFutureItem, TaskId, FUTURE_LIST,
+    TMS,
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
@@ -77,7 +79,7 @@ pub struct ProcessControlBlock {
     pub children: Vec<Arc<UserTask>>,
     pub tms: TMS,
     pub rlimits: Vec<usize>,
-    pub sigaction: [SigAction; 64],
+    pub sigaction: [SigAction; 65],
     pub futex_table: Arc<Mutex<FutexTable>>,
     pub shms: Vec<MapedSharedMemory>,
     pub timer: [ProcessTimer; 3],
@@ -91,6 +93,7 @@ pub struct ThreadControlBlock {
     pub clear_child_tid: usize,
     pub set_child_tid: usize,
     pub signal: SignalList,
+    pub signal_queue: [usize; REAL_TIME_SIGNAL_NUM], // a queue for real time signals
     pub exit_signal: u8,
 }
 
@@ -128,7 +131,9 @@ impl UserTask {
             }],
         )]);
 
-        FUTURE_LIST.lock().insert(task_id, TaskFutureItem(Box::pin(future)));
+        FUTURE_LIST
+            .lock()
+            .insert(task_id, TaskFutureItem(Box::pin(future)));
 
         let inner = ProcessControlBlock {
             memset,
@@ -139,12 +144,12 @@ impl UserTask {
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
-            sigaction: [SigAction::new(); 64],
+            sigaction: [SigAction::new(); 65],
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
             shms: vec![],
             timer: [Default::default(); 3],
             exit_code: None,
-            threads: Vec::new()
+            threads: Vec::new(),
         };
 
         let tcb = RwLock::new(ThreadControlBlock {
@@ -153,6 +158,7 @@ impl UserTask {
             clear_child_tid: 0,
             set_child_tid: 0,
             signal: SignalList::new(),
+            signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
         });
 
@@ -344,10 +350,7 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn fork(
-        self: Arc<Self>,
-        future: impl Future<Output = ()> + 'static,
-    ) -> Arc<Self> {
+    pub fn fork(self: Arc<Self>, future: impl Future<Output = ()> + 'static) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -395,10 +398,7 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn cow_fork(
-        self: Arc<Self>,
-        future: impl Future<Output = ()> + 'static,
-    ) -> Arc<Self> {
+    pub fn cow_fork(self: Arc<Self>, future: impl Future<Output = ()> + 'static) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -445,10 +445,7 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn thread_clone(
-        self: Arc<Self>,
-        future: impl Future<Output = ()> + 'static,
-    ) -> Arc<Self> {
+    pub fn thread_clone(self: Arc<Self>, future: impl Future<Output = ()> + 'static) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -463,6 +460,7 @@ impl UserTask {
             clear_child_tid: 0,
             set_child_tid: 0,
             signal: SignalList::new(),
+            signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
         });
 
@@ -480,7 +478,9 @@ impl UserTask {
         pcb.threads.push(Arc::downgrade(&new_task));
         // pcb.children.push(new_task.clone());
 
-        FUTURE_LIST.lock().insert(task_id, TaskFutureItem(Box::pin(future)));
+        FUTURE_LIST
+            .lock()
+            .insert(task_id, TaskFutureItem(Box::pin(future)));
 
         thread::spawn(new_task.clone());
         new_task

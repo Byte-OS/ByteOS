@@ -184,7 +184,7 @@ pub async fn exec_with_process<'a>(
         elf_header.pt2.ph_entry_size() as usize,
         elf.get_ph_addr().unwrap_or(0) as usize,
         heap_bottom as usize,
-        tls as usize
+        tls as usize,
     );
 
     // map sections.
@@ -496,26 +496,38 @@ pub async fn sys_futex(
 pub async fn sys_tkill(tid: usize, signum: usize) -> Result<usize, LinuxError> {
     debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
     let task = current_user_task();
-    let child = task.inner_map(|x| {
+    let mut child = task.inner_map(|x| {
         x.threads
             .iter()
-            .find(|x| {
-                match x.upgrade() {
-                    Some(thread) => thread.task_id == tid,
-                    None => false
-                }
+            .find(|x| match x.upgrade() {
+                Some(thread) => thread.task_id == tid,
+                None => false,
             })
             .map(|x| x.clone())
     });
 
+    if tid == task.task_id {
+        child = Some(Arc::downgrade(&task));
+    }
+
     match child {
         Some(child) => {
-            child
-                .upgrade().unwrap()
-                .tcb
-                .write()
-                .signal
-                .add_signal(SignalFlags::from_usize(signum));
+            let target_signal = SignalFlags::from_usize(signum);
+            let child_task = child.upgrade().unwrap();
+            let mut child_tcb = child_task.tcb.write();
+            if !child_tcb.signal.has_sig(target_signal.clone()) {
+                child_tcb.signal.add_signal(target_signal);
+            } else {
+                if let Some(index) = target_signal.real_time_index() {
+                    child_tcb.signal_queue[index] += 1;
+                }
+            }
+            // let signal = child
+            //     .upgrade().unwrap()
+            //     .tcb
+            //     .write()
+            //     .signal
+            //     .add_signal(SignalFlags::from_usize(signum));
             Ok(0)
         }
         None => Err(LinuxError::ECHILD),
@@ -549,10 +561,10 @@ pub async fn sys_getrusage(who: usize, usage_ptr: UserRef<Rusage>) -> Result<usi
 pub fn sys_exit_group(exit_code: usize) -> Result<usize, LinuxError> {
     debug!("sys_exit_group @ exit_code: {}", exit_code);
     let user_task = current_user_task();
-    let children = user_task.pcb.lock().children.clone();
-    for ctask in children.iter().filter(|x| x.task_id != user_task.task_id) {
-        ctask.exit(exit_code);
-    }
+    // let children = user_task.pcb.lock().children.clone();
+    // for ctask in children.iter().filter(|x| x.task_id != user_task.task_id) {
+    //     ctask.exit(exit_code);
+    // }
     user_task.exit(exit_code);
     Ok(0)
     // Err(LinuxError::EPERM)
@@ -568,28 +580,23 @@ pub async fn sys_kill(pid: usize, signum: usize) -> Result<usize, LinuxError> {
         signal
     );
 
-    let user_task = TASK_QUEUE
-        .lock()
-        .iter()
-        .find(|x| x.get_task_id() == pid)
-        .map(|x| x.clone())
-        .ok_or(LinuxError::ESRCH)?
-        .as_user_task();
+    let user_task = match pid == current_task().get_task_id() {
+        true => Some(curr_task.clone().as_user_task().unwrap()),
+        false => TASK_QUEUE
+            .lock()
+            .iter()
+            .find(|x| x.get_task_id() == pid)
+            .map(|x| x.clone())
+            .ok_or(LinuxError::ESRCH)?
+            .as_user_task(),
+    };
 
     let user_task = match user_task {
         Some(t) => t,
         None => return Err(LinuxError::ESRCH),
     };
 
-    match signal {
-        SignalFlags::SIGKILL => {
-            user_task.tcb.write().signal.add_signal(signal.clone());
-            // user_task.exit_with_signal(signal.num());
-        }
-        _ => {
-            user_task.tcb.write().signal.add_signal(signal.clone());
-        }
-    }
+    user_task.tcb.write().signal.add_signal(signal.clone());
 
     yield_now().await;
 
