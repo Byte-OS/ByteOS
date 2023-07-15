@@ -61,7 +61,10 @@ pub async fn sys_socket(
     let task = current_user_task();
     debug!(
         "[task {}] sys_socket @ domain: {:#x}, net_type: {:#x}, protocol: {:#x}",
-        task.get_task_id(), domain, net_type, protocol
+        task.get_task_id(),
+        domain,
+        net_type,
+        protocol
     );
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     debug!(
@@ -83,10 +86,14 @@ pub async fn sys_bind(
     let task = current_user_task();
     debug!(
         "[task {}] sys_bind @ socket: {:#x}, addr_ptr: {}, address_len: {:#x}",
-        task.get_task_id(), socket_fd, addr_ptr, address_len
+        task.get_task_id(),
+        socket_fd,
+        addr_ptr,
+        address_len
     );
     let socket_addr = addr_ptr.get_mut();
 
+    debug!("try to bind {:?} to socket {}", socket_addr, socket_fd);
     let socket = task
         .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
@@ -96,16 +103,29 @@ pub async fn sys_bind(
 
     let net_server = NET_SERVER.clone();
     let port = socket_addr.in_port.to_be();
+    debug!("read port {}", port);
 
     match socket.net_type {
         NetType::STEAM => {
             if net_server.tcp_is_used(port) {
-                return Err(LinuxError::EBUSY);
+                let sock = socket.reuse(port);
+                task.set_fd(
+                    socket_fd,
+                    Some(FileItem::new(Arc::new(sock), Default::default())),
+                );
+                // return Err(LinuxError::EBUSY);
+                return Ok(0);
             }
         }
         NetType::DGRAME => {
             if net_server.udp_is_used(port) {
-                return Err(LinuxError::EBUSY);
+                let sock = socket.reuse(port);
+                task.set_fd(
+                    socket_fd,
+                    Some(FileItem::new(Arc::new(sock), Default::default())),
+                );
+                // return Err(LinuxError::EBUSY);
+                return Ok(0);
             }
         }
         NetType::RAW => {}
@@ -125,7 +145,9 @@ pub async fn sys_listen(socket_fd: usize, backlog: usize) -> Result<usize, Linux
     let task = current_user_task();
     debug!(
         "[task {}] sys_listen @ socket_fd: {:#x}, backlog: {:#x}",
-        task.get_task_id(), socket_fd, backlog
+        task.get_task_id(),
+        socket_fd,
+        backlog
     );
     task.get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
@@ -170,7 +192,10 @@ pub async fn sys_connect(
     let task = current_user_task();
     debug!(
         "[task {}] sys_connect @ socket_fd: {:#x}, socket_addr: {:#x?}, len: {:#x}",
-        task.get_task_id(), socket_fd, socket_addr, len
+        task.get_task_id(),
+        socket_fd,
+        socket_addr,
+        len
     );
     let socket = task
         .get_fd(socket_fd)
@@ -254,6 +279,40 @@ pub async fn sys_getsockname(
     Ok(0)
 }
 
+pub async fn sys_getpeername(
+    socket_fd: usize,
+    addr_ptr: UserRef<SocketAddrIn>,
+    len: usize,
+) -> Result<usize, LinuxError> {
+    let task = current_user_task();
+    debug!(
+        "[task {}] sys_getpeername @ socket_fd: {:#x}, addr_ptr: {}, len: {:#x}",
+        task.get_task_id(),
+        socket_fd,
+        addr_ptr,
+        len
+    );
+    let socket = task
+        .get_fd(socket_fd)
+        .ok_or(LinuxError::EINVAL)?
+        .get_bare_file()
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    if addr_ptr.is_valid() {
+        let socket_address = socket.inner.get_remote().expect("can't get socket address");
+        let socket_addr = addr_ptr.get_mut();
+        socket_addr.family = 2;
+        socket_addr.addr = *socket_address.ip();
+        socket_addr.in_port = socket_address.port().to_be();
+        debug!(
+            "[task {}] socket address: {:?}",
+            task.get_task_id(),
+            socket_address
+        );
+    }
+    Ok(0)
+}
+
 pub async fn sys_setsockopt(
     socket: usize,
     level: usize,
@@ -262,6 +321,15 @@ pub async fn sys_setsockopt(
     optlen: usize,
 ) -> Result<usize, LinuxError> {
     log::warn!("sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
+    // Ok(0)但在网络游戏这种实时通信中，这种减少包的做法，如果网络较差的时候，可能会引起比较大的波动，比如玩家正在PK，发了技能没有很快的反馈，过一会儿很多技能效果一起回来，这个体验是比较差的。
+
+    // 0x1a SO_ATTACH_FILTER
+    // match optname {
+    //     0x1 | 0x2 | 0x1a => Ok(0),
+    //     _ => {
+    //         Err(LinuxError::EPERM)
+    //     }
+    // }
     Ok(0)
 }
 
@@ -269,12 +337,28 @@ pub async fn sys_getsockopt(
     socket: usize,
     level: usize,
     optname: usize,
-    optval: usize,
-    optlen: usize,
+    optval: *mut u32,
+    optlen: *mut u32,
 ) -> Result<usize, LinuxError> {
     let task = current_user_task();
-    debug!("[task {}] sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", 
+    debug!("[task {}] sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x?}, optlen: {:#x?}", 
     task.get_task_id(), socket, level, optname, optval, optlen);
+    unsafe {
+        let optval = optval.as_mut().unwrap();
+        let _optlen = optlen.as_mut().unwrap();
+
+        match optname {
+            // send buffer
+            0x7 => *optval = 32000,
+            // recv buffer
+            0x8 => *optval = 32000,
+            0x2 => *optval = 2000,
+            _ => {
+                // *optval = 2000;
+            }
+        }
+        // debug!("ptr value: {:?}", optval);
+    }
     Ok(0)
 }
 

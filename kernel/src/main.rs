@@ -4,6 +4,7 @@
 #![feature(drain_filter)]
 #![feature(ip_in_core)]
 #![feature(async_closure)]
+#![feature(let_chains)]
 
 #[macro_use]
 extern crate logging;

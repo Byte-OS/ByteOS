@@ -252,6 +252,7 @@ pub const SYS_LISTEN: usize = 201;
 pub const SYS_ACCEPT: usize = 202;
 pub const SYS_CONNECT: usize = 203;
 pub const SYS_GETSOCKNAME: usize = 204;
+pub const SYS_GETPEERNAME: usize = 205;
 pub const SYS_SENDTO: usize = 206;
 pub const SYS_RECVFROM: usize = 207;
 pub const SYS_SETSOCKOPT: usize = 208;

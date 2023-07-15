@@ -378,6 +378,12 @@ impl INodeInterface for RamFile {
         match offset >= file_size {
             true => Ok(0),
             false => {
+                // let origin_read_len = min(buffer.len(), file_size - offset);
+                // let read_len = if offset >= real_size {
+                //     min(origin_read_len, real_size - offset)
+                // } else {
+                //     0
+                // };
                 let read_len = min(buffer.len(), file_size - offset);
                 let mut last_len = read_len;
                 // let content = self.inner.content.lock();
@@ -397,6 +403,7 @@ impl INodeInterface for RamFile {
                     buffer_off += curr_size;
                 }
                 *self.offset.lock() = offset;
+                // Ok(origin_read_len)
                 Ok(read_len)
             }
         }
@@ -455,6 +462,15 @@ impl INodeInterface for RamFile {
     fn truncate(&self, size: usize) -> VfsResult<()> {
         // self.inner.content.lock().drain(size..);
         *self.inner.len.lock() = size;
+
+        let mut page_cont = self.inner.pages.lock();
+        let pages = page_cont.len();
+        let target_pages = ceil_div(size, PAGE_SIZE);
+
+        for _ in pages..target_pages {
+            page_cont.push(frame_alloc().expect("can't alloc frame in ram fs"));
+        }
+
         Ok(())
     }
 

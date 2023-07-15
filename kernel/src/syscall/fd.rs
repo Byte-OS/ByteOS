@@ -1,28 +1,25 @@
 use core::cmp;
 
-use alloc::boxed::Box;
 use alloc::string::String;
-use alloc::sync::Arc;
+
 use alloc::vec::Vec;
 use arch::VirtAddr;
 use bit_field::BitArray;
 use executor::{
-    current_task, current_user_task, select, yield_now, AsyncTask, FileItem,
-    FileOptions, UserTask,
+    current_task, current_user_task, yield_now, AsyncTask, FileItem, FileItemInterface, FileOptions,
 };
 use fs::mount::{open, rebuild_path, umount};
 use fs::pipe::create_pipe;
 use fs::{
     INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
-    WaitBlockingRead, WaitBlockingWrite, UTIME_NOW,
+    UTIME_NOW,
 };
 use log::{debug, warn};
-use signal::SignalFlags;
 
+use crate::socket::Socket;
 use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
 use crate::syscall::time::current_nsec;
-use crate::tasks::WaitSignal;
 
 use super::consts::{LinuxError, UserRef};
 
@@ -53,7 +50,7 @@ pub async fn sys_read(fd: usize, buf_ptr: UserRef<u8>, count: usize) -> Result<u
 
     let buffer = buf_ptr.slice_mut_with_len(count);
     let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-    // file.async_read(buffer).await.map_err(from_vfs)
+    file.async_read(buffer).await.map_err(from_vfs)
 
     // this was interrupted.
     // match select(WaitBlockingRead(file.inner.clone(), buffer), WaitSignal(task)).await {
@@ -61,25 +58,25 @@ pub async fn sys_read(fd: usize, buf_ptr: UserRef<u8>, count: usize) -> Result<u
     //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
     // }
 
-    async fn wait_for_kill(task: Arc<UserTask>) -> () {
-        let task = task.clone();
-        loop {
-            if task.tcb.read().signal.has_sig(SignalFlags::SIGKILL) {
-                return;
-            }
-            yield_now().await;
-        }
-    }
+    // async fn wait_for_kill(task: Arc<UserTask>) -> () {
+    //     let task = task.clone();
+    //     loop {
+    //         if task.tcb.read().signal.has_sig(SignalFlags::SIGKILL) {
+    //             return;
+    //         }
+    //         yield_now().await;
+    //     }
+    // }
 
-    match select(
-        WaitBlockingRead(file.inner.clone(), buffer),
-        Box::pin(wait_for_kill(task.clone())),
-    )
-    .await
-    {
-        executor::Either::Left((res, _)) => res.map_err(from_vfs),
-        executor::Either::Right(_) => Err(LinuxError::EAGAIN),
-    }
+    // match select(
+    //     WaitBlockingRead(file.inner.clone(), buffer),
+    //     Box::pin(wait_for_kill(task.clone())),
+    // )
+    // .await
+    // {
+    //     executor::Either::Left((res, _)) => res.map_err(from_vfs),
+    //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
+    // }
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usize, LinuxError> {
@@ -93,16 +90,19 @@ pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usi
     );
     let buffer = buf_ptr.slice_with_len(count);
     let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
-    // file.async_write(buffer).await.map_err(from_vfs)
-    match select(
-        WaitBlockingWrite(file.inner.clone(), buffer),
-        WaitSignal(task),
-    )
-    .await
-    {
-        executor::Either::Left((res, _)) => res.map_err(from_vfs),
-        executor::Either::Right(_) => Err(LinuxError::EAGAIN),
+    if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
+        yield_now().await;
     }
+    file.async_write(buffer).await.map_err(from_vfs)
+    // match select(
+    //     WaitBlockingWrite(file.inner.clone(), buffer),
+    //     WaitSignal(task),
+    // )
+    // .await
+    // {
+    //     executor::Either::Left((res, _)) => res.map_err(from_vfs),
+    //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
+    // }
 }
 
 pub async fn sys_readv(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<usize, LinuxError> {
