@@ -113,3 +113,19 @@ pub async fn sys_info(meminfo: UserRef<u8>) -> Result<usize, LinuxError> {
     }
     Ok(0)
 }
+
+pub async fn sys_sched_getparam(pid: usize, param: usize) -> Result<usize, LinuxError> {
+    debug!("sys_sched_getparam @ pid: {} param: {}", pid, param);
+
+    Ok(0)
+}
+
+pub async fn sys_sched_setscheduler(
+    pid: usize,
+    policy: usize,
+    param: usize,
+) -> Result<usize, LinuxError> {
+    debug!("sys_sched_setscheduler @ pid: {} param: {}", pid, param);
+
+    Ok(0)
+}

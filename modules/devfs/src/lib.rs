@@ -17,6 +17,7 @@ use vfscore::{
     VfsResult,
 };
 
+mod cpu_dma_latency;
 mod null;
 mod rtc;
 mod sdx;
@@ -78,6 +79,7 @@ impl DevDir {
         map.insert("shm", Arc::new(shm::Shm));
         map.insert("rtc", Arc::new(rtc::Rtc));
         map.insert("urandom", Arc::new(urandom::Urandom));
+        map.insert("cpu_dma_latency", Arc::new(cpu_dma_latency::CpuDmaLatency));
         // map.insert("tty", Arc::new(stdout::Stdout));
 
         Self { map }
