@@ -25,11 +25,12 @@ use self::{
         SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT,
         SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD,
         SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM,
-        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SETSID,
-        SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN,
-        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT,
-        SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME,
-        SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_SCHED_GETPARAM, SYS_SCHED_SETSCHEDULER, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO,
+        SYS_SETITIMER, SYS_SETPGID, SYS_SETSID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT,
+        SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
+        SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES,
+        SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
+        SYS_WRITEV, SYS_SOCKETPAIR,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -42,11 +43,11 @@ use self::{
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
         sys_accept, sys_bind, sys_connect, sys_getpeername, sys_getsockname, sys_getsockopt,
-        sys_listen, sys_recvfrom, sys_sendto, sys_setsockopt, sys_shutdown, sys_socket,
+        sys_listen, sys_recvfrom, sys_sendto, sys_setsockopt, sys_shutdown, sys_socket, sys_socket_pair,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
-        sys_prlimit64, sys_setpgid, sys_uname,
+        sys_prlimit64, sys_sched_getparam, sys_sched_setscheduler, sys_setpgid, sys_uname,
     },
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_exit_group, sys_futex, sys_getcwd,
@@ -192,6 +193,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_FACCESSAT => Ok(0), // always be ok at now.
         SYS_FACCESSAT2 => Ok(0),
         SYS_SOCKET => sys_socket(args[0] as _, args[1] as _, args[2] as _).await,
+        SYS_SOCKETPAIR => sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
         SYS_BIND => sys_bind(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
         SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
@@ -251,6 +253,11 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_GETPEERNAME => sys_getpeername(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_SETSID => sys_setsid().await,
         SYS_SHUTDOWN => sys_shutdown(args[0] as _, args[1] as _).await,
+        SYS_SCHED_GETPARAM => sys_sched_getparam(args[0] as _, args[1] as _).await,
+        SYS_SCHED_SETSCHEDULER => {
+            sys_sched_setscheduler(args[0] as _, args[1] as _, args[2] as _).await
+        }
+        114 | 115 => Ok(0),
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

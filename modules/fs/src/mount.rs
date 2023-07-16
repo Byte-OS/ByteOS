@@ -25,6 +25,7 @@ pub fn init() {
     mount(String::from("/tmp_home"), 4).expect("can't mount to /tmp_home");
     mount(String::from("/var"), 5).expect("can't mount to /var");
     mount(String::from("/proc"), 6).expect("can't mount to /proc");
+    mount(String::from("/bin"), 7).expect("can't mount to /bin");
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {

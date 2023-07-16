@@ -1,5 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use executor::{current_task, thread, Executor, KernelTask, UserTask};
+use executor::{current_task, thread, Executor, KernelTask, UserTask, TaskId, AsyncTask};
 
 use crate::syscall::exec_with_process;
 
@@ -169,10 +169,11 @@ pub fn init() {
     exec.run();
 }
 
-pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) {
+pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) -> TaskId {
     let task = UserTask::new(user_entry(), Arc::downgrade(&current_task()));
     exec_with_process(task.clone(), filename, args)
         .await
         .expect("can't add task to excutor");
     thread::spawn(task.clone());
+    task.get_task_id()
 }

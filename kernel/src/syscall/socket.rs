@@ -11,6 +11,7 @@ use lose_net_stack::MacAddress;
 use sync::Lazy;
 
 use crate::socket::{self, NetType};
+use crate::syscall::fd::sys_pipe2;
 
 use super::consts::{LinuxError, UserRef};
 
@@ -76,6 +77,20 @@ pub async fn sys_socket(
     let socket = Socket::new(domain, net_type);
     task.set_fd(fd, Some(FileItem::new(socket, Default::default())));
     Ok(fd)
+}
+
+pub async fn sys_socket_pair(
+    domain: usize,
+    net_type: usize,
+    protocol: usize,
+    socket_vector: *mut u32,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_socket_pair @ domain: {} net_type: {:#x} protocol: {} socket_vector: {:?}",
+        domain, net_type, protocol, socket_vector
+    );
+    sys_pipe2((socket_vector as usize).into(), 0).await?;
+    Ok(0)
 }
 
 pub async fn sys_bind(
