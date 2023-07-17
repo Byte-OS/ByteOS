@@ -95,6 +95,7 @@ pub struct ThreadControlBlock {
     pub signal: SignalList,
     pub signal_queue: [usize; REAL_TIME_SIGNAL_NUM], // a queue for real time signals
     pub exit_signal: u8,
+    pub thread_exit_code: Option<u32>,
 }
 
 #[allow(dead_code)]
@@ -160,6 +161,7 @@ impl UserTask {
             signal: SignalList::new(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
+            thread_exit_code: Option::None,
         });
 
         let task = Arc::new(Self {
@@ -345,6 +347,54 @@ impl UserTask {
     }
 
     #[inline]
+    pub fn thread_exit(&self, exit_code: usize) {
+        let mut tcb_writer = self.tcb.write();
+        let uaddr = tcb_writer.clear_child_tid;
+        if uaddr != 0 {
+            extern "Rust" {
+                pub fn futex_wake(
+                    task: Arc<Mutex<FutexTable>>,
+                    uaddr: usize,
+                    wake_count: usize,
+                ) -> usize;
+            }
+            debug!("write addr: {:#x}", uaddr);
+            let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
+            unsafe {
+                (paddr_c(addr).addr() as *mut u32).write(0);
+                futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
+            }
+        }
+        tcb_writer.thread_exit_code = Some(exit_code as u32);
+        let exit_signal = tcb_writer.exit_signal;
+        drop(tcb_writer);
+        FUTURE_LIST.lock().remove(&self.task_id);
+
+        // recycle memory resouces if the pcb just used by this thread
+        if Arc::strong_count(&self.pcb) == 1 {
+            self.pcb.lock().memset.retain(|x| x.mtype != MemType::PTE);
+            self.pcb.lock().fd_table.clear();
+            self.pcb.lock().children.clear();
+            self.pcb.lock().exit_code = Some(exit_code);
+        }
+
+        if let Some(parent) = self.parent.read().upgrade() {
+            parent.as_user_task().map(|x| {
+                if exit_signal != 0 {
+                    x.tcb
+                        .write()
+                        .signal
+                        .add_signal(SignalFlags::from_usize(exit_signal as usize));
+                } else {
+                    x.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                }
+            });
+        } else {
+            self.pcb.lock().children.clear();
+        }
+    }
+
+    #[inline]
     pub fn exit_with_signal(&self, signal: usize) {
         self.exit(128 + signal);
     }
@@ -462,6 +512,7 @@ impl UserTask {
             signal: SignalList::new(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
+            thread_exit_code: Option::None,
         });
 
         tcb.write().cx.set_ret(0);
