@@ -28,6 +28,13 @@ pub fn mask_signal_list(mask: SigProcMask, list: SignalList) -> SignalList {
     }
 }
 
+#[inline]
+pub fn check_thread_exit(task: &Arc<UserTask>) -> Option<usize> {
+    task.exit_code()
+        .or(task.tcb.read().thread_exit_code.map(|x| x as usize))
+    // task.exit_code().is_some() || task.tcb.read().thread_exit_code.is_some()
+}
+
 pub async fn user_entry() {
     let task = current_user_task();
     let cx_ref = task.force_cx_ref();
@@ -60,7 +67,7 @@ pub async fn user_entry() {
         check_signal().await;
 
         // check for task exit status.
-        if let Some(exit_code) = task.exit_code() {
+        if let Some(exit_code) = check_thread_exit(&task) {
             debug!(
                 "program exit with code: {}  task_id: {}  with  inner",
                 exit_code,
@@ -79,7 +86,7 @@ pub async fn user_entry() {
             loop {
                 check_signal().await;
 
-                if let Some(_exit_code) = task.exit_code() {
+                if let Some(_exit_code) = check_thread_exit(&task) {
                     return UserTaskControlFlow::Break;
                 }
                 check_timer(&task);
@@ -109,7 +116,7 @@ pub async fn user_entry() {
         //     break;
         // }
 
-        if let Some(exit_code) = task.exit_code() {
+        if let Some(exit_code) = check_thread_exit(&task) {
             debug!(
                 "program exit with code: {}  task_id: {}  with  inner",
                 exit_code,

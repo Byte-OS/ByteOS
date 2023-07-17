@@ -1,5 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use executor::{current_task, thread, Executor, KernelTask, UserTask, TaskId, AsyncTask};
+use executor::{current_task, thread, AsyncTask, Executor, KernelTask, TaskId, UserTask};
 
 use crate::syscall::exec_with_process;
 

@@ -16,21 +16,21 @@ use log::warn;
 
 use self::{
     consts::{
-        LinuxError, SYS_ACCEPT, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLONE, SYS_CLOSE, SYS_CONNECT,
-        SYS_DUP, SYS_DUP3, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2,
-        SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD,
-        SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPEERNAME, SYS_GETPGID,
-        SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE, SYS_GETSOCKNAME, SYS_GETSOCKOPT, SYS_GETTID,
-        SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL,
-        SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT,
-        SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD,
-        SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM,
-        SYS_SCHED_GETPARAM, SYS_SCHED_SETSCHEDULER, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO,
-        SYS_SETITIMER, SYS_SETPGID, SYS_SETSID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT,
-        SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN,
-        SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_STATFS, SYS_SYSINFO, SYS_TIMES,
-        SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
-        SYS_WRITEV, SYS_SOCKETPAIR,
+        LinuxError, SYS_ACCEPT, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLOCK_GETRES,
+        SYS_CLOCK_NANOSLEEP, SYS_CLONE, SYS_CLOSE, SYS_CONNECT, SYS_DUP, SYS_DUP3, SYS_EXECVE,
+        SYS_EXIT, SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT,
+        SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID,
+        SYS_GETGID, SYS_GETPEERNAME, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE,
+        SYS_GETSOCKNAME, SYS_GETSOCKOPT, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID,
+        SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT,
+        SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
+        SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ,
+        SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_GETPARAM, SYS_SCHED_SETSCHEDULER,
+        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SETSID,
+        SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN,
+        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT,
+        SYS_SOCKET, SYS_SOCKETPAIR, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
         sys_close, sys_dup, sys_dup3, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
@@ -43,7 +43,8 @@ use self::{
     signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
     socket::{
         sys_accept, sys_bind, sys_connect, sys_getpeername, sys_getsockname, sys_getsockopt,
-        sys_listen, sys_recvfrom, sys_sendto, sys_setsockopt, sys_shutdown, sys_socket, sys_socket_pair,
+        sys_listen, sys_recvfrom, sys_sendto, sys_setsockopt, sys_shutdown, sys_socket,
+        sys_socket_pair,
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
@@ -54,7 +55,10 @@ use self::{
         sys_getpid, sys_getppid, sys_getrusage, sys_gettid, sys_kill, sys_sched_yield,
         sys_set_tid_address, sys_setsid, sys_sigreturn, sys_tkill, sys_wait4,
     },
-    time::{sys_clock_gettime, sys_gettimeofday, sys_nanosleep, sys_setitimer, sys_times},
+    time::{
+        sys_clock_getres, sys_clock_gettime, sys_clock_nanosleep, sys_gettimeofday, sys_nanosleep,
+        sys_setitimer, sys_times,
+    },
 };
 
 pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
@@ -193,7 +197,9 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_FACCESSAT => Ok(0), // always be ok at now.
         SYS_FACCESSAT2 => Ok(0),
         SYS_SOCKET => sys_socket(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_SOCKETPAIR => sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_SOCKETPAIR => {
+            sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
+        }
         SYS_BIND => sys_bind(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
         SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
@@ -257,7 +263,18 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_SCHED_SETSCHEDULER => {
             sys_sched_setscheduler(args[0] as _, args[1] as _, args[2] as _).await
         }
-        114 | 115 => Ok(0),
+        SYS_CLOCK_GETRES => sys_clock_getres(args[0] as _, args[1].into()).await,
+        SYS_CLOCK_NANOSLEEP => {
+            sys_clock_nanosleep(args[0] as _, args[1] as _, args[2].into(), args[3].into()).await
+        }
+        122 => {
+            log::debug!("sys_getaffinity() ");
+            Ok(0)
+        }
+        120 => {
+            log::debug!("sys_sched_getscheduler");
+            Ok(0)
+        }
         _ => {
             warn!("unsupported syscall: {}", call_type);
             Err(LinuxError::EPERM)

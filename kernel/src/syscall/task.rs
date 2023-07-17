@@ -58,7 +58,11 @@ pub fn sys_exit(exit_code: isize) -> Result<usize, LinuxError> {
         exit_code,
         current_task().get_task_id()
     );
-    current_task().as_user_task().unwrap().exit(exit_code as _);
+    // current_task().as_user_task().unwrap().exit(exit_code as _);
+    current_task()
+        .as_user_task()
+        .unwrap()
+        .thread_exit(exit_code as _);
     Ok(0)
 }
 

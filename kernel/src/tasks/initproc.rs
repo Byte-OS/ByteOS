@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::{console_getchar, console_putchar, switch_to_kernel_page_table};
-use executor::{current_task, yield_now, TASK_QUEUE};
+use executor::{current_task, yield_now, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{mount::open, File, FileType, OpenFlags};
 use log::debug;
@@ -49,14 +49,19 @@ fn clear() {
 }
 
 async fn kill_all_tasks() {
-    TASK_QUEUE.lock().iter().for_each(|x| {
-        match x.clone().as_user_task() {
+    TASK_QUEUE
+        .lock()
+        .iter()
+        .for_each(|x| match x.clone().as_user_task() {
             Some(user_task) => {
                 user_task.exit(0);
-            },
-            None => {},
-        }
-    })
+                FUTURE_LIST.lock().remove(&user_task.task_id);
+            }
+            None => {}
+        });
+    TASK_QUEUE
+        .lock()
+        .retain(|x| x.clone().as_user_task().is_none());
 }
 
 async fn run_libc_test() -> bool {
@@ -131,7 +136,12 @@ async fn file_command(cmd: &str) {
                 // if TASK_QUEUE.lock().len() == 0 {
                 //     break;
                 // }
-                if TASK_QUEUE.lock().iter().find(|x| x.get_task_id() == task_id).is_none() {
+                if TASK_QUEUE
+                    .lock()
+                    .iter()
+                    .find(|x| x.get_task_id() == task_id)
+                    .is_none()
+                {
                     break;
                 }
                 yield_now().await;
@@ -221,28 +231,43 @@ pub async fn initproc() {
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
+
     command("busybox echo run time-test").await;
     command("time-test").await;
+
     command("busybox echo run busybox_testcode.sh").await;
     command("busybox sh busybox_testcode.sh").await;
-    command("busybox echo run iozone_testcode.sh").await;
-    command("busybox sh iozone_testcode.sh").await;
+
     command("busybox echo run libctest_testcode.sh").await;
     command("busybox sh libctest_testcode.sh").await;
-    command("busybox echo run lmbench_testcode.sh").await;
-    command("busybox sh lmbench_testcode.sh").await;
+
     command("busybox echo run lua_testcode.sh").await;
     command("busybox sh lua_testcode.sh").await;
-    command("busybox echo run unixbench_testcode.sh").await;
-    command("busybox sh unixbench_testcode.sh").await;
-    command("busybox echo run netperf_testcode.sh").await;
-    command("busybox sh netperf_testcode.sh").await;
-    command("busybox echo run iperf_testcode.sh").await;
-    command("busybox sh iperf_testcode.sh").await;
-    kill_all_tasks().await;
+
     command("busybox echo run cyclic_testcode.sh").await;
     command("busybox sh cyclictest_testcode.sh").await;
     kill_all_tasks().await;
+
+    command("libc-bench").await;
+
+    command("busybox echo run netperf_testcode.sh").await;
+    command("busybox sh netperf_testcode.sh").await;
+
+    command("busybox echo run iperf_testcode.sh").await;
+    command("busybox sh iperf_testcode.sh").await;
+    kill_all_tasks().await;
+
+    command("busybox echo run iozone_testcode.sh").await;
+    command("busybox sh iozone_testcode.sh").await;
+
+    command("busybox echo run lmbench_testcode.sh").await;
+    command("busybox sh lmbench_testcode.sh").await;
+
+    command("busybox echo run unixbench_testcode.sh").await;
+    command("busybox sh unixbench_testcode.sh").await;
+
+    // command("cyclictest -a -i 1000 -t1 -n -p99 -D 1s -q").await;
+
     // command("./runtest.exe -w entry-static.exe pthread_cancel_points").await;
     // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
     // command("./runtest.exe -w entry-static.exe pthread_condattr_setclock").await;

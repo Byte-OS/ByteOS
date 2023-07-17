@@ -117,6 +117,18 @@ pub fn wait_ms(ms: usize) -> WaitUntilsec {
     WaitUntilsec(current_nsec() + ms * 0x1000_0000)
 }
 
+#[inline]
+pub async fn sys_clock_getres(
+    clock_id: usize,
+    times_ptr: UserRef<TimeSpec>,
+) -> Result<usize, LinuxError> {
+    debug!("clock_getres @ {} {:#x?}", clock_id, times_ptr);
+    if times_ptr.is_valid() {
+        *times_ptr.get_mut() = TimeSpec { sec: 0, nsec: 1 };
+    }
+    Ok(0)
+    // sys_clock_gettime(clock_id, times_ptr).await
+}
 pub async fn sys_setitimer(
     which: usize,
     times_ptr: UserRef<ITimerVal>,
@@ -153,4 +165,35 @@ pub async fn sys_setitimer(
     } else {
         Err(LinuxError::EPERM)
     }
+}
+
+pub async fn sys_clock_nanosleep(
+    clock_id: usize,
+    flags: usize,
+    req_ptr: UserRef<TimeSpec>,
+    rem_ptr: UserRef<TimeSpec>,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "[task {}] sys_clock_nanosleep @ clock_id: {}, flags: {:#x} req_ptr: {}, rem_ptr: {}",
+        current_task().get_task_id(),
+        clock_id,
+        flags,
+        req_ptr,
+        rem_ptr
+    );
+
+    if flags == 1 {
+        let req = req_ptr.get_mut();
+        WaitUntilsec(req.sec * 1_000_000_000 + req.nsec).await;
+        if rem_ptr.is_valid() {
+            *rem_ptr.get_mut() = Default::default();
+        }
+    } else {
+        let ns = current_nsec();
+        let req = req_ptr.get_mut();
+        debug!("nano sleep {} nseconds", req.sec * 1_000_000_000 + req.nsec);
+        WaitUntilsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
+    }
+
+    Ok(0)
 }
