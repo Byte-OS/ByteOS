@@ -3,8 +3,10 @@
 #[macro_use]
 extern crate alloc;
 
+use core::mem::size_of;
+
 use alloc::vec::Vec;
-use arch::{ppn_c, PhysPage, PAGE_SIZE, VIRT_ADDR_START};
+use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
 use log::info;
@@ -26,17 +28,13 @@ pub struct FrameTracker(pub PhysPage);
 
 impl FrameTracker {
     pub fn new(ppn: PhysPage) -> Self {
-        // clear ppn before alloc.
-        let arr = ppn_c(ppn).to_addr() as *mut u8;
-        unsafe {
-            core::slice::from_raw_parts_mut(arr, PAGE_SIZE).fill(0);
-        }
         Self(ppn)
     }
 }
 
 impl Drop for FrameTracker {
     fn drop(&mut self) {
+        self.0.drop_clear();
         FRAME_ALLOCATOR.lock().dealloc(self.0);
     }
 }
@@ -239,6 +237,13 @@ pub fn init() {
     // 在帧分配器中添加内存
     mrs.iter().for_each(|mr| {
         if phys_end > mr.start && phys_end < mr.end {
+            unsafe {
+                core::slice::from_raw_parts_mut(
+                    phys_end as *mut usize,
+                    (mr.end - phys_end) / size_of::<usize>(),
+                )
+                .fill(0);
+            };
             FRAME_ALLOCATOR.lock().add_memory_region(phys_end, mr.end);
         }
     });

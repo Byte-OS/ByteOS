@@ -12,6 +12,7 @@ members = [
     "modules/logging",
     "modules/panic_handler",
     "modules/kalloc",
+    "modules/cv1811-sd",
     "modules/devices",
     "modules/frame_allocator",
     "modules/sync",
@@ -23,7 +24,6 @@ members = [
     "modules/procfs",
     "modules/executor",
     "modules/signal",
-    "modules/k210-sdcard",
     "modules/kmacros",
     "modules/kmacros/impl",
 

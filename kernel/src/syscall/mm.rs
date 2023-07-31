@@ -59,6 +59,10 @@ pub async fn sys_mmap(
 
     warn!("sys_mmap @ free addr: {}", addr);
 
+    if len == 0 {
+        return Ok(addr.into());
+    }
+
     if flags.contains(MapFlags::MAP_SHARED) {
         match file.clone() {
             Some(file) => user_task.map_frames(

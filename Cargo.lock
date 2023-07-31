@@ -18,7 +18,7 @@ dependencies = [
  "bitflags 2.0.2",
  "cfg-if",
  "log",
- "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
+ "riscv 0.6.0",
 ]
 
 [[package]]
@@ -43,7 +43,7 @@ name = "backtrace"
 version = "0.1.0"
 dependencies = [
  "log",
- "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
+ "riscv 0.6.0",
 ]
 
 [[package]]
@@ -60,6 +60,16 @@ name = "bare-metal"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fe8f5a8a398345e52358e18ff07cc17a568fbca5c6f73873d3a62056309603"
+
+[[package]]
+name = "bit-struct"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "270fbbb014407467f7a2c9b1fa0b74057d5cbc452f18bac3bb5aad601e590521"
+dependencies = [
+ "num-traits",
+ "serde",
+]
 
 [[package]]
 name = "bit_field"
@@ -85,7 +95,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43f9365b6b0c9e1663ca4ca9440c00eda46bc85a3407070be8b5e0d8d1f29629"
 dependencies = [
- "spin 0.9.8",
+ "spin",
 ]
 
 [[package]]
@@ -129,6 +139,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "cv1811-sd"
+version = "0.1.0"
+dependencies = [
+ "bit-struct",
+ "log",
+ "logging",
+]
+
+[[package]]
 name = "devfs"
 version = "0.1.0"
 dependencies = [
@@ -148,6 +167,7 @@ name = "devices"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "cv1811-sd",
  "fdt",
  "frame_allocator",
  "kheader",
@@ -173,15 +193,6 @@ checksum = "35949884794ad573cf46071e41c9b60efb0cb311e3ca01f7af807af1debc66ff"
 dependencies = [
  "nb 0.1.3",
  "void",
-]
-
-[[package]]
-name = "embedded-hal"
-version = "1.0.0-alpha.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a5f661e931005fe7709649150bb2774b68d8faf28b9969cb73442be34518f56"
-dependencies = [
- "nb 0.1.3",
 ]
 
 [[package]]
@@ -329,53 +340,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "k210-hal"
-version = "0.2.0"
-source = "git+https://github.com/yfblock/k210-hal#e6702861f6843b929ebaed33dfa152127c72fa3f"
-dependencies = [
- "bitflags 1.3.2",
- "embedded-hal 1.0.0-alpha.1",
- "k210-pac",
- "nb 0.1.3",
-]
-
-[[package]]
-name = "k210-pac"
-version = "0.2.0"
-source = "git+https://github.com/yfblock/k210-pac#528afdd449048ecdca7bdd593fc26f05275c6854"
-dependencies = [
- "bare-metal 0.2.5",
- "riscv 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "vcell",
-]
-
-[[package]]
-name = "k210-sdcard"
-version = "0.1.0"
-dependencies = [
- "devices",
- "k210-hal",
- "k210-pac",
- "k210-soc",
- "kmacros",
- "log",
- "logging",
- "sync",
-]
-
-[[package]]
-name = "k210-soc"
-version = "0.1.0"
-source = "git+https://github.com/yfblock/k210-soc#c16d69f50bd4156805ac3f146207da2db6beb300"
-dependencies = [
- "k210-hal",
- "k210-pac",
- "lazy_static",
- "modular-bitfield",
- "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
-]
-
-[[package]]
 name = "kalloc"
 version = "0.1.0"
 dependencies = [
@@ -399,7 +363,6 @@ dependencies = [
  "fs",
  "futures-lite",
  "hal",
- "k210-sdcard",
  "kalloc",
  "kmacros",
  "log",
@@ -441,9 +404,6 @@ name = "lazy_static"
 version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
-dependencies = [
- "spin 0.5.2",
-]
 
 [[package]]
 name = "linkme"
@@ -474,7 +434,7 @@ dependencies = [
  "cortex-a",
  "raw-cpuid",
  "riscv 0.7.0",
- "spin 0.9.8",
+ "spin",
  "tock-registers",
  "x86_64",
 ]
@@ -514,7 +474,7 @@ dependencies = [
  "bitflags 1.3.2",
  "log",
  "num_enum",
- "spin 0.9.8",
+ "spin",
 ]
 
 [[package]]
@@ -522,27 +482,6 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
-
-[[package]]
-name = "modular-bitfield"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a53d79ba8304ac1c4f9eb3b9d281f21f7be9d4626f72ce7df4ad8fbde4f38a74"
-dependencies = [
- "modular-bitfield-impl",
- "static_assertions",
-]
-
-[[package]]
-name = "modular-bitfield-impl"
-version = "0.11.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5a7d5f7076603ebc68de2dc6a650ec331a062a13abaa346975be747bbfa4b789"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 1.0.109",
-]
 
 [[package]]
 name = "nb"
@@ -558,6 +497,15 @@ name = "nb"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
+
+[[package]]
+name = "num-traits"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f30b0abd723be7e2ffca1272140fac1a2f084c77ec3e123c192b66af1ee9e6c2"
+dependencies = [
+ "autocfg",
+]
 
 [[package]]
 name = "num_enum"
@@ -675,17 +623,6 @@ checksum = "f162c6dd7b008981e4d40210aca20b4bd0f9b60ca9271061b07f78537722f2e1"
 [[package]]
 name = "riscv"
 version = "0.6.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2f0b705d428e9d0f78e2bb73093887ee58a83c9688de3faedbb4c0631c4618e"
-dependencies = [
- "bare-metal 0.2.5",
- "bit_field",
- "riscv-target",
-]
-
-[[package]]
-name = "riscv"
-version = "0.6.0"
 source = "git+https://github.com/rcore-os/riscv#11d43cf7cccb3b62a3caaf3e07a1db7449588f9a"
 dependencies = [
  "bare-metal 0.2.5",
@@ -702,7 +639,7 @@ source = "git+https://github.com/rust-embedded/riscv?rev=cd31989ba1#cd31989ba11d
 dependencies = [
  "bare-metal 1.0.0",
  "bit_field",
- "embedded-hal 0.2.7",
+ "embedded-hal",
  "riscv-target",
 ]
 
@@ -753,6 +690,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "388a1df253eca08550bef6c72392cfe7c30914bf41df5269b68cbd6ff8f570a3"
 
 [[package]]
+name = "serde"
+version = "1.0.164"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e8c8cf938e98f769bc164923b06dce91cea1751522f46f8466461af04c9027d"
+dependencies = [
+ "serde_derive",
+]
+
+[[package]]
+name = "serde_derive"
+version = "1.0.164"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9735b638ccc51c28bf6914d90a2e9725b377144fc612c49a611fddd1b631d68"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.15",
+]
+
+[[package]]
 name = "signal"
 version = "0.1.0"
 dependencies = [
@@ -763,24 +720,12 @@ dependencies = [
 
 [[package]]
 name = "spin"
-version = "0.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6e63cff320ae2c57904679ba7cb63280a3dc4613885beafb148ee7bf9aa9042d"
-
-[[package]]
-name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
 dependencies = [
  "lock_api",
 ]
-
-[[package]]
-name = "static_assertions"
-version = "1.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "syn"
@@ -808,7 +753,7 @@ dependencies = [
 name = "sync"
 version = "0.1.0"
 dependencies = [
- "spin 0.9.8",
+ "spin",
 ]
 
 [[package]]
@@ -826,12 +771,6 @@ name = "unicode-ident"
 version = "1.0.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e5464a87b239f13a63a501f2701565754bae92d243d4bb7eb12f6d57d2269bf4"
-
-[[package]]
-name = "vcell"
-version = "0.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77439c1b53d2303b20d9459b1ade71a83c716e3f9c34f3228c00e6f185d6c002"
 
 [[package]]
 name = "vfscore"

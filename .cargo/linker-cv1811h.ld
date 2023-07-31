@@ -14,8 +14,11 @@ SECTIONS
         stext = .;
         *(.text.entry)
         *(.text .text.*)
-        . = ALIGN(4K);
         etext = .;
+    }
+
+    .sigtrx ALIGN(4K): {
+        *(.sigtrx .sigtrx.*)
     }
 
     .rodata ALIGN(4K): {
@@ -27,7 +30,7 @@ SECTIONS
 
     .data ALIGN(4K): {
         . = ALIGN(4K);
-        *(.data.prepage)
+        *(.data.prepage .data.prepage.*)
         . = ALIGN(4K);
         sdata = .;
         *(.data .data.*)
@@ -37,7 +40,6 @@ SECTIONS
 
     .bss ALIGN(4K): {
         sbss = .;
-        *(.bss.heap)
         *(.bss.stack)
         *(.bss .bss.*)
         *(.sbss .sbss.*)

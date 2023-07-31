@@ -47,10 +47,12 @@ endif
 features += board-$(BOARD)
 
 all: 
+	rm rust-toolchain.toml
 	cp -R cargo .cargo
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
-	cp $(KERNEL_ELF) kernel-qemu
+#	cp $(KERNEL_ELF) kernel-qemu
+	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
 	rm -f $(FS_IMG)
@@ -73,7 +75,8 @@ justrun: build
 
 cv1811h-build: build
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
-	scp -r $(BIN_FILE) root@10.0.0.1:/tmpfs/
+	sudo ./cv1811h-burn.sh
+
 k210-build: build
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
 	@cp $(SBI) $(SBI).copy

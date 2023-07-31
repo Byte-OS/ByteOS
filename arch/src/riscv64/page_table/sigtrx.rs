@@ -26,7 +26,10 @@ static mut TRX_STEP2: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
 
 pub fn init() {
     unsafe {
-        TRX_STEP1[0] = PTE::from_addr(_sigreturn as usize & !VIRT_ADDR_START, PTEFlags::UVRX);
+        TRX_STEP1[0] = PTE::from_addr(
+            _sigreturn as usize & !VIRT_ADDR_START,
+            PTEFlags::ADUVRX.union(PTEFlags::G),
+        );
         TRX_STEP2[0] = PTE::from_addr(TRX_STEP1.as_ptr() as usize & !VIRT_ADDR_START, PTEFlags::V);
     }
 }

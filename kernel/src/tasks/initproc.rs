@@ -211,13 +211,28 @@ pub async fn simple_shell() {
 }
 
 pub async fn initproc() {
-    info!("start kernel tasks");
+    println!("start kernel tasks");
+    // command("entry-static.exe crypt").await;
+    // command("./runtest.exe -w entry-dynamic.exe dlopen").await;
+
     // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
     // for (i, x) in names
     //     .split('\n')
-    //     .filter(|x| !x.contains("socket"))
+    //     .filter(|x| !x.contains("clocale_mbfuncs") && !x.contains("pthread"))
     //     .enumerate()
     // {
+    //     info!("No.{} started!", i);
+    //     command(x).await;
+    //     info!("No.{} finished!", i);
+    // }
+
+    // let names = include_str!("../../../tools/testcase-step2/run-static.sh");
+    // for (i, x) in names
+    //     .split('\n')
+    //     .filter(|x| x.contains("clocale_mbfuncs") || x.contains("pthread"))
+    //     .enumerate()
+    // {
+    //     info!("No.{} started!", i);
     //     command(x).await;
     //     info!("No.{} finished!", i);
     // }
@@ -252,7 +267,6 @@ pub async fn initproc() {
 
     command("busybox echo run netperf_testcode.sh").await;
     command("busybox sh netperf_testcode.sh").await;
-
     command("busybox echo run iperf_testcode.sh").await;
     command("busybox sh iperf_testcode.sh").await;
     kill_all_tasks().await;
@@ -274,6 +288,8 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
     // command("./runtest.exe -w entry-dynamic.exe stat").await;
+    // command("./runtest.exe -w entry-static.exe stat").await;
+    // command("./runtest.exe -w entry-static.exe clocale_mbfuncs").await;
     // command("./looper 2 ./multi.sh 1").await;
     // command("busybox sh ./multi.sh 1").await;
     // command("busybox sh ./tst.sh ./sort.src").await;
@@ -304,6 +320,8 @@ pub async fn initproc() {
     // #[cfg(not(feature = "k210"))]
     // command("bin/sh").await;
     // simple_shell().await;
+    // command("busybox").await;
 
     // switch_to_kernel_page_table();
+    println!("!TEST FINISH!");
 }

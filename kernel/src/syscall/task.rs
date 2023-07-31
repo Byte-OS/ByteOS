@@ -7,9 +7,10 @@ use alloc::string::String;
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{paddr_c, ppn_c, time_to_usec, ContextOps, PhysAddr, VirtAddr, VirtPage, PAGE_SIZE};
+use arch::{time_to_usec, ContextOps, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
+use core::ops::Add;
 use executor::{
     current_task, current_user_task, select, yield_now, AsyncTask, MemType, UserTask, TASK_QUEUE,
 };
@@ -71,6 +72,10 @@ pub async fn sys_execve(
     args: UserRef<UserRef<i8>>, // *mut *mut i8
     envp: UserRef<UserRef<i8>>, // *mut *mut i8
 ) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_execve @ filename: {} args: {:?}: envp: {:?}",
+        filename, args, envp
+    );
     // TODO: use map_err insteads of unwrap and unsafe code.
     let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     let args = args
@@ -116,11 +121,15 @@ pub async fn exec_with_process<'a>(
     let file = open(path).map_err(from_vfs)?;
     let file_size = file.metadata().unwrap().size;
     let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
-    let buffer = PhysAddr::from(frame_ppn.as_ref().unwrap()[0].0).slice_mut_with_len(file_size);
+    let buffer = unsafe {
+        core::slice::from_raw_parts_mut(
+            frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
+            file_size,
+        )
+    };
     let rsize = file.read(buffer).map_err(from_vfs)?;
-
     assert_eq!(rsize, file_size);
-
+    // flush_dcache_range();
     // 读取elf信息
     let elf = if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
         elf
@@ -146,8 +155,8 @@ pub async fn exec_with_process<'a>(
         .program_iter()
         .find(|ph| ph.get_type() == Ok(Type::Interp));
     if let Some(header) = header {
-        drop(frame_ppn);
         if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
+            drop(frame_ppn);
             let lib_path = "libc.so";
             let mut new_args = vec![lib_path, path];
             args[1..].iter().for_each(|x| new_args.push(x));
@@ -177,7 +186,6 @@ pub async fn exec_with_process<'a>(
         Ok(arr) => (base, arr),
         Err(_) => (0, vec![]),
     };
-
     init_task_stack(
         user_task.clone(),
         args,
@@ -190,7 +198,6 @@ pub async fn exec_with_process<'a>(
         heap_bottom as usize,
         tls as usize,
     );
-
     // map sections.
     elf.program_iter()
         .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
@@ -207,20 +214,25 @@ pub async fn exec_with_process<'a>(
                 MemType::CodeSection,
                 page_count,
             );
-
-            let page_space = unsafe {
+            let page_space = unsafe { core::slice::from_raw_parts_mut(virt_addr as _, file_size) };
+            let ppn_space = unsafe {
                 core::slice::from_raw_parts_mut(
-                    (ppn_c(ppn_start).to_addr() + virt_addr % PAGE_SIZE) as _,
+                    ppn_start
+                        .get_buffer()
+                        .as_mut_ptr()
+                        .add(virt_addr % PAGE_SIZE),
                     file_size,
                 )
             };
             page_space.copy_from_slice(&buffer[offset..offset + file_size]);
+            assert_eq!(ppn_space, page_space);
+            assert_eq!(&buffer[offset..offset + file_size], ppn_space);
+            assert_eq!(&buffer[offset..offset + file_size], page_space);
         });
 
     if base > 0 {
         relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
-            (paddr_c(user_task.page_table.virt_to_phys(VirtAddr::from(addr))).addr() as *mut usize)
-                .write(value);
+            (addr as *mut usize).write_volatile(value);
         })
     }
     Ok(user_task)
@@ -268,7 +280,6 @@ pub async fn sys_clone(
         .unwrap_or(UserRef::from(0));
 
     let mut new_tcb = new_task.tcb.write();
-
     new_tcb.clear_child_tid = clear_child_tid.addr();
 
     if stack != 0 {

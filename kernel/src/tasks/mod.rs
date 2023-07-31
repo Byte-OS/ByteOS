@@ -20,6 +20,40 @@ pub enum UserTaskControlFlow {
     Break,
 }
 
+pub fn hexdump(data: &[u8], mut start_addr: usize) {
+    const PRELAND_WIDTH: usize = 70;
+    logging::println!("{:-^1$}", " hexdump ", PRELAND_WIDTH);
+    for offset in (0..data.len()).step_by(16) {
+        logging::print!("{:08x} ", start_addr);
+        start_addr += 0x10;
+        for i in 0..16 {
+            if offset + i < data.len() {
+                logging::print!("{:02x} ", data[offset + i]);
+            } else {
+                logging::print!("{:02} ", "");
+            }
+        }
+
+        logging::print!("{:>6}", ' ');
+
+        for i in 0..16 {
+            if offset + i < data.len() {
+                let c = data[offset + i];
+                if c >= 0x20 && c <= 0x7e {
+                    logging::print!("{}", c as char);
+                } else {
+                    logging::print!(".");
+                }
+            } else {
+                logging::print!("{:02} ", "");
+            }
+        }
+
+        logging::println!("");
+    }
+    logging::println!("{:-^1$}", " hexdump end ", PRELAND_WIDTH);
+}
+
 #[allow(dead_code)]
 pub async fn handle_net() {
     // let lose_stack = LoseStack::new(
@@ -170,10 +204,15 @@ pub fn init() {
 }
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) -> TaskId {
+    let curr_task = current_task();
     let task = UserTask::new(user_entry(), Arc::downgrade(&current_task()));
+
+    task.before_run();
     exec_with_process(task.clone(), filename, args)
         .await
         .expect("can't add task to excutor");
     thread::spawn(task.clone());
+    curr_task.before_run();
+
     task.get_task_id()
 }

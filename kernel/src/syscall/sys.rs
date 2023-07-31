@@ -78,6 +78,7 @@ pub async fn sys_getgid() -> Result<usize, LinuxError> {
 }
 
 pub async fn sys_getuid() -> Result<usize, LinuxError> {
+    warn!("set_getuid");
     Ok(0)
 }
 
@@ -122,7 +123,7 @@ pub async fn sys_sched_getparam(pid: usize, param: usize) -> Result<usize, Linux
 
 pub async fn sys_sched_setscheduler(
     pid: usize,
-    policy: usize,
+    _policy: usize,
     param: usize,
 ) -> Result<usize, LinuxError> {
     debug!("sys_sched_setscheduler @ pid: {} param: {}", pid, param);

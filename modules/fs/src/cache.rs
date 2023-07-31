@@ -1,7 +1,7 @@
 use core::cmp;
 
 use alloc::{collections::BTreeMap, string::String, vec::Vec};
-use arch::{ppn_c, PAGE_SIZE};
+use arch::PAGE_SIZE;
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use sync::Mutex;
 
@@ -40,8 +40,7 @@ pub fn cache_file(path: &str) {
         let count = ceil_div(len, PAGE_SIZE);
         let trackers = frame_alloc_much(count).expect("can't alloc frame trackers from cache");
         let buffer = unsafe {
-            let ppn = trackers[0].0;
-            core::slice::from_raw_parts_mut(ppn_c(ppn).to_addr() as *mut u8, len)
+            core::slice::from_raw_parts_mut(trackers[0].0.get_buffer().as_mut_ptr(), len)
         };
         let mut cache_item = CacheItem {
             data: buffer,
