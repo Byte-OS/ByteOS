@@ -9,6 +9,7 @@ edition = "2021"
 board-k210 = []
 board-qemu = []
 board-cv1811h = []
+# default = ["board-cv1811h"]
 
 [dependencies]
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }

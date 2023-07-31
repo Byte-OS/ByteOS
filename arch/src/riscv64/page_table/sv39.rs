@@ -4,7 +4,7 @@ use bitflags::bitflags;
 
 use crate::{
     current_page_table, sigtrx::get_trx_mapping, PhysAddr, PhysPage, VirtAddr, VirtPage,
-    PAGE_ITEM_COUNT, PAGE_SIZE, VIRT_ADDR_START,
+    PAGE_FRAME_BASE, PAGE_ITEM_COUNT, PAGE_SIZE,
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -18,12 +18,29 @@ impl PTE {
 
     #[inline]
     pub const fn from_ppn(ppn: usize, flags: PTEFlags) -> Self {
+        // let flags = flags.union(PTEFlags::D);
+        let mut flags = flags;
+        if flags.contains(PTEFlags::R) | flags.contains(PTEFlags::X) {
+            flags = flags.union(PTEFlags::A)
+        }
+        if flags.contains(PTEFlags::W) {
+            flags = flags.union(PTEFlags::D)
+        }
         // TIPS: This is prepare for the extend bits of T-HEAD C906
         #[cfg(feature = "board-cv1811h")]
-        if flags.contains(PTEFlags::G) {
-            Self(ppn << 10 | flags.bits() as usize | 7 << 60)
+        if flags.contains(PTEFlags::G) && ppn == 0x8_0000 {
+            Self(
+                ppn << 10
+                    | flags
+                        .union(PTEFlags::C)
+                        .union(PTEFlags::B)
+                        .union(PTEFlags::K)
+                        .bits() as usize,
+            )
+        } else if flags.contains(PTEFlags::G) && ppn == 0 {
+            Self(ppn << 10 | flags.union(PTEFlags::SE).union(PTEFlags::SO).bits() as usize)
         } else {
-            Self(ppn << 10 | flags.bits() as usize)
+            Self(ppn << 10 | flags.union(PTEFlags::C).bits() as usize)
         }
 
         #[cfg(not(feature = "board-cv1811h"))]
@@ -37,7 +54,7 @@ impl PTE {
 
     #[inline]
     pub const fn to_ppn(&self) -> PhysPage {
-        PhysPage(self.0 >> 10)
+        PhysPage((self.0 >> 10) & ((1 << 29) - 1))
     }
 
     #[inline]
@@ -47,7 +64,7 @@ impl PTE {
 
     #[inline]
     pub const fn flags(&self) -> PTEFlags {
-        PTEFlags::from_bits_truncate((self.0 & 0xff) as u8)
+        PTEFlags::from_bits_truncate((self.0 & 0xff) as u64)
     }
 
     #[inline]
@@ -70,7 +87,8 @@ impl PTE {
 
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct PTEFlags: u8 {
+    pub struct PTEFlags: u64 {
+        const NONE = 0;
         const V = 1 << 0;
         const R = 1 << 1;
         const W = 1 << 2;
@@ -80,6 +98,18 @@ bitflags! {
         const A = 1 << 6;
         const D = 1 << 7;
 
+        #[cfg(feature = "board-cv1811h")]
+        const SO = 1 << 63;
+        #[cfg(feature = "board-cv1811h")]
+        const C = 1 << 62;
+        #[cfg(feature = "board-cv1811h")]
+        const B = 1 << 61;
+        #[cfg(feature = "board-cv1811h")]
+        const K = 1 << 60;
+        #[cfg(feature = "board-cv1811h")]
+        const SE = 1 << 59;
+
+        const AD = Self::A.bits() | Self::D.bits();
         const VRW   = Self::V.bits() | Self::R.bits() | Self::W.bits();
         const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
         const UVRX = Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
@@ -87,9 +117,8 @@ bitflags! {
         const UVRWX = Self::U.bits() | Self::VRWX.bits();
         const UVRW = Self::U.bits() | Self::VRW.bits();
         const GVRWX = Self::G.bits() | Self::VRWX.bits();
+        const ADVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
         const ADGVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
-
-        const NONE  = 0;
     }
 }
 
@@ -105,10 +134,13 @@ impl PageTable {
         // 0xffffffc0_00000000 -> 0x00000000 (1G)
         // 0xffffffc0_40000000 -> 0x40000000 (1G)
         // 0xffffffc0_80000000 -> 0x80000000 (1G)
+        // 0xffffffc1_00000000 -> trx_mapping (1G)
+        // 0xffffffc1_80000000 -> 0x80000000 (1G)
         arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
         arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
         arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
+        arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
         page_table
     }
 
@@ -179,23 +211,40 @@ impl PageTable {
         }
         PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE)
     }
+
+    #[inline]
+    pub fn virt_flags(&self, vaddr: VirtAddr) -> PTEFlags {
+        let mut paddr = self.0;
+        for i in (0..3).rev() {
+            let page_table = PageTable(paddr);
+            let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
+            let pte = &page_table.get_pte_list()[value];
+            // 如果当前页是大页 返回相关的位置
+            // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
+            if pte.is_huge() {
+                return pte.flags();
+            }
+            paddr = pte.to_ppn().into()
+        }
+        PTEFlags::NONE
+    }
 }
 
 /// ppn convert, 如果在高半核空间
 pub const fn ppn_c(ppn: PhysPage) -> PhysPage {
-    PhysPage(ppn.0 | (VIRT_ADDR_START >> 12))
+    PhysPage(ppn.0 | (PAGE_FRAME_BASE >> 12))
 }
 
 /// paddr convert, 如果在高半核空间
 pub fn paddr_c(paddr: PhysAddr) -> PhysAddr {
-    assert!(paddr.0 < VIRT_ADDR_START);
-    PhysAddr(paddr.0 + VIRT_ADDR_START)
+    assert!(paddr.0 < PAGE_FRAME_BASE);
+    PhysAddr(paddr.0 + PAGE_FRAME_BASE)
 }
 
 /// paddr number convert, 如果在高半核空间
 pub fn paddr_cn(paddr: usize) -> usize {
-    assert!(paddr < VIRT_ADDR_START);
-    paddr + VIRT_ADDR_START
+    assert!(paddr < PAGE_FRAME_BASE);
+    paddr + PAGE_FRAME_BASE
 }
 
 /// 虚拟地址转物理地址

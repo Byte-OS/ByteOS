@@ -1,3 +1,5 @@
+use core::arch::riscv64::sfence_vma_all;
+
 use alloc::sync::Arc;
 use arch::ContextOps;
 use executor::signal::SignalList;
@@ -39,6 +41,17 @@ pub async fn user_entry() {
     let task = current_user_task();
     let cx_ref = task.force_cx_ref();
     let mut times = 0;
+
+    unsafe {
+        sfence_vma_all();
+        // use this statement to simulate a breakpoint.
+        // *(0x0000000000484a8 as *mut u32) = 0;
+        // *(0x10ab8 as *mut u32) = 0;
+        // *(0x11000 as *mut u32) = 0;
+        // let entry = task.pcb.lock().entry;
+        // hexdump(core::slice::from_raw_parts_mut(0x48000 as *mut u8, 0x1000), 0x48000);
+        // debug!("ppn: {:?}", task.page_table.virt_to_phys(entry.into()));
+    }
 
     let check_signal = async || {
         loop {

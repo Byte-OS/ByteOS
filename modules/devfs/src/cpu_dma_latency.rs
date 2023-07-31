@@ -5,6 +5,9 @@ pub struct CpuDmaLatency;
 impl INodeInterface for CpuDmaLatency {
     fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
         buffer.fill(0);
+        if buffer.len() > 1 {
+            buffer[0] = 1;
+        }
         Ok(buffer.len())
     }
 

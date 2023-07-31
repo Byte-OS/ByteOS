@@ -325,7 +325,7 @@ impl UserTask {
 
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
-            self.pcb.lock().memset.retain(|x| x.mtype != MemType::PTE);
+            self.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
             self.pcb.lock().fd_table.clear();
             self.pcb.lock().children.clear();
         }
@@ -372,7 +372,7 @@ impl UserTask {
 
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
-            self.pcb.lock().memset.retain(|x| x.mtype != MemType::PTE);
+            self.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
             self.pcb.lock().fd_table.clear();
             self.pcb.lock().children.clear();
             self.pcb.lock().exit_code = Some(exit_code);

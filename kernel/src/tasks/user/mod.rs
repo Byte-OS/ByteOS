@@ -1,11 +1,16 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
-use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
-use executor::{current_user_task, AsyncTask, MemType, UserTask};
+use arch::{
+    get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, PhysPage, VirtPage,
+};
+use executor::{AsyncTask, MemType, UserTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
-use crate::syscall::{consts::SYS_SIGRETURN, syscall};
+use crate::{
+    syscall::{consts::SYS_SIGRETURN, syscall},
+    tasks::hexdump,
+};
 
 use super::UserTaskControlFlow;
 
@@ -86,6 +91,8 @@ pub async fn handle_user_interrupt(
             if cx_ref.syscall_number() == SYS_SIGRETURN {
                 return UserTaskControlFlow::Break;
             }
+
+            debug!("syscall num: {}", cx_ref.syscall_number());
             // sepc += 4, let it can go to next command.
             cx_ref.syscall_ok();
             let result = syscall(cx_ref.syscall_number(), cx_ref.args())
@@ -109,7 +116,12 @@ pub async fn handle_user_interrupt(
         }
         arch::TrapType::IllegalInstruction(addr) => {
             let vpn = VirtPage::from_addr(addr);
-            warn!("store/instruction page fault @ {:#x} vpn: {}", addr, vpn);
+            warn!(
+                "store/instruction page fault @ {:#x} vpn: {} flags: {:?}",
+                addr,
+                vpn,
+                task.page_table.virt_flags(cx_ref.sepc().into())
+            );
             warn!("the fault occurs @ {:#x}", cx_ref.sepc());
             // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
             warn!(
@@ -117,6 +129,17 @@ pub async fn handle_user_interrupt(
                 cx_ref.sepc(),
                 task.page_table.virt_to_phys(cx_ref.sepc().into())
             );
+            task.map(
+                PhysPage::from_addr(task.page_table.virt_to_phys(cx_ref.sepc().into()).addr()),
+                vpn,
+                PTEFlags::UVRWX.union(PTEFlags::G),
+            );
+            unsafe {
+                hexdump(
+                    core::slice::from_raw_parts_mut(vpn.to_addr() as _, 0x1000),
+                    vpn.to_addr(),
+                );
+            }
             // panic!("illegal Instruction")
             // let signal = task.tcb.read().signal.clone();
             // if signal.has_sig(SignalFlags::SIGSEGV) {
@@ -124,12 +147,12 @@ pub async fn handle_user_interrupt(
             // } else {
             //     return UserTaskControlFlow::Break
             // }
-            current_user_task()
-                .tcb
-                .write()
-                .signal
-                .add_signal(SignalFlags::SIGSEGV);
-            return UserTaskControlFlow::Break;
+            // current_user_task()
+            //     .tcb
+            //     .write()
+            //     .signal
+            //     .add_signal(SignalFlags::SIGSEGV);
+            // return UserTaskControlFlow::Break;
         }
         arch::TrapType::StorePageFault(addr) | arch::TrapType::InstructionPageFault(addr) => {
             debug!("store page fault");

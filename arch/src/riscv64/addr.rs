@@ -2,10 +2,9 @@ use core::{
     ffi::CStr,
     fmt::{Debug, Display},
     ops::Add,
-    slice::from_raw_parts_mut,
 };
 
-use crate::{paddr_cn, ppn_c, PAGE_SIZE, VIRT_ADDR_START};
+use crate::{paddr_cn, PAGE_FRAME_BASE, PAGE_SIZE};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub(crate) usize);
@@ -179,16 +178,27 @@ impl PhysPage {
     #[inline]
     pub const fn get_buffer(&self) -> &'static mut [u8] {
         unsafe {
-            core::slice::from_raw_parts_mut((self.0 << 12 | VIRT_ADDR_START) as *mut u8, PAGE_SIZE)
+            core::slice::from_raw_parts_mut((self.0 << 12 | PAGE_FRAME_BASE) as *mut u8, PAGE_SIZE)
         }
     }
 
     #[inline]
     pub fn copy_value_from_another(&self, ppn: PhysPage) {
+        self.get_buffer().copy_from_slice(&ppn.get_buffer());
+        #[cfg(feature = "board-cv1811h")]
         unsafe {
-            let src = from_raw_parts_mut(ppn_c(ppn).to_addr() as *mut u8, PAGE_SIZE);
-            let dst = from_raw_parts_mut(ppn_c(*self).to_addr() as *mut u8, PAGE_SIZE);
-            dst.copy_from_slice(src);
+            asm!(".long 0x0010000b"); // dcache.all
+            asm!(".long 0x01b0000b"); // sync.is
+        }
+    }
+
+    #[inline]
+    pub fn drop_clear(&self) {
+        self.get_buffer().fill(0);
+        #[cfg(feature = "board-cv1811h")]
+        unsafe {
+            asm!(".long 0x0010000b"); // dcache.all
+            asm!(".long 0x01b0000b"); // sync.is
         }
     }
 }

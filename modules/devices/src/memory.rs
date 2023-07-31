@@ -1,14 +1,15 @@
-use core::sync::atomic::Ordering;
-
 use fdt::Fdt;
 use kheader::mm::{set_memory, MemoryRegion};
 
-use crate::DEVICE_TREE_ADDR;
+use crate::DEVICE_TREE;
+
+// use crate::DEVICE_TREE_ADDR;
 
 pub fn init() {
     let mut mrs = vec![];
-    let fdt =
-        unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Relaxed) as *const u8).unwrap() };
+    // let fdt =
+    //     unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Relaxed) as *const u8).unwrap() };
+    let fdt = Fdt::new(DEVICE_TREE.as_ref()).unwrap();
 
     fdt.memory().regions().for_each(|mr| {
         mrs.push(MemoryRegion {

@@ -1,6 +1,6 @@
 use riscv::register::sstatus;
 
-pub const CLOCK_FREQ: usize = 12500000;
+pub const CLOCK_FREQ: usize = 25000000;
 
 static DEVICE_TREE: &[u8] = include_bytes!("cv1811h-fdt.dtb");
 

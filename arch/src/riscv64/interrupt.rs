@@ -121,7 +121,7 @@ fn kernel_callback(context: &mut Context) -> usize {
 pub fn trap_pre_handle(context: &mut Context) -> TrapType {
     let scause = scause::read();
     let stval = stval::read();
-    trace!(
+    debug!(
         "用户态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
         scause.bits(),
         scause.cause(),
@@ -144,7 +144,9 @@ pub fn trap_pre_handle(context: &mut Context) -> TrapType {
         }
         Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
         Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
-        Trap::Exception(Exception::IllegalInstruction) => TrapType::IllegalInstruction(stval),
+        Trap::Exception(Exception::IllegalInstruction) => {
+            TrapType::IllegalInstruction(context.sepc)
+        }
         Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
         _ => {
             error!(
