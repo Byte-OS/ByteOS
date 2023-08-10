@@ -5,6 +5,7 @@
 #![feature(ip_in_core)]
 #![feature(async_closure)]
 #![feature(let_chains)]
+#![feature(panic_info_message)]
 #![feature(stdsimd)]
 
 #[macro_use]
@@ -13,16 +14,17 @@ extern crate logging;
 extern crate alloc;
 
 mod modules;
+mod panic;
 mod socket;
 mod syscall;
 mod task_cache;
 mod tasks;
 
+use arch::enable_irq;
 use devices;
 use frame_allocator;
 use hal;
 use kalloc;
-use panic_handler as _;
 
 use crate::tasks::kernel::kernel_interrupt;
 
@@ -53,7 +55,7 @@ fn main(hart_id: usize, device_tree: usize) {
     hal::interrupt::reg_kernel_int(kernel_interrupt);
 
     // print boot info
-    info!("booting at kernel {}", hart_id);
+    info!("booting at core {}", hart_id);
 
     // initialize kernel alloc module
     kalloc::init();
@@ -69,6 +71,9 @@ fn main(hart_id: usize, device_tree: usize) {
 
     // initialize filesystem
     fs::init();
+
+    // enable interrupts
+    enable_irq();
 
     // init kernel threads and async executor
     tasks::init();

@@ -5,13 +5,14 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [features]
-k210 = []
+board-k210 = []
+board-cv1811h = []
 net = []
+nvme = []
 
 [dependencies]
 frame_allocator = { path = "../modules/frame_allocator" }
 logging = { path = "../modules/logging" }
-panic_handler = { path = "../modules/panic_handler" }
 kalloc = { path = "../modules/kalloc" }
 log = "0.4"
 devices = { path = "../modules/devices" }
@@ -25,9 +26,17 @@ bitflags = "2.0.2"
 signal = { path = "../modules/signal" }
 num_enum = { version = "0.6.1", default-features = false }
 bit_field = "0.10.1"
-kmacros = { path = "../modules/kmacros" }
 lose-net-stack = { git = "https://github.com/yfblock/lose-net-stack", rev = "de965fe", features = ["log"]}
 # lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
 vfscore = { path = "../crates/vfscore" }
 async-recursion = "1.0.4"
 futures-lite = { version = "1.13.0", default-features = false, features=["alloc"] }
+kheader = { path = "../modules/kheader" }
+backtrace = { path = "../crates/backtrace" }
+
+# drivers
+knvme = { path = "../drivers/knvme" }
+kvirtio = { path = "../drivers/kvirtio" }
+kgoldfish-rtc = { path = "../drivers/kgoldfish-rtc" }
+kcvitek-sd = { path = "../drivers/kcvitek-sd" }
+k210-sdcard = { path = "../drivers/k210-sdcard" }

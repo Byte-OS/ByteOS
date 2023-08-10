@@ -8,16 +8,6 @@ use crate::FILESYSTEMS;
 pub static MOUNTS: Mutex<BTreeMap<String, MountedInfo>> = Mutex::new(BTreeMap::new());
 
 pub fn init() {
-    // for (i, fs) in FILESYSTEMS.iter().enumerate() {
-    //     debug!("mount {}", i);
-    //     match fs.name() {
-    //         "fat32" => mount(String::from("/"), i).expect("can't mount to /"),
-    //         "ramfs" => mount(String::from("/tmp"), i).expect("can't mount to /tmp"),
-    //         "devfs" => mount(String::from("/dev"), i).expect("can't mount to /dev"),
-    //         "procfs" => mount(String::from("/proc"), i).expect("can't mount to /procfs"),
-    //         fs => warn!("unsupport fs: {}", fs),
-    //     };
-    // }
     mount(String::from("/"), 0).expect("can't mount to /");
     mount(String::from("/dev"), 1).expect("can't mount to /dev");
     mount(String::from("/tmp"), 2).expect("can't mount to /tmp");

@@ -1,9 +1,3 @@
-#![no_std]
-#![feature(panic_info_message)]
-
-#[macro_use]
-extern crate logging;
-
 use arch::shutdown;
 use backtrace::backtrace;
 use core::panic::PanicInfo;

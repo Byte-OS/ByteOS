@@ -1,13 +1,11 @@
 use core::cmp;
 
 use alloc::sync::Arc;
+use devices::NET_DEVICES;
+use devices::device::{Driver, DeviceType, NetDriver, NetError};
 use sync::Mutex;
 use virtio_drivers::device::net::{self, TxBuffer};
 use virtio_drivers::transport::mmio::MmioTransport;
-
-use crate::device::NetError;
-use crate::device::{Driver, NetDriver};
-use crate::NET_DEVICES;
 
 use super::virtio_impl::HalImpl;
 
@@ -17,8 +15,8 @@ unsafe impl Sync for VirtIONet {}
 unsafe impl Send for VirtIONet {}
 
 impl Driver for VirtIONet {
-    fn device_type(&self) -> crate::device::DeviceType {
-        crate::device::DeviceType::Block
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Block
     }
 
     fn get_id(&self) -> &str {

@@ -1,15 +1,20 @@
+#![no_std]
+#![feature(used_with_arg)]
+
+#[macro_use]
+extern crate alloc;
+
+#[macro_use]
+extern crate log;
+
 use alloc::{sync::Arc, vec::Vec};
 use arch::{PAGE_SIZE, VIRT_ADDR_START};
+use devices::{device::{Driver, DeviceType, BlkDriver}, BLK_DEVICES, driver_define};
 use frame_allocator::{frame_alloc_much, FrameTracker};
 use nvme_driver::{DmaAllocator, IrqController, NvmeInterface};
 use sync::Mutex;
 
 use core::ptr::write_volatile;
-
-use crate::{
-    device::{BlkDriver, Driver},
-    BLK_DEVICES,
-};
 
 static VIRTIO_CONTAINER: Mutex<Vec<FrameTracker>> = Mutex::new(Vec::new());
 
@@ -29,7 +34,7 @@ impl DmaAllocator for DmaAllocatorImpl {
         debug!("nvme dealloc memory: {}", size);
         VIRTIO_CONTAINER
             .lock()
-            .drain_filter(|x| (addr..addr + size).contains(&x.0.to_addr()));
+            .retain(|x| !(addr..addr + size).contains(&x.0.to_addr()));
         0
     }
 
@@ -54,8 +59,8 @@ impl IrqController for IrqControllerImpl {
 pub struct VirtIOBlock(pub NvmeInterface<DmaAllocatorImpl, IrqControllerImpl>);
 
 impl Driver for VirtIOBlock {
-    fn device_type(&self) -> crate::device::DeviceType {
-        crate::device::DeviceType::Block
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Block
     }
 
     fn get_id(&self) -> &str {
@@ -103,7 +108,7 @@ pub fn config_pci() {
     info!("nvme pci 配置完毕");
 }
 
-pub fn init() {
+driver_define!("nvme", {
     // 初始化 pci
     config_pci();
 
@@ -115,4 +120,5 @@ pub fn init() {
     device.read_block(0, &mut buffer);
     // 加入设备表
     BLK_DEVICES.lock().push(Arc::new(device));
-}
+    None
+});

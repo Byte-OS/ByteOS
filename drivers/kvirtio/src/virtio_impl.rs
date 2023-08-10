@@ -22,11 +22,17 @@ unsafe impl Hal for HalImpl {
 
     unsafe fn dma_dealloc(paddr: PhysAddr, _vaddr: NonNull<u8>, pages: usize) -> i32 {
         trace!("dealloc DMA: paddr={:#x}, pages={}", paddr, pages);
-        VIRTIO_CONTAINER.lock().drain_filter(|x| {
+        // VIRTIO_CONTAINER.lock().drain_filter(|x| {
+        //     let phy_page = paddr as usize >> 12;
+        //     let calc_page = usize::from(x.0);
+
+        //     calc_page >= phy_page && calc_page - phy_page < pages
+        // });
+        VIRTIO_CONTAINER.lock().retain(|x| {
             let phy_page = paddr as usize >> 12;
             let calc_page = usize::from(x.0);
 
-            calc_page >= phy_page && calc_page - phy_page < pages
+            !(phy_page..phy_page + pages).contains(&calc_page)
         });
         0
     }

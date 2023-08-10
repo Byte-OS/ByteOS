@@ -5,22 +5,37 @@ use core::fmt::{self, Write};
 
 use log::{self, info, Level, LevelFilter, Log, Metadata, Record};
 
-struct Logger;
+pub struct Logger;
 
 impl Log for Logger {
     fn enabled(&self, _metadata: &Metadata) -> bool {
         true
     }
+
     fn log(&self, record: &Record) {
         if !self.enabled(record.metadata()) {
             return;
         }
 
-        print_in_color(
-            format_args!("[{}] {}", record.level(), record.args()),
-            level_to_color_code(record.level()),
-        );
+        let color_code = match record.level() {
+            Level::Error => 31u8, // Red
+            Level::Warn => 93,    // BrightYellow
+            Level::Info => 34,    // Blue
+            Level::Debug => 32,   // Green
+            Level::Trace => 90,   // BrightBlack
+        };
+        write!(
+            Logger,
+            "\u{1B}[{}m\
+            [{}] {}\
+            \u{1B}[0m\n",
+            color_code,
+            record.level(),
+            record.args()
+        )
+        .expect("can't write color string in logging module.");
     }
+
     fn flush(&self) {}
 }
 
@@ -56,40 +71,20 @@ macro_rules! print {
 
 #[macro_export]
 macro_rules! println {
-    ($fmt:expr) => (print!(concat!($fmt, "\n")));
-    ($fmt:expr, $($arg:tt)*) => (print!(concat!($fmt, "\n"), $($arg)*));
+    ($fmt:expr) => ($crate::print!(concat!($fmt, "\n")));
+    ($fmt:expr, $($arg:tt)*) => ($crate::print!(concat!($fmt, "\n"), $($arg)*));
 }
 
-macro_rules! with_color {
-    ($args: ident, $color_code: ident) => {{
-        format_args!("\u{1B}[{}m{}\u{1B}[0m\n", $color_code as u8, $args)
-    }};
-}
-
-fn print_in_color(args: fmt::Arguments, color_code: u8) {
-    Logger
-        .write_fmt(with_color!(args, color_code))
-        .expect("can't write color string in logging module.");
-}
-
+#[inline]
 pub fn print(args: fmt::Arguments) {
     Logger
         .write_fmt(args)
         .expect("can't write string in logging module.");
 }
 
+#[inline]
 pub fn puts(buffer: &[u8]) {
     for i in buffer {
         console_putchar(*i);
-    }
-}
-
-fn level_to_color_code(level: Level) -> u8 {
-    match level {
-        Level::Error => 31, // Red
-        Level::Warn => 93,  // BrightYellow
-        Level::Info => 34,  // Blue
-        Level::Debug => 32, // Green
-        Level::Trace => 90, // BrightBlack
     }
 }

@@ -1,11 +1,17 @@
+#![no_std]
+#![feature(used_with_arg)]
+
+extern crate alloc;
+
+#[macro_use]
+extern crate log;
+
 use alloc::sync::Arc;
 use arch::VIRT_ADDR_START;
+use devices::{device::{DeviceType, RtcDriver, Driver}, RTC_DEVICES, driver_define, DRIVER_REGS};
 use core::ptr::read_volatile;
 use fdt::node::FdtNode;
 use timestamp::DateTime;
-
-use crate::device::{DeviceType, Driver, RtcDriver};
-use crate::{DRIVER_REGS, RTC_DEVICES};
 
 const TIMER_TIME_LOW: usize = 0x00;
 const TIMER_TIME_HIGH: usize = 0x04;
@@ -63,7 +69,7 @@ pub fn init_rtc(node: &FdtNode) {
     );
 }
 
-// 利用 Linkme 初始化
-pub fn driver_init() {
+driver_define!("google,goldfish-rtc", {
     DRIVER_REGS.lock().insert("google,goldfish-rtc", init_rtc);
-}
+    None
+});
