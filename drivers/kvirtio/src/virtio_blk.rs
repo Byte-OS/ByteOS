@@ -1,12 +1,9 @@
 use alloc::sync::Arc;
+use devices::BLK_DEVICES;
+use devices::device::{Driver, BlkDriver};
 use sync::Mutex;
 use virtio_drivers::device::blk::VirtIOBlk;
 use virtio_drivers::transport::mmio::MmioTransport;
-
-use crate::{
-    device::{BlkDriver, Driver},
-    BLK_DEVICES,
-};
 
 use super::virtio_impl::HalImpl;
 
@@ -16,8 +13,8 @@ unsafe impl Sync for VirtIOBlock {}
 unsafe impl Send for VirtIOBlock {}
 
 impl Driver for VirtIOBlock {
-    fn device_type(&self) -> crate::device::DeviceType {
-        crate::device::DeviceType::Block
+    fn device_type(&self) -> devices::device::DeviceType {
+        devices::device::DeviceType::Block
     }
 
     fn get_id(&self) -> &str {

@@ -8,18 +8,14 @@ extern crate log;
 #[macro_use]
 extern crate alloc;
 
-pub mod cvsd;
 pub mod device;
 pub mod memory;
-#[cfg(feature = "nvme")]
-pub mod nvme;
-pub mod rtc;
-pub mod virtio;
+// pub mod virtio;
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use device::{BlkDriver, Driver, NetDriver, RtcDriver};
 use fdt::{self, node::FdtNode, Fdt};
-use kmacros::{linker_define, linkme};
+use kheader::macros::link_define;
 use sync::{LazyInit, Mutex};
 
 // pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
@@ -29,9 +25,9 @@ pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
 pub static BLK_DEVICES: Mutex<Vec<Arc<dyn BlkDriver>>> = Mutex::new(Vec::new());
 pub static NET_DEVICES: Mutex<Vec<Arc<dyn NetDriver>>> = Mutex::new(Vec::new());
 
-#[linker_define]
-#[linkme(crate = crate::linkme)]
-pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
+link_define!{
+    pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
+}
 
 pub fn get_blk_device(id: usize) -> Option<Arc<dyn BlkDriver>> {
     let len = BLK_DEVICES.lock().len();
@@ -45,16 +41,7 @@ pub fn get_blk_devices() -> Vec<Arc<dyn BlkDriver>> {
     return BLK_DEVICES.lock().clone();
 }
 
-pub fn init_drivers() {
-    virtio::driver_init();
-    rtc::driver_init();
-    cvsd::driver_init();
-}
-
 pub fn init_device(device_tree: usize) {
-    // 初始化所有驱动
-    init_drivers();
-
     // DEVICE_TREE_ADDR.store(device_tree, Ordering::Relaxed);
     let fdt = unsafe { Fdt::from_ptr(device_tree as *const u8).unwrap() };
     let mut dt_buf = vec![0u8; fdt.total_size()];
@@ -102,14 +89,11 @@ pub fn prepare_devices() {
             info!("    {}  {}", child.name, compatible.first());
         }
     }
-
-    #[cfg(feature = "nvme")]
-    nvme::init();
 }
 
 pub macro driver_define($obj:expr, $body: expr) {
-    #[kmacros::linker_use(DRIVERS_INIT)]
-    #[linkme(crate = kmacros::linkme)]
+    #[kheader::macros::linker_use($crate::DRIVERS_INIT)]
+    #[linkme(crate = kheader::macros::linkme)]
     fn __driver_init() -> Option<Arc<dyn devices::device::Driver>> {
         $body
     }

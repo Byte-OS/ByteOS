@@ -1,11 +1,15 @@
+#![no_std]
+#![feature(used_with_arg)]
+
+extern crate alloc;
+
+#[macro_use]
+extern crate log;
+
 use alloc::sync::Arc;
 use cv1811_sd::clk_en;
+use devices::{device::{Driver, DeviceType, BlkDriver}, BLK_DEVICES, DRIVER_REGS, driver_define};
 use fdt::node::FdtNode;
-
-use crate::{
-    device::{BlkDriver, Driver},
-    BLK_DEVICES, DRIVER_REGS,
-};
 
 pub struct CvSd;
 
@@ -13,8 +17,8 @@ unsafe impl Sync for CvSd {}
 unsafe impl Send for CvSd {}
 
 impl Driver for CvSd {
-    fn device_type(&self) -> crate::device::DeviceType {
-        crate::device::DeviceType::Block
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Block
     }
 
     fn get_id(&self) -> &str {
@@ -48,6 +52,7 @@ pub fn init_rtc(_node: &FdtNode) {
     info!("Initailize virtio-block device");
 }
 
-pub fn driver_init() {
+driver_define!("cvitek,mars-sd", {
     DRIVER_REGS.lock().insert("cvitek,mars-sd", init_rtc);
-}
+    None
+});

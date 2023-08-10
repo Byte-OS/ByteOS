@@ -7,12 +7,11 @@ members = [
     "crates/backtrace",
     "crates/timestamp",
     "crates/vfscore",
-    
+    "crates/cv1811-sd",
+
     # modules
     "modules/logging",
-    "modules/panic_handler",
     "modules/kalloc",
-    "modules/cv1811-sd",
     "modules/devices",
     "modules/frame_allocator",
     "modules/sync",
@@ -24,8 +23,13 @@ members = [
     "modules/procfs",
     "modules/executor",
     "modules/signal",
-    "modules/kmacros",
-    "modules/kmacros/impl",
+
+    #drivers
+    "drivers/kgoldfish-rtc",
+    "drivers/knvme",
+    "drivers/kvirtio",
+    "drivers/kcvitek-sd",
+    "drivers/k210-sdcard",
 
     # kernel
     "kernel"

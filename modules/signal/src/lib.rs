@@ -2,7 +2,6 @@
 
 use bit_field::BitField;
 use bitflags::bitflags;
-use num_enum::TryFromPrimitive;
 
 pub trait SignalOps {
     fn add_signal(&self, signum: usize);
@@ -144,7 +143,7 @@ impl SignalFlags {
     }
 }
 
-#[derive(Debug, Clone, Copy, TryFromPrimitive)]
+#[derive(Debug, Clone, Copy)]
 #[repr(u8)]
 pub enum SigMaskHow {
     Block,

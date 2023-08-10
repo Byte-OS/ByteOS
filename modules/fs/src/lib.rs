@@ -64,8 +64,6 @@ pub fn build_devfs(filesystems: &Vec<Arc<dyn FileSystem>>) -> Arc<DevFS> {
 pub fn init() {
     info!("fs module initialized");
 
-    // assert!(get_blk_devices().len() > 0);
-
     // TODO: Identify the filesystem at the device.
     let mut filesystems: Vec<Arc<dyn FileSystem>> = Vec::new();
     if get_blk_devices().len() > 0 {
@@ -74,7 +72,6 @@ pub fn init() {
         filesystems.push(RamFs::new());
     }
 
-    // filesystems.push(DevFS::new());
     filesystems.push(build_devfs(&filesystems));
     filesystems.push(RamFs::new());
     filesystems.push(RamFs::new());
@@ -97,19 +94,6 @@ pub fn init() {
         rootfs.mkdir("var").expect("can't create var dir");
         rootfs.mkdir("proc").expect("can't create proc dir");
         rootfs.mkdir("bin").expect("can't create var dir");
-
-        // let so_files: Vec<DirEntry> = rootfs
-        //     .read_dir()
-        //     .expect("can't read files")
-        //     .into_iter()
-        //     .filter(|x| x.filename.ends_with("dso.so"))
-        //     .collect();
-
-        // for file in so_files {
-        //     rootfs
-        //         .link(&file.filename[3..], &format!("/{}", file.filename))
-        //         .expect("can't link file");
-        // }
     }
     mount::init();
     {
@@ -117,25 +101,6 @@ pub fn init() {
         let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
         let tmpfs = open("/tmp_home").expect("can't open /tmp_home");
         for file in rootfs.read_dir().expect("can't read files") {
-            // let mut buffer = vec![0u8; 512];
-            // if cache_file.contains(&file.filename.as_str()) {
-            //     info!("cache file {} in tmp_home", file.filename);
-            //     let rfile = rootfs
-            //         .open(&file.filename, OpenFlags::O_RDWR)
-            //         .expect("can't open file before cache");
-            //     let dfile = tmpfs
-            //         .touch(&file.filename)
-            //         .expect("can't touch file before cache");
-            //     let mut rsize = 0;
-            //     loop {
-            //         rsize = rfile.read(&mut buffer).expect("can't read file");
-            //         if rsize == 0 {
-            //             break;
-            //         }
-            //         dfile.write(&buffer[..rsize]).expect("can't write file");
-            //     }
-            //     continue;
-            // }
             tmpfs
                 .link(&file.filename, &(String::from("/") + &file.filename))
                 .expect("can't link file to tmpfs");

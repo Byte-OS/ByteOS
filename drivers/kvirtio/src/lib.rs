@@ -1,3 +1,10 @@
+#![no_std]
+#![feature(used_with_arg)]
+
+extern crate alloc;
+#[macro_use]
+extern crate log;
+
 pub mod virtio_blk;
 pub mod virtio_impl;
 pub mod virtio_net;
@@ -5,13 +12,12 @@ pub mod virtio_net;
 use core::ptr::NonNull;
 
 use arch::VIRT_ADDR_START;
+use devices::{driver_define, DRIVER_REGS};
 use fdt::node::FdtNode;
 use virtio_drivers::transport::{
     mmio::{MmioTransport, VirtIOHeader},
     DeviceType, Transport,
 };
-
-use crate::DRIVER_REGS;
 
 pub fn init_mmio(node: &FdtNode) {
     if let Some(reg) = node.reg().and_then(|mut reg| reg.next()) {
@@ -42,6 +48,12 @@ fn virtio_device(transport: MmioTransport) {
 }
 
 // mmio
-pub fn driver_init() {
+// pub fn driver_init() {
+//     
+// }
+
+driver_define!("virtio,mmio", {
+    info!("init virtio drivers");
     DRIVER_REGS.lock().insert("virtio,mmio", init_mmio);
-}
+    None
+});

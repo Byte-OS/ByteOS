@@ -7,3 +7,4 @@ edition = "2021"
 
 [dependencies]
 sync = { path = "../sync" }
+linkme = { version = "0.3.9", features = ["used_linker"] }

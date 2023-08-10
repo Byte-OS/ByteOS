@@ -1,4 +1,4 @@
-use riscv::register::{sie, sstatus, time};
+use riscv::register::{sie, time};
 
 use crate::set_timer;
 
@@ -39,7 +39,7 @@ pub fn set_next_timeout() {
 pub fn init() {
     unsafe {
         sie::set_stimer();
-        sstatus::set_sie();
+        // sstatus::set_sie();
     }
     set_next_timeout();
     info!("initialize timer interrupt");

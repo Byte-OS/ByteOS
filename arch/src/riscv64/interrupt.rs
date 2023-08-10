@@ -2,7 +2,7 @@ use core::arch::{asm, global_asm};
 
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
-    stval,
+    stval, sstatus,
 };
 
 use crate::{interrupt_table, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
@@ -343,4 +343,12 @@ pub unsafe extern "C" fn uservec() {
     ", 
     kernelvec = sym kernelvec,
     options(noreturn));
+}
+
+#[allow(dead_code)]
+#[inline(always)]
+pub fn enable_irq() {
+    unsafe {
+        sstatus::set_sie();
+    }
 }

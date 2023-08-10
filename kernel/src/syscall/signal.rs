@@ -77,7 +77,6 @@ pub async fn sys_sigprocmask(
         oldset
     );
     let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
-
     let mut tcb = user_task.tcb.write();
     if oldset.is_valid() {
         let sigmask = oldset.get_mut();
