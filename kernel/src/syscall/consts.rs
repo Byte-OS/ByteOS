@@ -8,7 +8,7 @@ use arch::{PTEFlags, VirtAddr};
 use bitflags::bitflags;
 use fs::VfsError;
 use hal::TimeVal;
-use num_enum::TryFromPrimitive;
+use num_derive::FromPrimitive;
 use signal::SigProcMask;
 
 #[repr(i32)]
@@ -92,12 +92,16 @@ pub enum LinuxError {
     ENOSYS = 38,
     /// Directory not empty
     ENOTEMPTY = 39,
+    /// Address family not supported
+    EAFNOSUPPORT = 97,
     /// Transport endpoint is not connected
     ENOTCONN = 107,
     /// Connection time out
     ETIMEDOUT = 100,
     /// Connection refused
     ECONNREFUSED = 111,
+    /// Aleady used
+    EALREADY = 114,
 }
 
 impl LinuxError {
@@ -143,9 +147,11 @@ impl LinuxError {
             ENOLCK => "No record locks available",
             ENOSYS => "Invalid system call number",
             ENOTEMPTY => "Directory not empty",
+            EAFNOSUPPORT => "Address family not supported",
             ENOTCONN => "Transport endpoint is not connected",
             ETIMEDOUT => "Connection time out",
             ECONNREFUSED => "Connection refused",
+            EALREADY => "Port already used",
         }
     }
 
@@ -178,6 +184,9 @@ pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
 
 // 中断调用列表
 pub const SYS_GETCWD: usize = 17;
+pub const SYS_EPOLL_CREATE: usize = 20;
+pub const SYS_EPOLL_CTL: usize = 21;
+pub const SYS_EPOLL_WAIT: usize = 22;
 pub const SYS_DUP: usize = 23;
 pub const SYS_DUP3: usize = 24;
 pub const SYS_FCNTL: usize = 25;
@@ -273,6 +282,7 @@ pub const SYS_MMAP: usize = 222;
 pub const SYS_MPROTECT: usize = 226;
 pub const SYS_MSYNC: usize = 227;
 pub const SYS_MUNMAP: usize = 215;
+pub const SYS_ACCEPT4: usize = 242;
 pub const SYS_WAIT4: usize = 260;
 pub const SYS_PRLIMIT64: usize = 261;
 pub const SYS_FACCESSAT2: usize = 439;
@@ -380,7 +390,7 @@ impl Into<PTEFlags> for MmapProt {
     }
 }
 
-#[derive(Debug, TryFromPrimitive)]
+#[derive(Debug, FromPrimitive)]
 #[repr(usize)]
 pub enum FutexFlags {
     Wait = 0,
@@ -456,6 +466,29 @@ pub mod fcntl_cmd {
     pub const SETLKW: usize = 7;
     /// like F_DUPFD, but additionally set the close-on-exec flag
     pub const DUPFD_CLOEXEC: usize = 0x406;
+}
+
+#[repr(u32)]
+#[derive(Debug, Clone, PartialEq, FromPrimitive)]
+pub enum FcntlCmd {
+    /// dup
+    DUPFD = 0,
+    /// get close_on_exec
+    GETFD = 1,
+    /// set/clear close_on_exec
+    SETFD = 2,
+    /// get file->f_flags
+    GETFL = 3,
+    /// set file->f_flags
+    SETFL = 4,
+    /// Get record locking info.
+    GETLK = 5,
+    /// Set record locking info (non-blocking).
+    SETLK = 6,
+    /// Set record locking info (blocking).
+    SETLKW = 7,
+    /// like F_DUPFD, but additionally set the close-on-exec flag
+    DUPFDCLOEXEC = 0x406,
 }
 
 #[repr(C)]

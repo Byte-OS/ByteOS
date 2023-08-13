@@ -3,6 +3,17 @@
 version = 3
 
 [[package]]
+name = "ahash"
+version = "0.8.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
+dependencies = [
+ "cfg-if",
+ "once_cell",
+ "version_check",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10,6 +21,12 @@ checksum = "cc936419f96fa211c1b9166887b38e5e40b19958e5b895be7c1f93adec7071ac"
 dependencies = [
  "memchr",
 ]
+
+[[package]]
+name = "allocator-api2"
+version = "0.2.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 
 [[package]]
 name = "arch"
@@ -156,7 +173,8 @@ dependencies = [
  "hal",
  "log",
  "logging",
- "num_enum",
+ "num-derive",
+ "num-traits",
  "sync",
  "vfscore",
 ]
@@ -346,6 +364,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
+dependencies = [
+ "ahash",
+ "allocator-api2",
+]
+
+[[package]]
 name = "k210-hal"
 version = "0.2.0"
 source = "git+https://github.com/yfblock/k210-hal#e6702861f6843b929ebaed33dfa152127c72fa3f"
@@ -432,6 +460,7 @@ dependencies = [
  "fs",
  "futures-lite",
  "hal",
+ "hashbrown",
  "k210-sdcard",
  "kalloc",
  "kcvitek-sd",
@@ -442,7 +471,8 @@ dependencies = [
  "log",
  "logging",
  "lose-net-stack",
- "num_enum",
+ "num-derive",
+ "num-traits",
  "signal",
  "sync",
  "vfscore",
@@ -572,7 +602,7 @@ dependencies = [
 [[package]]
 name = "lose-net-stack"
 version = "0.1.0"
-source = "git+https://github.com/yfblock/lose-net-stack?rev=de965fe#de965fe1afb72254888e8a670e43cad9bbe11668"
+source = "git+https://github.com/yfblock/lose-net-stack?rev=b06d136#b06d136adcbb5e68e23d8a3f157e2ce5b8cf5127"
 dependencies = [
  "bitflags 1.3.2",
  "log",
@@ -623,6 +653,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 
 [[package]]
+name = "num-derive"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9e6a0fd4f737c707bd9086cc16c925f294943eb62eb71499e9fd4cf71f8b9f4e"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.15",
+]
+
+[[package]]
 name = "num-traits"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -659,6 +700,12 @@ dependencies = [
  "lock",
  "volatile 0.3.0",
 ]
+
+[[package]]
+name = "once_cell"
+version = "1.18.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
 
 [[package]]
 name = "pin-project-lite"
@@ -915,6 +962,12 @@ name = "vcell"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77439c1b53d2303b20d9459b1ade71a83c716e3f9c34f3228c00e6f185d6c002"
+
+[[package]]
+name = "version_check"
+version = "0.9.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 
 [[package]]
 name = "vfscore"

@@ -12,7 +12,10 @@
 extern crate logging;
 #[macro_use]
 extern crate alloc;
+#[macro_use]
+extern crate bitflags;
 
+mod epoll;
 mod modules;
 mod panic;
 mod socket;

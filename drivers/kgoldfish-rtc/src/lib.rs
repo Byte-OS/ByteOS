@@ -8,8 +8,11 @@ extern crate log;
 
 use alloc::sync::Arc;
 use arch::VIRT_ADDR_START;
-use devices::{device::{DeviceType, RtcDriver, Driver}, RTC_DEVICES, driver_define, DRIVER_REGS};
 use core::ptr::read_volatile;
+use devices::{
+    device::{DeviceType, Driver, RtcDriver},
+    driver_define, DRIVER_REGS, RTC_DEVICES,
+};
 use fdt::node::FdtNode;
 use timestamp::DateTime;
 

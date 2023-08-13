@@ -51,7 +51,7 @@ impl Drop for Socket {
             && (Arc::strong_count(&self.inner) == 2 || Arc::strong_count(&self.inner) == 1)
         {
             // self.inner.close().expect("cant close socket when droping socket in os.");
-            self.inner.close();
+            let _ = self.inner.close();
         }
         // self.inner.close();
     }
@@ -162,15 +162,11 @@ impl INodeInterface for Socket {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if !self.inner.is_closed().unwrap() {
-            if events.contains(PollEvent::POLLOUT) {
-                res |= PollEvent::POLLOUT;
-            }
+        if events.contains(PollEvent::POLLOUT) && !self.inner.is_closed().unwrap() {
+            res |= PollEvent::POLLOUT;
         }
-        if events.contains(PollEvent::POLLIN) {
-            if self.inner.readable().unwrap() {
-                res |= PollEvent::POLLIN;
-            }
+        if self.inner.readable().unwrap() && events.contains(PollEvent::POLLIN) {
+            res |= PollEvent::POLLIN;
         }
         Ok(res)
     }

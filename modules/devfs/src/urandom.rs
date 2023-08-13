@@ -1,4 +1,4 @@
-use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
+use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsResult};
 
 pub struct Urandom;
 
@@ -24,5 +24,13 @@ impl INodeInterface for Urandom {
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
         Ok(())
+    }
+
+    fn poll(&self, events: vfscore::PollEvent) -> VfsResult<vfscore::PollEvent> {
+        let mut res = PollEvent::NONE;
+        if events.contains(PollEvent::POLLIN) {
+            res |= PollEvent::POLLIN;
+        }
+        Ok(res)
     }
 }

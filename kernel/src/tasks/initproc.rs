@@ -295,10 +295,13 @@ pub async fn initproc() {
     // command("busybox sh ./tst.sh ./sort.src").await;
     // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
 
+    // command("bin/sh redis.sh").await;
+    // command("./redis-server /redis.conf --loglevel verbose").await;
+    // command("redis-cli-static").await;
     // command("bin/sh").await;
     // command("busybox sh").await;
     // command("usr/bin/tcc -run main.c").await;
-    // command("bin/bash").await;
+    // command("/bin/bash").await;
     // command("bin/bash lmbench_testcode.sh").await;
     // command("bin/busybox sh").await;
     // command("sqlite_test").await;
@@ -310,6 +313,10 @@ pub async fn initproc() {
     // command("busybox sh lua_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;
     // command("bin/busybox sh file_speed.sh").await;
+    // command("redis-server redis.conf").await;
+    // command("redis-cli-static").await;
+    // command("sqlite_test").await;
+    // command("sqlite_shell").await;
     // run_libc_test().await;
     // run_all().await;
 

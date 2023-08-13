@@ -63,6 +63,7 @@ impl Default for FileOptions {
 pub struct FileItem {
     pub inner: Arc<dyn INodeInterface>,
     pub options: FileOptions,
+    pub flags: OpenFlags,
 }
 
 pub trait FileItemInterface: INodeInterface {
@@ -72,7 +73,11 @@ pub trait FileItemInterface: INodeInterface {
 
 impl FileItem {
     pub fn new(inner: Arc<dyn INodeInterface>, options: FileOptions) -> Self {
-        Self { inner, options }
+        Self {
+            inner,
+            options,
+            flags: OpenFlags::NONE,
+        }
     }
 
     pub fn get_bare_file(&self) -> Arc<dyn INodeInterface> {
@@ -83,6 +88,7 @@ impl FileItem {
         Ok(Self {
             inner: open(path)?,
             options,
+            flags: OpenFlags::NONE,
         })
     }
 
@@ -207,7 +213,11 @@ impl INodeInterface for FileItem {
 
 impl FileItemInterface for FileItem {
     async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
-        WaitBlockingRead(self.inner.clone(), buffer).await
+        if self.flags.contains(OpenFlags::O_NONBLOCK) {
+            self.read(buffer)
+        } else {
+            WaitBlockingRead(self.inner.clone(), buffer).await
+        }
     }
 
     async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError> {

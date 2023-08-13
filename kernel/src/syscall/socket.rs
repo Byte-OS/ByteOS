@@ -3,12 +3,14 @@ use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
 use executor::{current_user_task, yield_now, AsyncTask, FileItem, UserTask};
-use log::debug;
+use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
 
+use lose_net_stack::results::NetServerError;
 use lose_net_stack::MacAddress;
 use sync::Lazy;
+use vfscore::OpenFlags;
 
 use crate::socket::{self, NetType};
 use crate::syscall::fd::sys_pipe2;
@@ -68,12 +70,11 @@ pub async fn sys_socket(
         protocol
     );
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
-    debug!(
+    log::debug!(
         "net_type: {:?}",
         NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?
     );
     let net_type = NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?;
-
     let socket = Socket::new(domain, net_type);
     task.set_fd(fd, Some(FileItem::new(socket, Default::default())));
     Ok(fd)
@@ -120,6 +121,11 @@ pub async fn sys_bind(
     let port = socket_addr.in_port.to_be();
     debug!("read port {}", port);
 
+    if socket_addr.family != 0x02 {
+        warn!("only support IPV4 now");
+        return Err(LinuxError::EAFNOSUPPORT);
+    }
+
     match socket.net_type {
         NetType::STEAM => {
             if net_server.tcp_is_used(port) {
@@ -128,7 +134,6 @@ pub async fn sys_bind(
                     socket_fd,
                     Some(FileItem::new(Arc::new(sock), Default::default())),
                 );
-                // return Err(LinuxError::EBUSY);
                 return Ok(0);
             }
         }
@@ -139,19 +144,18 @@ pub async fn sys_bind(
                     socket_fd,
                     Some(FileItem::new(Arc::new(sock), Default::default())),
                 );
-                // return Err(LinuxError::EBUSY);
                 return Ok(0);
             }
         }
         NetType::RAW => {}
     }
 
-    // if port != 0 {
-    //     // port_bind(port, socket)
-    //     socket.inner.clone().bind(SocketAddrV4::new(socket_addr.addr, port));
-    // }
     let local = SocketAddrV4::new(socket_addr.addr, port);
-    socket.inner.clone().bind(local);
+    socket
+        .inner
+        .clone()
+        .bind(local)
+        .map_err(|_| LinuxError::EALREADY)?;
     debug!("socket_addr: {:#x?}", socket_addr);
     Ok(0)
 }
@@ -164,7 +168,8 @@ pub async fn sys_listen(socket_fd: usize, backlog: usize) -> Result<usize, Linux
         socket_fd,
         backlog
     );
-    task.get_fd(socket_fd)
+    let _ = task
+        .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
         .get_bare_file()
         .downcast_arc::<Socket>()
@@ -205,7 +210,7 @@ pub async fn sys_connect(
     len: usize,
 ) -> Result<usize, LinuxError> {
     let task = current_user_task();
-    debug!(
+    warn!(
         "[task {}] sys_connect @ socket_fd: {:#x}, socket_addr: {:#x?}, len: {:#x}",
         task.get_task_id(),
         socket_fd,
@@ -221,8 +226,13 @@ pub async fn sys_connect(
 
     let socket_addr = socket_addr.get_mut();
     let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
-    socket.inner.clone().connect(remote);
-    yield_now().await;
+    loop {
+        match socket.inner.clone().connect(remote) {
+            Err(NetServerError::Blocking) => {}
+            _ => break,
+        }
+        yield_now().await;
+    }
     Ok(0)
 }
 
@@ -240,9 +250,8 @@ pub async fn sys_recvfrom(
         task.get_task_id(), socket_fd, buffer_ptr, len, flags, addr, addr_len
     );
     let buffer = buffer_ptr.slice_mut_with_len(len);
-    let socket = task
-        .get_fd(socket_fd)
-        .ok_or(LinuxError::EINVAL)?
+    let file = task.get_fd(socket_fd).ok_or(LinuxError::EINVAL)?;
+    let socket = file
         .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
@@ -252,7 +261,12 @@ pub async fn sys_recvfrom(
 
         match res {
             Ok(r) => break r,
-            Err(_) => yield_now().await,
+            Err(_) => {
+                if file.flags.contains(OpenFlags::O_NONBLOCK) {
+                    return Err(LinuxError::EAGAIN);
+                }
+                yield_now().await
+            }
         }
     };
     let rlen = cmp::min(data.len(), buffer.len());
@@ -335,7 +349,7 @@ pub async fn sys_setsockopt(
     optval: usize,
     optlen: usize,
 ) -> Result<usize, LinuxError> {
-    log::warn!("sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", socket, level, optname, optval, optlen);
+    log::warn!("[task {}]sys_setsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x}, optlen: {:#x}", current_user_task().get_task_id(), socket, level, optname, optval, optlen);
     // Ok(0)但在网络游戏这种实时通信中，这种减少包的做法，如果网络较差的时候，可能会引起比较大的波动，比如玩家正在PK，发了技能没有很快的反馈，过一会儿很多技能效果一起回来，这个体验是比较差的。
 
     // 0x1a SO_ATTACH_FILTER
@@ -408,7 +422,8 @@ pub async fn sys_sendto(
         socket
             .inner
             .clone()
-            .bind(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+            .bind(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0))
+            .map_err(|_| LinuxError::EALREADY)?;
     }
 
     let remote = if addr_ptr.is_valid() {
@@ -433,7 +448,8 @@ pub async fn sys_shutdown(socket_fd: usize, how: usize) -> Result<usize, LinuxEr
         socket_fd,
         how
     );
-    task.get_fd(socket_fd)
+    let _ = task
+        .get_fd(socket_fd)
         .ok_or(LinuxError::EINVAL)?
         .get_bare_file()
         .downcast_arc::<Socket>()
@@ -441,6 +457,44 @@ pub async fn sys_shutdown(socket_fd: usize, how: usize) -> Result<usize, LinuxEr
         .inner
         .close();
     Ok(0)
+}
+
+pub async fn sys_accept4(
+    socket_fd: usize,
+    socket_addr: usize,
+    len: usize,
+    flags: usize,
+) -> Result<usize, LinuxError> {
+    let task = current_user_task();
+    let flags = OpenFlags::from_bits_truncate(flags);
+    debug!(
+        "[task {}] sys_accept4 @ socket_fd: {:#x}, socket_addr: {:#x}, len: {:#x}, flags: {:?}",
+        task.get_task_id(),
+        socket_fd,
+        socket_addr,
+        len,
+        flags
+    );
+    let file = task.get_fd(socket_fd).ok_or(LinuxError::EINVAL)?;
+    let socket = file
+        .get_bare_file()
+        .downcast_arc::<Socket>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+    loop {
+        if let Ok(new_socket) = socket.inner.accept() {
+            let mut new_file = FileItem::new(
+                Socket::new_with_inner(socket.domain, socket.net_type, new_socket),
+                Default::default(),
+            );
+            new_file.flags = flags;
+            task.set_fd(fd, Some(new_file));
+            break Ok(fd);
+        } else if file.flags.contains(OpenFlags::O_NONBLOCK) {
+            break Err(LinuxError::EAGAIN);
+        }
+        yield_now().await;
+    }
 }
 
 pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) -> Result<(), LinuxError> {

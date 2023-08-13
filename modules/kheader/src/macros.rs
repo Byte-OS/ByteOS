@@ -28,4 +28,3 @@ pub macro link_define(
         $args
     )*
 }
-

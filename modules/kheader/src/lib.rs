@@ -3,5 +3,5 @@
 
 extern crate alloc;
 
-pub mod mm;
 pub mod macros;
+pub mod mm;

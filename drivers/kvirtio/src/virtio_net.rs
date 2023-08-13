@@ -1,8 +1,8 @@
 use core::cmp;
 
 use alloc::sync::Arc;
+use devices::device::{DeviceType, Driver, NetDriver, NetError};
 use devices::NET_DEVICES;
-use devices::device::{Driver, DeviceType, NetDriver, NetError};
 use sync::Mutex;
 use virtio_drivers::device::net::{self, TxBuffer};
 use virtio_drivers::transport::mmio::MmioTransport;
