@@ -8,41 +8,33 @@ use alloc::vec::Vec;
 use downcast_rs::{impl_downcast, DowncastSync};
 
 bitflags::bitflags! {
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct OpenFlags: usize {
         // reserve 3 bits for the access mode
-        // const O_ACCMODE =  0x0007;
-        // const O_EXEC    =  1;
-        // const O_RDONLY  =  2;
-        // const O_RDWR    =  3;
-        // const O_SEARCH  =  4;
-        // const O_WRONLY  =  5;
-        const O_RDONLY = 0;
-        const O_WRONLY = 1;
-        const O_RDWR   = 2;
-        const O_ACCMODE = 3;
+        const NONE          = 0;
+        const O_RDONLY      = 0;
+        const O_WRONLY      = 1;
+        const O_RDWR        = 2;
+        const O_ACCMODE     = 3;
+        const O_CREAT       = 0o100;
+        const O_EXCL        = 0o200;
+        const O_NOCTTY      = 0o400;
+        const O_TRUNC       = 0o1000;
+        const O_APPEND      = 0o2000;
+        const O_NONBLOCK    = 0o4000;
+        const O_DSYNC       = 0o10000;
+        const O_SYNC        = 0o4010000;
+        const O_RSYNC       = 0o4010000;
+        const O_DIRECTORY   = 0o200000;
+        const O_NOFOLLOW    = 0o400000;
+        const O_CLOEXEC     = 0o2000000;
 
-        // these flags get their own bit
-        const O_CREAT     = 0x40;
-        const O_APPEND    = 0x400;
-        // const O_APPEND    = 0x000008;
-        // const O_CREAT     = 0x40;
-        // const O_DIRECTORY = 0x0200000;
-        // const O_EXCL      = 0x000040;
-        // const O_NOCTTY    = 0x000080;
-        // const O_NOFOLLOW  = 0x000100;
-        // const O_TRUNC     = 0x000200;
-        // const O_NONBLOCK  = 0x000400;
-        // const O_DSYNC     = 0x000800;
-        // const O_RSYNC     = 0x001000;
-        // const O_SYNC      = 0x002000;
-        // const O_CLOEXEC   = 0x004000;
-        // const O_PATH      = 0x008000;
-        // const O_LARGEFILE = 0x010000;
-        // const O_NOATIME   = 0x020000;
-        // const O_ASYNC     = 0x040000;
-        // const O_TMPFILE   = 0x080000;
-        // const O_DIRECT    = 0x100000;
+        const O_ASYNC       = 0o20000;
+        const O_DIRECT      = 0o40000;
+        const O_LARGEFILE   = 0o100000;
+        const O_NOATIME     = 0o1000000;
+        const O_PATH        = 0o10000000;
+        const O_TMPFILE     = 0o20200000;
     }
 }
 
@@ -107,8 +99,8 @@ bitflags::bitflags! {
         const OTHER_EXEC = 0o1;
     }
 
-    #[derive(Debug, Clone)]
-    pub struct PollEvent:u16 {
+    #[derive(Debug, Clone, PartialEq)]
+    pub struct PollEvent: u16 {
         const NONE = 0;
         const POLLIN = 0x001;
         const POLLPRI = 0x002;
@@ -255,9 +247,9 @@ pub struct Dirent64 {
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct PollFd {
-    fd: u32,
-    events: PollEvent,
-    revents: PollEvent,
+    pub fd: u32,
+    pub events: PollEvent,
+    pub revents: PollEvent,
 }
 
 pub trait INodeInterface: DowncastSync + Send + Sync {

@@ -1,7 +1,8 @@
-use core::cmp;
-
 use alloc::string::String;
+use core::cmp;
+use num_traits::FromPrimitive;
 
+use alloc::sync::Arc;
 use alloc::vec::Vec;
 use arch::VirtAddr;
 use bit_field::BitArray;
@@ -16,8 +17,9 @@ use fs::{
 };
 use log::{debug, warn};
 
+use crate::epoll::{EpollEvent, EpollFile};
 use crate::socket::Socket;
-use crate::syscall::consts::{fcntl_cmd, from_vfs, IoVec, AT_CWD};
+use crate::syscall::consts::{from_vfs, FcntlCmd, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
 use crate::syscall::time::current_nsec;
 
@@ -51,32 +53,6 @@ pub async fn sys_read(fd: usize, buf_ptr: UserRef<u8>, count: usize) -> Result<u
     let buffer = buf_ptr.slice_mut_with_len(count);
     let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
     file.async_read(buffer).await.map_err(from_vfs)
-
-    // this was interrupted.
-    // match select(WaitBlockingRead(file.inner.clone(), buffer), WaitSignal(task)).await {
-    //     executor::Either::Left((res, _)) => res.map_err(from_vfs),
-    //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
-    // }
-
-    // async fn wait_for_kill(task: Arc<UserTask>) -> () {
-    //     let task = task.clone();
-    //     loop {
-    //         if task.tcb.read().signal.has_sig(SignalFlags::SIGKILL) {
-    //             return;
-    //         }
-    //         yield_now().await;
-    //     }
-    // }
-
-    // match select(
-    //     WaitBlockingRead(file.inner.clone(), buffer),
-    //     Box::pin(wait_for_kill(task.clone())),
-    // )
-    // .await
-    // {
-    //     executor::Either::Left((res, _)) => res.map_err(from_vfs),
-    //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
-    // }
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usize, LinuxError> {
@@ -88,21 +64,13 @@ pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usi
         buf_ptr,
         count
     );
+
     let buffer = buf_ptr.slice_with_len(count);
     let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
     if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
         yield_now().await;
     }
     file.async_write(buffer).await.map_err(from_vfs)
-    // match select(
-    //     WaitBlockingWrite(file.inner.clone(), buffer),
-    //     WaitSignal(task),
-    // )
-    // .await
-    // {
-    //     executor::Either::Left((res, _)) => res.map_err(from_vfs),
-    //     executor::Either::Right(_) => Err(LinuxError::EAGAIN),
-    // }
 }
 
 pub async fn sys_readv(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<usize, LinuxError> {
@@ -518,23 +486,28 @@ pub async fn sys_ioctl(
 }
 
 pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
-    debug!("fcntl: fd: {}, cmd: {:#x}, arg: {}", fd, cmd, arg);
+    let task = current_user_task();
+    debug!(
+        "[task {}] fcntl: fd: {}, cmd: {:#x}, arg: {}",
+        task.get_task_id(),
+        fd,
+        cmd,
+        arg
+    );
+    let cmd = FromPrimitive::from_usize(cmd).ok_or(LinuxError::EINVAL)?;
+    let mut file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
 
-    if cmd == fcntl_cmd::DUPFD_CLOEXEC {
-        return sys_dup(fd).await;
+    match cmd {
+        FcntlCmd::DUPFD | FcntlCmd::DUPFDCLOEXEC => sys_dup(fd).await,
+        FcntlCmd::GETFD => Ok(1),
+        FcntlCmd::GETFL => Ok(file.flags.bits()),
+        FcntlCmd::SETFL => {
+            file.flags = OpenFlags::from_bits_truncate(arg);
+            task.set_fd(fd, Some(file));
+            Ok(0)
+        }
+        _ => Ok(0),
     }
-    if cmd == fcntl_cmd::GETFD {
-        return Ok(1);
-    }
-    if cmd == fcntl_cmd::GETFL {
-        return Ok(2048);
-    }
-    // let file = current_task()
-    //     .as_user_task()
-    //     .unwrap()
-    //     .get_fd(fd)
-    //     .ok_or(LinuxError::EBADF)?;
-    Ok(0)
 }
 
 /// information source: https://man7.org/linux/man-pages/man2/utimensat.2.html
@@ -682,14 +655,32 @@ pub async fn sys_ppoll(
         "sys_ppoll @ poll_fds_ptr: {}, nfds: {}, timeout_ptr: {}, sigmask_ptr: {:#X}",
         poll_fds_ptr, nfds, timeout_ptr, sigmask_ptr
     );
-    let _fds = poll_fds_ptr.slice_mut_with_len(nfds);
-    // use it temporary
-    if timeout_ptr.is_valid() {
-        let timeout = timeout_ptr.get_mut();
-        debug!("timeout: {:?}", timeout);
-        return Ok(0);
-    }
-    Ok(nfds)
+    let task = current_user_task();
+    let poll_fds = poll_fds_ptr.slice_mut_with_len(nfds);
+    let etime = if timeout_ptr.is_valid() {
+        current_nsec() + timeout_ptr.get_ref().to_nsec()
+    } else {
+        usize::MAX
+    };
+    let n = loop {
+        let mut num = 0;
+        for i in 0..nfds {
+            poll_fds[i].revents = task
+                .get_fd(poll_fds[i].fd as _)
+                .map_or(PollEvent::NONE, |x| {
+                    x.poll(poll_fds[i].events.clone()).unwrap()
+                });
+            if poll_fds[i].revents != PollEvent::NONE {
+                num += 1;
+            }
+        }
+
+        if current_nsec() >= etime || num > 0 {
+            break num;
+        }
+        yield_now().await;
+    };
+    Ok(n)
 }
 
 /// TODO: improve it.
@@ -717,69 +708,6 @@ pub async fn sys_pselect(
     } else {
         usize::MAX
     };
-    // loop {
-    //     let mut num = 0;
-    //     let inner = user_task.pcb.lock();
-    //     if readfds.is_valid() {
-    //         let rfds = readfds.slice_mut_with_len(4);
-    //         for i in 0..max_fdp1 {
-    //             if inner.fd_table[i].is_none() {
-    //                 rfds.set_bit(i, false);
-    //                 continue;
-    //             }
-    //             let file = inner.fd_table[i].clone().unwrap();
-    //             match file.poll(PollEvent::POLLIN) {
-    //                 Ok(res) => {
-    //                     if res.contains(PollEvent::POLLIN) {
-    //                         num += 1;
-    //                         rfds.set_bit(i, true);
-    //                     } else {
-    //                         rfds.set_bit(i, false)
-    //                     }
-    //                 }
-    //                 Err(_) => {
-    //                     num += 1;
-    //                     rfds.set_bit(i, true)
-    //                 }
-    //             }
-    //         }
-    //     }
-    //     if writefds.is_valid() {
-    //         let wfds = writefds.slice_mut_with_len(4);
-    //         for i in 0..max_fdp1 {
-    //             if inner.fd_table[i].is_none() {
-    //                 wfds.set_bit(i, false);
-    //                 continue;
-    //             }
-    //             let file = inner.fd_table[i].clone().unwrap();
-    //             match file.poll(PollEvent::POLLOUT) {
-    //                 Ok(res) => {
-    //                     if res.contains(PollEvent::POLLOUT) {
-    //                         num += 1;
-    //                         wfds.set_bit(i, true);
-    //                     } else {
-    //                         wfds.set_bit(i, false)
-    //                     }
-    //                 }
-    //                 Err(_) => wfds.set_bit(i, false),
-    //             }
-    //         }
-    //     }
-    //     if exceptfds.is_valid() {
-    //         let efds = exceptfds.slice_mut_with_len(4);
-    //         for i in 0..max_fdp1 {
-    //             efds.set_bit(i, false);
-    //         }
-    //     }
-    //     drop(inner);
-    //     if num >= max_fdp1 {
-    //         return Ok(num);
-    //     }
-    //     if current_nsec() > timeout {
-    //         return Ok(0);
-    //     }
-    //     yield_now().await;
-    // }
     let mut rfds_r = [0usize; 4];
     let mut wfds_r = [0usize; 4];
     let mut efds_r = [0usize; 4];
@@ -892,7 +820,7 @@ pub async fn sys_pselect(
 }
 
 pub async fn sys_ftruncate(fields: usize, len: usize) -> Result<usize, LinuxError> {
-    warn!("sys_ftruncate @ fields: {}, len: {}", fields, len);
+    debug!("sys_ftruncate @ fields: {}, len: {}", fields, len);
     // Ok(0)
     if fields == usize::MAX {
         return Err(LinuxError::EPERM);
@@ -902,4 +830,78 @@ pub async fn sys_ftruncate(fields: usize, len: usize) -> Result<usize, LinuxErro
         .ok_or(LinuxError::EINVAL)?;
     file.truncate(len).map_err(from_vfs)?;
     Ok(0)
+}
+
+pub async fn sys_epoll_create1(flags: usize) -> Result<usize, LinuxError> {
+    debug!("sys_epoll_create @ flags: {:#x}", flags);
+    let file = EpollFile::new(flags);
+    let task = current_user_task();
+    let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+    task.set_fd(
+        fd,
+        Some(FileItem::new(Arc::new(file), FileOptions::default())),
+    );
+    Ok(fd)
+}
+
+pub async fn sys_epoll_ctl(
+    epfd: usize,
+    op: usize,
+    fd: usize,
+    event: UserRef<EpollEvent>,
+) -> Result<usize, LinuxError> {
+    debug!(
+        "sys_epoll_ctl @ epfd: {:#x} op: {:#x} fd: {:#x} event: {:#x?}",
+        epfd, op, fd, event
+    );
+    let ctl = FromPrimitive::from_usize(op).ok_or(LinuxError::EINVAL)?;
+    let task = current_user_task();
+    let epfile = task
+        .get_fd(epfd)
+        .ok_or(LinuxError::EBADF)?
+        .inner
+        .downcast_arc::<EpollFile>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+    epfile.ctl(ctl, fd, event.get_ref().clone());
+    Ok(0)
+}
+
+pub async fn sys_epoll_wait(
+    epfd: usize,
+    events: UserRef<EpollEvent>,
+    max_events: usize,
+    timeout: usize,
+    sigmask: usize,
+) -> Result<usize, LinuxError> {
+    let task = current_user_task();
+    debug!("[task {}]sys_epoll_wait @ epfd: {:#x}, events: {:#x?}, max events: {:#x}, timeout: {:#x}, sigmask: {:#x}", task.get_task_id(), epfd, events, max_events, timeout, sigmask);
+    let epfile = task
+        .get_fd(epfd)
+        .ok_or(LinuxError::EBADF)?
+        .inner
+        .downcast_arc::<EpollFile>()
+        .map_err(|_| LinuxError::EINVAL)?;
+    let stime = current_nsec();
+    let end = stime + timeout * 0x1000_000;
+    let buffer = events.slice_mut_with_len(max_events);
+    let n = loop {
+        let mut num = 0;
+        for (fd, ev) in epfile.data.lock().iter() {
+            if let Some(file) = task.get_fd(*fd) {
+                if let Ok(pevent) = file.poll(ev.events.to_poll()) {
+                    if pevent != PollEvent::NONE {
+                        buffer[num] = ev.clone();
+                        num += 1;
+                    }
+                }
+            }
+        }
+        if current_nsec() >= end || num > 0 {
+            break num;
+        }
+        yield_now().await;
+    };
+
+    Ok(n)
 }

@@ -10,7 +10,6 @@ use alloc::{boxed::Box, sync::Arc};
 use arch::{time_to_usec, ContextOps, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
-use core::ops::Add;
 use executor::{
     current_task, current_user_task, select, yield_now, AsyncTask, MemType, UserTask, TASK_QUEUE,
 };
@@ -19,6 +18,7 @@ use fs::mount::open;
 use fs::TimeSpec;
 use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
+use num_traits::FromPrimitive;
 use signal::SignalFlags;
 use xmas_elf::program::{SegmentData, Type};
 
@@ -331,7 +331,7 @@ pub async fn sys_wait4(
             })
             .ok_or(LinuxError::ECHILD)?;
     }
-    if options == 0 || options == 2 || options == 3 {
+    if options == 0 || options == 2 || options == 3 || options == 10 {
         debug!(
             "children:{:?}",
             curr_task.pcb.lock().children.iter().count()
@@ -452,7 +452,7 @@ pub async fn sys_futex(
         user_task.get_task_id(), uaddr_ptr, op, value, value2, uaddr2, value3
     );
     let uaddr = uaddr_ptr.get_mut();
-    let flags = FutexFlags::try_from(op).map_err(|_| LinuxError::EINVAL)?;
+    let flags = FromPrimitive::from_usize(op).ok_or(LinuxError::EINVAL)?;
     debug!(
         "sys_futex @ uaddr: {} flags: {:?} value: {}",
         uaddr, flags, value

@@ -8,7 +8,10 @@ extern crate log;
 
 use alloc::sync::Arc;
 use cv1811_sd::clk_en;
-use devices::{device::{Driver, DeviceType, BlkDriver}, BLK_DEVICES, DRIVER_REGS, driver_define};
+use devices::{
+    device::{BlkDriver, DeviceType, Driver},
+    driver_define, BLK_DEVICES, DRIVER_REGS,
+};
 use fdt::node::FdtNode;
 
 pub struct CvSd;

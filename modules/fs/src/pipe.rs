@@ -62,6 +62,8 @@ impl INodeInterface for PipeReceiver {
         if events.contains(PollEvent::POLLIN) {
             if self.queue.lock().len() > 0 {
                 res |= PollEvent::POLLIN;
+            } else if Weak::strong_count(&self.sender) == 0 {
+                res |= PollEvent::POLLERR;
             }
         }
         if events.contains(PollEvent::POLLERR) {

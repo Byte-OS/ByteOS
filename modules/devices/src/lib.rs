@@ -25,7 +25,7 @@ pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
 pub static BLK_DEVICES: Mutex<Vec<Arc<dyn BlkDriver>>> = Mutex::new(Vec::new());
 pub static NET_DEVICES: Mutex<Vec<Arc<dyn NetDriver>>> = Mutex::new(Vec::new());
 
-link_define!{
+link_define! {
     pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
 }
 

@@ -6,7 +6,6 @@ use executor::AsyncTask;
 use frame_allocator::ceil_div;
 use fs::INodeInterface;
 use log::debug;
-use log::warn;
 
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MSyncFlags;
@@ -39,7 +38,7 @@ pub async fn sys_mmap(
     let flags = MapFlags::from_bits_truncate(flags as _);
     let prot = MmapProt::from_bits_truncate(prot as _);
     let user_task = current_task().as_user_task().unwrap();
-    info!(
+    debug!(
         "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
         user_task.get_task_id(), start, len, prot, flags, fd as isize, off
     );
@@ -57,7 +56,7 @@ pub async fn sys_mmap(
         VirtAddr::new(start)
     };
 
-    warn!("sys_mmap @ free addr: {}", addr);
+    debug!("sys_mmap @ free addr: {}", addr);
 
     if len == 0 {
         return Ok(addr.into());

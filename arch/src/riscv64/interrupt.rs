@@ -2,7 +2,7 @@ use core::arch::{asm, global_asm};
 
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
-    stval, sstatus,
+    sstatus, stval,
 };
 
 use crate::{interrupt_table, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};

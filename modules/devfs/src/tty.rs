@@ -5,7 +5,8 @@ use arch::console_getchar;
 use bitflags::bitflags;
 use log::debug;
 use logging::puts;
-use num_enum::TryFromPrimitive;
+use num_derive::FromPrimitive;
+use num_traits::FromPrimitive;
 use sync::Mutex;
 use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsError, VfsResult};
 pub struct Tty {
@@ -71,10 +72,15 @@ impl INodeInterface for Tty {
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
         if events.contains(PollEvent::POLLIN) {
-            let c = console_getchar() as u8;
-            if c != (-1 as i8 as u8) {
+            let buf_len = self.buffer.lock().len();
+            if buf_len > 0 {
                 res |= PollEvent::POLLIN;
-                self.buffer.lock().push_back(c);
+            } else {
+                let c = console_getchar() as u8;
+                if c != u8::MAX {
+                    res |= PollEvent::POLLIN;
+                    self.buffer.lock().push_back(c);
+                }
             }
         }
         if events.contains(PollEvent::POLLOUT) {
@@ -88,12 +94,14 @@ impl INodeInterface for Tty {
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> VfsResult<usize> {
-        debug!("command: {} arg: {}", command, arg);
-        let cmd = TeletypeCommand::try_from(command as u32).map_err(|_| VfsError::InvalidInput)?;
+        debug!("command: {} arg: {:#x}", command, arg);
+        let cmd = FromPrimitive::from_usize(command).ok_or(VfsError::InvalidInput)?;
         debug!("command: {:?}", cmd);
         match cmd {
             TeletypeCommand::TCGETS | TeletypeCommand::TCGETA => {
-                unsafe { *(arg as *mut Termios).as_mut().unwrap() = *self.termios.lock() }
+                unsafe {
+                    (arg as *mut Termios).write_volatile(*self.termios.lock());
+                }
                 Ok(0)
             }
             TeletypeCommand::TCSETS | TeletypeCommand::TCSETSW | TeletypeCommand::TCSETSF => {
@@ -133,7 +141,7 @@ impl INodeInterface for Tty {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 /// The termios functions describe a general terminal interface that
 /// is provided to control asynchronous communications ports.
 pub struct Termios {
@@ -212,7 +220,7 @@ bitflags! {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug, Eq, PartialEq, TryFromPrimitive)]
+#[derive(Debug, Eq, PartialEq, FromPrimitive)]
 #[repr(u32)]
 pub enum TeletypeCommand {
     // For struct termios
@@ -271,7 +279,7 @@ impl Default for WinSize {
     fn default() -> Self {
         Self {
             ws_row: 24,
-            ws_col: 80,
+            ws_col: 200,
             xpixel: 0,
             ypixel: 0,
         }

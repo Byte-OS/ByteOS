@@ -49,7 +49,7 @@ fn virtio_device(transport: MmioTransport) {
 
 // mmio
 // pub fn driver_init() {
-//     
+//
 // }
 
 driver_define!("virtio,mmio", {
