@@ -259,19 +259,26 @@ pub async fn exec_with_process<'a>(
             cache_task.tls,
         );
 
-        user_task.pcb.lock().memset.push(MemArea::new(
-            MemType::CodeSection,
-            cache_task
-                .maps
-                .iter()
-                .map(|(vpn, tracker)| MapTrack {
-                    vpn: *vpn,
-                    tracker: tracker.clone(),
-                    rwx: 0,
-                })
-                .collect(),
-        ));
-
+        let mut pcb = user_task.pcb.lock();
+        if let Some(mem_area) = pcb.memset.iter_mut().find(|x| x.mtype == MemType::CodeSection) {
+            for (vpn, tracker) in cache_task.maps.iter() {
+                mem_area.map(*vpn, tracker.clone());
+            }
+        } else {
+            pcb.memset.push(MemArea::new(
+                MemType::CodeSection,
+                cache_task
+                    .maps
+                    .iter()
+                    .map(|(vpn, tracker)| MapTrack {
+                        vpn: *vpn,
+                        tracker: tracker.clone(),
+                        rwx: 0,
+                    })
+                    .collect(),
+            ));
+        }
+        drop(pcb);
         for (vpn, tracker) in cache_task.maps.iter() {
             user_task.map(tracker.0, *vpn, PTEFlags::ADUVRX);
         }
