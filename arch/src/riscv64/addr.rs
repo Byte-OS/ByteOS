@@ -158,6 +158,11 @@ impl From<VirtAddr> for VirtPage {
         Self(value.0 >> 12)
     }
 }
+impl From<usize> for VirtPage {
+    fn from(value: usize) -> Self {
+        Self(value >> 12)
+    }
+}
 
 impl PhysPage {
     #[inline]

@@ -279,7 +279,7 @@ impl Default for WinSize {
     fn default() -> Self {
         Self {
             ws_row: 24,
-            ws_col: 200,
+            ws_col: 140,
             xpixel: 0,
             ypixel: 0,
         }

@@ -3,23 +3,26 @@ use crate::syscall::time::WaitUntilsec;
 use crate::tasks::elf::{init_task_stack, ElfExtra};
 use crate::tasks::user::entry::user_entry;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
-use alloc::string::String;
+use alloc::string::{String, ToString};
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{time_to_usec, ContextOps, VirtPage, PAGE_SIZE};
+use arch::{time_to_usec, ContextOps, PTEFlags, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
+use core::ops::Add;
 use executor::{
-    current_task, current_user_task, select, yield_now, AsyncTask, MemType, UserTask, TASK_QUEUE,
+    current_task, current_user_task, select, yield_now, AsyncTask, MapTrack, MemArea, MemType,
+    UserTask, TASK_QUEUE,
 };
-use frame_allocator::{ceil_div, frame_alloc_much};
+use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::mount::open;
 use fs::TimeSpec;
 use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
 use num_traits::FromPrimitive;
 use signal::SignalFlags;
+use sync::Mutex;
 use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError, UserRef};
@@ -102,6 +105,128 @@ pub async fn sys_execve(
     Ok(0)
 }
 
+pub struct TaskCacheTemplate {
+    name: String,
+    entry: usize,
+    maps: Vec<(VirtPage, Arc<FrameTracker>)>,
+    base: usize,
+    heap_bottom: usize,
+    tls: usize,
+    ph_count: usize,
+    ph_entry_size: usize,
+    ph_addr: usize,
+}
+pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
+
+pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
+    let file = open(path).map_err(from_vfs)?;
+    let file_size = file.metadata().unwrap().size;
+    let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
+    let buffer = unsafe {
+        core::slice::from_raw_parts_mut(
+            frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
+            file_size,
+        )
+    };
+    let rsize = file.read(buffer).map_err(from_vfs)?;
+    assert_eq!(rsize, file_size);
+    // flush_dcache_range();
+    // 读取elf信息
+    if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
+        let elf_header = elf.header;
+
+        let entry_point = elf.header.pt2.entry_point() as usize;
+        // this assert ensures that the file is elf file.
+        assert_eq!(
+            elf_header.pt1.magic,
+            [0x7f, 0x45, 0x4c, 0x46],
+            "invalid elf!"
+        );
+
+        // check if it is libc, dlopen, it needs recurit.
+        let header = elf
+            .program_iter()
+            .find(|ph| ph.get_type() == Ok(Type::Interp));
+        if let Some(_header) = header {
+            unimplemented!("can't cache dynamic file.");
+        }
+
+        // get heap_bottom, TODO: align 4096
+        // brk is expanding the data section.
+        let heap_bottom = elf.program_iter().fold(0, |acc, x| {
+            if x.virtual_addr() + x.mem_size() > acc {
+                x.virtual_addr() + x.mem_size()
+            } else {
+                acc
+            }
+        });
+
+        let tls = elf
+            .program_iter()
+            .find(|x| x.get_type().unwrap() == xmas_elf::program::Type::Tls)
+            .map(|ph| ph.virtual_addr())
+            .unwrap_or(0);
+
+        let base = 0x20000000;
+
+        let (base, _relocated_arr) = match elf.relocate(base) {
+            Ok(arr) => (base, arr),
+            Err(_) => (0, vec![]),
+        };
+
+        if base != 0 {
+            unimplemented!("can't cache dynamic file.");
+        }
+
+        let mut maps = Vec::new();
+
+        // map sections.
+        elf.program_iter()
+            .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
+            .for_each(|ph| {
+                let file_size = ph.file_size() as usize;
+                let mem_size = ph.mem_size() as usize;
+                let offset = ph.offset() as usize;
+                let virt_addr = base + ph.virtual_addr() as usize;
+                let vpn = virt_addr / PAGE_SIZE;
+
+                let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
+                let pages: Vec<Arc<FrameTracker>> = frame_alloc_much(page_count)
+                    .expect("can't alloc in cache task template")
+                    .into_iter()
+                    .map(|x| Arc::new(x))
+                    .collect();
+                let ppn_space = unsafe {
+                    core::slice::from_raw_parts_mut(
+                        pages[0]
+                            .0
+                            .get_buffer()
+                            .as_mut_ptr()
+                            .add(virt_addr % PAGE_SIZE),
+                        file_size,
+                    )
+                };
+                ppn_space.copy_from_slice(&buffer[offset..offset + file_size]);
+
+                for i in 0..page_count {
+                    maps.push((VirtPage::from_addr(virt_addr).add(i), pages[i].clone()));
+                }
+            });
+        TASK_CACHES.lock().push(TaskCacheTemplate {
+            name: path.to_string(),
+            entry: entry_point,
+            maps,
+            base,
+            heap_bottom: heap_bottom as _,
+            tls: tls as _,
+            ph_count: elf_header.pt2.ph_count() as _,
+            ph_entry_size: elf_header.pt2.ph_entry_size() as _,
+            ph_addr: elf.get_ph_addr().unwrap_or(0) as _,
+        });
+    }
+    Ok(())
+}
+
 #[async_recursion(?Send)]
 pub async fn exec_with_process<'a>(
     task: Arc<dyn AsyncTask>,
@@ -117,125 +242,163 @@ pub async fn exec_with_process<'a>(
         ctask.exit(0);
         return Ok(ctask);
     }
+    let caches = TASK_CACHES.lock();
+    if let Some(cache_task) = caches.iter().find(|x| x.name == path) {
+        let user_task = task.clone().as_user_task().unwrap();
 
-    let file = open(path).map_err(from_vfs)?;
-    let file_size = file.metadata().unwrap().size;
-    let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
-    let buffer = unsafe {
-        core::slice::from_raw_parts_mut(
-            frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
-            file_size,
-        )
-    };
-    let rsize = file.read(buffer).map_err(from_vfs)?;
-    assert_eq!(rsize, file_size);
-    // flush_dcache_range();
-    // 读取elf信息
-    let elf = if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
-        elf
+        init_task_stack(
+            user_task.clone(),
+            args,
+            cache_task.base,
+            path,
+            cache_task.entry,
+            cache_task.ph_count,
+            cache_task.ph_entry_size,
+            cache_task.ph_addr,
+            cache_task.heap_bottom,
+            cache_task.tls,
+        );
+
+        user_task.pcb.lock().memset.push(MemArea::new(
+            MemType::CodeSection,
+            cache_task
+                .maps
+                .iter()
+                .map(|(vpn, tracker)| MapTrack {
+                    vpn: *vpn,
+                    tracker: tracker.clone(),
+                    rwx: 0,
+                })
+                .collect(),
+        ));
+
+        for (vpn, tracker) in cache_task.maps.iter() {
+            user_task.map(tracker.0, *vpn, PTEFlags::ADUVRX);
+        }
+        Ok(user_task)
     } else {
-        let mut new_args = vec!["busybox", "sh"];
-        args.iter().for_each(|x| new_args.push(x));
-        return exec_with_process(task, "busybox", new_args).await;
-    };
-    let elf_header = elf.header;
-
-    let entry_point = elf.header.pt2.entry_point() as usize;
-    // this assert ensures that the file is elf file.
-    assert_eq!(
-        elf_header.pt1.magic,
-        [0x7f, 0x45, 0x4c, 0x46],
-        "invalid elf!"
-    );
-    // WARRNING: this convert async task to user task.
-    let user_task = task.clone().as_user_task().unwrap();
-
-    // check if it is libc, dlopen, it needs recurit.
-    let header = elf
-        .program_iter()
-        .find(|ph| ph.get_type() == Ok(Type::Interp));
-    if let Some(header) = header {
-        if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
-            drop(frame_ppn);
-            let lib_path = "libc.so";
-            let mut new_args = vec![lib_path, path];
-            args[1..].iter().for_each(|x| new_args.push(x));
-            return exec_with_process(task, lib_path, new_args).await;
-        }
-    }
-
-    // get heap_bottom, TODO: align 4096
-    // brk is expanding the data section.
-    let heap_bottom = elf.program_iter().fold(0, |acc, x| {
-        if x.virtual_addr() + x.mem_size() > acc {
-            x.virtual_addr() + x.mem_size()
+        drop(caches);
+        let file = open(path).map_err(from_vfs)?;
+        let file_size = file.metadata().unwrap().size;
+        let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
+        let buffer = unsafe {
+            core::slice::from_raw_parts_mut(
+                frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
+                file_size,
+            )
+        };
+        let rsize = file.read(buffer).map_err(from_vfs)?;
+        assert_eq!(rsize, file_size);
+        // flush_dcache_range();
+        // 读取elf信息
+        let elf = if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
+            elf
         } else {
-            acc
+            let mut new_args = vec!["busybox", "sh"];
+            args.iter().for_each(|x| new_args.push(x));
+            return exec_with_process(task, "busybox", new_args).await;
+        };
+        let elf_header = elf.header;
+
+        let entry_point = elf.header.pt2.entry_point() as usize;
+        // this assert ensures that the file is elf file.
+        assert_eq!(
+            elf_header.pt1.magic,
+            [0x7f, 0x45, 0x4c, 0x46],
+            "invalid elf!"
+        );
+        // WARRNING: this convert async task to user task.
+        let user_task = task.clone().as_user_task().unwrap();
+
+        // check if it is libc, dlopen, it needs recurit.
+        let header = elf
+            .program_iter()
+            .find(|ph| ph.get_type() == Ok(Type::Interp));
+        if let Some(header) = header {
+            if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
+                drop(frame_ppn);
+                let lib_path = "libc.so";
+                let mut new_args = vec![lib_path, path];
+                args[1..].iter().for_each(|x| new_args.push(x));
+                return exec_with_process(task, lib_path, new_args).await;
+            }
         }
-    });
 
-    let tls = elf
-        .program_iter()
-        .find(|x| x.get_type().unwrap() == xmas_elf::program::Type::Tls)
-        .map(|ph| ph.virtual_addr())
-        .unwrap_or(0);
-
-    let base = 0x20000000;
-
-    let (base, relocated_arr) = match elf.relocate(base) {
-        Ok(arr) => (base, arr),
-        Err(_) => (0, vec![]),
-    };
-    init_task_stack(
-        user_task.clone(),
-        args,
-        base,
-        path,
-        entry_point,
-        elf_header.pt2.ph_count() as usize,
-        elf_header.pt2.ph_entry_size() as usize,
-        elf.get_ph_addr().unwrap_or(0) as usize,
-        heap_bottom as usize,
-        tls as usize,
-    );
-    // map sections.
-    elf.program_iter()
-        .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
-        .for_each(|ph| {
-            let file_size = ph.file_size() as usize;
-            let mem_size = ph.mem_size() as usize;
-            let offset = ph.offset() as usize;
-            let virt_addr = base + ph.virtual_addr() as usize;
-            let vpn = virt_addr / PAGE_SIZE;
-
-            let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
-            let ppn_start = user_task.frame_alloc(
-                VirtPage::from_addr(virt_addr),
-                MemType::CodeSection,
-                page_count,
-            );
-            let page_space = unsafe { core::slice::from_raw_parts_mut(virt_addr as _, file_size) };
-            let ppn_space = unsafe {
-                core::slice::from_raw_parts_mut(
-                    ppn_start
-                        .get_buffer()
-                        .as_mut_ptr()
-                        .add(virt_addr % PAGE_SIZE),
-                    file_size,
-                )
-            };
-            page_space.copy_from_slice(&buffer[offset..offset + file_size]);
-            assert_eq!(ppn_space, page_space);
-            assert_eq!(&buffer[offset..offset + file_size], ppn_space);
-            assert_eq!(&buffer[offset..offset + file_size], page_space);
+        // get heap_bottom, TODO: align 4096
+        // brk is expanding the data section.
+        let heap_bottom = elf.program_iter().fold(0, |acc, x| {
+            if x.virtual_addr() + x.mem_size() > acc {
+                x.virtual_addr() + x.mem_size()
+            } else {
+                acc
+            }
         });
 
-    if base > 0 {
-        relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
-            (addr as *mut usize).write_volatile(value);
-        })
+        let tls = elf
+            .program_iter()
+            .find(|x| x.get_type().unwrap() == xmas_elf::program::Type::Tls)
+            .map(|ph| ph.virtual_addr())
+            .unwrap_or(0);
+
+        let base = 0x20000000;
+
+        let (base, relocated_arr) = match elf.relocate(base) {
+            Ok(arr) => (base, arr),
+            Err(_) => (0, vec![]),
+        };
+        init_task_stack(
+            user_task.clone(),
+            args,
+            base,
+            path,
+            entry_point,
+            elf_header.pt2.ph_count() as usize,
+            elf_header.pt2.ph_entry_size() as usize,
+            elf.get_ph_addr().unwrap_or(0) as usize,
+            heap_bottom as usize,
+            tls as usize,
+        );
+
+        // map sections.
+        elf.program_iter()
+            .filter(|x| x.get_type().unwrap() == xmas_elf::program::Type::Load)
+            .for_each(|ph| {
+                let file_size = ph.file_size() as usize;
+                let mem_size = ph.mem_size() as usize;
+                let offset = ph.offset() as usize;
+                let virt_addr = base + ph.virtual_addr() as usize;
+                let vpn = virt_addr / PAGE_SIZE;
+
+                let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
+                let ppn_start = user_task.frame_alloc(
+                    VirtPage::from_addr(virt_addr),
+                    MemType::CodeSection,
+                    page_count,
+                );
+                let page_space =
+                    unsafe { core::slice::from_raw_parts_mut(virt_addr as _, file_size) };
+                let ppn_space = unsafe {
+                    core::slice::from_raw_parts_mut(
+                        ppn_start
+                            .get_buffer()
+                            .as_mut_ptr()
+                            .add(virt_addr % PAGE_SIZE),
+                        file_size,
+                    )
+                };
+                page_space.copy_from_slice(&buffer[offset..offset + file_size]);
+                assert_eq!(ppn_space, page_space);
+                assert_eq!(&buffer[offset..offset + file_size], ppn_space);
+                assert_eq!(&buffer[offset..offset + file_size], page_space);
+            });
+
+        if base > 0 {
+            relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
+                (addr as *mut usize).write_volatile(value);
+            })
+        }
+        Ok(user_task)
     }
-    Ok(user_task)
 }
 
 pub async fn sys_clone(
