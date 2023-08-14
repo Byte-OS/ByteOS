@@ -82,6 +82,8 @@ fn main(hart_id: usize, device_tree: usize) {
     // cache_task_template("/bin/busybox").expect("can't cache task");
     cache_task_template("./busybox").expect("can't cache task");
     cache_task_template("busybox").expect("can't cache task");
+    cache_task_template("./runtest.exe").expect("can't cache task");
+    cache_task_template("entry-static.exe").expect("can't cache task");
 
     // init kernel threads and async executor
     tasks::init();
