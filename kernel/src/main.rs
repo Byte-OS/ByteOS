@@ -29,7 +29,7 @@ use frame_allocator;
 use hal;
 use kalloc;
 
-use crate::tasks::kernel::kernel_interrupt;
+use crate::{syscall::cache_task_template, tasks::kernel::kernel_interrupt};
 
 #[no_mangle]
 fn main(hart_id: usize, device_tree: usize) {
@@ -77,6 +77,11 @@ fn main(hart_id: usize, device_tree: usize) {
 
     // enable interrupts
     enable_irq();
+
+    // cache task with task templates
+    // cache_task_template("/bin/busybox").expect("can't cache task");
+    cache_task_template("./busybox").expect("can't cache task");
+    cache_task_template("busybox").expect("can't cache task");
 
     // init kernel threads and async executor
     tasks::init();

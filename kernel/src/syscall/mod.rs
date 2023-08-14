@@ -10,7 +10,7 @@ mod task;
 mod time;
 
 pub use socket::NET_SERVER;
-pub use task::exec_with_process;
+pub use task::{cache_task_template, exec_with_process};
 
 use log::warn;
 
