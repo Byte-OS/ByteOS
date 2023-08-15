@@ -173,14 +173,8 @@ pub struct DirEntry {
     pub file_type: FileType,
 }
 
-#[derive(Clone, Default)]
-pub struct MountedInfo {
-    pub fs_id: usize,
-    pub path: Arc<String>,
-}
-
 pub trait FileSystem: Send + Sync {
-    fn root_dir(&'static self, mi: MountedInfo) -> Arc<dyn INodeInterface>;
+    fn root_dir(&'static self) -> Arc<dyn INodeInterface>;
     fn name(&self) -> &str;
     fn flush(&self) -> VfsResult<()> {
         Err(VfsError::FileNotFound)
@@ -313,7 +307,7 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn link(&self, _name: &str, _src: &str) -> VfsResult<()> {
+    fn link(&self, _name: &str, _src: Arc<dyn INodeInterface>) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 
@@ -322,10 +316,6 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
     }
 
     fn mmap(&self, _offset: usize, _size: usize, _flags: MMapFlags) -> VfsResult<usize> {
-        Err(VfsError::NotSupported)
-    }
-
-    fn path(&self) -> VfsResult<String> {
         Err(VfsError::NotSupported)
     }
 

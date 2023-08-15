@@ -10,12 +10,9 @@ use frame_allocator::ceil_div;
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, Stat, StatFS,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, Stat, StatFS,
     StatMode, VfsError, VfsResult,
 };
-
-use crate::cache::{cache_read, cached};
-use crate::mount::{open_mount, rebuild_path};
 
 pub trait DiskOperation {
     fn read_block(index: usize, buf: &mut [u8]);
@@ -35,13 +32,11 @@ impl FileSystem for Fat32FileSystem {
         "fat32"
     }
 
-    fn root_dir(&'static self, mi: MountedInfo) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
         Arc::new(FatDir {
             filename: String::from(""),
-            fs: mi.clone(),
             dents_off: Mutex::new(0),
             inner: self.inner.root_dir(),
-            dir_path: String::from(""),
         })
     }
 
@@ -71,8 +66,6 @@ pub struct FatFileInner {
 #[allow(dead_code)]
 pub struct FatFile {
     filename: String,
-    dir_path: String,
-    fs: MountedInfo,
     inner: Mutex<FatFileInner>,
 }
 
@@ -82,8 +75,6 @@ unsafe impl Send for FatFile {}
 
 pub struct FatDir {
     filename: String,
-    dir_path: String,
-    fs: MountedInfo,
     dents_off: Mutex<usize>,
     inner: Dir<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
@@ -103,23 +94,17 @@ impl INodeInterface for FatFile {
         inner.inner.seek(seek_curr).map_err(as_vfs_err)?;
         let offset = inner.offset;
         let len = inner.size;
+        debug!("off: {:#x} rlen: {:#x}", offset, len);
         // read cached file.
-        let rlen = match cached(&self.path()?) {
-            true => cache_read(&self.path()?, buffer, offset),
-            false => {
-                inner
-                    .inner
-                    .seek(SeekFrom::Start(offset as u64))
-                    .map_err(as_vfs_err)?;
-                let rlen = min(buffer.len(), len as usize - inner.offset);
-                inner
-                    .inner
-                    .read_exact(&mut buffer[..rlen])
-                    .map_err(as_vfs_err)?;
-                rlen
-            }
-        };
-
+        inner
+            .inner
+            .seek(SeekFrom::Start(offset as u64))
+            .map_err(as_vfs_err)?;
+        let rlen = min(buffer.len(), len as usize - inner.offset);
+        inner
+            .inner
+            .read_exact(&mut buffer[..rlen])
+            .map_err(as_vfs_err)?;
         inner.offset += rlen;
         Ok(rlen)
     }
@@ -177,16 +162,7 @@ impl INodeInterface for FatFile {
         self.inner.lock().inner.truncate().map_err(as_vfs_err)
     }
 
-    fn path(&self) -> VfsResult<String> {
-        let mount_path = self.fs.path.as_ref().clone();
-        Ok(rebuild_path(&format!(
-            "{}{}/{}",
-            mount_path, self.dir_path, self.filename
-        )))
-    }
-
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
-        stat.dev = self.fs.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::FILE; // TODO: add access mode
         stat.nlink = 1;
@@ -228,9 +204,7 @@ impl INodeInterface for FatDir {
             .map(|dir| -> Arc<dyn INodeInterface> {
                 Arc::new(FatDir {
                     dents_off: Mutex::new(0),
-                    dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
-                    fs: self.fs.clone(),
                     inner: dir,
                 })
             })
@@ -238,14 +212,11 @@ impl INodeInterface for FatDir {
     }
 
     fn touch(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        debug!("touch file {} @ {}/{}", name, self.dir_path, self.filename);
         self.inner
             .create_file(name)
             .map(|file| -> Arc<dyn INodeInterface> {
                 Arc::new(FatFile {
-                    dir_path: format!("{}/{}", self.dir_path, self.filename),
                     filename: String::from(name),
-                    fs: self.fs.clone(),
                     inner: Mutex::new(FatFileInner {
                         inner: file,
                         offset: 0,
@@ -267,38 +238,23 @@ impl INodeInterface for FatDir {
             .find(|f| f.as_ref().unwrap().file_name() == name);
         let file = file.map(|x| x.unwrap()).ok_or(VfsError::FileNotFound)?;
         if file.is_dir() {
-            let mut mount_path = self.fs.path.as_ref().clone();
-            if mount_path == "/" {
-                mount_path = String::from("");
-            }
-            let res = match open_mount(&format!("{}{}/{}", mount_path, self.dir_path, name)) {
-                Some(inode) => inode,
-                None => Arc::new(FatDir {
-                    dents_off: Mutex::new(0),
-                    dir_path: format!("{}/{}", self.dir_path, self.filename),
-                    filename: String::from(name),
-                    fs: self.fs.clone(),
-                    inner: file.to_dir(),
-                }),
-            };
-
-            return Ok(res);
-        };
-
-        if file.is_file() {
-            return Ok(Arc::new(FatFile {
-                dir_path: format!("{}/{}", self.dir_path, self.filename),
+            Ok(Arc::new(FatDir {
+                dents_off: Mutex::new(0),
                 filename: String::from(name),
-                fs: self.fs.clone(),
+                inner: file.to_dir(),
+            }))
+        } else if file.is_file() {
+            Ok(Arc::new(FatFile {
+                filename: String::from(name),
                 inner: Mutex::new(FatFileInner {
                     inner: file.to_file(),
                     offset: 0,
                     size: file.len() as usize,
                 }),
-            }));
+            }))
+        } else {
+            unreachable!()
         }
-
-        unreachable!()
     }
 
     fn rmdir(&self, name: &str) -> VfsResult<()> {
@@ -346,16 +302,7 @@ impl INodeInterface for FatDir {
         })
     }
 
-    fn path(&self) -> VfsResult<String> {
-        let mount_path = self.fs.path.as_ref().clone();
-        Ok(rebuild_path(&format!(
-            "{}{}/{}",
-            mount_path, self.dir_path, self.filename
-        )))
-    }
-
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
-        stat.dev = self.fs.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::DIR; // TODO: add access mode
         stat.nlink = 1;
@@ -435,30 +382,31 @@ impl INodeInterface for FatDir {
         Ok(ptr - buf_ptr)
     }
 
-    fn link(&self, name: &str, src: &str) -> VfsResult<()> {
-        self.inner
-            .open_file(name)
-            .map_or(Ok(()), |_| Err(VfsError::AlreadyExists))?;
-        let mut src = self
-            .inner
-            .open_file(src)
-            .map_err(|_| VfsError::FileNotFound)?;
-        let mut buffer = vec![0u8; 512];
-        let mut dst = self
-            .inner
-            .create_file(name)
-            .map_err(|_| VfsError::AlreadyExists)?;
-        loop {
-            if let Ok(len) = src.read(&mut buffer) {
-                if len == 0 {
-                    break;
-                }
-                dst.write(&buffer[..len]).map_err(as_vfs_err)?;
-            } else {
-                break;
-            }
-        }
-        Ok(())
+    fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> VfsResult<()> {
+        // self.inner
+        //     .open_file(name)
+        //     .map_or(Ok(()), |_| Err(VfsError::AlreadyExists))?;
+        // let mut src = self
+        //     .inner
+        //     .open_file(src)
+        //     .map_err(|_| VfsError::FileNotFound)?;
+        // let mut buffer = vec![0u8; 512];
+        // let mut dst = self
+        //     .inner
+        //     .create_file(name)
+        //     .map_err(|_| VfsError::AlreadyExists)?;
+        // loop {
+        //     if let Ok(len) = src.read(&mut buffer) {
+        //         if len == 0 {
+        //             break;
+        //         }
+        //         dst.write(&buffer[..len]).map_err(as_vfs_err)?;
+        //     } else {
+        //         break;
+        //     }
+        // }
+        // Ok(())
+        unimplemented!("unimplemented link in fatfs")
     }
 }
 

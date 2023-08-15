@@ -16,10 +16,6 @@ pub struct RtcTime {
 }
 
 impl INodeInterface for Rtc {
-    fn path(&self) -> VfsResult<String> {
-        Ok(String::from("/dev/rtc"))
-    }
-
     fn stat(&self, stat: &mut vfscore::Stat) -> vfscore::VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)

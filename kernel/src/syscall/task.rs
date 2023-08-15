@@ -12,8 +12,8 @@ use async_recursion::async_recursion;
 use core::cmp;
 use core::ops::Add;
 use executor::{
-    current_task, current_user_task, select, yield_now, AsyncTask, MapTrack, MemArea, MemType,
-    UserTask, TASK_QUEUE,
+    current_task, current_user_task, select, yield_now, AsyncTask, FileItem, FileOptions, MapTrack,
+    MemArea, MemType, UserTask, TASK_QUEUE,
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::mount::open;
@@ -100,6 +100,9 @@ pub async fn sys_execve(
     // clear memory map
     // TODO: solve memory conflict
     // task.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
+
+    // check exec file.
+    let exec_file = FileItem::fs_open(filename, FileOptions::default()).map_err(from_vfs)?;
     exec_with_process(task.clone(), filename, args).await?;
     task.before_run();
     Ok(0)
@@ -169,14 +172,10 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
 
         let base = 0x20000000;
 
-        let (base, _relocated_arr) = match elf.relocate(base) {
+        let (base, relocated_arr) = match elf.relocate(base) {
             Ok(arr) => (base, arr),
             Err(_) => (0, vec![]),
         };
-
-        if base != 0 {
-            unimplemented!("can't cache dynamic file.");
-        }
 
         let mut maps = Vec::new();
 
@@ -212,6 +211,16 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
                     maps.push((VirtPage::from_addr(virt_addr).add(i), pages[i].clone()));
                 }
             });
+        if base > 0 {
+            relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
+                let vpn = VirtPage::from_addr(addr);
+                let offset = addr % PAGE_SIZE;
+                if let Some((_, tracker)) = maps.iter().find(|x| x.0 == vpn) {
+                    (tracker.0.get_buffer().as_mut_ptr().add(offset) as *mut usize)
+                        .write_volatile(value);
+                }
+            })
+        }
         TASK_CACHES.lock().push(TaskCacheTemplate {
             name: path.to_string(),
             entry: entry_point,
@@ -260,7 +269,11 @@ pub async fn exec_with_process<'a>(
         );
 
         let mut pcb = user_task.pcb.lock();
-        if let Some(mem_area) = pcb.memset.iter_mut().find(|x| x.mtype == MemType::CodeSection) {
+        if let Some(mem_area) = pcb
+            .memset
+            .iter_mut()
+            .find(|x| x.mtype == MemType::CodeSection)
+        {
             for (vpn, tracker) in cache_task.maps.iter() {
                 mem_area.map(*vpn, tracker.clone());
             }
@@ -387,6 +400,7 @@ pub async fn exec_with_process<'a>(
                 let ppn_space = unsafe {
                     core::slice::from_raw_parts_mut(
                         ppn_start
+                            .expect("not hava enough memory")
                             .get_buffer()
                             .as_mut_ptr()
                             .add(virt_addr % PAGE_SIZE),

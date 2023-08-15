@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 NVME := off
 NET  := off
 ARCH := riscv64imac
@@ -68,7 +69,7 @@ build:
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" $(OFFLINE)
 
 run: fs-img build
-	$(QEMU_EXEC)
+	time $(QEMU_EXEC)
 
 justrun: build
 	$(QEMU_EXEC)

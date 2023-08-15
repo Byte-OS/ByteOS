@@ -9,12 +9,12 @@ use core::{
     mem::size_of,
 };
 
-use alloc::{format, string::String, sync::Arc, vec::Vec};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use arch::PAGE_SIZE;
 use frame_allocator::{ceil_div, frame_alloc, FrameTracker};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, MountedInfo, SeekFrom,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, SeekFrom,
     Stat, StatMode, TimeSpec, VfsError, VfsResult, UTIME_OMIT,
 };
 
@@ -27,17 +27,15 @@ impl RamFs {
         let inner = Arc::new(RamDirInner {
             name: String::from(""),
             children: Mutex::new(Vec::new()),
-            dir_path: String::from(""),
         });
         Arc::new(Self { root: inner })
     }
 }
 
 impl FileSystem for RamFs {
-    fn root_dir(&'static self, mi: MountedInfo) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
         Arc::new(RamDir {
             inner: self.root.clone(),
-            mi,
             dents_off: Mutex::new(0),
         })
     }
@@ -50,7 +48,6 @@ impl FileSystem for RamFs {
 pub struct RamDirInner {
     name: String,
     children: Mutex<Vec<FileContainer>>,
-    dir_path: String,
 }
 
 // TODO: use frame insteads of Vec.
@@ -59,15 +56,13 @@ pub struct RamFileInner {
     // content: Mutex<Vec<u8>>,
     len: Mutex<usize>,
     pages: Mutex<Vec<FrameTracker>>,
-    dir_path: String,
     times: Mutex<[TimeSpec; 3]>, // ctime, atime, mtime.
 }
 
 #[allow(dead_code)]
 pub struct RamLinkInner {
     name: String,
-    dir_path: String,
-    link_path: String,
+    link_file: Arc<dyn INodeInterface>,
 }
 
 pub enum FileContainer {
@@ -78,25 +73,19 @@ pub enum FileContainer {
 
 impl FileContainer {
     #[inline]
-    fn to_inode(&self, mi: MountedInfo) -> VfsResult<Arc<dyn INodeInterface>> {
-        extern "Rust" {
-            pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>>;
-        }
+    fn to_inode(&self) -> VfsResult<Arc<dyn INodeInterface>> {
         match self {
             FileContainer::File(file) => Ok(Arc::new(RamFile {
                 offset: Mutex::new(0),
                 inner: file.clone(),
-                mi,
             })),
             FileContainer::Dir(dir) => Ok(Arc::new(RamDir {
                 inner: dir.clone(),
-                mi,
                 dents_off: Mutex::new(0),
             })),
             FileContainer::Link(link) => Ok(Arc::new(RamLink {
                 inner: link.clone(),
-                mi,
-                link_file: unsafe { open(&link.link_path)? },
+                link_file: link.link_file.clone(),
             })),
         }
     }
@@ -114,13 +103,11 @@ impl FileContainer {
 #[allow(dead_code)]
 pub struct RamLink {
     inner: Arc<RamLinkInner>,
-    mi: MountedInfo,
     link_file: Arc<dyn INodeInterface>,
 }
 
 pub struct RamDir {
     inner: Arc<RamDirInner>,
-    mi: MountedInfo,
     dents_off: Mutex<usize>,
 }
 
@@ -131,7 +118,7 @@ impl INodeInterface for RamDir {
             .lock()
             .iter()
             .find(|x| x.filename() == name)
-            .map(|x| x.to_inode(self.mi.clone()))
+            .map(|x| x.to_inode())
             .ok_or(VfsError::FileNotFound)?
     }
 
@@ -147,7 +134,6 @@ impl INodeInterface for RamDir {
         let new_inner = Arc::new(RamFileInner {
             name: String::from(name),
             // content: Mutex::new(Vec::new()),
-            dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
             times: Mutex::new([Default::default(); 3]),
             len: Mutex::new(0),
             pages: Mutex::new(vec![]),
@@ -156,7 +142,6 @@ impl INodeInterface for RamDir {
         let new_file = Arc::new(RamFile {
             offset: Mutex::new(0),
             inner: new_inner.clone(),
-            mi: self.mi.clone(),
         });
 
         self.inner
@@ -179,12 +164,10 @@ impl INodeInterface for RamDir {
         let new_inner = Arc::new(RamDirInner {
             name: String::from(name),
             children: Mutex::new(Vec::new()),
-            dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
         });
 
         let new_dir = Arc::new(RamDir {
             inner: new_inner.clone(),
-            mi: self.mi.clone(),
             dents_off: Mutex::new(0),
         });
 
@@ -272,15 +255,7 @@ impl INodeInterface for RamDir {
         })
     }
 
-    fn path(&self) -> VfsResult<String> {
-        Ok(format!(
-            "{}/{}/{}",
-            self.mi.path, self.inner.dir_path, self.inner.name
-        ))
-    }
-
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
-        stat.dev = self.mi.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::DIR; // TODO: add access mode
         stat.nlink = 1;
@@ -337,7 +312,7 @@ impl INodeInterface for RamDir {
         Ok(ptr - buf_ptr)
     }
 
-    fn link(&self, name: &str, src: &str) -> VfsResult<()> {
+    fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> VfsResult<()> {
         // Find file, return VfsError::AlreadyExists if file exists
         self.inner
             .children
@@ -348,8 +323,7 @@ impl INodeInterface for RamDir {
 
         let new_inner = Arc::new(RamLinkInner {
             name: String::from(name),
-            dir_path: format!("{}/{}", self.inner.dir_path, self.inner.name),
-            link_path: String::from(src),
+            link_file: src,
         });
 
         self.inner
@@ -364,7 +338,6 @@ impl INodeInterface for RamDir {
 pub struct RamFile {
     offset: Mutex<usize>,
     inner: Arc<RamFileInner>,
-    mi: MountedInfo,
 }
 
 impl INodeInterface for RamFile {
@@ -485,15 +458,7 @@ impl INodeInterface for RamFile {
         })
     }
 
-    fn path(&self) -> VfsResult<String> {
-        Ok(format!(
-            "{}/{}/{}",
-            self.mi.path, self.inner.dir_path, self.inner.name
-        ))
-    }
-
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
-        stat.dev = self.mi.fs_id as u64;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::FILE; // TODO: add access mode
         stat.nlink = 1;

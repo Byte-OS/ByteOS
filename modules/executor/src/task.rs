@@ -139,7 +139,7 @@ impl UserTask {
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: String::from("/tmp_home/"),
+            curr_dir: String::from("/"),
             heap: 0,
             children: Vec::new(),
             entry: 0,
@@ -185,12 +185,12 @@ impl UserTask {
             ppn,
             vpn,
             flags,
-            || self.frame_alloc(VirtPage::new(0), MemType::PTE, 1),
+            || self.frame_alloc(VirtPage::new(0), MemType::PTE, 1).expect("can't alloc page in map"),
             3,
         );
     }
 
-    pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> PhysPage {
+    pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> Option<PhysPage> {
         self.map_frames(vpn, mtype, count, None, 0, 0)
     }
 
@@ -202,11 +202,10 @@ impl UserTask {
         file: Option<File>,
         start: usize,
         len: usize,
-    ) -> PhysPage {
+    ) -> Option<PhysPage> {
         assert!(count > 0, "can't alloc count = 0 in user_task frame_alloc");
         // alloc trackers and map vpn
-        let trackers: Vec<_> = frame_alloc_much(count)
-            .expect("can't alloc frame in user_task")
+        let trackers: Vec<_> = frame_alloc_much(count)?
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
@@ -262,8 +261,7 @@ impl UserTask {
             .iter()
             .filter(|x| x.vpn.to_addr() != 0)
             .for_each(|x| self.map(x.tracker.0, x.vpn, PTEFlags::UVRWX));
-        let ppn = trackers[0].tracker.0.clone();
-        ppn
+        Some(trackers[0].tracker.0)
     }
 
     // pub fn get_cx_ptr(&self) -> *mut Context {

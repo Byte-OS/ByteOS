@@ -38,7 +38,7 @@ use self::{
         sys_fstat, sys_fstatat, sys_ftruncate, sys_getdents64, sys_ioctl, sys_lseek, sys_mkdir_at,
         sys_mount, sys_openat, sys_pipe2, sys_ppoll, sys_pread, sys_pselect, sys_pwrite, sys_read,
         sys_readlinkat, sys_readv, sys_sendfile, sys_statfs, sys_umount2, sys_unlinkat,
-        sys_utimensat, sys_write, sys_writev,
+        sys_utimensat, sys_write, sys_writev, sys_faccess_at,
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_msync, sys_munmap},
     shm::{sys_shmat, sys_shmctl, sys_shmget},
@@ -196,7 +196,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         }
         SYS_KILL => sys_kill(args[0] as _, args[1] as _).await,
         SYS_FSYNC => Ok(0),
-        SYS_FACCESSAT => Ok(0), // always be ok at now.
+        SYS_FACCESSAT => sys_faccess_at(args[0] as _, args[1].into(), args[2], args[3]).await, // always be ok at now.
         SYS_FACCESSAT2 => Ok(0),
         SYS_SOCKET => sys_socket(args[0] as _, args[1] as _, args[2] as _).await,
         SYS_SOCKETPAIR => {

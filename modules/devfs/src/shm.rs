@@ -14,10 +14,6 @@ impl INodeInterface for Shm {
         }
     }
 
-    fn path(&self) -> VfsResult<String> {
-        Ok(String::from("/dev/shm"))
-    }
-
     fn touch(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
         extern "Rust" {
             pub fn open_mount(path: &str) -> Option<Arc<dyn INodeInterface>>;
