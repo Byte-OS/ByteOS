@@ -56,8 +56,6 @@ pub async fn sys_mmap(
         VirtAddr::new(start)
     };
 
-    debug!("sys_mmap @ free addr: {}", addr);
-
     if len == 0 {
         return Ok(addr.into());
     }
@@ -71,13 +69,13 @@ pub async fn sys_mmap(
                 Some(file.get_bare_file()),
                 usize::from(addr),
                 len,
-            ),
+            ).ok_or(LinuxError::EFAULT)?,
             None => {
                 let ppn = user_task.frame_alloc(
                     VirtPage::from_addr(addr.into()),
                     executor::MemType::Shared,
                     (len + PAGE_SIZE - 1) / PAGE_SIZE,
-                );
+                ).ok_or(LinuxError::EFAULT)?;
 
                 for i in 0..(len + PAGE_SIZE - 1) / PAGE_SIZE {
                     user_task.map(
@@ -88,22 +86,21 @@ pub async fn sys_mmap(
                 }
                 ppn
             }
-        };
+        }
     } else {
         user_task.frame_alloc(
             VirtPage::from_addr(addr.into()),
             executor::MemType::Mmap,
             ceil_div(len, PAGE_SIZE),
-        );
-    }
-    let mut buffer = UserRef::<u8>::from(addr).slice_mut_with_len(len);
+        ).ok_or(LinuxError::EFAULT)?
+    };
 
     if let Some(file) = file {
+        let buffer = UserRef::<u8>::from(addr).slice_mut_with_len(len);
         let offset = file.seek(fs::SeekFrom::CURRENT(0)).map_err(from_vfs)?;
         file.seek(fs::SeekFrom::SET(off)).map_err(from_vfs)?;
-        let len = file.read(&mut buffer).map_err(from_vfs)?;
+        file.read(buffer).map_err(from_vfs)?;
         file.seek(fs::SeekFrom::SET(offset)).map_err(from_vfs)?;
-        debug!("read len: {:#x}", len);
     }
     Ok(addr.into())
 }

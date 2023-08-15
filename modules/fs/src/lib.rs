@@ -16,11 +16,11 @@ use mount::umount;
 use procfs::ProcFS;
 use ramfs::RamFs;
 use sync::LazyInit;
-use vfscore::{FileSystem, MountedInfo, VfsResult};
+use vfscore::{FileSystem, VfsResult};
 
 use crate::{
     fatfs_shim::Fat32FileSystem,
-    mount::{mount, open},
+    mount::mount,
 };
 
 #[macro_use]
@@ -86,32 +86,32 @@ pub fn init() {
     info!("create fatfs mount file");
     {
         // create monnt point dev, tmp
-        let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
+        let rootfs = get_filesystem(0).root_dir();
         rootfs.mkdir("dev").expect("can't create devfs dir");
         rootfs.mkdir("tmp").expect("can't create tmp dir");
         rootfs.mkdir("lib").expect("can't create lib dir");
         rootfs.mkdir("tmp_home").expect("can't create tmp_home dir");
         rootfs.mkdir("var").expect("can't create var dir");
         rootfs.mkdir("proc").expect("can't create proc dir");
-        rootfs.mkdir("bin").expect("can't create var dir");
+        // rootfs.mkdir("bin").expect("can't create var dir");
     }
     mount::init();
     {
         // let cache_file = vec!["busybox", "entry-static.exe", "runtest.exe"];
-        let rootfs = get_filesystem(0).root_dir(MountedInfo::default());
-        let tmpfs = open("/tmp_home").expect("can't open /tmp_home");
-        for file in rootfs.read_dir().expect("can't read files") {
-            tmpfs
-                .link(&file.filename, &(String::from("/") + &file.filename))
-                .expect("can't link file to tmpfs");
-        }
+        // let rootfs = get_filesystem(0).root_dir();
+        // let tmpfs = open("/tmp_home").expect("can't open /tmp_home");
+        // for file in rootfs.read_dir().expect("can't read files") {
+        //     tmpfs
+        //         .link(&file.filename, &(String::from("/") + &file.filename))
+        //         .expect("can't link file to tmpfs");
+        // }
 
-        let binfs = open("/bin").expect("can't open /bin");
-        {
-            binfs
-                .link("sleep", "/busybox")
-                .expect("can't link /bin/sleep to /busybox");
-        }
+        // let binfs = open("/bin").expect("can't open /bin");
+        // {
+        //     binfs
+        //         .link("sleep", "/busybox")
+        //         .expect("can't link /bin/sleep to /busybox");
+        // }
     }
     cache::init();
 }

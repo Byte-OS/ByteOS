@@ -1,4 +1,5 @@
-use alloc::string::String;
+use alloc::string::{String, ToString};
+use vfscore::FileType;
 use core::cmp;
 use num_traits::FromPrimitive;
 
@@ -235,7 +236,7 @@ pub async fn sys_openat(
             user_task.pcb.lock().curr_dir.clone() + "/" + filename
         } else {
             let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-            file.path().map_err(from_vfs)? + "/" + filename
+            file.path().map_err(from_vfs)?.to_string() + "/" + filename
         }
     };
     let file = match open(&path) {
@@ -259,6 +260,37 @@ pub async fn sys_openat(
     user_task.set_fd(fd, Some(FileItem::new(file, options)));
     debug!("sys_openat @ ret fd: {}", fd);
     Ok(fd)
+}
+
+pub async fn sys_faccess_at(
+    fd: usize,
+    filename: UserRef<i8>,
+    mode: usize,
+    flags: usize,
+) -> Result<usize, LinuxError> {
+    let user_task = current_task().as_user_task().unwrap();
+    let open_flags = OpenFlags::from_bits_truncate(flags);
+    let filename = if filename.is_valid() {
+        filename.get_cstr().map_err(|_| LinuxError::EINVAL)?
+    } else {
+        ""
+    };
+    debug!(
+        "sys_accessat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
+        fd as isize, filename, open_flags, mode
+    );
+    let path = if filename.starts_with("/") {
+        String::from(filename)
+    } else {
+        if fd == AT_CWD {
+            user_task.pcb.lock().curr_dir.clone() + "/" + filename
+        } else {
+            let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+            file.path().map_err(from_vfs)?.to_string() + "/" + filename
+        }
+    };
+    open(&path).map_err(from_vfs)?;
+    Ok(0)
 }
 
 pub async fn sys_fstat(fd: usize, stat_ptr: UserRef<Stat>) -> Result<usize, LinuxError> {
@@ -300,7 +332,7 @@ pub async fn sys_fstatat(
             user_task.pcb.lock().curr_dir.clone() + "/" + filename
         } else {
             let file = user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?;
-            file.path().map_err(from_vfs)? + "/" + filename
+            file.path().map_err(from_vfs)?.to_string() + "/" + filename
         }
     };
 
@@ -589,7 +621,7 @@ pub async fn sys_readlinkat(
     );
     let filename = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     let buffer = buffer.slice_mut_with_len(buffer_size);
-
+    debug!("readlinkat @ filename: {}", filename);
     let user_task = current_task().as_user_task().unwrap();
 
     let dir = if dir_fd == AT_CWD {
@@ -598,9 +630,19 @@ pub async fn sys_readlinkat(
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
     }?;
 
+    let ftype = dir.open(filename, OpenFlags::NONE)
+        .map_err(from_vfs)?
+        .metadata()
+        .map_err(from_vfs)?
+        .file_type;
+
+    if FileType::Link != ftype {
+        return Err(LinuxError::EINVAL);
+    }
+
     let file_path = open(&format!("{}/{}", dir.path().map_err(from_vfs)?, filename))
         .map_err(from_vfs)?
-        .path()
+        .resolve_link()
         .map_err(from_vfs)?;
 
     let bytes = file_path.as_bytes();

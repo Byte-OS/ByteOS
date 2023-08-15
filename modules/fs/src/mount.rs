@@ -1,11 +1,11 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use log::debug;
 use sync::Mutex;
-use vfscore::{INodeInterface, MountedInfo, OpenFlags, VfsError, VfsResult};
+use vfscore::{INodeInterface, OpenFlags, VfsError, VfsResult};
 
 use crate::FILESYSTEMS;
 
-pub static MOUNTS: Mutex<BTreeMap<String, MountedInfo>> = Mutex::new(BTreeMap::new());
+pub static MOUNTS: Mutex<BTreeMap<String, usize>> = Mutex::new(BTreeMap::new());
 
 pub fn init() {
     mount(String::from("/"), 0).expect("can't mount to /");
@@ -15,7 +15,7 @@ pub fn init() {
     mount(String::from("/tmp_home"), 4).expect("can't mount to /tmp_home");
     mount(String::from("/var"), 5).expect("can't mount to /var");
     mount(String::from("/proc"), 6).expect("can't mount to /proc");
-    mount(String::from("/bin"), 7).expect("can't mount to /bin");
+    // mount(String::from("/bin"), 7).expect("can't mount to /bin");
 }
 
 pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
@@ -25,10 +25,7 @@ pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
     }
     MOUNTS.lock().insert(
         path.clone(),
-        MountedInfo {
-            fs_id,
-            path: Arc::new(path),
-        },
+        fs_id
     );
     Ok(())
 }
@@ -75,13 +72,13 @@ pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
     let path = rebuild_path(path);
 
     let mps = MOUNTS.lock().clone();
-    for (mount_point, mi) in mps.iter().rev() {
+    for (mount_point, fs_id) in mps.iter().rev() {
         if path.starts_with(mount_point)
             && (mount_point == "/"
                 || path.len() == mount_point.len()
                 || path.chars().nth(mount_point.len()) == Some('/'))
         {
-            let folder = FILESYSTEMS[mi.fs_id].root_dir(mi.clone());
+            let folder = FILESYSTEMS[*fs_id].root_dir();
             return path[mount_point.len()..]
                 .trim()
                 .split('/')
@@ -100,9 +97,9 @@ pub fn open(path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
 pub fn open_mount(path: &str) -> Option<Arc<dyn INodeInterface>> {
     debug!("open mount: {}", path);
     let mps = MOUNTS.lock().clone();
-    for (mount_point, mi) in mps.iter().rev() {
+    for (mount_point, fs_id) in mps.iter().rev() {
         if mount_point == path {
-            return Some(FILESYSTEMS[mi.fs_id].root_dir(mi.clone()));
+            return Some(FILESYSTEMS[*fs_id].root_dir());
         }
     }
     None

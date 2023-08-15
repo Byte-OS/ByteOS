@@ -1,6 +1,10 @@
 use core::ops::{Deref, DerefMut};
 
-use alloc::{string::String, sync::Arc, vec::Vec};
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
 use devfs::Tty;
 use fs::{mount::open, INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite};
 use vfscore::{DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, Stat, StatFS, TimeSpec};
@@ -61,6 +65,7 @@ impl Default for FileOptions {
 
 #[derive(Clone)]
 pub struct FileItem {
+    pub path: String,
     pub inner: Arc<dyn INodeInterface>,
     pub options: FileOptions,
     pub flags: OpenFlags,
@@ -71,9 +76,10 @@ pub trait FileItemInterface: INodeInterface {
     async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError>;
 }
 
-impl FileItem {
+impl<'a> FileItem {
     pub fn new(inner: Arc<dyn INodeInterface>, options: FileOptions) -> Self {
         Self {
+            path: String::new(),
             inner,
             options,
             flags: OpenFlags::NONE,
@@ -86,6 +92,7 @@ impl FileItem {
 
     pub fn fs_open(path: &str, options: FileOptions) -> Result<Self, VfsError> {
         Ok(Self {
+            path: path.to_string(),
             inner: open(path)?,
             options,
             flags: OpenFlags::NONE,
@@ -99,6 +106,10 @@ impl FileItem {
         } else {
             Err(VfsError::NotWriteable)
         }
+    }
+
+    pub fn path(&'a self) ->Result< &'a str, VfsError> {
+        Ok(&self.path)
     }
 }
 
@@ -166,7 +177,7 @@ impl INodeInterface for FileItem {
         self.inner.resolve_link()
     }
 
-    fn link(&self, name: &str, src: &str) -> Result<(), VfsError> {
+    fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> Result<(), VfsError> {
         self.inner.link(name, src)
     }
 
@@ -178,12 +189,10 @@ impl INodeInterface for FileItem {
         self.inner.mmap(offset, size, flags)
     }
 
-    fn path(&self) -> Result<String, VfsError> {
-        self.inner.path()
-    }
-
     fn stat(&self, stat: &mut Stat) -> Result<(), VfsError> {
-        self.inner.stat(stat)
+        self.inner.stat(stat)?;
+        stat.dev = 0;
+        Ok(())
     }
 
     fn mount(&self, path: &str) -> Result<(), VfsError> {

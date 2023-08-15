@@ -9,7 +9,7 @@ use core::mem::size_of;
 
 use alloc::{
     collections::BTreeMap,
-    string::{String, ToString},
+    string::ToString,
     sync::Arc,
     vec::Vec,
 };
@@ -17,7 +17,7 @@ use meminfo::MemInfo;
 use mounts::Mounts;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, MountedInfo, StatMode, VfsError,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, StatMode, VfsError,
     VfsResult,
 };
 
@@ -34,7 +34,7 @@ impl ProcFS {
 }
 
 impl FileSystem for ProcFS {
-    fn root_dir(&'static self, _mi: MountedInfo) -> Arc<dyn INodeInterface> {
+    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
         Arc::new(DevDirContainer {
             inner: self.root.clone(),
             dents_off: Mutex::new(0),
@@ -108,10 +108,6 @@ impl INodeInterface for DevDirContainer {
             size: 0,
             childrens: self.inner.map.len(),
         })
-    }
-
-    fn path(&self) -> VfsResult<alloc::string::String> {
-        Ok(String::from("/dev"))
     }
 
     fn getdents(&self, buffer: &mut [u8]) -> VfsResult<usize> {

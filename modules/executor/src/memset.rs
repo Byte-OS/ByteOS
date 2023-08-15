@@ -1,5 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use arch::{ppn_c, VirtPage, PAGE_SIZE};
+use arch::{VirtPage, PAGE_SIZE};
 use core::{
     cmp::min,
     fmt::Debug,
@@ -71,7 +71,7 @@ impl<'a> MemSet {
     }
 }
 
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, PartialEq, Debug, Copy)]
 pub enum MemType {
     CodeSection,
     Stack,
@@ -176,12 +176,13 @@ impl Drop for MemArea {
                     let offset = tracker.vpn.to_addr() - start;
                     let wlen = min(len - offset, PAGE_SIZE);
 
-                    let bytes = unsafe {
-                        core::slice::from_raw_parts_mut(
-                            ppn_c(tracker.tracker.0).to_addr() as *mut u8,
-                            wlen as usize,
-                        )
-                    };
+                    // let bytes = unsafe {
+                    //     core::slice::from_raw_parts_mut(
+                    //         ppn_c(tracker.tracker.0).to_addr() as *mut u8,
+                    //         wlen as usize,
+                    //     )
+                    // };
+                    let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
                     mapfile
                         .seek(SeekFrom::SET(offset as usize))
                         .expect("can't write data to file");
