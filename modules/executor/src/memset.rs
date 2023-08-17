@@ -6,7 +6,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use frame_allocator::{frame_alloc, FrameTracker};
-use fs::{File, SeekFrom};
+use fs::File;
 
 pub struct MemSetTrackerIteror<'a> {
     value: &'a MemSet,
@@ -183,11 +183,11 @@ impl Drop for MemArea {
                     //     )
                     // };
                     let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
+                    // mapfile
+                    //     .seek(SeekFrom::SET(offset as usize))
+                    //     .expect("can't write data to file");
                     mapfile
-                        .seek(SeekFrom::SET(offset as usize))
-                        .expect("can't write data to file");
-                    mapfile
-                        .write(bytes)
+                        .writeat(offset, bytes)
                         .expect("can't write data to file at drop");
                 }
             }

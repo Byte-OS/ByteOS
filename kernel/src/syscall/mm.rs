@@ -2,10 +2,11 @@ use core::ops::Add;
 
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
+use executor::current_user_task;
 use executor::AsyncTask;
 use frame_allocator::ceil_div;
-use fs::INodeInterface;
 use log::debug;
+use vfscore::INodeInterface;
 
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MSyncFlags;
@@ -37,14 +38,14 @@ pub async fn sys_mmap(
 ) -> Result<usize, LinuxError> {
     let flags = MapFlags::from_bits_truncate(flags as _);
     let prot = MmapProt::from_bits_truncate(prot as _);
-    let user_task = current_task().as_user_task().unwrap();
+    let task = current_user_task();
     debug!(
         "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
-        user_task.get_task_id(), start, len, prot, flags, fd as isize, off
+        task.get_task_id(), start, len, prot, flags, fd as isize, off
     );
-    let file = user_task.get_fd(fd);
+    let file = task.get_fd(fd);
 
-    let addr = user_task.get_last_free_addr();
+    let addr = task.get_last_free_addr();
 
     let addr = if start == 0 {
         if usize::from(addr) >= 0x4000_0000 {
@@ -61,24 +62,28 @@ pub async fn sys_mmap(
     }
 
     if flags.contains(MapFlags::MAP_SHARED) {
-        match file.clone() {
-            Some(file) => user_task.map_frames(
-                VirtPage::from_addr(addr.into()),
-                executor::MemType::ShareFile,
-                (len + PAGE_SIZE - 1) / PAGE_SIZE,
-                Some(file.get_bare_file()),
-                usize::from(addr),
-                len,
-            ).ok_or(LinuxError::EFAULT)?,
-            None => {
-                let ppn = user_task.frame_alloc(
+        match &file {
+            Some(file) => task
+                .map_frames(
                     VirtPage::from_addr(addr.into()),
-                    executor::MemType::Shared,
+                    executor::MemType::ShareFile,
                     (len + PAGE_SIZE - 1) / PAGE_SIZE,
-                ).ok_or(LinuxError::EFAULT)?;
+                    Some(file.get_bare_file()),
+                    usize::from(addr),
+                    len,
+                )
+                .ok_or(LinuxError::EFAULT)?,
+            None => {
+                let ppn = task
+                    .frame_alloc(
+                        VirtPage::from_addr(addr.into()),
+                        executor::MemType::Shared,
+                        (len + PAGE_SIZE - 1) / PAGE_SIZE,
+                    )
+                    .ok_or(LinuxError::EFAULT)?;
 
                 for i in 0..(len + PAGE_SIZE - 1) / PAGE_SIZE {
-                    user_task.map(
+                    task.map(
                         ppn.add(i),
                         VirtPage::from_addr(addr.into()).add(i),
                         prot.into(),
@@ -88,19 +93,17 @@ pub async fn sys_mmap(
             }
         }
     } else {
-        user_task.frame_alloc(
+        task.frame_alloc(
             VirtPage::from_addr(addr.into()),
             executor::MemType::Mmap,
             ceil_div(len, PAGE_SIZE),
-        ).ok_or(LinuxError::EFAULT)?
+        )
+        .ok_or(LinuxError::EFAULT)?
     };
 
     if let Some(file) = file {
         let buffer = UserRef::<u8>::from(addr).slice_mut_with_len(len);
-        let offset = file.seek(fs::SeekFrom::CURRENT(0)).map_err(from_vfs)?;
-        file.seek(fs::SeekFrom::SET(off)).map_err(from_vfs)?;
-        file.read(buffer).map_err(from_vfs)?;
-        file.seek(fs::SeekFrom::SET(offset)).map_err(from_vfs)?;
+        file.readat(off, buffer).map_err(from_vfs)?;
     }
     Ok(addr.into())
 }

@@ -46,7 +46,8 @@ pub fn cache_file(path: &str) {
             data: buffer,
             _trackers: trackers,
         };
-        file.read(&mut cache_item.data).expect("can't read file");
+        file.readat(0, &mut cache_item.data)
+            .expect("can't read file");
         CACHE_TABLE.lock().insert(String::from(path), cache_item);
         info!("cache file: {}", path);
     } else {

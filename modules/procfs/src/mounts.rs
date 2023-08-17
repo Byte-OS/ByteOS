@@ -9,7 +9,7 @@ impl Mounts {
 }
 
 impl INodeInterface for Mounts {
-    fn read(&self, _buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> VfsResult<usize> {
         Ok(0)
     }
 

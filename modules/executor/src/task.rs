@@ -139,7 +139,7 @@ impl UserTask {
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: String::from("/"),
+            curr_dir: String::from("/tmp_home/"),
             heap: 0,
             children: Vec::new(),
             entry: 0,
@@ -185,7 +185,10 @@ impl UserTask {
             ppn,
             vpn,
             flags,
-            || self.frame_alloc(VirtPage::new(0), MemType::PTE, 1).expect("can't alloc page in map"),
+            || {
+                self.frame_alloc(VirtPage::new(0), MemType::PTE, 1)
+                    .expect("can't alloc page in map")
+            },
             3,
         );
     }
@@ -612,34 +615,42 @@ impl UserTask {
         })
     }
 
-    pub fn get_fd(&self, index: usize) -> Option<FileItem> {
-        let inner = self.pcb.lock();
-        match index >= inner.rlimits[7] {
+    pub fn get_fd(&self, index: usize) -> Option<Arc<FileItem>> {
+        let pcb = self.pcb.lock();
+        match index >= pcb.rlimits[7] {
             true => None,
-            false => inner.fd_table.0[index].clone(),
+            false => pcb.fd_table.0[index].clone(),
         }
     }
 
-    pub fn set_fd(&self, index: usize, value: Option<FileItem>) {
-        let mut inner = self.pcb.lock();
-        match index >= inner.rlimits[7] {
+    pub fn set_fd(&self, index: usize, value: Arc<FileItem>) {
+        let mut pcb = self.pcb.lock();
+        match index >= pcb.rlimits[7] {
             true => {}
-            false => inner.fd_table.0[index] = value,
+            false => pcb.fd_table.0[index] = Some(value),
+        }
+    }
+
+    pub fn clear_fd(&self, index: usize) {
+        let mut pcb = self.pcb.lock();
+        match index >= pcb.fd_table.len() {
+            true => {}
+            false => pcb.fd_table.0[index] = None,
         }
     }
 
     pub fn alloc_fd(&self) -> Option<usize> {
-        let mut inner = self.pcb.lock();
-        let index = inner
+        let mut pcb = self.pcb.lock();
+        let index = pcb
             .fd_table
             .0
             .iter()
             .enumerate()
-            .find(|(i, x)| x.is_none() && *i < inner.rlimits[7])
+            .find(|(i, x)| x.is_none() && *i < pcb.rlimits[7])
             .map(|(i, _)| i);
-        if index.is_none() && inner.fd_table.0.len() < inner.rlimits[7] {
-            inner.fd_table.0.push(None);
-            Some(inner.fd_table.0.len() - 1)
+        if index.is_none() && pcb.fd_table.0.len() < pcb.rlimits[7] {
+            pcb.fd_table.0.push(None);
+            Some(pcb.fd_table.0.len() - 1)
         } else {
             index
         }

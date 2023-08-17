@@ -1,6 +1,5 @@
 #![no_std]
 #![feature(drain_filter)]
-#![feature(async_fn_in_trait)]
 #[macro_use]
 extern crate alloc;
 extern crate logging;
@@ -22,7 +21,7 @@ use core::{future::Future, pin::Pin, task::Context};
 
 use alloc::boxed::Box;
 pub use executor::*;
-pub use filetable::{FileItem, FileItemInterface, FileOptions};
+pub use filetable::{FileItem, FileOptions};
 use hal::{ITimerVal, TimeVal};
 pub use memset::*;
 pub use ops::*;

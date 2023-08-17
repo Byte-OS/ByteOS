@@ -1,22 +1,20 @@
 use alloc::string::{String, ToString};
-use vfscore::FileType;
 use core::cmp;
 use num_traits::FromPrimitive;
+use vfscore::FileType;
 
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use arch::VirtAddr;
 use bit_field::BitArray;
-use executor::{
-    current_task, current_user_task, yield_now, AsyncTask, FileItem, FileItemInterface, FileOptions,
-};
+use executor::{current_task, current_user_task, yield_now, AsyncTask, FileItem, FileOptions};
 use fs::mount::{open, rebuild_path, umount};
 use fs::pipe::create_pipe;
 use fs::{
     INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
     UTIME_NOW,
 };
-use log::{debug, warn};
+use log::debug;
 
 use crate::epoll::{EpollEvent, EpollFile};
 use crate::socket::Socket;
@@ -28,16 +26,16 @@ use super::consts::{LinuxError, UserRef};
 
 pub async fn sys_dup(fd: usize) -> Result<usize, LinuxError> {
     debug!("sys_dup3 @ fd_src: {}", fd);
-    let user_task = current_user_task();
-    let fd_dst = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+    let task = current_user_task();
+    let fd_dst = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     sys_dup3(fd, fd_dst).await
 }
 
 pub async fn sys_dup3(fd_src: usize, fd_dst: usize) -> Result<usize, LinuxError> {
     debug!("sys_dup3 @ fd_src: {}, fd_dst: {}", fd_src, fd_dst);
-    let user_task = current_user_task();
-    let file = user_task.get_fd(fd_src);
-    user_task.set_fd(fd_dst, file);
+    let task = current_user_task();
+    let file = task.get_fd(fd_src).ok_or(LinuxError::EBADF)?;
+    task.set_fd(fd_dst, file);
     Ok(fd_dst)
 }
 
@@ -50,10 +48,12 @@ pub async fn sys_read(fd: usize, buf_ptr: UserRef<u8>, count: usize) -> Result<u
         buf_ptr,
         count
     );
-
     let buffer = buf_ptr.slice_mut_with_len(count);
-    let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-    file.async_read(buffer).await.map_err(from_vfs)
+    task.get_fd(fd)
+        .ok_or(LinuxError::EBADF)?
+        .async_read(buffer)
+        .await
+        .map_err(from_vfs)
 }
 
 pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usize, LinuxError> {
@@ -65,9 +65,8 @@ pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usi
         buf_ptr,
         count
     );
-
     let buffer = buf_ptr.slice_with_len(count);
-    let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
+    let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
     if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
         yield_now().await;
     }
@@ -80,8 +79,8 @@ pub async fn sys_readv(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<u
     let mut rsize = 0;
 
     let iov = iov.slice_mut_with_len(iocnt);
-    let user_task = current_task().as_user_task().unwrap();
-    let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+    let task = current_user_task();
+    let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
 
     for io in iov {
         let buffer = UserRef::<u8>::from(io.base).slice_mut_with_len(io.len);
@@ -96,8 +95,9 @@ pub async fn sys_writev(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<
     let mut wsize = 0;
 
     let iov = iov.slice_mut_with_len(iocnt);
-    let user_task = current_task().as_user_task().unwrap();
-    let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+
+    let task = current_user_task();
+    let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
 
     for io in iov {
         let buffer = UserRef::<u8>::from(io.base).slice_mut_with_len(io.len);
@@ -108,13 +108,14 @@ pub async fn sys_writev(fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> Result<
 }
 
 pub async fn sys_close(fd: usize) -> Result<usize, LinuxError> {
-    let user_task = current_user_task();
+    let task = current_user_task();
     debug!(
         "[task {}] sys_close @ fd: {}",
-        user_task.get_task_id(),
+        task.get_task_id(),
         fd as isize
     );
-    user_task.set_fd(fd, None);
+
+    task.clear_fd(fd);
     Ok(0)
 }
 
@@ -128,16 +129,16 @@ pub async fn sys_mkdir_at(
         "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
         dir_fd as isize, path, mode
     );
-    let user_task = current_task().as_user_task().unwrap();
+    let task = current_task().as_user_task().unwrap();
     let dir = if dir_fd == AT_CWD {
         if path.starts_with("/") {
             FileItem::fs_open("/", Default::default())
         } else {
-            FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default())
+            FileItem::fs_open(&task.pcb.lock().curr_dir, Default::default())
         }
         .map_err(from_vfs)?
     } else {
-        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
+        task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
     };
     if path == "/" {
         return Err(LinuxError::EEXIST);
@@ -145,7 +146,7 @@ pub async fn sys_mkdir_at(
 
     let path_str = rebuild_path(path);
     let paths: Vec<&str> = path_str.split("/").collect();
-    let mut pfile = dir.inner;
+    let mut pfile = dir.inner.clone();
     for i in paths.into_iter().filter(|x| *x != "") {
         let f = pfile.open(i, OpenFlags::O_RDWR);
         if f.is_err() {
@@ -154,8 +155,6 @@ pub async fn sys_mkdir_at(
             pfile = f.unwrap();
         }
     }
-    // a simple method
-    // dir.mkdir(path).map_err(from_vfs)?;
     Ok(0)
 }
 
@@ -239,25 +238,28 @@ pub async fn sys_openat(
             file.path().map_err(from_vfs)?.to_string() + "/" + filename
         }
     };
-    let file = match open(&path) {
-        Ok(file) => Ok(file),
-        Err(_) => {
-            if open_flags.contains(OpenFlags::O_CREAT) {
-                let dir = path.rfind("/").unwrap();
-                let dirpath = &path[..dir + 1];
-                let filename = &path[dir + 1..];
-                Ok(open(dirpath).map_err(from_vfs)?.touch(filename).unwrap())
-            } else {
-                Err(LinuxError::ENOENT)
+    let file = FileItem::new(
+        match open(&path) {
+            Ok(file) => Ok(file),
+            Err(_) => {
+                if open_flags.contains(OpenFlags::O_CREAT) {
+                    let dir = path.rfind("/").unwrap();
+                    let dirpath = &path[..dir + 1];
+                    let filename = &path[dir + 1..];
+                    Ok(open(dirpath).map_err(from_vfs)?.touch(filename).unwrap())
+                } else {
+                    Err(LinuxError::ENOENT)
+                }
             }
-        }
-    }?;
+        }?,
+        options,
+    );
     if open_flags.contains(OpenFlags::O_APPEND) {
         file.seek(SeekFrom::END(0))
             .expect("can't seek to end of file");
     }
     let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
-    user_task.set_fd(fd, Some(FileItem::new(file, options)));
+    user_task.set_fd(fd, file);
     debug!("sys_openat @ ret fd: {}", fd);
     Ok(fd)
 }
@@ -296,9 +298,7 @@ pub async fn sys_faccess_at(
 pub async fn sys_fstat(fd: usize, stat_ptr: UserRef<Stat>) -> Result<usize, LinuxError> {
     debug!("sys_fstat @ fd: {} stat_ptr: {}", fd, stat_ptr);
     let stat_ref = stat_ptr.get_mut();
-    current_task()
-        .as_user_task()
-        .unwrap()
+    current_user_task()
         .get_fd(fd)
         .ok_or(LinuxError::EBADF)?
         .stat(stat_ref)
@@ -365,16 +365,15 @@ pub async fn sys_statfs(
 pub async fn sys_pipe2(fds_ptr: UserRef<u32>, _unknown: usize) -> Result<usize, LinuxError> {
     debug!("sys_pipe2 @ fds_ptr: {}, _unknown: {}", fds_ptr, _unknown);
     let fds = fds_ptr.slice_mut_with_len(2);
-    let user_task = current_task().as_user_task().unwrap();
+    let task = current_user_task();
 
     let (rx, tx) = create_pipe();
-
-    let rx_fd = user_task.alloc_fd().ok_or(LinuxError::ENFILE)?;
-    user_task.set_fd(rx_fd, Some(FileItem::new(rx, Default::default())));
+    let rx_fd = task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+    task.set_fd(rx_fd, FileItem::new_dev(rx));
     fds[0] = rx_fd as u32;
 
-    let tx_fd = user_task.alloc_fd().ok_or(LinuxError::ENFILE)?;
-    user_task.set_fd(tx_fd, Some(FileItem::new(tx, Default::default())));
+    let tx_fd = task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+    task.set_fd(tx_fd, FileItem::new_dev(tx));
     fds[1] = tx_fd as u32;
 
     debug!("sys_pipe2 ret: {} {}", rx_fd as u32, tx_fd as u32);
@@ -393,19 +392,8 @@ pub async fn sys_pread(
     );
     let buffer = ptr.slice_mut_with_len(len);
 
-    let file = current_task()
-        .as_user_task()
-        .unwrap()
-        .get_fd(fd)
-        .ok_or(LinuxError::EBADF)?;
-
-    let old_off = file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?;
-
-    file.seek(SeekFrom::SET(offset)).map_err(from_vfs)?;
-
-    let result = file.read(buffer).map_err(from_vfs);
-    file.seek(SeekFrom::SET(old_off)).map_err(from_vfs)?;
-    result
+    let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
+    file.readat(offset, buffer).map_err(from_vfs)
 }
 
 pub async fn sys_pwrite(
@@ -419,15 +407,11 @@ pub async fn sys_pwrite(
         fd as isize, buf_ptr, count
     );
     let buffer = buf_ptr.slice_with_len(count);
-    let file = current_user_task().get_fd(fd).ok_or(LinuxError::EBADF)?;
-    // file.async_write(buffer).await.map_err(from_vfs)
-    let old_off = file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?;
-
-    file.seek(SeekFrom::SET(offset)).map_err(from_vfs)?;
-
-    let result: Result<usize, LinuxError> = file.write(buffer).map_err(from_vfs);
-    file.seek(SeekFrom::SET(old_off)).map_err(from_vfs)?;
-    result
+    current_user_task()
+        .get_fd(fd)
+        .ok_or(LinuxError::EBADF)?
+        .writeat(offset, buffer)
+        .map_err(from_vfs)
 }
 
 pub async fn sys_mount(
@@ -472,33 +456,40 @@ pub async fn sys_getdents64(
     buf_ptr: UserRef<u8>,
     len: usize,
 ) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "sys_getdents64 @ fd: {}, buf_ptr: {}, len: {}",
-        fd, buf_ptr, len
+        "[task {}] sys_getdents64 @ fd: {}, buf_ptr: {}, len: {}",
+        task.get_task_id(),
+        fd,
+        buf_ptr,
+        len
     );
 
-    let file = current_task().as_user_task().unwrap().get_fd(fd).unwrap();
+    let file = task.get_fd(fd).unwrap();
 
     let buffer = buf_ptr.slice_mut_with_len(len);
-    let res = file.getdents(buffer).map_err(from_vfs);
-    res
+    file.getdents(buffer).map_err(from_vfs)
 }
 
 pub fn sys_lseek(fd: usize, offset: usize, whence: usize) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "sys_lseek @ fd {}, offset: {}, whench: {}",
-        fd, offset as isize, whence
+        "[task {}] sys_lseek @ fd {}, offset: {}, whench: {}",
+        task.get_task_id(),
+        fd,
+        offset as isize,
+        whence
     );
 
-    let usre_task = current_task().as_user_task().unwrap();
-    let file = usre_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-    let seek_from = match whence {
-        0 => SeekFrom::SET(offset),
-        1 => SeekFrom::CURRENT(offset as isize),
-        2 => SeekFrom::END(offset as isize),
-        _ => return Err(LinuxError::EINVAL),
-    };
-    file.seek(seek_from).map_err(from_vfs)
+    task.get_fd(fd)
+        .ok_or(LinuxError::EBADF)?
+        .seek(match whence {
+            0 => SeekFrom::SET(offset),
+            1 => SeekFrom::CURRENT(offset as isize),
+            2 => SeekFrom::END(offset as isize),
+            _ => return Err(LinuxError::EINVAL),
+        })
+        .map_err(from_vfs)
 }
 
 pub async fn sys_ioctl(
@@ -508,13 +499,20 @@ pub async fn sys_ioctl(
     arg2: usize,
     arg3: usize,
 ) -> Result<usize, LinuxError> {
+    let task = current_user_task();
     debug!(
-        "ioctl: fd: {}, request: {:#x}, args: {:#x} {:#x} {:#x}",
-        fd, request, arg1, arg2, arg3
+        "[task {}] ioctl: fd: {}, request: {:#x}, args: {:#x} {:#x} {:#x}",
+        task.get_task_id(),
+        fd,
+        request,
+        arg1,
+        arg2,
+        arg3
     );
-    let file = current_user_task().get_fd(fd).ok_or(LinuxError::EINVAL)?;
-    file.ioctl(request, arg1).map_err(from_vfs)
-    // Ok(0)
+    task.get_fd(fd)
+        .ok_or(LinuxError::EINVAL)?
+        .ioctl(request, arg1)
+        .map_err(from_vfs)
 }
 
 pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
@@ -527,15 +525,15 @@ pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, Linux
         arg
     );
     let cmd = FromPrimitive::from_usize(cmd).ok_or(LinuxError::EINVAL)?;
-    let mut file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-
+    let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+    debug!("[task {}] fcntl: {:?}", task.get_task_id(), cmd);
     match cmd {
         FcntlCmd::DUPFD | FcntlCmd::DUPFDCLOEXEC => sys_dup(fd).await,
         FcntlCmd::GETFD => Ok(1),
-        FcntlCmd::GETFL => Ok(file.flags.bits()),
+        FcntlCmd::GETFL => Ok(file.flags.lock().bits()),
         FcntlCmd::SETFL => {
-            file.flags = OpenFlags::from_bits_truncate(arg);
-            task.set_fd(fd, Some(file));
+            *file.flags.lock() = OpenFlags::from_bits_truncate(arg);
+            task.set_fd(fd, file);
             Ok(0)
         }
         _ => Ok(0),
@@ -630,7 +628,8 @@ pub async fn sys_readlinkat(
         user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
     }?;
 
-    let ftype = dir.open(filename, OpenFlags::NONE)
+    let ftype = dir
+        .open(filename, OpenFlags::NONE)
         .map_err(from_vfs)?
         .metadata()
         .map_err(from_vfs)?
@@ -661,28 +660,29 @@ pub async fn sys_sendfile(
     count: usize,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "out_fd: {}  in_fd: {}  offset: {:#x}   count: {}",
+        "out_fd: {}  in_fd: {}  offset: {:#x}   count: {:#x}",
         out_fd, in_fd, offset, count
     );
-
-    if offset != 0 {
-        warn!("sys_sendfile offset neq 0");
-    }
-
     let task = current_user_task();
-
     let out_file = task.get_fd(out_fd).ok_or(LinuxError::EINVAL)?;
     let in_file = task.get_fd(in_fd).ok_or(LinuxError::EINVAL)?;
 
-    let rlen = cmp::min(
-        in_file.metadata().map_err(from_vfs)?.size
-            - in_file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?,
-        count,
-    );
+    let curr_off = if offset != 0 {
+        offset
+    } else {
+        in_file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?
+    };
+
+    let rlen = cmp::min(in_file.metadata().map_err(from_vfs)?.size - curr_off, count);
 
     let mut buffer = vec![0u8; rlen];
 
-    in_file.read(&mut buffer).map_err(from_vfs)?;
+    if offset == 0 {
+        in_file.read(&mut buffer).map_err(from_vfs)?;
+        task.set_fd(in_fd, in_file);
+    } else {
+        in_file.readat(offset, &mut buffer).map_err(from_vfs)?;
+    }
     out_file.write(&buffer).map_err(from_vfs)
 }
 
@@ -876,13 +876,10 @@ pub async fn sys_ftruncate(fields: usize, len: usize) -> Result<usize, LinuxErro
 
 pub async fn sys_epoll_create1(flags: usize) -> Result<usize, LinuxError> {
     debug!("sys_epoll_create @ flags: {:#x}", flags);
-    let file = EpollFile::new(flags);
+    let file = Arc::new(EpollFile::new(flags));
     let task = current_user_task();
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
-    task.set_fd(
-        fd,
-        Some(FileItem::new(Arc::new(file), FileOptions::default())),
-    );
+    task.set_fd(fd, FileItem::new_dev(file));
     Ok(fd)
 }
 
@@ -902,6 +899,7 @@ pub async fn sys_epoll_ctl(
         .get_fd(epfd)
         .ok_or(LinuxError::EBADF)?
         .inner
+        .clone()
         .downcast_arc::<EpollFile>()
         .map_err(|_| LinuxError::EINVAL)?;
     task.get_fd(fd).ok_or(LinuxError::EBADF)?;
@@ -922,6 +920,7 @@ pub async fn sys_epoll_wait(
         .get_fd(epfd)
         .ok_or(LinuxError::EBADF)?
         .inner
+        .clone()
         .downcast_arc::<EpollFile>()
         .map_err(|_| LinuxError::EINVAL)?;
     let stime = current_nsec();

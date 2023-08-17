@@ -11,7 +11,7 @@ use vfscore::{INodeInterface, PollEvent, VfsResult};
 pub struct PipeSender(Arc<Mutex<VecDeque<u8>>>);
 
 impl INodeInterface for PipeSender {
-    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+    fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         let mut queue = self.0.lock();
         if queue.len() > 0x50000 {
             Err(vfscore::VfsError::Blocking)
@@ -40,7 +40,7 @@ pub struct PipeReceiver {
 }
 
 impl INodeInterface for PipeReceiver {
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut queue = self.queue.lock();
         let rlen = cmp::min(queue.len(), buffer.len());
         queue

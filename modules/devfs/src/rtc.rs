@@ -1,4 +1,3 @@
-use alloc::string::String;
 use vfscore::{INodeInterface, StatMode, VfsResult};
 
 pub struct Rtc;

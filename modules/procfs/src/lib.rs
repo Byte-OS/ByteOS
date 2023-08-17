@@ -7,18 +7,12 @@ mod mounts;
 
 use core::mem::size_of;
 
-use alloc::{
-    collections::BTreeMap,
-    string::ToString,
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
 use meminfo::MemInfo;
 use mounts::Mounts;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, StatMode, VfsError,
-    VfsResult,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, StatMode, VfsError, VfsResult,
 };
 
 pub struct ProcFS {

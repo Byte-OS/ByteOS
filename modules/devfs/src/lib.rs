@@ -5,16 +5,10 @@ extern crate log;
 
 use core::mem::size_of;
 
-use alloc::{
-    collections::BTreeMap,
-    string::ToString,
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, StatMode, VfsError,
-    VfsResult,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, StatMode, VfsError, VfsResult,
 };
 
 mod cpu_dma_latency;
@@ -47,7 +41,7 @@ impl DevFS {
 }
 
 impl FileSystem for DevFS {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
+    fn root_dir(&self) -> Arc<dyn INodeInterface> {
         Arc::new(DevDirContainer {
             inner: self.root_dir.clone(),
             dents_off: Mutex::new(0),

@@ -6,19 +6,24 @@ use alloc::{
     vec::Vec,
 };
 use devfs::Tty;
-use fs::{mount::open, INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite};
-use vfscore::{DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, Stat, StatFS, TimeSpec};
+use fs::{
+    mount::{open, rebuild_path},
+    INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite,
+};
+use sync::Mutex;
+use vfscore::{
+    DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
+};
 
 const FILE_MAX: usize = 255;
-const FD_NONE: Option<FileItem> = Option::None;
+const FD_NONE: Option<Arc<FileItem>> = Option::None;
 
 #[derive(Clone)]
-// pub struct FileTable(pub Vec<Option<File>>);
-pub struct FileTable(pub Vec<Option<FileItem>>);
+pub struct FileTable(pub Vec<Option<Arc<FileItem>>>);
 
 impl FileTable {
     pub fn new() -> Self {
-        let mut file_table: Vec<Option<FileItem>> = vec![FD_NONE; FILE_MAX];
+        let mut file_table: Vec<Option<Arc<FileItem>>> = vec![FD_NONE; FILE_MAX];
         file_table[..3].fill(Some(FileItem::new(
             Arc::new(Tty::new()),
             Default::default(),
@@ -28,7 +33,7 @@ impl FileTable {
 }
 
 impl Deref for FileTable {
-    type Target = Vec<Option<FileItem>>;
+    type Target = Vec<Option<Arc<FileItem>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -63,40 +68,47 @@ impl Default for FileOptions {
     }
 }
 
-#[derive(Clone)]
 pub struct FileItem {
     pub path: String,
     pub inner: Arc<dyn INodeInterface>,
     pub options: FileOptions,
-    pub flags: OpenFlags,
-}
-
-pub trait FileItemInterface: INodeInterface {
-    async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, VfsError>;
-    async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError>;
+    pub offset: Mutex<usize>,
+    pub flags: Mutex<OpenFlags>,
 }
 
 impl<'a> FileItem {
-    pub fn new(inner: Arc<dyn INodeInterface>, options: FileOptions) -> Self {
-        Self {
+    pub fn new(inner: Arc<dyn INodeInterface>, options: FileOptions) -> Arc<Self> {
+        Arc::new(Self {
             path: String::new(),
             inner,
             options,
-            flags: OpenFlags::NONE,
-        }
+            offset: Mutex::new(0),
+            flags: Mutex::new(OpenFlags::NONE),
+        })
+    }
+
+    pub fn new_dev(inner: Arc<dyn INodeInterface>) -> Arc<Self> {
+        Arc::new(Self {
+            path: String::new(),
+            inner,
+            offset: Mutex::new(0),
+            options: FileOptions::default(),
+            flags: Mutex::new(OpenFlags::NONE),
+        })
     }
 
     pub fn get_bare_file(&self) -> Arc<dyn INodeInterface> {
         self.inner.clone()
     }
 
-    pub fn fs_open(path: &str, options: FileOptions) -> Result<Self, VfsError> {
-        Ok(Self {
+    pub fn fs_open(path: &str, options: FileOptions) -> Result<Arc<Self>, VfsError> {
+        Ok(Arc::new(Self {
             path: path.to_string(),
             inner: open(path)?,
             options,
-            flags: OpenFlags::NONE,
-        })
+            offset: Mutex::new(0),
+            flags: Mutex::new(OpenFlags::NONE),
+        }))
     }
 
     #[inline(always)]
@@ -108,24 +120,19 @@ impl<'a> FileItem {
         }
     }
 
-    pub fn path(&'a self) ->Result< &'a str, VfsError> {
+    pub fn path(&'a self) -> Result<&'a str, VfsError> {
         Ok(&self.path)
     }
 }
 
-#[allow(dead_code)]
 impl INodeInterface for FileItem {
-    fn seek(&self, offset: fs::SeekFrom) -> Result<usize, VfsError> {
-        self.inner.seek(offset)
+    fn readat(&self, offset: usize, buffer: &mut [u8]) -> Result<usize, VfsError> {
+        self.inner.readat(offset, buffer)
     }
 
-    fn read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
-        self.inner.read(buffer)
-    }
-
-    fn write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
+    fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, VfsError> {
         self.check_writeable()?;
-        self.inner.write(buffer)
+        self.inner.writeat(offset, buffer)
     }
 
     fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
@@ -156,8 +163,13 @@ impl INodeInterface for FileItem {
         self.inner.lookup(name)
     }
 
-    fn open(&self, name: &str, flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
-        self.inner.open(name, flags)
+    fn open(&self, name: &str, _flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
+        let new_path = if name.len() > 0 && name.starts_with("/") {
+            name.to_string()
+        } else {
+            self.path.clone() + "/" + &rebuild_path(name)
+        };
+        open(&new_path)
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> Result<usize, VfsError> {
@@ -220,17 +232,60 @@ impl INodeInterface for FileItem {
     }
 }
 
-impl FileItemInterface for FileItem {
-    async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
-        if self.flags.contains(OpenFlags::O_NONBLOCK) {
-            self.read(buffer)
-        } else {
-            WaitBlockingRead(self.inner.clone(), buffer).await
-        }
+impl FileItem {
+    pub fn read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
+        let offset = *self.offset.lock();
+        self.inner.readat(offset, buffer).map(|x| {
+            *self.offset.lock() += x;
+            x
+        })
     }
 
-    async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
+    pub fn write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
+        self.check_writeable()?;
+        let offset = *self.offset.lock();
+        self.inner.writeat(offset, buffer).map(|x| {
+            *self.offset.lock() += x;
+            x
+        })
+    }
+
+    pub async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
+        let offset = *self.offset.lock();
+        if self.flags.lock().contains(OpenFlags::O_NONBLOCK) {
+            self.inner.readat(offset, buffer)
+        } else {
+            WaitBlockingRead(self.inner.clone(), buffer, offset).await
+        }
+        .map(|x| {
+            *self.offset.lock() += x;
+            x
+        })
+    }
+
+    pub async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
         // self.check_writeable()?;
-        WaitBlockingWrite(self.inner.clone(), &buffer).await
+        let offset = *self.offset.lock();
+        WaitBlockingWrite(self.inner.clone(), &buffer, offset)
+            .await
+            .map(|x| {
+                *self.offset.lock() += x;
+                x
+            })
+    }
+
+    pub fn seek(&self, seek_from: SeekFrom) -> Result<usize, VfsError> {
+        let offset = *self.offset.lock();
+        let mut new_off = match seek_from {
+            SeekFrom::SET(off) => off as isize,
+            SeekFrom::CURRENT(off) => offset as isize + off,
+            SeekFrom::END(off) => self.metadata()?.size as isize + off,
+        };
+        if new_off < 0 {
+            new_off = 0;
+        }
+        // assert!(new_off >= 0);
+        *self.offset.lock() = new_off as _;
+        Ok(new_off as _)
     }
 }
