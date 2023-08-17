@@ -28,7 +28,7 @@ impl Tty {
 }
 
 impl INodeInterface for Tty {
-    fn read(&self, buffer: &mut [u8]) -> vfscore::VfsResult<usize> {
+    fn readat(&self, _offset: usize, buffer: &mut [u8]) -> vfscore::VfsResult<usize> {
         assert!(buffer.len() > 0);
         let mut c = console_getchar() as u8;
         let mut self_buffer = self.buffer.lock();
@@ -64,7 +64,7 @@ impl INodeInterface for Tty {
         Ok(())
     }
 
-    fn write(&self, buffer: &[u8]) -> vfscore::VfsResult<usize> {
+    fn writeat(&self, _offset: usize, buffer: &[u8]) -> vfscore::VfsResult<usize> {
         puts(buffer);
         Ok(buffer.len())
     }
@@ -87,10 +87,6 @@ impl INodeInterface for Tty {
             res |= PollEvent::POLLOUT;
         }
         Ok(res)
-    }
-
-    fn seek(&self, _seek: vfscore::SeekFrom) -> VfsResult<usize> {
-        Err(VfsError::NotAPipe)
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> VfsResult<usize> {

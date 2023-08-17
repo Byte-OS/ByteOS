@@ -3,12 +3,12 @@ use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsResult};
 pub struct Urandom;
 
 impl INodeInterface for Urandom {
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         buffer.fill(0);
         Ok(buffer.len())
     }
 
-    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+    fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         Ok(buffer.len())
     }
 

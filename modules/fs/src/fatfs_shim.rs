@@ -10,8 +10,8 @@ use frame_allocator::ceil_div;
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, Stat, StatFS,
-    StatMode, VfsError, VfsResult,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, Stat, StatFS, StatMode,
+    VfsError, VfsResult,
 };
 
 pub trait DiskOperation {
@@ -58,7 +58,6 @@ impl Fat32FileSystem {
 }
 
 pub struct FatFileInner {
-    offset: usize,
     inner: File<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
     size: usize,
 }
@@ -84,15 +83,14 @@ unsafe impl Sync for FatDir {}
 unsafe impl Send for FatDir {}
 
 impl INodeInterface for FatFile {
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
 
-        if inner.offset >= inner.size {
+        if offset >= inner.size {
             return Ok(0);
         }
-        let seek_curr = SeekFrom::Start(inner.offset as _);
+        let seek_curr = SeekFrom::Start(offset as _);
         inner.inner.seek(seek_curr).map_err(as_vfs_err)?;
-        let offset = inner.offset;
         let len = inner.size;
         debug!("off: {:#x} rlen: {:#x}", offset, len);
         // read cached file.
@@ -100,25 +98,24 @@ impl INodeInterface for FatFile {
             .inner
             .seek(SeekFrom::Start(offset as u64))
             .map_err(as_vfs_err)?;
-        let rlen = min(buffer.len(), len as usize - inner.offset);
+        let rlen = min(buffer.len(), len as usize - offset);
         inner
             .inner
             .read_exact(&mut buffer[..rlen])
             .map_err(as_vfs_err)?;
-        inner.offset += rlen;
         Ok(rlen)
     }
 
-    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+    fn writeat(&self, offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         let mut inner = self.inner.lock();
 
         // if offset > len
-        let seek_curr = SeekFrom::Start(inner.offset as _);
+        let seek_curr = SeekFrom::Start(offset as _);
         let curr_off = inner.inner.seek(seek_curr).map_err(as_vfs_err)? as usize;
-        if inner.offset != curr_off {
+        if offset != curr_off {
             let buffer = vec![0u8; 512];
             loop {
-                let wlen = cmp::min(inner.offset - inner.size, 512);
+                let wlen = cmp::min(offset - inner.size, 512);
 
                 if wlen == 0 {
                     break;
@@ -129,10 +126,9 @@ impl INodeInterface for FatFile {
         }
 
         inner.inner.write_all(buffer).map_err(as_vfs_err)?;
-        inner.offset += buffer.len();
 
-        if inner.offset > inner.size {
-            inner.size = inner.offset;
+        if offset + buffer.len() > inner.size {
+            inner.size = offset + buffer.len();
         }
         Ok(buffer.len())
     }
@@ -181,20 +177,6 @@ impl INodeInterface for FatFile {
         stat.mtime.sec = 0;
         Ok(())
     }
-
-    fn seek(&self, seek: vfscore::SeekFrom) -> VfsResult<usize> {
-        let mut inner = self.inner.lock();
-        let new_off = match seek {
-            vfscore::SeekFrom::SET(offset) => offset as isize,
-            vfscore::SeekFrom::CURRENT(offset) => inner.offset as isize + offset,
-            vfscore::SeekFrom::END(offset) => inner.size as isize + offset,
-        };
-        if new_off < 0 {
-            return Err(VfsError::InvalidInput);
-        }
-        inner.offset = new_off as usize;
-        Ok(new_off as usize)
-    }
 }
 
 impl INodeInterface for FatDir {
@@ -219,7 +201,6 @@ impl INodeInterface for FatDir {
                     filename: String::from(name),
                     inner: Mutex::new(FatFileInner {
                         inner: file,
-                        offset: 0,
                         size: 0,
                     }),
                 })
@@ -248,7 +229,6 @@ impl INodeInterface for FatDir {
                 filename: String::from(name),
                 inner: Mutex::new(FatFileInner {
                     inner: file.to_file(),
-                    offset: 0,
                     size: file.len() as usize,
                 }),
             }))
@@ -341,18 +321,18 @@ impl INodeInterface for FatDir {
         let mut finished = 0;
         for (i, x) in self.inner.iter().enumerate().skip(*self.dents_off.lock()) {
             let x = x.unwrap();
-            if x.file_name() == "." || x.file_name() == ".." {
+            let filename = x.file_name();
+            if filename == "." || filename == ".." {
                 finished = i + 1;
                 continue;
             }
-            let filename = x.file_name();
+            let filename = filename;
             let file_bytes = filename.as_bytes();
             let current_len = ceil_div(size_of::<Dirent64>() + file_bytes.len() + 1, 8) * 8;
             if len - (ptr - buf_ptr) < current_len {
                 break;
             }
 
-            // let dirent = c2rust_ref(ptr as *mut Dirent);
             let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
 
             dirent.ino = 1;
@@ -382,7 +362,7 @@ impl INodeInterface for FatDir {
         Ok(ptr - buf_ptr)
     }
 
-    fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> VfsResult<()> {
+    fn link(&self, _name: &str, _src: Arc<dyn INodeInterface>) -> VfsResult<()> {
         // self.inner
         //     .open_file(name)
         //     .map_or(Ok(()), |_| Err(VfsError::AlreadyExists))?;

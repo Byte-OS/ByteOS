@@ -138,7 +138,7 @@ impl INodeInterface for Socket {
         })
     }
 
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         match self.inner.recv_from() {
             Ok((data, _)) => {
                 let rlen = cmp::min(data.len(), buffer.len());
@@ -150,7 +150,7 @@ impl INodeInterface for Socket {
         }
     }
 
-    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+    fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         match self.inner.sendto(&buffer, None) {
             Ok(len) => {
                 self.options.lock().wsize += len;

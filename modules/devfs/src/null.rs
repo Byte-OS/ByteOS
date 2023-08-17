@@ -3,12 +3,12 @@ use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
 pub struct Null;
 
 impl INodeInterface for Null {
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         buffer.fill(0);
         Ok(buffer.len())
     }
 
-    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
+    fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         Ok(buffer.len())
     }
 

@@ -14,8 +14,8 @@ use arch::PAGE_SIZE;
 use frame_allocator::{ceil_div, frame_alloc, FrameTracker};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, SeekFrom,
-    Stat, StatMode, TimeSpec, VfsError, VfsResult, UTIME_OMIT,
+    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, Stat, StatMode, TimeSpec,
+    VfsError, VfsResult, UTIME_OMIT,
 };
 
 pub struct RamFs {
@@ -76,7 +76,6 @@ impl FileContainer {
     fn to_inode(&self) -> VfsResult<Arc<dyn INodeInterface>> {
         match self {
             FileContainer::File(file) => Ok(Arc::new(RamFile {
-                offset: Mutex::new(0),
                 inner: file.clone(),
             })),
             FileContainer::Dir(dir) => Ok(Arc::new(RamDir {
@@ -140,7 +139,6 @@ impl INodeInterface for RamDir {
         });
 
         let new_file = Arc::new(RamFile {
-            offset: Mutex::new(0),
             inner: new_inner.clone(),
         });
 
@@ -336,13 +334,11 @@ impl INodeInterface for RamDir {
 }
 
 pub struct RamFile {
-    offset: Mutex<usize>,
     inner: Arc<RamFileInner>,
 }
 
 impl INodeInterface for RamFile {
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-        let mut offset = *self.offset.lock();
+    fn readat(&self, mut offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut buffer_off = 0;
         // let file_size = self.inner.content.lock().len();
         let file_size = *self.inner.len.lock();
@@ -375,15 +371,13 @@ impl INodeInterface for RamFile {
                     last_len -= curr_size;
                     buffer_off += curr_size;
                 }
-                *self.offset.lock() = offset;
                 // Ok(origin_read_len)
                 Ok(read_len)
             }
         }
     }
 
-    fn write(&self, buffer: &[u8]) -> VfsResult<usize> {
-        let mut offset = *self.offset.lock();
+    fn writeat(&self, mut offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         let mut buffer_off = 0;
         let pages = ceil_div(offset + buffer.len(), PAGE_SIZE);
 
@@ -408,28 +402,11 @@ impl INodeInterface for RamFile {
             wsize -= curr_size;
         }
 
-        *self.offset.lock() = offset;
         let file_size = *self.inner.len.lock();
         if offset > file_size {
             *self.inner.len.lock() = offset;
         }
         Ok(buffer.len())
-    }
-
-    fn seek(&self, seek: SeekFrom) -> VfsResult<usize> {
-        let new_off = match seek {
-            SeekFrom::SET(off) => off as isize,
-            SeekFrom::CURRENT(off) => *self.offset.lock() as isize + off,
-            // SeekFrom::END(off) => self.inner.content.lock().len() as isize + off,
-            SeekFrom::END(off) => *self.inner.len.lock() as isize + off,
-        };
-        match new_off >= 0 {
-            true => {
-                *self.offset.lock() = new_off as _;
-                Ok(new_off as _)
-            }
-            false => Err(VfsError::InvalidInput),
-        }
     }
 
     fn truncate(&self, size: usize) -> VfsResult<()> {
@@ -459,7 +436,12 @@ impl INodeInterface for RamFile {
     }
 
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
-        stat.ino = 1; // TODO: convert path to number(ino)
+        // stat.ino = 1; // TODO: convert path to number(ino)
+        if self.inner.name.ends_with(".s") {
+            stat.ino = 2; // TODO: convert path to number(ino)
+        } else {
+            stat.ino = 1; // TODO: convert path to number(ino)
+        }
         stat.mode = StatMode::FILE; // TODO: add access mode
         stat.nlink = 1;
         stat.uid = 0;
@@ -495,11 +477,7 @@ impl INodeInterface for RamLink {
         self.link_file.stat(stat)
     }
 
-    fn read(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-        self.link_file.read(buffer)
-    }
-
-    fn seek(&self, seek: SeekFrom) -> VfsResult<usize> {
-        self.link_file.seek(seek)
+    fn readat(&self, offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
+        self.link_file.readat(offset, buffer)
     }
 }

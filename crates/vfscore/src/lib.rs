@@ -251,15 +251,11 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn read(&self, _buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> VfsResult<usize> {
         Err(VfsError::NotFile)
     }
 
-    fn write(&self, _buffer: &[u8]) -> VfsResult<usize> {
-        Err(VfsError::NotFile)
-    }
-
-    fn seek(&self, _seek: SeekFrom) -> VfsResult<usize> {
+    fn writeat(&self, _offset: usize, _buffer: &[u8]) -> VfsResult<usize> {
         Err(VfsError::NotFile)
     }
 

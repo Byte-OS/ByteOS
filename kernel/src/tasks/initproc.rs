@@ -267,6 +267,7 @@ pub async fn initproc() {
 
     command("busybox echo run netperf_testcode.sh").await;
     command("busybox sh netperf_testcode.sh").await;
+
     command("busybox echo run iperf_testcode.sh").await;
     command("busybox sh iperf_testcode.sh").await;
     kill_all_tasks().await;
@@ -287,8 +288,8 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-static.exe pthread_condattr_setclock").await;
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
     // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
-    // command("./runtest.exe -w entry-dynamic.exe stat").await;
-    // command("./runtest.exe -w entry-static.exe stat").await;
+    // command("./runtest.exe -w entry-dynamic.exe fgetwc_buffering").await;
+    // command("./runtest.exe -w entry-static.exe setvbuf_unget").await;
     // command("./runtest.exe -w entry-static.exe clocale_mbfuncs").await;
     // command("./looper 2 ./multi.sh 1").await;
     // command("busybox sh ./multi.sh 1").await;
@@ -299,7 +300,11 @@ pub async fn initproc() {
     // command("./redis-server /redis.conf --loglevel verbose").await;
     // command("redis-cli-static").await;
     // command("bin/sh").await;
+    // command("sshd").await;
     // command("busybox sh").await;
+    // command("/bin/riscv64-linux-musl-gcc main.c").await;
+    // command("cloudreve").await;
+    // command("ssh-simple").await;
     // command("usr/bin/tcc -run main.c").await;
     // command("/bin/bash").await;
     // command("bin/bash lmbench_testcode.sh").await;

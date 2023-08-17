@@ -2,7 +2,7 @@ use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
-use executor::{current_user_task, yield_now, AsyncTask, FileItem, UserTask};
+use executor::{current_user_task, yield_now, AsyncTask, FileItem};
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
@@ -76,7 +76,7 @@ pub async fn sys_socket(
     );
     let net_type = NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?;
     let socket = Socket::new(domain, net_type);
-    task.set_fd(fd, Some(FileItem::new(socket, Default::default())));
+    task.set_fd(fd, FileItem::new_dev(socket));
     Ok(fd)
 }
 
@@ -108,7 +108,6 @@ pub async fn sys_bind(
         address_len
     );
     let socket_addr = addr_ptr.get_mut();
-
     debug!("try to bind {:?} to socket {}", socket_addr, socket_fd);
     let socket = task
         .get_fd(socket_fd)
@@ -130,20 +129,14 @@ pub async fn sys_bind(
         NetType::STEAM => {
             if net_server.tcp_is_used(port) {
                 let sock = socket.reuse(port);
-                task.set_fd(
-                    socket_fd,
-                    Some(FileItem::new(Arc::new(sock), Default::default())),
-                );
+                task.set_fd(socket_fd, FileItem::new_dev(Arc::new(sock)));
                 return Ok(0);
             }
         }
         NetType::DGRAME => {
             if net_server.udp_is_used(port) {
                 let sock = socket.reuse(port);
-                task.set_fd(
-                    socket_fd,
-                    Some(FileItem::new(Arc::new(sock), Default::default())),
-                );
+                task.set_fd(socket_fd, FileItem::new_dev(Arc::new(sock)));
                 return Ok(0);
             }
         }
@@ -193,14 +186,32 @@ pub async fn sys_accept(
         socket_addr,
         len
     );
-    let socket = task
-        .get_fd(socket_fd)
-        .ok_or(LinuxError::EINVAL)?
+    let file = task.get_fd(socket_fd).ok_or(LinuxError::EINVAL)?;
+    let socket = file
         .get_bare_file()
         .downcast_arc::<Socket>()
         .map_err(|_| LinuxError::EINVAL)?;
+    debug!("flags: {:?}", file.flags.lock());
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
-    accept(fd, task, socket).await?;
+    loop {
+        if let Ok(new_socket) = socket.inner.accept() {
+            task.set_fd(
+                fd,
+                FileItem::new_dev(Socket::new_with_inner(
+                    socket.domain,
+                    socket.net_type,
+                    new_socket,
+                )),
+            );
+            break;
+        }
+
+        if task.tcb.read().signal.has_signal() {
+            return Err(LinuxError::EINTR);
+        }
+
+        yield_now().await;
+    }
     Ok(fd)
 }
 
@@ -262,7 +273,7 @@ pub async fn sys_recvfrom(
         match res {
             Ok(r) => break r,
             Err(_) => {
-                if file.flags.contains(OpenFlags::O_NONBLOCK) {
+                if file.flags.lock().contains(OpenFlags::O_NONBLOCK) {
                     return Err(LinuxError::EAGAIN);
                 }
                 yield_now().await
@@ -483,34 +494,16 @@ pub async fn sys_accept4(
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     loop {
         if let Ok(new_socket) = socket.inner.accept() {
-            let mut new_file = FileItem::new(
-                Socket::new_with_inner(socket.domain, socket.net_type, new_socket),
-                Default::default(),
-            );
-            new_file.flags = flags;
-            task.set_fd(fd, Some(new_file));
+            let new_file = FileItem::new_dev(Socket::new_with_inner(
+                socket.domain,
+                socket.net_type,
+                new_socket,
+            ));
+            *new_file.flags.lock() = flags;
+            task.set_fd(fd, new_file);
             break Ok(fd);
-        } else if file.flags.contains(OpenFlags::O_NONBLOCK) {
+        } else if file.flags.lock().contains(OpenFlags::O_NONBLOCK) {
             break Err(LinuxError::EAGAIN);
-        }
-        yield_now().await;
-    }
-}
-
-pub async fn accept(fd: usize, task: Arc<UserTask>, socket: Arc<Socket>) -> Result<(), LinuxError> {
-    loop {
-        if let Ok(new_socket) = socket.inner.accept() {
-            task.set_fd(
-                fd,
-                Some(FileItem::new(
-                    Socket::new_with_inner(socket.domain, socket.net_type, new_socket),
-                    Default::default(),
-                )),
-            );
-            return Ok(());
-        }
-        if task.tcb.read().signal.has_signal() {
-            return Err(LinuxError::EINTR);
         }
         yield_now().await;
     }

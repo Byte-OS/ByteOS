@@ -23,10 +23,7 @@ pub fn mount(path: String, fs_id: usize) -> VfsResult<()> {
         // judge whether the mount point exists
         open(&path)?;
     }
-    MOUNTS.lock().insert(
-        path.clone(),
-        fs_id
-    );
+    MOUNTS.lock().insert(path.clone(), fs_id);
     Ok(())
 }
 

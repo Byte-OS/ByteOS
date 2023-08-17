@@ -102,7 +102,12 @@ pub async fn sys_execve(
     // task.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
 
     // check exec file.
-    let exec_file = FileItem::fs_open(filename, FileOptions::default()).map_err(from_vfs)?;
+    if filename == "/bin/true" {
+        let ctask = task.as_user_task().unwrap();
+        ctask.exit(0);
+        return Ok(0);
+    }
+    let _exec_file = FileItem::fs_open(filename, FileOptions::default()).map_err(from_vfs)?;
     exec_with_process(task.clone(), filename, args).await?;
     task.before_run();
     Ok(0)
@@ -131,7 +136,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
             file_size,
         )
     };
-    let rsize = file.read(buffer).map_err(from_vfs)?;
+    let rsize = file.readat(0, buffer).map_err(from_vfs)?;
     assert_eq!(rsize, file_size);
     // flush_dcache_range();
     // 读取elf信息
@@ -246,11 +251,6 @@ pub async fn exec_with_process<'a>(
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     debug!("exec: {:?}", args);
 
-    if path == "/bin/true" {
-        let ctask = task.as_user_task().unwrap();
-        ctask.exit(0);
-        return Ok(ctask);
-    }
     let caches = TASK_CACHES.lock();
     if let Some(cache_task) = caches.iter().find(|x| x.name == path) {
         let user_task = task.clone().as_user_task().unwrap();
@@ -307,7 +307,7 @@ pub async fn exec_with_process<'a>(
                 file_size,
             )
         };
-        let rsize = file.read(buffer).map_err(from_vfs)?;
+        let rsize = file.readat(0, buffer).map_err(from_vfs)?;
         assert_eq!(rsize, file_size);
         // flush_dcache_range();
         // 读取elf信息
