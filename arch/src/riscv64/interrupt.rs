@@ -148,6 +148,7 @@ pub fn trap_pre_handle(context: &mut Context) -> TrapType {
             TrapType::IllegalInstruction(context.sepc)
         }
         Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
+        Trap::Exception(Exception::LoadPageFault) => TrapType::LoadPageFault(stval),
         _ => {
             error!(
                 "用户态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",

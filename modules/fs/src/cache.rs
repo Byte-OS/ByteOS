@@ -57,6 +57,6 @@ pub fn cache_file(path: &str) {
 
 /// init() 初始化缓存表
 pub fn init() {
-    cache_file("/entry-dynamic.exe");
-    cache_file("/lmbench_all");
+    // cache_file("/entry-dynamic.exe");
+    // cache_file("/lmbench_all");
 }

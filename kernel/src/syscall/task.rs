@@ -10,7 +10,6 @@ use alloc::{boxed::Box, sync::Arc};
 use arch::{time_to_usec, ContextOps, PTEFlags, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
-use core::ops::Add;
 use executor::{
     current_task, current_user_task, select, yield_now, AsyncTask, FileItem, FileOptions, MapTrack,
     MemArea, MemType, UserTask, TASK_QUEUE,
@@ -116,7 +115,7 @@ pub async fn sys_execve(
 pub struct TaskCacheTemplate {
     name: String,
     entry: usize,
-    maps: Vec<(VirtPage, Arc<FrameTracker>)>,
+    maps: Vec<MemArea>,
     base: usize,
     heap_bottom: usize,
     tls: usize,
@@ -212,17 +211,32 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
                 };
                 ppn_space.copy_from_slice(&buffer[offset..offset + file_size]);
 
-                for i in 0..page_count {
-                    maps.push((VirtPage::from_addr(virt_addr).add(i), pages[i].clone()));
-                }
+                maps.push(MemArea {
+                    mtype: MemType::CodeSection,
+                    mtrackers: pages
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, x)| MapTrack {
+                            vpn: VirtPage::from(vpn + i),
+                            tracker: x,
+                            rwx: 0,
+                        })
+                        .collect(),
+                    file: None,
+                    offset: 0,
+                    start: vpn * PAGE_SIZE,
+                    len: page_count * PAGE_SIZE,
+                })
             });
         if base > 0 {
-            relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
-                let vpn = VirtPage::from_addr(addr);
+            relocated_arr.iter().for_each(|(addr, value)| unsafe {
+                let vpn = VirtPage::from_addr(*addr);
                 let offset = addr % PAGE_SIZE;
-                if let Some((_, tracker)) = maps.iter().find(|x| x.0 == vpn) {
-                    (tracker.0.get_buffer().as_mut_ptr().add(offset) as *mut usize)
-                        .write_volatile(value);
+                for area in &maps {
+                    if let Some(x) = area.mtrackers.iter().find(|x| x.vpn == vpn) {
+                        (x.tracker.0.get_buffer().as_mut_ptr().add(offset) as *mut usize)
+                            .write_volatile(*value);
+                    }
                 }
             })
         }
@@ -249,17 +263,20 @@ pub async fn exec_with_process<'a>(
 ) -> Result<Arc<UserTask>, LinuxError> {
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
+    let path = String::from(path);
     debug!("exec: {:?}", args);
+    let user_task = task.clone().as_user_task().unwrap();
+    user_task.pcb.lock().memset.clear();
+    user_task.page_table.restore();
+    user_task.page_table.change();
 
     let caches = TASK_CACHES.lock();
     if let Some(cache_task) = caches.iter().find(|x| x.name == path) {
-        let user_task = task.clone().as_user_task().unwrap();
-
         init_task_stack(
             user_task.clone(),
             args,
             cache_task.base,
-            path,
+            &path,
             cache_task.entry,
             cache_task.ph_count,
             cache_task.ph_entry_size,
@@ -268,37 +285,20 @@ pub async fn exec_with_process<'a>(
             cache_task.tls,
         );
 
-        let mut pcb = user_task.pcb.lock();
-        if let Some(mem_area) = pcb
-            .memset
-            .iter_mut()
-            .find(|x| x.mtype == MemType::CodeSection)
-        {
-            for (vpn, tracker) in cache_task.maps.iter() {
-                mem_area.map(*vpn, tracker.clone());
+        for area in &cache_task.maps {
+            user_task.inner_map(|pcb| {
+                pcb.memset
+                    .sub_area(area.start, area.start + area.len, user_task.page_table);
+                pcb.memset.push(area.clone());
+            });
+            for mtracker in area.mtrackers.iter() {
+                user_task.map(mtracker.tracker.0, mtracker.vpn, PTEFlags::ADUVRX);
             }
-        } else {
-            pcb.memset.push(MemArea::new(
-                MemType::CodeSection,
-                cache_task
-                    .maps
-                    .iter()
-                    .map(|(vpn, tracker)| MapTrack {
-                        vpn: *vpn,
-                        tracker: tracker.clone(),
-                        rwx: 0,
-                    })
-                    .collect(),
-            ));
-        }
-        drop(pcb);
-        for (vpn, tracker) in cache_task.maps.iter() {
-            user_task.map(tracker.0, *vpn, PTEFlags::ADUVRX);
         }
         Ok(user_task)
     } else {
         drop(caches);
-        let file = open(path).map_err(from_vfs)?;
+        let file = open(&path).map_err(from_vfs)?;
         let file_size = file.metadata().unwrap().size;
         let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
         let buffer = unsafe {
@@ -338,7 +338,7 @@ pub async fn exec_with_process<'a>(
             if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
                 drop(frame_ppn);
                 let lib_path = "libc.so";
-                let mut new_args = vec![lib_path, path];
+                let mut new_args = vec![lib_path, &path];
                 args[1..].iter().for_each(|x| new_args.push(x));
                 return exec_with_process(task, lib_path, new_args).await;
             }
@@ -370,7 +370,7 @@ pub async fn exec_with_process<'a>(
             user_task.clone(),
             args,
             base,
-            path,
+            &path,
             entry_point,
             elf_header.pt2.ph_count() as usize,
             elf_header.pt2.ph_entry_size() as usize,
@@ -638,13 +638,13 @@ pub async fn sys_futex(
     let uaddr = uaddr_ptr.get_mut();
     let flags = FromPrimitive::from_usize(op).ok_or(LinuxError::EINVAL)?;
     debug!(
-        "sys_futex @ uaddr: {} flags: {:?} value: {}",
+        "sys_futex @ uaddr: {:#x} flags: {:?} value: {}",
         uaddr, flags, value
     );
 
     match flags {
         FutexFlags::Wait => {
-            if *uaddr == value as i32 {
+            if *uaddr == value as _ {
                 let futex_table = user_task.pcb.lock().futex_table.clone();
                 let mut table = futex_table.lock();
                 match table.get_mut(&uaddr_ptr.addr()) {

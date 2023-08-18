@@ -4,6 +4,7 @@ use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
 use executor::current_user_task;
 use executor::AsyncTask;
+use executor::MemArea;
 use frame_allocator::ceil_div;
 use log::debug;
 use vfscore::INodeInterface;
@@ -16,6 +17,9 @@ use crate::syscall::consts::ProtFlags;
 use crate::syscall::consts::UserRef;
 
 use super::consts::LinuxError;
+
+// The high 25bits in sv39 should be the same as bit 38.
+const MAP_AREA_START: usize = 0x1_0000_0000;
 
 pub async fn sys_brk(addr: isize) -> Result<usize, LinuxError> {
     debug!("sys_brk @ increment: {:#x}", addr);
@@ -48,10 +52,10 @@ pub async fn sys_mmap(
     let addr = task.get_last_free_addr();
 
     let addr = if start == 0 {
-        if usize::from(addr) >= 0x4000_0000 {
+        if usize::from(addr) >= MAP_AREA_START {
             addr
         } else {
-            VirtAddr::from(0x4000_0000)
+            VirtAddr::from(MAP_AREA_START)
         }
     } else {
         VirtAddr::new(start)
@@ -59,6 +63,27 @@ pub async fn sys_mmap(
 
     if len == 0 {
         return Ok(addr.into());
+    }
+
+    if flags.contains(MapFlags::MAP_FIXED) {
+        let overlaped = task
+            .pcb
+            .lock()
+            .memset
+            .overlapping(addr.addr(), addr.addr() + len);
+        if overlaped {
+            task.pcb
+                .lock()
+                .memset
+                .sub_area(addr.addr(), addr.addr() + len, task.page_table);
+        }
+    } else if task
+        .pcb
+        .lock()
+        .memset
+        .overlapping(addr.addr(), addr.addr() + len)
+    {
+        return Err(LinuxError::EINVAL);
     }
 
     if flags.contains(MapFlags::MAP_SHARED) {
@@ -69,6 +94,7 @@ pub async fn sys_mmap(
                     executor::MemType::ShareFile,
                     (len + PAGE_SIZE - 1) / PAGE_SIZE,
                     Some(file.get_bare_file()),
+                    off,
                     usize::from(addr),
                     len,
                 )
@@ -91,14 +117,30 @@ pub async fn sys_mmap(
                 }
                 ppn
             }
-        }
-    } else {
+        };
+    } else if file.is_some() {
         task.frame_alloc(
             VirtPage::from_addr(addr.into()),
             executor::MemType::Mmap,
             ceil_div(len, PAGE_SIZE),
         )
-        .ok_or(LinuxError::EFAULT)?
+        .ok_or(LinuxError::EFAULT)?;
+    } else {
+        // task.frame_alloc(
+        //     VirtPage::from_addr(addr.into()),
+        //     executor::MemType::Mmap,
+        //     ceil_div(len, PAGE_SIZE),
+        // )
+        // .ok_or(LinuxError::EFAULT)?;
+
+        task.pcb.lock().memset.push(MemArea {
+            mtype: executor::MemType::Mmap,
+            mtrackers: vec![],
+            file: None,
+            offset: 0,
+            start: addr.addr(),
+            len,
+        });
     };
 
     if let Some(file) = file {
@@ -109,15 +151,10 @@ pub async fn sys_mmap(
 }
 
 pub async fn sys_munmap(start: usize, len: usize) -> Result<usize, LinuxError> {
-    debug!("sys_munmap @ start: {:#x}, len: {}", start, len);
-    let current_task = current_task().as_user_task().unwrap();
-
-    current_task.inner_map(|x| {
-        x.memset.iter_mut().for_each(|mem_area| {
-            mem_area
-                .mtrackers
-                .drain_filter(|x| (start..start + len).contains(&x.vpn.to_addr()));
-        })
+    debug!("sys_munmap @ start: {:#x}, len: {:#x}", start, len);
+    let task = current_user_task();
+    task.inner_map(|pcb| {
+        pcb.memset.sub_area(start, start + len, task.page_table);
     });
     Ok(0)
 }

@@ -160,7 +160,7 @@ impl From<VirtAddr> for VirtPage {
 }
 impl From<usize> for VirtPage {
     fn from(value: usize) -> Self {
-        Self(value >> 12)
+        Self(value)
     }
 }
 

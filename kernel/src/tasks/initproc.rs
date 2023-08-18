@@ -287,14 +287,14 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
     // command("./runtest.exe -w entry-static.exe pthread_condattr_setclock").await;
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
-    // command("./runtest.exe -w entry-dynamic.exe daemon_failure").await;
+    // command("./runtest.exe -w entry-dynamic.exe tls_init").await;
     // command("./runtest.exe -w entry-dynamic.exe fgetwc_buffering").await;
-    // command("./runtest.exe -w entry-static.exe setvbuf_unget").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cond").await;
     // command("./runtest.exe -w entry-static.exe clocale_mbfuncs").await;
     // command("./looper 2 ./multi.sh 1").await;
     // command("busybox sh ./multi.sh 1").await;
     // command("busybox sh ./tst.sh ./sort.src").await;
-    // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
+    // command("entry-dynamic.exe pthread_cancel_points").await;
 
     // command("bin/sh redis.sh").await;
     // command("./redis-server /redis.conf --loglevel verbose").await;
@@ -303,6 +303,8 @@ pub async fn initproc() {
     // command("sshd").await;
     // command("busybox sh").await;
     // command("/bin/riscv64-linux-musl-gcc main.c").await;
+    // command("busybox cp /tmp_home/a.out /").await;
+    // command("/a.out").await;
     // command("cloudreve").await;
     // command("ssh-simple").await;
     // command("usr/bin/tcc -run main.c").await;
