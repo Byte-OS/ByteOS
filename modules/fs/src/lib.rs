@@ -80,7 +80,7 @@ pub fn init() {
     filesystems.push((RamFs::new(), "/tmp_home"));
     filesystems.push((RamFs::new(), "/var"));
     filesystems.push((ProcFS::new(), "/proc"));
-    filesystems.push((RamFs::new(), "/bin"));
+    // filesystems.push((RamFs::new(), "/bin"));
 
     // mount to FILESYSTEMS
     FILESYSTEMS.init_by(filesystems.iter().map(|(fs, _)| fs.clone()).collect());
@@ -94,7 +94,7 @@ pub fn init() {
         let rootfs = get_filesystem(0).root_dir();
         rootfs.mkdir("dev").expect("can't create devfs dir");
         rootfs.mkdir("tmp").expect("can't create tmp dir");
-        rootfs.mkdir("lib").expect("can't create lib dir");
+        // rootfs.mkdir("lib").expect("can't create lib dir");
         rootfs.mkdir("tmp_home").expect("can't create tmp_home dir");
         rootfs.mkdir("var").expect("can't create var dir");
         rootfs.mkdir("proc").expect("can't create proc dir");
@@ -121,13 +121,13 @@ pub fn init() {
             .mkdir("tmp")
             .expect("can't create tmp dir");
 
-        mount::open("/bin")
-            .expect("can't open /bin")
-            .link(
-                "sleep",
-                mount::open("busybox").expect("not hava busybox file"),
-            )
-            .expect("can't link busybox to /bin/sleep");
+        // mount::open("/bin")
+        //     .expect("can't open /bin")
+        //     .link(
+        //         "sleep",
+        //         mount::open("busybox").expect("not hava busybox file"),
+        //     )
+        //     .expect("can't link busybox to /bin/sleep");
     }
     cache::init();
 }

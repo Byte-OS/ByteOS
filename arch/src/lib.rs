@@ -56,6 +56,7 @@ pub enum TrapType {
     Time,
     Unknown,
     StorePageFault(usize),
+    LoadPageFault(usize),
     InstructionPageFault(usize),
     IllegalInstruction(usize),
 }

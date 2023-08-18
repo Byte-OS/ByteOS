@@ -130,6 +130,8 @@ impl UserTask {
                 tracker: ppn.clone(),
                 rwx: 0,
             }],
+            0,
+            0,
         )]);
 
         FUTURE_LIST
@@ -194,7 +196,7 @@ impl UserTask {
     }
 
     pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> Option<PhysPage> {
-        self.map_frames(vpn, mtype, count, None, 0, 0)
+        self.map_frames(vpn, mtype, count, None, 0, vpn.to_addr(), count * PAGE_SIZE)
     }
 
     pub fn map_frames(
@@ -203,6 +205,7 @@ impl UserTask {
         mtype: MemType,
         count: usize,
         file: Option<File>,
+        offset: usize,
         start: usize,
         len: usize,
     ) -> Option<PhysPage> {
@@ -231,40 +234,44 @@ impl UserTask {
                 count * PAGE_SIZE,
                 PTEFlags::UVRWX
             );
+            // map vpn to ppn
+            trackers
+                .clone()
+                .iter()
+                .filter(|x| x.vpn.to_addr() != 0)
+                .for_each(|x| self.map(x.tracker.0, x.vpn, PTEFlags::UVRWX));
         }
         let mut inner = self.pcb.lock();
-
-        // find map area, such as PTE, CodeSection, etc.
-        let finded_area = inner
-            .memset
-            .iter_mut()
-            .filter(|x| x.mtype != MemType::ShareFile || x.mtype != MemType::Shared)
-            .find(|x| x.mtype == mtype);
-
-        // add tracker and map memory.
-        match finded_area {
-            Some(area) => {
-                for target in trackers.clone() {
-                    area.map(target.vpn, target.tracker)
-                }
+        let ppn = trackers[0].tracker.0;
+        if mtype == MemType::PTE || mtype == MemType::Stack {
+            let finded_area = inner.memset.iter_mut().find(|x| x.mtype == mtype);
+            if let Some(area) = finded_area {
+                area.mtrackers.extend(trackers);
+            } else if mtype == MemType::PTE {
+                inner.memset.push(MemArea::new(mtype, trackers, start, len));
+            } else if mtype == MemType::Stack {
+                inner.memset.push(MemArea {
+                    mtype,
+                    mtrackers: trackers.clone(),
+                    file: None,
+                    offset: 0,
+                    start: 0x7000_0000,
+                    len: 0x1000_0000,
+                });
             }
-            None => inner.memset.push(MemArea {
+        } else {
+            inner.memset.push(MemArea {
                 mtype,
                 mtrackers: trackers.clone(),
                 file,
+                offset,
                 start,
                 len,
-            }),
+            });
         }
         drop(inner);
 
-        // map vpn to ppn
-        trackers
-            .clone()
-            .iter()
-            .filter(|x| x.vpn.to_addr() != 0)
-            .for_each(|x| self.map(x.tracker.0, x.vpn, PTEFlags::UVRWX));
-        Some(trackers[0].tracker.0)
+        Some(ppn)
     }
 
     // pub fn get_cx_ptr(&self) -> *mut Context {
@@ -585,6 +592,21 @@ impl UserTask {
     }
 
     pub fn get_last_free_addr(&self) -> VirtAddr {
+        // let map_last = self
+        //     .pcb
+        //     .lock()
+        //     .memset
+        //     .iter()
+        //     .filter(|x| x.mtype != MemType::Stack)
+        //     .fold(0, |acc, x| {
+        //         x.mtrackers
+        //             .iter()
+        //             .filter(|x| x.vpn.to_addr() > acc && x.vpn.to_addr() < VIRT_ADDR_START)
+        //             .map(|x| x.vpn.to_addr())
+        //             .max()
+        //             .unwrap_or(acc)
+        //     })
+        //     + PAGE_SIZE;
         let map_last = self
             .pcb
             .lock()
@@ -592,14 +614,12 @@ impl UserTask {
             .iter()
             .filter(|x| x.mtype != MemType::Stack)
             .fold(0, |acc, x| {
-                x.mtrackers
-                    .iter()
-                    .filter(|x| x.vpn.to_addr() > acc && x.vpn.to_addr() <= u32::MAX as usize)
-                    .map(|x| x.vpn.to_addr())
-                    .max()
-                    .unwrap_or(acc)
-            })
-            + PAGE_SIZE;
+                if acc > x.start + x.len {
+                    acc
+                } else {
+                    x.start + x.len
+                }
+            });
         let shm_last = self.pcb.lock().shms.iter().fold(0, |acc, v| {
             if v.start + v.size > acc {
                 v.start + v.size

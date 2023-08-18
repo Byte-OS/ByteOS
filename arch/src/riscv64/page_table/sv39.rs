@@ -122,31 +122,30 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {
     pub fn new(addr: PhysAddr) -> Self {
         let page_table = Self(addr);
-        let arr = page_table.get_pte_list();
-
-        // map kernel addr
-        // 0xffffffc0_00000000 -> 0x00000000 (1G)
-        // 0xffffffc0_40000000 -> 0x40000000 (1G)
-        // 0xffffffc0_80000000 -> 0x80000000 (1G)
-        // 0xffffffc1_00000000 -> trx_mapping (1G)
-        // 0xffffffc1_80000000 -> 0x80000000 (1G)
-        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
-        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
-        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
-        arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
-        arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
+        page_table.restore();
         page_table
     }
 
     #[inline]
     pub fn from_ppn(ppn: PhysPage) -> Self {
         Self::new(PhysAddr(ppn.0 << 12))
+    }
+
+    #[inline]
+    pub fn restore(&self) {
+        let arr = self.get_pte_list();
+        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
+        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
+        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
+        arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
+        arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
+        arr[0..0x100].fill(PTE::from_addr(0, PTEFlags::NONE));
     }
 
     #[inline]
@@ -190,6 +189,25 @@ impl PageTable {
         }
 
         page_table.get_pte_list()[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags);
+        unsafe {
+            sfence_vma(vpn.to_addr(), 0);
+        }
+    }
+
+    #[inline]
+    pub fn unmap(&self, vpn: VirtPage) {
+        // TODO: Add huge page support.
+        let mut page_table = PageTable(self.0);
+        for i in (1..3).rev() {
+            let value = (vpn.0 >> 9 * i) & 0x1ff;
+            let pte = &mut page_table.get_pte_list()[value];
+            if !pte.is_valid() {
+                return;
+            }
+            page_table = PageTable(pte.to_ppn().into());
+        }
+
+        page_table.get_pte_list()[vpn.0 & 0x1ff] = PTE::new();
         unsafe {
             sfence_vma(vpn.to_addr(), 0);
         }

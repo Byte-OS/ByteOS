@@ -3,7 +3,7 @@ use alloc::sync::Arc;
 use arch::{
     get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, PhysPage, VirtPage,
 };
-use executor::{AsyncTask, MemType, UserTask};
+use executor::{AsyncTask, MapTrack, MemType, UserTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
@@ -31,44 +31,90 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     );
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
-    let finded = pcb
+    let area = pcb
         .memset
         .iter_mut()
-        .rev()
-        .filter(|x| x.mtype != MemType::Shared)
-        .find_map(|mem_area| {
-            mem_area
-                .mtrackers
-                .iter_mut()
-                // .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
-                .find(|x| x.vpn == vpn)
-        });
-
-    match finded {
-        Some(map_track) => {
-            // tips: this finded will consume a strong count.
-            debug!("strong count: {}", Arc::strong_count(&map_track.tracker));
-            if Arc::strong_count(&map_track.tracker) > 1 {
-                let src_ppn = map_track.tracker.0;
-                let dst_ppn = frame_alloc().expect("can't alloc @ user page fault");
-                dst_ppn.0.copy_value_from_another(src_ppn);
-                map_track.tracker = Arc::new(dst_ppn);
-                task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
-            } else {
-                task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
+        .filter(|x| x.mtype != MemType::PTE)
+        .find(|x| x.contains(addr));
+    if let Some(area) = area {
+        let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
+        let ppn = match finded {
+            Some(map_track) => {
+                if area.mtype == executor::MemType::Shared {
+                    task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+                    return;
+                }
+                // tips: this finded will consume a strong count.
+                debug!("strong count: {}", Arc::strong_count(&map_track.tracker));
+                if Arc::strong_count(&map_track.tracker) > 1 {
+                    let src_ppn = map_track.tracker.0;
+                    let dst_ppn = frame_alloc().expect("can't alloc @ user page fault");
+                    dst_ppn.0.copy_value_from_another(src_ppn);
+                    map_track.tracker = Arc::new(dst_ppn);
+                }
+                map_track.tracker.0
             }
-        }
-        None => {
-            drop(pcb);
-            if (0x7ff00000..0x7ffff000).contains(&addr) {
-                task.frame_alloc(vpn, MemType::Stack, 1);
-            } else {
-                // warn!("task exit with page fault, its context: {:#X?}", cx_ref);
-                // task.exit_with_signal(SignalFlags::SIGABRT.num());
-                task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+            None => {
+                let tracker = Arc::new(frame_alloc().expect("can't alloc frame in cow_fork_int"));
+                let mtracker = MapTrack {
+                    vpn,
+                    tracker,
+                    rwx: 0b111,
+                };
+                // mtracker.tracker.0.get_buffer().fill(0);
+                let offset = vpn.to_addr() + area.offset - area.start;
+                if let Some(file) = &area.file {
+                    file.readat(offset, mtracker.tracker.0.get_buffer())
+                        .expect("can't read file in cow_fork_int");
+                }
+                let ppn = mtracker.tracker.0;
+                area.mtrackers.push(mtracker);
+                ppn
             }
-        }
+        };
+        drop(pcb);
+        task.map(ppn, vpn, PTEFlags::UVRWX);
+    } else {
+        task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
     }
+
+    // let finded = pcb
+    //     .memset
+    //     .iter_mut()
+    //     .rev()
+    //     .filter(|x| x.mtype != executor::MemType::Shared)
+    //     .find_map(|mem_area| {
+    //         mem_area
+    //             .mtrackers
+    //             .iter_mut()
+    //             // .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
+    //             .find(|x| x.vpn == vpn)
+    //     });
+
+    // match finded {
+    //     Some(map_track) => {
+    //         // tips: this finded will consume a strong count.
+    //         debug!("strong count: {}", Arc::strong_count(&map_track.tracker));
+    //         if Arc::strong_count(&map_track.tracker) > 1 {
+    //             let src_ppn = map_track.tracker.0;
+    //             let dst_ppn = frame_alloc().expect("can't alloc @ user page fault");
+    //             dst_ppn.0.copy_value_from_another(src_ppn);
+    //             map_track.tracker = Arc::new(dst_ppn);
+    //         }
+    //         task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
+    //         // hexdump(map_track.tracker.0.get_buffer(), vpn.to_addr());
+    //     }
+    //     None => {
+    //         drop(pcb);
+    //         if (0x7ff00000..0x7ffff000).contains(&addr) {
+    //             task.frame_alloc(vpn, executor::MemType::Stack, 1);
+    //         } else {
+    //             // warn!("task exit with page fault, its context: {:#X?}", cx_ref);
+    //             // task.exit_with_signal(SignalFlags::SIGABRT.num());
+    //             task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+    //         }
+    //     }
+    // }
 }
 
 /// Handle user interrupt.
@@ -154,7 +200,9 @@ pub async fn handle_user_interrupt(
             //     .add_signal(SignalFlags::SIGSEGV);
             // return UserTaskControlFlow::Break;
         }
-        arch::TrapType::StorePageFault(addr) | arch::TrapType::InstructionPageFault(addr) => {
+        arch::TrapType::StorePageFault(addr)
+        | arch::TrapType::InstructionPageFault(addr)
+        | arch::TrapType::LoadPageFault(addr) => {
             debug!("store page fault");
             user_cow_int(task.clone(), cx_ref, addr)
         }
