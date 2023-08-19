@@ -34,7 +34,7 @@ pub async fn sys_brk(addr: isize) -> Result<usize, LinuxError> {
 
 pub async fn sys_mmap(
     start: usize,
-    len: usize,
+    mut len: usize,
     prot: usize,
     flags: usize,
     fd: usize,
@@ -43,6 +43,7 @@ pub async fn sys_mmap(
     let flags = MapFlags::from_bits_truncate(flags as _);
     let prot = MmapProt::from_bits_truncate(prot as _);
     let task = current_user_task();
+    len = ceil_div(len, PAGE_SIZE) * PAGE_SIZE;
     debug!(
         "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
         task.get_task_id(), start, len, prot, flags, fd as isize, off

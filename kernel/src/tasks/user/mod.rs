@@ -23,10 +23,11 @@ pub mod signal;
 pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
-        "store/instruction page fault @ {:#x} vpn: {} ppn: {} task_id: {}",
+        "store/instruction page fault @ {:#x} vpn: {} ppn: {} flags: {:?} task_id: {}",
         addr,
         vpn,
         task.page_table.virt_to_phys(addr.into()),
+        task.page_table.virt_flags(addr.into()),
         task.get_task_id()
     );
     // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
@@ -163,10 +164,11 @@ pub async fn handle_user_interrupt(
         arch::TrapType::IllegalInstruction(addr) => {
             let vpn = VirtPage::from_addr(addr);
             warn!(
-                "store/instruction page fault @ {:#x} vpn: {} flags: {:?}",
+                "store/instruction page fault @ {:#x} vpn: {} ppn: {} flags: {:?}",
                 addr,
                 vpn,
-                task.page_table.virt_flags(cx_ref.sepc().into())
+                task.page_table.virt_to_phys(addr.into()),
+                task.page_table.virt_flags(addr.into())
             );
             warn!("the fault occurs @ {:#x}", cx_ref.sepc());
             // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
