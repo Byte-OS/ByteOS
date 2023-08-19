@@ -69,7 +69,7 @@ impl PTE {
 
     #[inline]
     pub const fn is_valid(&self) -> bool {
-        self.flags().contains(PTEFlags::V)
+        self.flags().contains(PTEFlags::V) && self.0 > u8::MAX as usize
     }
 
     /// 判断是否是大页
