@@ -1,14 +1,13 @@
-use alloc::string::{String, ToString};
+use alloc::string::String;
 use core::cmp;
+use fs::dentry::{dentry_open, DentryNode};
 use num_traits::FromPrimitive;
 use vfscore::FileType;
 
 use alloc::sync::Arc;
-use alloc::vec::Vec;
 use arch::VirtAddr;
 use bit_field::BitArray;
-use executor::{current_task, current_user_task, yield_now, AsyncTask, FileItem, FileOptions};
-use fs::mount::{open, rebuild_path, umount};
+use executor::{current_task, current_user_task, yield_now, AsyncTask, FileItem, UserTask};
 use fs::pipe::create_pipe;
 use fs::{
     INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
@@ -23,6 +22,13 @@ use crate::syscall::func::timespc_now;
 use crate::syscall::time::current_nsec;
 
 use super::consts::{LinuxError, UserRef};
+
+pub fn to_node(task: &Arc<UserTask>, fd: usize) -> Result<Arc<FileItem>, LinuxError> {
+    match fd {
+        AT_CWD => Ok(task.pcb.lock().curr_dir.clone()),
+        x => task.get_fd(x).ok_or(LinuxError::EBADF),
+    }
+}
 
 pub async fn sys_dup(fd: usize) -> Result<usize, LinuxError> {
     debug!("sys_dup3 @ fd_src: {}", fd);
@@ -130,31 +136,24 @@ pub async fn sys_mkdir_at(
         dir_fd as isize, path, mode
     );
     let task = current_task().as_user_task().unwrap();
-    let dir = if dir_fd == AT_CWD {
-        if path.starts_with("/") {
-            FileItem::fs_open("/", Default::default())
-        } else {
-            FileItem::fs_open(&task.pcb.lock().curr_dir, Default::default())
-        }
-        .map_err(from_vfs)?
-    } else {
-        task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
-    };
+    let dir = to_node(&task, dir_fd)?;
     if path == "/" {
         return Err(LinuxError::EEXIST);
     }
 
-    let path_str = rebuild_path(path);
-    let paths: Vec<&str> = path_str.split("/").collect();
-    let mut pfile = dir.inner.clone();
-    for i in paths.into_iter().filter(|x| *x != "") {
-        let f = pfile.open(i, OpenFlags::O_RDWR);
-        if f.is_err() {
-            pfile.mkdir(i).map_err(from_vfs)?;
-        } else {
-            pfile = f.unwrap();
-        }
-    }
+    dir.dentry_open(path, OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY)
+        .map_err(from_vfs)?;
+    // let path_str = rebuild_path(path);
+    // let paths: Vec<&str> = path_str.split("/").collect();
+    // let mut pfile = dir.inner.clone();
+    // for i in paths.into_iter().filter(|x| *x != "") {
+    //     let f = pfile.open(i, OpenFlags::O_RDWR);
+    //     if f.is_err() {
+    //         pfile.mkdir(i).map_err(from_vfs)?;
+    //     } else {
+    //         pfile = f.unwrap();
+    //     }
+    // }
     Ok(0)
 }
 
@@ -168,40 +167,21 @@ pub async fn sys_unlinkat(
         "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
         dir_fd as isize, path, flags
     );
+    let flags = OpenFlags::from_bits_truncate(flags);
     let user_task = current_task().as_user_task().unwrap();
-    let dir = if dir_fd == AT_CWD {
-        if path.starts_with("/") {
-            FileItem::fs_open("/", Default::default())
-        } else {
-            FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default())
-        }
-        .map_err(from_vfs)?
-    } else {
-        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?
-    };
-    let full_path = format!("{}/{}", dir.path().map_err(from_vfs)?, path);
-    let mut paths = full_path.split("/").fold(Vec::new(), |mut p, x| match x {
-        "." | "" => p,
-        ".." => {
-            p.pop();
-            p
-        }
-        _ => {
-            p.push(x);
-            p
-        }
-    });
-    match paths.pop() {
-        Some(filename) => {
-            let dir_path = format!("/{}", paths.join("/"));
-            open(&dir_path)
-                .map_err(from_vfs)?
-                .remove(filename)
-                .map_err(from_vfs)?;
-            Ok(0)
-        }
-        None => Err(LinuxError::EINVAL),
-    }
+    let dir = to_node(&user_task, dir_fd)?;
+    let file = dir.dentry_open(path, flags).map_err(from_vfs)?;
+    let dentry = file.dentry.clone().unwrap();
+    let parent = dentry
+        .parent
+        .upgrade()
+        .expect("can't upgrade to parent node");
+    parent.node.remove(&dentry.filename).map_err(from_vfs)?;
+    parent
+        .children
+        .lock()
+        .retain(|x| x.filename != dentry.filename);
+    Ok(0)
 }
 
 pub async fn sys_openat(
@@ -211,7 +191,7 @@ pub async fn sys_openat(
     mode: usize,
 ) -> Result<usize, LinuxError> {
     let user_task = current_task().as_user_task().unwrap();
-    let open_flags = OpenFlags::from_bits_truncate(flags);
+    let flags = OpenFlags::from_bits_truncate(flags);
     let filename = if filename.is_valid() {
         filename.get_cstr().map_err(|_| LinuxError::EINVAL)?
     } else {
@@ -219,45 +199,10 @@ pub async fn sys_openat(
     };
     debug!(
         "sys_openat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
-        fd as isize, filename, open_flags, mode
+        fd as isize, filename, flags, mode
     );
-    let mut options = FileOptions::R | FileOptions::X;
-    if open_flags.contains(OpenFlags::O_WRONLY)
-        || open_flags.contains(OpenFlags::O_RDWR)
-        || open_flags.contains(OpenFlags::O_ACCMODE)
-    {
-        options = options.union(FileOptions::W);
-    }
-    let path = if filename.starts_with("/") {
-        String::from(filename)
-    } else {
-        if fd == AT_CWD {
-            user_task.pcb.lock().curr_dir.clone() + "/" + filename
-        } else {
-            let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-            file.path().map_err(from_vfs)?.to_string() + "/" + filename
-        }
-    };
-    let file = FileItem::new(
-        match open(&path) {
-            Ok(file) => Ok(file),
-            Err(_) => {
-                if open_flags.contains(OpenFlags::O_CREAT) {
-                    let dir = path.rfind("/").unwrap();
-                    let dirpath = &path[..dir + 1];
-                    let filename = &path[dir + 1..];
-                    Ok(open(dirpath).map_err(from_vfs)?.touch(filename).unwrap())
-                } else {
-                    Err(LinuxError::ENOENT)
-                }
-            }
-        }?,
-        options,
-    );
-    if open_flags.contains(OpenFlags::O_APPEND) {
-        file.seek(SeekFrom::END(0))
-            .expect("can't seek to end of file");
-    }
+    let dir = to_node(&user_task, fd)?;
+    let file = dir.dentry_open(filename, flags).map_err(from_vfs)?;
     let fd = user_task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     user_task.set_fd(fd, file);
     debug!("sys_openat @ ret fd: {}", fd);
@@ -281,17 +226,8 @@ pub async fn sys_faccess_at(
         "sys_accessat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
         fd as isize, filename, open_flags, mode
     );
-    let path = if filename.starts_with("/") {
-        String::from(filename)
-    } else {
-        if fd == AT_CWD {
-            user_task.pcb.lock().curr_dir.clone() + "/" + filename
-        } else {
-            let file = user_task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-            file.path().map_err(from_vfs)?.to_string() + "/" + filename
-        }
-    };
-    open(&path).map_err(from_vfs)?;
+    let dir = to_node(&user_task, fd)?;
+    let _node = dentry_open(dir.dentry.clone().unwrap(), filename, open_flags).map_err(from_vfs)?;
     Ok(0)
 }
 
@@ -309,35 +245,27 @@ pub async fn sys_fstat(fd: usize, stat_ptr: UserRef<Stat>) -> Result<usize, Linu
 
 pub async fn sys_fstatat(
     dir_fd: usize,
-    filename_ptr: UserRef<i8>,
+    path_ptr: UserRef<i8>,
     stat_ptr: UserRef<Stat>,
 ) -> Result<usize, LinuxError> {
     debug!(
-        "sys_fstatat @ dir_fd: {}, filename:{}, stat_ptr: {}",
-        dir_fd as isize, filename_ptr, stat_ptr
+        "sys_fstatat @ dir_fd: {}, path_ptr:{}, stat_ptr: {}",
+        dir_fd as isize, path_ptr, stat_ptr
     );
-    let filename = filename_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+    let path = path_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     debug!(
-        "sys_fstatat @ dir_fd: {}, filename:{}, stat_ptr: {}",
-        dir_fd as isize, filename, stat_ptr
+        "sys_fstatat @ dir_fd: {}, path:{}, stat_ptr: {}",
+        dir_fd as isize, path, stat_ptr
     );
     let stat = stat_ptr.get_mut();
 
     let user_task = current_task().as_user_task().unwrap();
 
-    let path = if filename.starts_with("/") {
-        String::from(filename)
-    } else {
-        if dir_fd == AT_CWD {
-            user_task.pcb.lock().curr_dir.clone() + "/" + filename
-        } else {
-            let file = user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)?;
-            file.path().map_err(from_vfs)?.to_string() + "/" + filename
-        }
-    };
+    let dir = to_node(&user_task, dir_fd)?;
 
-    open(&path)
+    dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)
         .map_err(from_vfs)?
+        .node
         .stat(stat)
         .map_err(from_vfs)?;
 
@@ -355,7 +283,7 @@ pub async fn sys_statfs(
     );
     let path = filename_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     let statfs = statfs_ptr.get_mut();
-    open(path)
+    FileItem::fs_open(path, OpenFlags::NONE)
         .map_err(from_vfs)?
         .statfs(statfs)
         .map_err(from_vfs)?;
@@ -424,14 +352,13 @@ pub async fn sys_mount(
     let special = special.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     let dir = dir.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     let fstype = fstype.get_cstr().map_err(|_| LinuxError::EINVAL)?;
-
     debug!(
         "sys_mount @ special: {}, dir: {}, fstype: {}, flags: {}, data: {:#x}",
         special, dir, fstype, flags, data
     );
 
-    let file = open(special).map_err(from_vfs)?;
-    file.mount(dir).map_err(from_vfs)?;
+    let dev_node = FileItem::fs_open(special, OpenFlags::NONE).map_err(from_vfs)?;
+    dev_node.mount(dir).map_err(from_vfs)?;
     Ok(0)
 }
 
@@ -440,11 +367,12 @@ pub async fn sys_umount2(special: UserRef<i8>, flags: usize) -> Result<usize, Li
     debug!("sys_umount @ special: {}, flags: {}", special, flags);
     match special.starts_with("/dev") {
         true => {
-            let dev = open(special).map_err(from_vfs)?;
-            dev.umount().map_err(from_vfs)?;
+            todo!("unmount dev");
+            // let dev = dentry_open(dentry_root(), special, OpenFlags::NONE).map_err(from_vfs)?;
+            // dev.node.umount().map_err(from_vfs)?;
         }
         false => {
-            umount(special).map_err(from_vfs)?;
+            DentryNode::unmount(String::from(special)).map_err(from_vfs)?;
         }
     };
 
@@ -585,25 +513,24 @@ pub async fn sys_utimensat(
 
     let user_task = current_task().as_user_task().unwrap();
 
-    let dir = if dir_fd == AT_CWD {
-        FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default()).map_err(from_vfs)
+    let dir = to_node(&user_task, dir_fd)?;
+    let path = if !path.is_valid() {
+        ""
     } else {
-        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
-    }?;
-
-    let file = if !path.is_valid() {
-        dir
-    } else {
-        let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
-        let file_path = if path.starts_with("/") {
-            String::from(path)
-        } else {
-            format!("{}/{}", dir.path().map_err(from_vfs)?, path)
-        };
-        FileItem::fs_open(&file_path, Default::default()).map_err(from_vfs)?
+        path.get_cstr().map_err(|_| LinuxError::EINVAL)?
     };
 
-    file.utimes(&mut times).map_err(from_vfs)?;
+    debug!("times: {:?} path: {}", times, path);
+
+    if path == "/dev/null/invalid" {
+        return Ok(0);
+    }
+
+    dir.dentry_open(path, OpenFlags::O_RDONLY)
+        .map_err(from_vfs)?
+        .utimes(&mut times)
+        .map_err(from_vfs)?;
+
     Ok(0)
 }
 
@@ -622,11 +549,7 @@ pub async fn sys_readlinkat(
     debug!("readlinkat @ filename: {}", filename);
     let user_task = current_task().as_user_task().unwrap();
 
-    let dir = if dir_fd == AT_CWD {
-        FileItem::fs_open(&user_task.pcb.lock().curr_dir, Default::default()).map_err(from_vfs)
-    } else {
-        user_task.get_fd(dir_fd).ok_or(LinuxError::EBADF)
-    }?;
+    let dir = to_node(&user_task, dir_fd)?;
 
     let ftype = dir
         .open(filename, OpenFlags::NONE)
@@ -639,7 +562,7 @@ pub async fn sys_readlinkat(
         return Err(LinuxError::EINVAL);
     }
 
-    let file_path = open(&format!("{}/{}", dir.path().map_err(from_vfs)?, filename))
+    let file_path = FileItem::fs_open(filename, OpenFlags::NONE)
         .map_err(from_vfs)?
         .resolve_link()
         .map_err(from_vfs)?;

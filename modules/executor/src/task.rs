@@ -16,6 +16,7 @@ use log::{debug, warn};
 use signal::REAL_TIME_SIGNAL_NUM;
 pub use signal::{SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard, RwLock};
+use vfscore::OpenFlags;
 
 use crate::{
     filetable::{rlimits_new, FileItem, FileTable},
@@ -73,7 +74,7 @@ impl AsyncTask for KernelTask {
 pub struct ProcessControlBlock {
     pub memset: MemSet,
     pub fd_table: FileTable,
-    pub curr_dir: String,
+    pub curr_dir: Arc<FileItem>,
     pub heap: usize,
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
@@ -141,7 +142,8 @@ impl UserTask {
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: String::from("/tmp_home/"),
+            curr_dir: FileItem::fs_open("/tmp_home", OpenFlags::all())
+                .expect("dont' have the home dir"),
             heap: 0,
             children: Vec::new(),
             entry: 0,

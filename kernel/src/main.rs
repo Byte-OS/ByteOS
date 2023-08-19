@@ -20,14 +20,16 @@ mod modules;
 mod panic;
 mod socket;
 mod syscall;
-mod task_cache;
 mod tasks;
 
 use arch::enable_irq;
 use devices;
+use executor::FileItem;
 use frame_allocator;
+use fs::get_filesystem;
 use hal;
 use kalloc;
+use vfscore::{INodeInterface, OpenFlags};
 
 use crate::{syscall::cache_task_template, tasks::kernel::kernel_interrupt};
 
@@ -75,6 +77,36 @@ fn main(hart_id: usize, device_tree: usize) {
     // initialize filesystem
     fs::init();
 
+    {
+        // let cache_file = vec!["busybox", "entry-static.exe", "runtest.exe"];
+        let rootfs = get_filesystem(0).root_dir();
+        let tmpfs =
+            FileItem::fs_open("/tmp_home", OpenFlags::O_DIRECTORY).expect("can't open /tmp_home");
+        for file in rootfs.read_dir().expect("can't read files") {
+            tmpfs
+                .link(
+                    &file.filename,
+                    rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
+                )
+                .expect("can't link file to tmpfs");
+        }
+
+        FileItem::fs_open("/var", OpenFlags::O_DIRECTORY)
+            .expect("can't open /var")
+            .mkdir("tmp")
+            .expect("can't create tmp dir");
+
+        // Initialize the Dentry node.
+        // dentry::dentry_init(rootfs);
+        // mount::open("/bin")
+        //     .expect("can't open /bin")
+        //     .link(
+        //         "sleep",
+        //         mount::open("busybox").expect("not hava busybox file"),
+        //     )
+        //     .expect("can't link busybox to /bin/sleep");
+    }
+
     // enable interrupts
     enable_irq();
 
@@ -85,6 +117,7 @@ fn main(hart_id: usize, device_tree: usize) {
     cache_task_template("./runtest.exe").expect("can't cache task");
     cache_task_template("entry-static.exe").expect("can't cache task");
     cache_task_template("libc.so").expect("can't cache task");
+    cache_task_template("lmbench_all").expect("can't cache task");
 
     // init kernel threads and async executor
     tasks::init();
