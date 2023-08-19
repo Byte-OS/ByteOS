@@ -98,13 +98,16 @@ fn main(hart_id: usize, device_tree: usize) {
 
         // Initialize the Dentry node.
         // dentry::dentry_init(rootfs);
-        // mount::open("/bin")
-        //     .expect("can't open /bin")
-        //     .link(
-        //         "sleep",
-        //         mount::open("busybox").expect("not hava busybox file"),
-        //     )
-        //     .expect("can't link busybox to /bin/sleep");
+        FileItem::fs_open("/bin", OpenFlags::O_DIRECTORY)
+            .expect("can't open /bin")
+            .link(
+                "sleep",
+                FileItem::fs_open("busybox", OpenFlags::NONE)
+                    .expect("not hava busybox file")
+                    .inner
+                    .clone(),
+            )
+            .expect("can't link busybox to /bin/sleep");
     }
 
     // enable interrupts
