@@ -11,17 +11,18 @@ use arch::{time_to_usec, ContextOps, PTEFlags, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{
-    current_task, current_user_task, select, yield_now, AsyncTask, FileItem, FileOptions, MapTrack,
-    MemArea, MemType, UserTask, TASK_QUEUE,
+    current_task, current_user_task, select, yield_now, AsyncTask, FileItem, MapTrack, MemArea,
+    MemType, UserTask, TASK_QUEUE,
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
-use fs::mount::open;
+use fs::dentry::{dentry_open, dentry_root, DentryNode};
 use fs::TimeSpec;
 use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
 use num_traits::FromPrimitive;
 use signal::SignalFlags;
 use sync::Mutex;
+use vfscore::{INodeInterface, OpenFlags};
 use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError, UserRef};
@@ -29,16 +30,15 @@ use super::consts::{FutexFlags, LinuxError, UserRef};
 pub async fn sys_chdir(path_ptr: UserRef<i8>) -> Result<usize, LinuxError> {
     let path = path_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
     debug!("sys_chdir @ path: {}", path);
-    // check folder exists
-    let dir = open(path).map_err(from_vfs)?;
-    match dir.metadata().unwrap().file_type {
+    let task = current_user_task();
+    let now_file = task.pcb.lock().curr_dir.clone();
+    let new_dir = now_file
+        .dentry_open(path, OpenFlags::O_DIRECTORY)
+        .map_err(from_vfs)?;
+
+    match new_dir.metadata().unwrap().file_type {
         fs::FileType::Directory => {
-            let user_task = current_task().as_user_task().unwrap();
-            let mut inner = user_task.pcb.lock();
-            match path.starts_with("/") {
-                true => inner.curr_dir = String::from(path),
-                false => inner.curr_dir += path,
-            }
+            task.pcb.lock().curr_dir = new_dir;
             Ok(0)
         }
         _ => Err(LinuxError::ENOTDIR),
@@ -49,7 +49,7 @@ pub async fn sys_getcwd(buf_ptr: UserRef<u8>, size: usize) -> Result<usize, Linu
     debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
     let buffer = buf_ptr.slice_mut_with_len(size);
     let curr_path = current_user_task().pcb.lock().curr_dir.clone();
-    let bytes = curr_path.as_bytes();
+    let bytes = curr_path.path().map_err(from_vfs)?.as_bytes();
     let len = cmp::min(bytes.len(), size);
     buffer[..len].copy_from_slice(&bytes[..len]);
     Ok(buf_ptr.into())
@@ -106,7 +106,7 @@ pub async fn sys_execve(
         ctask.exit(0);
         return Ok(0);
     }
-    let _exec_file = FileItem::fs_open(filename, FileOptions::default()).map_err(from_vfs)?;
+    let _exec_file = FileItem::fs_open(filename, OpenFlags::O_RDONLY).map_err(from_vfs)?;
     exec_with_process(task.clone(), filename, args).await?;
     task.before_run();
     Ok(0)
@@ -126,7 +126,10 @@ pub struct TaskCacheTemplate {
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
 pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
-    let file = open(path).map_err(from_vfs)?;
+    let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)
+        .map_err(from_vfs)?
+        .node
+        .clone();
     let file_size = file.metadata().unwrap().size;
     let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
     let buffer = unsafe {
@@ -298,7 +301,9 @@ pub async fn exec_with_process<'a>(
         Ok(user_task)
     } else {
         drop(caches);
-        let file = open(&path).map_err(from_vfs)?;
+        let file = dentry_open(dentry_root(), &path, OpenFlags::O_RDONLY).map_err(from_vfs)?;
+        let file = file.node.clone();
+        debug!("file: {:#x?}", file.metadata().unwrap());
         let file_size = file.metadata().unwrap().size;
         let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
         let buffer = unsafe {

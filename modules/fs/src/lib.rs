@@ -1,6 +1,7 @@
 #![no_std]
 #![feature(drain_filter)]
 #![feature(associated_type_bounds)]
+#![feature(let_chains)]
 
 use core::{
     future::Future,
@@ -16,13 +17,15 @@ use alloc::{
 };
 use devfs::{DevDir, DevFS, Sdx};
 use devices::get_blk_devices;
-use mount::umount;
 use procfs::ProcFS;
 use ramfs::RamFs;
 use sync::LazyInit;
 use vfscore::{FileSystem, VfsResult};
 
-use crate::{fatfs_shim::Fat32FileSystem, mount::mount};
+use crate::{
+    dentry::{dentry_init, DentryNode},
+    fatfs_shim::Fat32FileSystem,
+};
 
 #[macro_use]
 extern crate alloc;
@@ -32,7 +35,6 @@ extern crate logging;
 mod cache;
 pub mod dentry;
 mod fatfs_shim;
-pub mod mount;
 pub mod pipe;
 
 pub type File = Arc<dyn INodeInterface>;
@@ -50,8 +52,10 @@ pub fn build_devfs(filesystems: &Vec<(Arc<dyn FileSystem>, &str)>) -> Arc<DevFS>
         .map(|(i, _x)| {
             Arc::new(Sdx::new(
                 i,
-                |fs_id, path| mount(String::from(path), fs_id),
-                |_fs_id, path| umount(path),
+                |fs_id, path| {
+                    DentryNode::mount(String::from(path), get_filesystem(fs_id).root_dir())
+                },
+                |_fs_id, path| DentryNode::unmount(String::from(path)),
             ))
         })
         .collect();
@@ -92,7 +96,8 @@ pub fn init() {
         // let fs = &filesystems[0].0;
         // let rootfs = filesystems[0].0.root_dir();
         let rootfs = get_filesystem(0).root_dir();
-        rootfs.mkdir("dev").expect("can't create devfs dir");
+        let dev = rootfs.mkdir("dev").expect("can't create devfs dir");
+        dev.mkdir("shm").expect("can't create shm dir");
         rootfs.mkdir("tmp").expect("can't create tmp dir");
         // rootfs.mkdir("lib").expect("can't create lib dir");
         rootfs.mkdir("tmp_home").expect("can't create tmp_home dir");
@@ -101,33 +106,13 @@ pub fn init() {
         rootfs.mkdir("bin").expect("can't create var dir");
     }
     for (i, (_, mount_point)) in filesystems.iter().enumerate() {
-        mount(mount_point.to_string(), i).expect(&format!("can't mount fs_{i} {mount_point}"));
-    }
-    {
-        // let cache_file = vec!["busybox", "entry-static.exe", "runtest.exe"];
-        let rootfs = get_filesystem(0).root_dir();
-        let tmpfs = mount::open("/tmp_home").expect("can't open /tmp_home");
-        for file in rootfs.read_dir().expect("can't read files") {
-            tmpfs
-                .link(
-                    &file.filename,
-                    rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
-                )
-                .expect("can't link file to tmpfs");
+        // mount(mount_point.to_string(), i).expect(&format!("can't mount fs_{i} {mount_point}"));
+        if *mount_point == "/" {
+            dentry_init(get_filesystem(i).root_dir())
+        } else {
+            DentryNode::mount(mount_point.to_string(), get_filesystem(i).root_dir())
+                .expect(&format!("can't mount fs_{i} {mount_point}"));
         }
-
-        mount::open("/var")
-            .expect("can't open /var")
-            .mkdir("tmp")
-            .expect("can't create tmp dir");
-
-        // mount::open("/bin")
-        //     .expect("can't open /bin")
-        //     .link(
-        //         "sleep",
-        //         mount::open("busybox").expect("not hava busybox file"),
-        //     )
-        //     .expect("can't link busybox to /bin/sleep");
     }
     cache::init();
 }

@@ -7,7 +7,7 @@ use alloc::{
 };
 use devfs::Tty;
 use fs::{
-    mount::{open, rebuild_path},
+    dentry::{self, dentry_open, dentry_root, DentryNode},
     INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite,
 };
 use sync::Mutex;
@@ -24,10 +24,7 @@ pub struct FileTable(pub Vec<Option<Arc<FileItem>>>);
 impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<Arc<FileItem>>> = vec![FD_NONE; FILE_MAX];
-        file_table[..3].fill(Some(FileItem::new(
-            Arc::new(Tty::new()),
-            Default::default(),
-        )));
+        file_table[..3].fill(Some(FileItem::new_dev(Arc::new(Tty::new()))));
         Self(file_table)
     }
 }
@@ -59,6 +56,8 @@ bitflags! {
         const R = 1;
         const W = 1 << 1;
         const X = 1 << 3;
+        /// Create file.
+        const C = 1 << 4;
     }
 }
 
@@ -71,17 +70,23 @@ impl Default for FileOptions {
 pub struct FileItem {
     pub path: String,
     pub inner: Arc<dyn INodeInterface>,
+    pub dentry: Option<Arc<DentryNode>>,
     pub options: FileOptions,
     pub offset: Mutex<usize>,
     pub flags: Mutex<OpenFlags>,
 }
 
 impl<'a> FileItem {
-    pub fn new(inner: Arc<dyn INodeInterface>, options: FileOptions) -> Arc<Self> {
+    pub fn new(
+        inner: Arc<dyn INodeInterface>,
+        dentry: Option<Arc<DentryNode>>,
+        options: FileOptions,
+    ) -> Arc<Self> {
         Arc::new(Self {
             path: String::new(),
             inner,
             options,
+            dentry,
             offset: Mutex::new(0),
             flags: Mutex::new(OpenFlags::NONE),
         })
@@ -92,6 +97,7 @@ impl<'a> FileItem {
             path: String::new(),
             inner,
             offset: Mutex::new(0),
+            dentry: None,
             options: FileOptions::default(),
             flags: Mutex::new(OpenFlags::NONE),
         })
@@ -101,14 +107,34 @@ impl<'a> FileItem {
         self.inner.clone()
     }
 
-    pub fn fs_open(path: &str, options: FileOptions) -> Result<Arc<Self>, VfsError> {
+    pub fn fs_open(path: &str, open_flags: OpenFlags) -> Result<Arc<Self>, VfsError> {
+        let mut options = FileOptions::R | FileOptions::X;
+        if open_flags.contains(OpenFlags::O_WRONLY)
+            || open_flags.contains(OpenFlags::O_RDWR)
+            || open_flags.contains(OpenFlags::O_ACCMODE)
+        {
+            options = options.union(FileOptions::W);
+        }
+        let dentry_node = dentry::dentry_open(dentry_root(), path, OpenFlags::NONE)?;
+        let offset = if open_flags.contains(OpenFlags::O_APPEND) {
+            dentry_node.node.metadata()?.size
+        } else {
+            0
+        };
         Ok(Arc::new(Self {
             path: path.to_string(),
-            inner: open(path)?,
+            inner: dentry_node.node.clone(),
             options,
-            offset: Mutex::new(0),
-            flags: Mutex::new(OpenFlags::NONE),
+            dentry: Some(dentry_node),
+            offset: Mutex::new(offset),
+            flags: Mutex::new(open_flags),
         }))
+    }
+
+    pub fn dentry_open(&self, path: &str, flags: OpenFlags) -> Result<Arc<Self>, VfsError> {
+        assert!(self.dentry.is_some());
+        dentry_open(self.dentry.clone().unwrap(), path, flags)
+            .map(|x| FileItem::new(x.node.clone(), Some(x), FileOptions::all()))
     }
 
     #[inline(always)]
@@ -163,13 +189,8 @@ impl INodeInterface for FileItem {
         self.inner.lookup(name)
     }
 
-    fn open(&self, name: &str, _flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
-        let new_path = if name.len() > 0 && name.starts_with("/") {
-            name.to_string()
-        } else {
-            self.path.clone() + "/" + &rebuild_path(name)
-        };
-        open(&new_path)
+    fn open(&self, name: &str, flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
+        self.inner.open(name, flags)
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> Result<usize, VfsError> {

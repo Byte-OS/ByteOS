@@ -7,7 +7,10 @@ use alloc::{
 use arch::{console_getchar, console_putchar, switch_to_kernel_page_table};
 use executor::{current_task, yield_now, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
-use fs::{mount::open, File, FileType, OpenFlags};
+use fs::{
+    dentry::{dentry_open, dentry_root, DentryNode},
+    File, FileType, OpenFlags,
+};
 use log::debug;
 
 use crate::tasks::add_user_task;
@@ -125,7 +128,7 @@ async fn file_command(cmd: &str) {
         true => String::from(filename),
         false => String::from("/") + filename,
     };
-    match open(&filename) {
+    match dentry_open(dentry_root(), &filename, OpenFlags::O_RDONLY) {
         Ok(_) => {
             info!("exec: {}", filename);
             let mut args_extend = vec![filename.as_str()];
@@ -160,7 +163,13 @@ pub async fn command(cmd: &str) -> bool {
     match cmd.trim() {
         "" => {}
         "help" => help(),
-        "ls" => list_files(open("/").expect("can't find mount point at ."), 0),
+        "ls" => list_files(
+            dentry_open(dentry_root(), "/", OpenFlags::O_DIRECTORY)
+                .expect("can't find mount point at .")
+                .node
+                .clone(),
+            0,
+        ),
         "clear" => clear(),
         "exit" => return true,
         "run_all" => return run_all().await,
@@ -250,6 +259,9 @@ pub async fn initproc() {
     command("busybox echo run time-test").await;
     command("time-test").await;
 
+    command("busybox echo run netperf_testcode.sh").await;
+    command("busybox sh netperf_testcode.sh").await;
+
     command("busybox echo run busybox_testcode.sh").await;
     command("busybox sh busybox_testcode.sh").await;
 
@@ -265,9 +277,6 @@ pub async fn initproc() {
 
     command("libc-bench").await;
 
-    command("busybox echo run netperf_testcode.sh").await;
-    command("busybox sh netperf_testcode.sh").await;
-
     command("busybox echo run iperf_testcode.sh").await;
     command("busybox sh iperf_testcode.sh").await;
     kill_all_tasks().await;
@@ -282,14 +291,15 @@ pub async fn initproc() {
     command("busybox sh unixbench_testcode.sh").await;
 
     // command("cyclictest -a -i 1000 -t1 -n -p99 -D 1s -q").await;
-
+    // command("busybox mkdir test_dir").await;
+    // command("busybox mv test_dir test").await;
     // command("./runtest.exe -w entry-static.exe pthread_cancel_points").await;
     // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
     // command("./runtest.exe -w entry-static.exe pthread_condattr_setclock").await;
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
     // command("./runtest.exe -w entry-dynamic.exe tls_init").await;
-    // command("./runtest.exe -w entry-dynamic.exe fgetwc_buffering").await;
-    // command("./runtest.exe -w entry-static.exe pthread_cond").await;
+    // command("./runtest.exe -w entry-dynamic.exe pthread_cancel_points").await;
+    // command("./runtest.exe -w entry-static.exe utime").await;
     // command("./runtest.exe -w entry-static.exe clocale_mbfuncs").await;
     // command("./looper 2 ./multi.sh 1").await;
     // command("busybox sh ./multi.sh 1").await;
