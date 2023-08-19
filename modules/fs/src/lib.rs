@@ -84,7 +84,7 @@ pub fn init() {
     filesystems.push((RamFs::new(), "/tmp_home"));
     filesystems.push((RamFs::new(), "/var"));
     filesystems.push((ProcFS::new(), "/proc"));
-    // filesystems.push((RamFs::new(), "/bin"));
+    filesystems.push((RamFs::new(), "/bin"));
 
     // mount to FILESYSTEMS
     FILESYSTEMS.init_by(filesystems.iter().map(|(fs, _)| fs.clone()).collect());
