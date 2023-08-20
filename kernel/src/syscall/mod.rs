@@ -17,28 +17,28 @@ use log::warn;
 use self::{
     consts::{
         LinuxError, SYS_ACCEPT, SYS_ACCEPT4, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLOCK_GETRES,
-        SYS_CLOCK_NANOSLEEP, SYS_CLONE, SYS_CLOSE, SYS_CONNECT, SYS_DUP, SYS_DUP3,
-        SYS_EPOLL_CREATE, SYS_EPOLL_CTL, SYS_EPOLL_WAIT, SYS_EXECVE, SYS_EXIT, SYS_EXIT_GROUP,
-        SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT, SYS_FSYNC, SYS_FTRUNCATE,
-        SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID, SYS_GETGID, SYS_GETPEERNAME,
-        SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE, SYS_GETSOCKNAME, SYS_GETSOCKOPT,
-        SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL,
-        SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT,
-        SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT, SYS_PIPE2, SYS_PPOLL,
-        SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ, SYS_READLINKAT, SYS_READV,
-        SYS_RECVFROM, SYS_SCHED_GETPARAM, SYS_SCHED_SETSCHEDULER, SYS_SCHED_YIELD, SYS_SENDFILE,
-        SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SETSID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS,
-        SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN, SYS_SIGACTION, SYS_SIGPROCMASK,
-        SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_SOCKETPAIR, SYS_STATFS,
-        SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT,
-        SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_CLOCK_NANOSLEEP, SYS_CLONE, SYS_CLOSE, SYS_CONNECT, SYS_COPY_FILE_RANGE, SYS_DUP,
+        SYS_DUP3, SYS_EPOLL_CREATE, SYS_EPOLL_CTL, SYS_EPOLL_WAIT, SYS_EXECVE, SYS_EXIT,
+        SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT,
+        SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID,
+        SYS_GETGID, SYS_GETPEERNAME, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRUSAGE,
+        SYS_GETSOCKNAME, SYS_GETSOCKOPT, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY, SYS_GETUID,
+        SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK, SYS_MKDIRAT,
+        SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP, SYS_OPENAT,
+        SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE, SYS_READ,
+        SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_GETPARAM, SYS_SCHED_SETSCHEDULER,
+        SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO, SYS_SETITIMER, SYS_SETPGID, SYS_SETSID,
+        SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN,
+        SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT,
+        SYS_SOCKET, SYS_SOCKETPAIR, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
     },
     fd::{
-        sys_close, sys_dup, sys_dup3, sys_epoll_create1, sys_epoll_ctl, sys_epoll_wait,
-        sys_faccess_at, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate, sys_getdents64,
-        sys_ioctl, sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2, sys_ppoll, sys_pread,
-        sys_pselect, sys_pwrite, sys_read, sys_readlinkat, sys_readv, sys_sendfile, sys_statfs,
-        sys_umount2, sys_unlinkat, sys_utimensat, sys_write, sys_writev,
+        sys_close, sys_copy_file_range, sys_dup, sys_dup3, sys_epoll_create1, sys_epoll_ctl,
+        sys_epoll_wait, sys_faccess_at, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
+        sys_getdents64, sys_ioctl, sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2,
+        sys_ppoll, sys_pread, sys_pselect, sys_pwrite, sys_read, sys_readlinkat, sys_readv,
+        sys_sendfile, sys_statfs, sys_umount2, sys_unlinkat, sys_utimensat, sys_write, sys_writev,
     },
     mm::{sys_brk, sys_mmap, sys_mprotect, sys_msync, sys_munmap},
     shm::{sys_shmat, sys_shmctl, sys_shmget},
@@ -281,6 +281,17 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
                 args[2] as _,
                 args[3] as _,
                 args[4] as _,
+            )
+            .await
+        }
+        SYS_COPY_FILE_RANGE => {
+            sys_copy_file_range(
+                args[0] as _,
+                args[1].into(),
+                args[2] as _,
+                args[3].into(),
+                args[4],
+                args[5] as _,
             )
             .await
         }

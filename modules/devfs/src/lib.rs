@@ -68,6 +68,7 @@ impl DevDir {
         map.insert("stdout", Arc::new(Tty::new()));
         map.insert("stderr", Arc::new(Tty::new()));
         map.insert("stdin", Arc::new(Tty::new()));
+        map.insert("ttyv0", Arc::new(Tty::new()));
         map.insert("null", Arc::new(null::Null));
         map.insert("zero", Arc::new(zero::Zero));
         map.insert("shm", Arc::new(shm::Shm));

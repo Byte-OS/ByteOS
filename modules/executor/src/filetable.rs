@@ -24,7 +24,9 @@ pub struct FileTable(pub Vec<Option<Arc<FileItem>>>);
 impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<Arc<FileItem>>> = vec![FD_NONE; FILE_MAX];
-        file_table[..3].fill(Some(FileItem::new_dev(Arc::new(Tty::new()))));
+        file_table[..3].fill(Some(
+            FileItem::fs_open("/dev/ttyv0", OpenFlags::NONE).expect("can't read tty file"),
+        ));
         Self(file_table)
     }
 }
@@ -158,6 +160,9 @@ impl INodeInterface for FileItem {
 
     fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, VfsError> {
         self.check_writeable()?;
+        if buffer.len() == 0 {
+            return Ok(0);
+        }
         self.inner.writeat(offset, buffer)
     }
 
@@ -199,6 +204,10 @@ impl INodeInterface for FileItem {
 
     fn truncate(&self, size: usize) -> Result<(), VfsError> {
         // self.check_writeable()?;
+        // let mut offset = self.offset.lock();
+        // if *offset > size {
+        //     *offset = size;
+        // }
         self.inner.truncate(size)
     }
 
@@ -264,6 +273,9 @@ impl FileItem {
 
     pub fn write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
         self.check_writeable()?;
+        if buffer.len() == 0 {
+            return Ok(0);
+        }
         let offset = *self.offset.lock();
         self.inner.writeat(offset, buffer).map(|x| {
             *self.offset.lock() += x;
@@ -286,6 +298,9 @@ impl FileItem {
 
     pub async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
         // self.check_writeable()?;
+        if buffer.len() == 0 {
+            return Ok(0);
+        }
         let offset = *self.offset.lock();
         WaitBlockingWrite(self.inner.clone(), &buffer, offset)
             .await
