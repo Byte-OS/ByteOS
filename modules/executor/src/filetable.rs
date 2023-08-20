@@ -5,7 +5,6 @@ use alloc::{
     sync::Arc,
     vec::Vec,
 };
-use devfs::Tty;
 use fs::{
     dentry::{self, dentry_open, dentry_root, DentryNode},
     INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite,
@@ -25,7 +24,7 @@ impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<Arc<FileItem>>> = vec![FD_NONE; FILE_MAX];
         file_table[..3].fill(Some(
-            FileItem::fs_open("/dev/ttyv0", OpenFlags::NONE).expect("can't read tty file"),
+            FileItem::fs_open("/dev/ttyv0", OpenFlags::O_RDWR).expect("can't read tty file"),
         ));
         Self(file_table)
     }
