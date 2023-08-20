@@ -8,6 +8,9 @@
 #![feature(const_slice_from_raw_parts_mut)]
 
 #[macro_use]
+extern crate alloc;
+
+#[macro_use]
 extern crate log;
 
 #[cfg(target_arch = "riscv64")]

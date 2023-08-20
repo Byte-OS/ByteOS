@@ -2,12 +2,14 @@
 
 extern crate alloc;
 
+mod interrupts;
 mod meminfo;
 mod mounts;
 
 use core::mem::size_of;
 
 use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
+use interrupts::Interrupts;
 use meminfo::MemInfo;
 use mounts::Mounts;
 use sync::Mutex;
@@ -49,6 +51,7 @@ impl ProcDir {
         let mut map: BTreeMap<&str, Arc<dyn INodeInterface>> = BTreeMap::new();
         map.insert("mounts", Arc::new(Mounts::new()));
         map.insert("meminfo", Arc::new(MemInfo::new()));
+        map.insert("interrupts", Arc::new(Interrupts::new()));
         Arc::new(ProcDir { map })
     }
 }
