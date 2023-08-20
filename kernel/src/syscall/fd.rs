@@ -435,11 +435,11 @@ pub async fn sys_ioctl(
         arg2,
         arg3
     );
-    // task.get_fd(fd)
-    //     .ok_or(LinuxError::EINVAL)?
-    //     .ioctl(request, arg1)
-    //     .map_err(from_vfs)
-    Err(LinuxError::EPERM)
+    task.get_fd(fd)
+        .ok_or(LinuxError::EINVAL)?
+        .ioctl(request, arg1)
+        .map_err(from_vfs)
+    // Err(LinuxError::EPERM)
 }
 
 pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
