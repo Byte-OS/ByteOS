@@ -13,7 +13,7 @@ impl Interrupts {
 }
 
 impl INodeInterface for Interrupts {
-    fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
+    fn readat(&self, offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut str = String::new();
         for (irq, times) in get_int_records().iter().enumerate() {
             if *times == 0 {
@@ -23,8 +23,8 @@ impl INodeInterface for Interrupts {
         }
         log::error!("{}", str);
         let bytes = str.as_bytes();
-        let rsize = cmp::min(bytes.len(), buffer.len());
-        buffer[..rsize].copy_from_slice(&bytes[..rsize]);
+        let rsize = cmp::min(bytes.len() - offset, buffer.len());
+        buffer[..rsize].copy_from_slice(&bytes[offset..offset + rsize]);
         Ok(rsize)
     }
 

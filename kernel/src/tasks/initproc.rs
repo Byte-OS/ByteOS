@@ -295,7 +295,7 @@ pub async fn initproc() {
     command("copy-file-range-test-3").await;
     command("copy-file-range-test-4").await;
     command("interrupts-test-1").await;
-    // command("interrupts-test-2").await;
+    command("interrupts-test-2").await;
 
     // command("cyclictest -a -i 1000 -t1 -n -p99 -D 1s -q").await;
     // command("busybox mkdir test_dir").await;
