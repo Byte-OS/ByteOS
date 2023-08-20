@@ -428,7 +428,9 @@ impl INodeInterface for RamFile {
         if size % PAGE_SIZE != 0 {
             let page = size / PAGE_SIZE;
             let offset = size % PAGE_SIZE;
-            page_cont[page].0.get_buffer()[offset..].fill(0);
+            if let Some(page) = page_cont.get(page) {
+                page.0.get_buffer()[offset..].fill(0);
+            }
         }
 
         for _ in pages..target_pages {
