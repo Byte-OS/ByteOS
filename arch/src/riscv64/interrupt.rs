@@ -1,5 +1,6 @@
 use core::arch::{asm, global_asm};
 
+use alloc::vec::Vec;
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
     sstatus, stval,
@@ -50,6 +51,24 @@ pub fn init_interrupt() {
     timer::init();
 }
 
+static mut INT_RECORDS: Vec<usize> = Vec::new();
+
+pub fn add_irq(irq: usize) {
+    unsafe {
+        while INT_RECORDS.len() < 256 {
+            INT_RECORDS.push(0);
+        }
+        INT_RECORDS[irq] += 1;
+    }
+}
+
+pub fn get_int_records() -> Vec<usize> {
+    // INT_RECORDS.lock().clone()
+    unsafe {
+        INT_RECORDS.clone()
+    }
+}
+
 // 内核中断回调
 #[no_mangle]
 fn kernel_callback(context: &mut Context) -> usize {
@@ -78,6 +97,7 @@ fn kernel_callback(context: &mut Context) -> usize {
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             timer::set_next_timeout();
+            add_irq(5);
             TrapType::Time
         }
         Trap::Exception(Exception::UserEnvCall) => {
@@ -140,6 +160,7 @@ pub fn trap_pre_handle(context: &mut Context) -> TrapType {
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             timer::set_next_timeout();
+            add_irq(5);
             TrapType::Time
         }
         Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
