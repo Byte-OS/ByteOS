@@ -21,7 +21,6 @@ impl INodeInterface for Interrupts {
             }
             str += &format!("{}: {}\r\n", irq, *times);
         }
-        log::error!("{}", str);
         let bytes = str.as_bytes();
         let rsize = cmp::min(bytes.len() - offset, buffer.len());
         buffer[..rsize].copy_from_slice(&bytes[offset..offset + rsize]);
