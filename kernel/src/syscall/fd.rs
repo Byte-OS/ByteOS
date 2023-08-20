@@ -262,13 +262,11 @@ pub async fn sys_fstatat(
     let user_task = current_task().as_user_task().unwrap();
 
     let dir = to_node(&user_task, dir_fd)?;
-
     dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)
         .map_err(from_vfs)?
         .node
         .stat(stat)
         .map_err(from_vfs)?;
-
     stat.mode |= StatMode::OWNER_MASK | StatMode::GROUP_MASK | StatMode::OTHER_MASK;
     Ok(0)
 }
@@ -437,10 +435,11 @@ pub async fn sys_ioctl(
         arg2,
         arg3
     );
-    task.get_fd(fd)
-        .ok_or(LinuxError::EINVAL)?
-        .ioctl(request, arg1)
-        .map_err(from_vfs)
+    // task.get_fd(fd)
+    //     .ok_or(LinuxError::EINVAL)?
+    //     .ioctl(request, arg1)
+    //     .map_err(from_vfs)
+    Err(LinuxError::EPERM)
 }
 
 pub async fn sys_fcntl(fd: usize, cmd: usize, arg: usize) -> Result<usize, LinuxError> {
@@ -868,4 +867,46 @@ pub async fn sys_epoll_wait(
     };
 
     Ok(n)
+}
+
+pub async fn sys_copy_file_range(
+    fd_in: usize,
+    off_in: UserRef<usize>,
+    fd_out: usize,
+    off_out: UserRef<usize>,
+    len: usize,
+    flags: usize,
+) -> Result<usize, LinuxError> {
+    assert_eq!(flags, 0);
+    let task = current_user_task();
+    debug!(
+        "sys_copy_file_range @ fd_in: {}, off_in: {}, fd_out: {}, off_out: {}, len: {}",
+        fd_in, off_in, fd_out, off_out, len
+    );
+    let in_file = task.get_fd(fd_in).ok_or(LinuxError::EBADF)?;
+    let out_file = task.get_fd(fd_out).ok_or(LinuxError::EBADF)?;
+    let mut buffer = vec![0u8; len];
+    let rsize = if off_in.is_valid() {
+        let rsize = in_file
+            .readat(*off_in.get_ref(), &mut buffer)
+            .map_err(from_vfs)?;
+        *off_in.get_mut() += rsize;
+        rsize
+    } else {
+        in_file.read(&mut buffer).map_err(from_vfs)?
+    };
+
+    if rsize == 0 {
+        return Ok(0);
+    }
+
+    if off_out.is_valid() {
+        *off_out.get_mut() += out_file
+            .writeat(*off_out.get_ref(), &mut buffer[..rsize])
+            .map_err(from_vfs)?;
+    } else {
+        out_file.write(&buffer[..rsize]).map_err(from_vfs)?;
+    }
+
+    Ok(rsize)
 }

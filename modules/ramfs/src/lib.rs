@@ -341,9 +341,9 @@ impl INodeInterface for RamFile {
     fn readat(&self, mut offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut buffer_off = 0;
         // let file_size = self.inner.content.lock().len();
+        log::debug!("read ramfs: offset: {} len: {}", offset, buffer.len());
         let file_size = *self.inner.len.lock();
         let inner = self.inner.pages.lock();
-
         match offset >= file_size {
             true => Ok(0),
             false => {
@@ -413,9 +413,23 @@ impl INodeInterface for RamFile {
         // self.inner.content.lock().drain(size..);
         *self.inner.len.lock() = size;
 
+        log::debug!("truncate ramfs:{} insize: {}", size, self.inner.len.lock());
+
         let mut page_cont = self.inner.pages.lock();
         let pages = page_cont.len();
         let target_pages = ceil_div(size, PAGE_SIZE);
+
+        let curr_page = ceil_div(size, PAGE_SIZE);
+        page_cont
+            .iter()
+            .skip(curr_page)
+            .for_each(|x| x.0.drop_clear());
+
+        if size % PAGE_SIZE != 0 {
+            let page = size / PAGE_SIZE;
+            let offset = size % PAGE_SIZE;
+            page_cont[page].0.get_buffer()[offset..].fill(0);
+        }
 
         for _ in pages..target_pages {
             page_cont.push(frame_alloc().expect("can't alloc frame in ram fs"));
@@ -436,6 +450,7 @@ impl INodeInterface for RamFile {
     }
 
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
+        log::debug!("stat ramfs");
         // stat.ino = 1; // TODO: convert path to number(ino)
         if self.inner.name.ends_with(".s") {
             stat.ino = 2; // TODO: convert path to number(ino)

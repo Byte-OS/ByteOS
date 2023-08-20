@@ -290,6 +290,12 @@ pub async fn initproc() {
     command("busybox echo run unixbench_testcode.sh").await;
     command("busybox sh unixbench_testcode.sh").await;
 
+    command("copy-file-range-test-1").await;
+    command("copy-file-range-test-2").await;
+    command("copy-file-range-test-3").await;
+    // command("interrupts-test-1").await;
+    // command("interrupts-test-2").await;
+
     // command("cyclictest -a -i 1000 -t1 -n -p99 -D 1s -q").await;
     // command("busybox mkdir test_dir").await;
     // command("busybox mv test_dir test").await;

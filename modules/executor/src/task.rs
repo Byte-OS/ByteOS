@@ -3,7 +3,6 @@ use core::{future::Future, mem::size_of, ops::Add};
 use alloc::{
     boxed::Box,
     collections::BTreeMap,
-    string::String,
     sync::{Arc, Weak},
     vec::Vec,
 };
