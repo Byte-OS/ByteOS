@@ -1,7 +1,8 @@
 use alloc::{sync::Arc, vec::Vec};
-use executor::{current_task, thread, AsyncTask, Executor, KernelTask, TaskId, UserTask};
+use devices::NET_DEVICES;
+use executor::{current_task, thread, AsyncTask, Executor, KernelTask, TaskId, UserTask, yield_now, TASK_QUEUE};
 
-use crate::syscall::exec_with_process;
+use crate::syscall::{exec_with_process, NET_SERVER};
 
 use self::{initproc::initproc, user::entry::user_entry};
 
@@ -56,6 +57,18 @@ pub fn hexdump(data: &[u8], mut start_addr: usize) {
 
 #[allow(dead_code)]
 pub async fn handle_net() {
+    let mut buffer = vec![0u8; 2048];
+    // #[cfg(feature = "net")]
+    loop {
+        if TASK_QUEUE.lock().len() == 0 {
+            break;
+        }
+        let res = NET_DEVICES.lock()[0].recv(&mut buffer);
+        if let Ok(rlen) = res {
+            NET_SERVER.analysis_net_data(&buffer[..rlen]);
+        }
+        yield_now().await;
+    }
     // let lose_stack = LoseStack::new(
     //     IPv4::new(10, 0, 2, 15),
     //     MacAddress::new([0x52, 0x54, 0x00, 0x12, 0x34, 0x56]),
@@ -203,12 +216,12 @@ pub fn init() {
     exec.run();
 }
 
-pub async fn add_user_task(filename: &str, args: Vec<&str>, _envp: Vec<&str>) -> TaskId {
+pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> TaskId {
     let curr_task = current_task();
     let task = UserTask::new(user_entry(), Arc::downgrade(&current_task()));
 
     task.before_run();
-    exec_with_process(task.clone(), filename, args)
+    exec_with_process(task.clone(), filename, args, envp)
         .await
         .expect("can't add task to excutor");
     thread::spawn(task.clone());

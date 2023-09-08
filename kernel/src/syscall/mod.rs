@@ -31,7 +31,7 @@ use self::{
         SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL, SYS_SHMGET, SYS_SHUTDOWN,
         SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND, SYS_SIGTIMEDWAIT,
         SYS_SOCKET, SYS_SOCKETPAIR, SYS_STATFS, SYS_SYSINFO, SYS_TIMES, SYS_TKILL, SYS_UMOUNT2,
-        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV,
+        SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE, SYS_WRITEV, SYS_GETRANDOM,
     },
     fd::{
         sys_close, sys_copy_file_range, sys_dup, sys_dup3, sys_epoll_create1, sys_epoll_ctl,
@@ -50,7 +50,7 @@ use self::{
     },
     sys::{
         sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getuid, sys_info, sys_klogctl,
-        sys_prlimit64, sys_sched_getparam, sys_sched_setscheduler, sys_setpgid, sys_uname,
+        sys_prlimit64, sys_sched_getparam, sys_sched_setscheduler, sys_setpgid, sys_uname, sys_getrandom,
     },
     task::{
         sys_chdir, sys_clone, sys_execve, sys_exit, sys_exit_group, sys_futex, sys_getcwd,
@@ -205,7 +205,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
         SYS_BIND => sys_bind(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
         SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_ACCEPT4 => sys_accept4(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
+        SYS_ACCEPT4 => sys_accept4(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
         SYS_CONNECT => sys_connect(args[0] as _, args[1].into(), args[2] as _).await,
         SYS_RECVFROM => {
             sys_recvfrom(
@@ -295,6 +295,7 @@ pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxE
             )
             .await
         }
+        SYS_GETRANDOM => sys_getrandom(args[0].into(), args[1] as _, args[2] as _).await,
         122 => {
             log::debug!("sys_getaffinity() ");
             Ok(0)

@@ -31,7 +31,7 @@ pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {
     // SIG_ERR = -1, SIG_DEF(default) = 0, SIG_IGN = 1(ignore)
     if sigaction.handler == 0 {
         match signal {
-            SignalFlags::SIGCANCEL | SignalFlags::SIGSEGV => {
+            SignalFlags::SIGCANCEL | SignalFlags::SIGSEGV | SignalFlags::SIGILL => {
                 current_user_task().exit_with_signal(signal.num());
             }
             _ => {}

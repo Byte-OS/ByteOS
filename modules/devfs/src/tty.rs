@@ -30,7 +30,6 @@ impl Tty {
 impl INodeInterface for Tty {
     fn readat(&self, _offset: usize, buffer: &mut [u8]) -> vfscore::VfsResult<usize> {
         assert!(buffer.len() > 0);
-        let mut c = console_getchar() as u8;
         let mut self_buffer = self.buffer.lock();
         if self_buffer.len() > 0 {
             let rlen = cmp::min(buffer.len(), self_buffer.len());
@@ -39,14 +38,19 @@ impl INodeInterface for Tty {
             }
             Ok(rlen)
         } else {
-            loop {
-                if c != (-1 as i8 as u8) {
-                    break;
-                }
-                c = console_getchar() as u8;
+            let c = console_getchar() as u8;
+            if c != (-1 as i8 as u8) {
+                buffer[0] = c as u8;
+                Ok(1)
+            } else {
+                Err(VfsError::Blocking)
             }
-            buffer[0] = c as u8;
-            Ok(1)
+            // loop {
+            //     if c != (-1 as i8 as u8) {
+            //         break;
+            //     }
+            //     c = console_getchar() as u8;
+            // }
         }
     }
 
@@ -90,50 +94,48 @@ impl INodeInterface for Tty {
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> VfsResult<usize> {
-        // debug!("command: {} arg: {:#x}", command, arg);
-        // let cmd = FromPrimitive::from_usize(command).ok_or(VfsError::InvalidInput)?;
-        // debug!("command: {:?}", cmd);
-        // match cmd {
-        //     TeletypeCommand::TCGETS | TeletypeCommand::TCGETA => {
-        //         unsafe {
-        //             (arg as *mut Termios).write_volatile(*self.termios.lock());
-        //         }
-        //         Ok(0)
-        //     }
-        //     TeletypeCommand::TCSETS | TeletypeCommand::TCSETSW | TeletypeCommand::TCSETSF => {
-        //         // copy_from_user(token, argp as *const Termios, &mut inner.termios);
-        //         unsafe { *self.termios.lock() = *(arg as *mut Termios).as_mut().unwrap() }
-        //         Ok(0)
-        //     }
-        //     TeletypeCommand::TIOCGPGRP => match unsafe { (arg as *mut u32).as_mut() } {
-        //         Some(pgid) => {
-        //             *pgid = *self.pgid.lock();
-        //             Ok(0)
-        //         }
-        //         None => Err(VfsError::InvalidInput),
-        //     },
-        //     TeletypeCommand::TIOCSPGRP => match unsafe { (arg as *mut u32).as_mut() } {
-        //         Some(pgid) => {
-        //             *self.pgid.lock() = *pgid;
-        //             Ok(0)
-        //         }
-        //         None => Err(VfsError::InvalidInput),
-        //     },
-        //     TeletypeCommand::TIOCGWINSZ => {
-        //         unsafe {
-        //             *(arg as *mut WinSize).as_mut().unwrap() = *self.winsize.lock();
-        //         }
-        //         Ok(0)
-        //     }
-        //     TeletypeCommand::TIOCSWINSZ => {
-        //         unsafe {
-        //             *self.winsize.lock() = *(arg as *mut WinSize).as_mut().unwrap();
-        //         }
-        //         Ok(0)
-        //     }
-        //     _ => Err(vfscore::VfsError::NotSupported),
-        // }
-        Err(VfsError::NotSupported)
+        let cmd = FromPrimitive::from_usize(command).ok_or(VfsError::InvalidInput)?;
+        match cmd {
+            TeletypeCommand::TCGETS | TeletypeCommand::TCGETA => {
+                unsafe {
+                    (arg as *mut Termios).write_volatile(*self.termios.lock());
+                }
+                Ok(0)
+            }
+            TeletypeCommand::TCSETS | TeletypeCommand::TCSETSW | TeletypeCommand::TCSETSF => {
+                // copy_from_user(token, argp as *const Termios, &mut inner.termios);
+                unsafe { *self.termios.lock() = *(arg as *mut Termios).as_mut().unwrap() }
+                Ok(0)
+            }
+            TeletypeCommand::TIOCGPGRP => match unsafe { (arg as *mut u32).as_mut() } {
+                Some(pgid) => {
+                    *pgid = *self.pgid.lock();
+                    Ok(0)
+                }
+                None => Err(VfsError::InvalidInput),
+            },
+            TeletypeCommand::TIOCSPGRP => match unsafe { (arg as *mut u32).as_mut() } {
+                Some(pgid) => {
+                    *self.pgid.lock() = *pgid;
+                    Ok(0)
+                }
+                None => Err(VfsError::InvalidInput),
+            },
+            TeletypeCommand::TIOCGWINSZ => {
+                unsafe {
+                    *(arg as *mut WinSize).as_mut().unwrap() = *self.winsize.lock();
+                }
+                Ok(0)
+            }
+            TeletypeCommand::TIOCSWINSZ => {
+                unsafe {
+                    *self.winsize.lock() = *(arg as *mut WinSize).as_mut().unwrap();
+                }
+                Ok(0)
+            }
+            _ => Err(vfscore::VfsError::NotSupported),
+        }
+        // Err(VfsError::NotSupported)
     }
 }
 

@@ -129,7 +129,7 @@ impl INodeInterface for RamDir {
             .iter()
             .find(|x| x.filename() == name)
             .map_or(Ok(()), |_| Err(VfsError::AlreadyExists))?;
-
+        log::info!("touch file: {}", name);
         let new_inner = Arc::new(RamFileInner {
             name: String::from(name),
             // content: Mutex::new(Vec::new()),
@@ -378,6 +378,7 @@ impl INodeInterface for RamFile {
     }
 
     fn writeat(&self, mut offset: usize, buffer: &[u8]) -> VfsResult<usize> {
+        log::info!("write to ramfs");
         let mut buffer_off = 0;
         let pages = ceil_div(offset + buffer.len(), PAGE_SIZE);
 
@@ -413,7 +414,7 @@ impl INodeInterface for RamFile {
         // self.inner.content.lock().drain(size..);
         *self.inner.len.lock() = size;
 
-        log::debug!("truncate ramfs:{} insize: {}", size, self.inner.len.lock());
+        log::info!("truncate ramfs:{} insize: {}", size, self.inner.len.lock());
 
         let mut page_cont = self.inner.pages.lock();
         let pages = page_cont.len();
@@ -496,5 +497,13 @@ impl INodeInterface for RamLink {
 
     fn readat(&self, offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         self.link_file.readat(offset, buffer)
+    }
+
+    fn writeat(&self, offset: usize, buffer: &[u8]) -> VfsResult<usize> {
+        self.link_file.writeat(offset, buffer)
+    }
+
+    fn truncate(&self, size: usize) -> VfsResult<()> {
+        self.link_file.truncate(size)
     }
 }

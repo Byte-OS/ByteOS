@@ -147,9 +147,9 @@ pub async fn handle_user_interrupt(
                 .map_or_else(|e| -e.code(), |x| x as isize) as usize;
 
             debug!(
-                "[task {}] syscall result: {:#X?}",
+                "[task {}] syscall result: {}",
                 task.get_task_id(),
-                result
+                result as isize
             );
 
             cx_ref.set_ret(result);
@@ -177,17 +177,8 @@ pub async fn handle_user_interrupt(
                 cx_ref.sepc(),
                 task.page_table.virt_to_phys(cx_ref.sepc().into())
             );
-            task.map(
-                PhysPage::from_addr(task.page_table.virt_to_phys(cx_ref.sepc().into()).addr()),
-                vpn,
-                PTEFlags::UVRWX.union(PTEFlags::G),
-            );
-            unsafe {
-                hexdump(
-                    core::slice::from_raw_parts_mut(vpn.to_addr() as _, 0x1000),
-                    vpn.to_addr(),
-                );
-            }
+
+            task_ilegal(&task, cx_ref.sepc(), cx_ref);
             // panic!("illegal Instruction")
             // let signal = task.tcb.read().signal.clone();
             // if signal.has_sig(SignalFlags::SIGSEGV) {
@@ -211,4 +202,39 @@ pub async fn handle_user_interrupt(
     }
     task.inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
     UserTaskControlFlow::Continue
+}
+
+pub fn task_ilegal(task: &Arc<UserTask>, addr: usize, cx_ref: &mut Context) {
+    let vpn = VirtPage::from_addr(addr);
+    let mut pcb = task.pcb.lock();
+    let area = pcb
+        .memset
+        .iter_mut()
+        .filter(|x| x.mtype != MemType::PTE)
+        .find(|x| x.contains(addr));
+    if let Some(area) = area {
+        let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
+        match finded {
+            Some(_) => {
+                cx_ref.set_sepc(cx_ref.sepc() + 2);
+            }
+            None => {
+                task.tcb.write().signal.add_signal(SignalFlags::SIGILL);
+                unsafe {
+                    hexdump(
+                        core::slice::from_raw_parts_mut(vpn.to_addr() as _, 0x1000),
+                        vpn.to_addr(),
+                    );
+                }
+            }
+        };
+    } else {
+        task.tcb.write().signal.add_signal(SignalFlags::SIGILL);
+        unsafe {
+            hexdump(
+                core::slice::from_raw_parts_mut(vpn.to_addr() as _, 0x1000),
+                vpn.to_addr(),
+            );
+        }
+    }
 }

@@ -55,7 +55,7 @@ impl FrameRegionMap {
     /// end_addr: usize 空闲页帧结束地址
     #[inline]
     pub fn new(start_addr: usize, end_addr: usize) -> Self {
-        let mut bits = vec![0usize; floor((end_addr - start_addr) / PAGE_SIZE, 64)];
+        let mut bits = vec![0usize; ceil_div((end_addr - start_addr) / PAGE_SIZE, 64)];
 
         // set non-exists memory bit as 1
         for i in (end_addr - start_addr) / PAGE_SIZE..bits.len() * 64 {

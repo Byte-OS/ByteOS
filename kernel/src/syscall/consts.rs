@@ -285,6 +285,7 @@ pub const SYS_MUNMAP: usize = 215;
 pub const SYS_ACCEPT4: usize = 242;
 pub const SYS_WAIT4: usize = 260;
 pub const SYS_PRLIMIT64: usize = 261;
+pub const SYS_GETRANDOM: usize = 278;
 pub const SYS_COPY_FILE_RANGE: usize = 285;
 pub const SYS_FACCESSAT2: usize = 439;
 

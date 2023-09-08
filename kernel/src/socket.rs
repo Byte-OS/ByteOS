@@ -1,6 +1,7 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
+use arch::console_putchar;
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
 use sync::Mutex;
@@ -38,6 +39,7 @@ pub struct Socket {
     pub net_type: NetType,
     pub inner: Arc<dyn SocketInterface>,
     pub options: Mutex<SocketOptions>,
+    pub buf: Mutex<Vec<u8>>
 }
 
 unsafe impl Sync for Socket {}
@@ -50,6 +52,7 @@ impl Drop for Socket {
         if !self.inner.is_closed().unwrap()
             && (Arc::strong_count(&self.inner) == 2 || Arc::strong_count(&self.inner) == 1)
         {
+            log::info!("drop socket");
             // self.inner.close().expect("cant close socket when droping socket in os.");
             let _ = self.inner.close();
         }
@@ -71,6 +74,7 @@ impl Socket {
             net_type,
             inner,
             options: Mutex::new(SocketOptions { wsize: 0, rsize: 0 }),
+            buf: Mutex::new(vec![])
         })
     }
 
@@ -92,6 +96,7 @@ impl Socket {
             net_type,
             inner,
             options: Mutex::new(SocketOptions { wsize: 0, rsize: 0 }),
+            buf: Mutex::new(vec![])
         })
     }
 
@@ -105,6 +110,7 @@ impl Socket {
                         net_type: self.net_type,
                         inner: socket_inner,
                         options: Mutex::new(self.options.lock().clone()),
+                        buf: Mutex::new(vec![])
                     }
                 } else {
                     unreachable!("can't reusetcp in blank tcp")
@@ -117,6 +123,7 @@ impl Socket {
                         net_type: self.net_type,
                         inner: socket_inner,
                         options: Mutex::new(self.options.lock().clone()),
+                        buf: Mutex::new(vec![])
                     }
                 } else {
                     unreachable!("can't reusetcp in blank udp")
@@ -139,15 +146,40 @@ impl INodeInterface for Socket {
     }
 
     fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
-        match self.inner.recv_from() {
-            Ok((data, _)) => {
-                let rlen = cmp::min(data.len(), buffer.len());
-                buffer[..rlen].copy_from_slice(&data[..rlen]);
-                self.options.lock().rsize += rlen;
-                Ok(rlen)
+        let mut data = self.buf.lock().clone();
+        // let rlen;
+        // if buf.len() > 0 {
+        //     rlen = cmp::min(buf.len(), buffer.len());
+        //     let 
+        // } else {
+        //     rlen = cmp::min(data.len(), buffer.len());
+        //     buffer[..rlen].copy_from_slice(&data[..rlen]);
+        //     self.options.lock().rsize += rlen;
+        //     if rlen < data.len() {
+                
+        //     }
+        // }
+        // Ok(rlen)
+        if data.len() == 0 {
+            match self.inner.recv_from() {
+                Ok((recv_data, _)) => {
+                    data = recv_data;
+                }
+                Err(_err) => return Err(vfscore::VfsError::Blocking),
             }
-            Err(_err) => Err(vfscore::VfsError::Blocking),
         }
+        let rlen = cmp::min(data.len(), buffer.len());
+        buffer[..rlen].copy_from_slice(&data[..rlen]);
+        self.options.lock().rsize += rlen;
+        if buffer.len() == 1 {
+            console_putchar(buffer[0]);
+        }
+        if rlen < data.len() {
+            *self.buf.lock() = data[rlen..].to_vec();
+        } else {
+            self.buf.lock().clear();
+        }
+        Ok(rlen)
     }
 
     fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
@@ -162,7 +194,7 @@ impl INodeInterface for Socket {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLOUT) && !self.inner.is_closed().unwrap() {
+        if events.contains(PollEvent::POLLOUT) && !self.inner.is_closed().unwrap() && self.inner.get_remote().is_ok() {
             res |= PollEvent::POLLOUT;
         }
         if self.inner.readable().unwrap() && events.contains(PollEvent::POLLIN) {

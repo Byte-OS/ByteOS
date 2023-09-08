@@ -256,46 +256,46 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
-    command("busybox echo run time-test").await;
-    command("time-test").await;
+    // command("busybox echo run time-test").await;
+    // command("time-test").await;
 
-    command("busybox echo run netperf_testcode.sh").await;
-    command("busybox sh netperf_testcode.sh").await;
+    // command("busybox echo run netperf_testcode.sh").await;
+    // command("busybox sh netperf_testcode.sh").await;
 
-    command("busybox echo run busybox_testcode.sh").await;
-    command("busybox sh busybox_testcode.sh").await;
+    // command("busybox echo run busybox_testcode.sh").await;
+    // command("busybox sh busybox_testcode.sh").await;
 
-    command("busybox echo run libctest_testcode.sh").await;
-    command("busybox sh libctest_testcode.sh").await;
+    // command("busybox echo run libctest_testcode.sh").await;
+    // command("busybox sh libctest_testcode.sh").await;
 
-    command("busybox echo run lua_testcode.sh").await;
-    command("busybox sh lua_testcode.sh").await;
+    // command("busybox echo run lua_testcode.sh").await;
+    // command("busybox sh lua_testcode.sh").await;
 
-    command("busybox echo run cyclic_testcode.sh").await;
-    command("busybox sh cyclictest_testcode.sh").await;
-    kill_all_tasks().await;
+    // command("busybox echo run cyclic_testcode.sh").await;
+    // command("busybox sh cyclictest_testcode.sh").await;
+    // kill_all_tasks().await;
 
-    command("libc-bench").await;
+    // command("libc-bench").await;
 
-    command("busybox echo run iperf_testcode.sh").await;
-    command("busybox sh iperf_testcode.sh").await;
-    kill_all_tasks().await;
+    // command("busybox echo run iperf_testcode.sh").await;
+    // command("busybox sh iperf_testcode.sh").await;
+    // kill_all_tasks().await;
 
-    command("busybox echo run iozone_testcode.sh").await;
-    command("busybox sh iozone_testcode.sh").await;
+    // command("busybox echo run iozone_testcode.sh").await;
+    // command("busybox sh iozone_testcode.sh").await;
 
-    command("busybox echo run lmbench_testcode.sh").await;
-    command("busybox sh lmbench_testcode.sh").await;
+    // command("busybox echo run lmbench_testcode.sh").await;
+    // command("busybox sh lmbench_testcode.sh").await;
 
-    command("busybox echo run unixbench_testcode.sh").await;
-    command("busybox sh unixbench_testcode.sh").await;
+    // command("busybox echo run unixbench_testcode.sh").await;
+    // command("busybox sh unixbench_testcode.sh").await;
 
-    command("copy-file-range-test-1").await;
-    command("copy-file-range-test-2").await;
-    command("copy-file-range-test-3").await;
-    command("copy-file-range-test-4").await;
-    command("interrupts-test-1").await;
-    command("interrupts-test-2").await;
+    // command("copy-file-range-test-1").await;
+    // command("copy-file-range-test-2").await;
+    // command("copy-file-range-test-3").await;
+    // command("copy-file-range-test-4").await;
+    // command("interrupts-test-1").await;
+    // command("interrupts-test-2").await;
 
     // command("cyclictest -a -i 1000 -t1 -n -p99 -D 1s -q").await;
     // command("busybox mkdir test_dir").await;
@@ -313,7 +313,13 @@ pub async fn initproc() {
     // command("busybox sh ./tst.sh ./sort.src").await;
     // command("entry-dynamic.exe pthread_cancel_points").await;
 
-    // command("bin/sh redis.sh").await;
+    command("busybox sh").await;
+    // command("cloudreve").await;
+    // command("miniftpd").await;
+    // command("/server_ftp.out").await;
+    // command("http_server").await;
+    // command("ssh-timeouts").await;
+    // command("sshd").await;
     // command("./redis-server /redis.conf --loglevel verbose").await;
     // command("redis-cli-static").await;
     // command("bin/sh").await;
@@ -321,7 +327,7 @@ pub async fn initproc() {
     // command("busybox sh").await;
     // command("/bin/riscv64-linux-musl-gcc main.c").await;
     // command("busybox cp /tmp_home/a.out /").await;
-    // command("/a.out").await;
+    // command("busybox sh -c ./a.out").await;
     // command("cloudreve").await;
     // command("ssh-simple").await;
     // command("usr/bin/tcc -run main.c").await;

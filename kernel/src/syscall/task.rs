@@ -49,9 +49,11 @@ pub async fn sys_getcwd(buf_ptr: UserRef<u8>, size: usize) -> Result<usize, Linu
     debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
     let buffer = buf_ptr.slice_mut_with_len(size);
     let curr_path = current_user_task().pcb.lock().curr_dir.clone();
-    let bytes = curr_path.path().map_err(from_vfs)?.as_bytes();
+    let path = curr_path.path().map_err(from_vfs)?;
+    let bytes = path.as_bytes();
     let len = cmp::min(bytes.len(), size);
     buffer[..len].copy_from_slice(&bytes[..len]);
+    buffer[len..].fill(0);
     Ok(buf_ptr.into())
 }
 
@@ -107,7 +109,7 @@ pub async fn sys_execve(
         return Ok(0);
     }
     let _exec_file = FileItem::fs_open(filename, OpenFlags::O_RDONLY).map_err(from_vfs)?;
-    exec_with_process(task.clone(), filename, args).await?;
+    exec_with_process(task.clone(), filename, args, envp).await?;
     task.before_run();
     Ok(0)
 }
@@ -263,6 +265,7 @@ pub async fn exec_with_process<'a>(
     task: Arc<dyn AsyncTask>,
     path: &'a str,
     args: Vec<&'a str>,
+    envp: Vec<&'a str>,
 ) -> Result<Arc<UserTask>, LinuxError> {
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
@@ -321,7 +324,7 @@ pub async fn exec_with_process<'a>(
         } else {
             let mut new_args = vec!["busybox", "sh"];
             args.iter().for_each(|x| new_args.push(x));
-            return exec_with_process(task, "busybox", new_args).await;
+            return exec_with_process(task, "busybox", new_args, envp).await;
         };
         let elf_header = elf.header;
 
@@ -345,7 +348,7 @@ pub async fn exec_with_process<'a>(
                 let lib_path = "libc.so";
                 let mut new_args = vec![lib_path, &path];
                 args[1..].iter().for_each(|x| new_args.push(x));
-                return exec_with_process(task, lib_path, new_args).await;
+                return exec_with_process(task, lib_path, new_args, envp).await;
             }
         }
 
