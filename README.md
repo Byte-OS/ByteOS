@@ -1,8 +1,10 @@
-# 河南科技大学-你说对不队
+# ByteOS
 
-## 内核 ByteOS
+**Due to time constraints, the project will be suspended until 2024**.
 
 ## Kernel struct Design
+
+> ByteOS is a posix-compatible kernel.
 
 ```plain
 crates --> arch --> modules --> kernel
@@ -21,26 +23,46 @@ crates --> arch --> modules --> kernel
 - [x] page mapping support
 - [x] get devices info and memory info from device_tree
 - [x] VIRTIO blk device support
-- [x] Add a banner for os. use tool [banner生成工具](http://patorjk.com/software/taag/#p=display&f=Big&t=ByteOS)
-- [x] vfs support, contains Inode
+- [x] Add a banner for os. use tool [banner generation tool](http://patorjk.com/software/taag/#p=display&f=Big&t=ByteOS)
+- [x] vfs support
 - [x] fatfs support
 - [x] fs mount support (a temporary solution)
 - [x] ramfs support
 - [x] devfs support
 - [x] async/await support (simple version)
 - [x] process support
-- [ ] syscalls [syscalls](./docs/step1-progress.md)
-- [ ] VIRTIO net device support
+- [x] VIRTIO net device support
 - [ ] smp support
 
-# 运行
+## Progrem support
 
-> 内含一个简单的 `shell`, 可以执行 `help`, `ls`, `clear`, `exit`, `brk`, `run_all` 命令或者执行 `elf` 文件
->
-> `brk` 是执行一个 `brk` 程序.
 
-```shell
-make run
+tools/final2023:
+
+- libctest
+- libcbench
+- busybox
+- lua
+- lmbench
+- iozone
+- iperf3
+- nerperf
+- cyclic
+- unixbench
+
+tools/gcc
+
+- gcc
+- redis-server
+- ssh-simple
+- http-server
+
+You can change the `TESTCASE` in the makefile to change the target. You can run other program in the sh or change the default program in the `kernel/src/tasks/initproc.rs` file.
+
+## run busybox sh on qemu platform
+
+```bash
+make run BOARD=qemu LOG=info NET=off
 ```
 
-![](./run.png)
+Changing 'LOG=info' to 'LOG=error' if you don't need any info output.
