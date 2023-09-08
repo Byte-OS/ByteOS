@@ -31,7 +31,7 @@ QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
 endif
 
 ifeq ($(NET), on)
-QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::2000-:2000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap \
+QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::6379-:6379,hostfwd=tcp::2222-:2222,hostfwd=tcp::2000-:2000,hostfwd=tcp::8487-:8487,hostfwd=tcp::5188-:5188,hostfwd=tcp::12000-:12000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap \
 	-device virtio-net-device,netdev=net0
 features += net
 endif
@@ -57,11 +57,11 @@ all:
 
 fs-img:
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=300
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=2000
 	mkfs.vfat -F 32 $(FS_IMG)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	rm -rf mount/*
-	-cp -rf tools/testcase-final2023/* mount/
+	-cp -rf tools/testcase-gcc/* mount/
 	sudo umount $(FS_IMG)
 
 build:

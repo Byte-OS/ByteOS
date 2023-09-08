@@ -130,3 +130,21 @@ pub async fn sys_sched_setscheduler(
 
     Ok(0)
 }
+
+pub async fn sys_getrandom(
+    buf: UserRef<u8>,
+    buf_len: usize,
+    flags: usize
+) -> Result<usize, LinuxError> {
+    debug!("sys_getrandom @ buf: {}, buf_len: {:#x}, flags: {:#x}", buf, buf_len, flags);
+    let buf = buf.slice_mut_with_len(buf_len);
+    static mut SEED: u64 = 0xdead_beef_cafe_babe;
+    for x in buf.iter_mut() {
+        unsafe {
+            // from musl
+            SEED = SEED.wrapping_mul(0x5851_f42d_4c95_7f2d);
+            *x = (SEED >> 33) as u8;
+        }
+    }
+    Ok(buf_len)
+}

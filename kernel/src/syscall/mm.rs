@@ -1,5 +1,6 @@
 use core::ops::Add;
 
+use arch::USER_ADDR_MAX;
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::current_task;
 use executor::current_user_task;
@@ -48,6 +49,9 @@ pub async fn sys_mmap(
         "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
         task.get_task_id(), start, len, prot, flags, fd as isize, off
     );
+    if start > USER_ADDR_MAX {
+        return Err(LinuxError::EINVAL);
+    }
     let file = task.get_fd(fd);
 
     let addr = task.get_last_free_addr();

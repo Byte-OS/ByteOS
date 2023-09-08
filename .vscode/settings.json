@@ -5,6 +5,7 @@
         "riscv64gc-unknown-none-elf"
     ],
     "files.associations": {
-        "*.in": "cpp"
+        "*.in": "cpp",
+        "fcntl.h": "c"
     }
 }

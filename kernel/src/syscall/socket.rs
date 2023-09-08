@@ -2,6 +2,7 @@ use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
+use devices::NET_DEVICES;
 use executor::{current_user_task, yield_now, AsyncTask, FileItem};
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
@@ -23,9 +24,9 @@ type Socket = socket::Socket;
 pub struct NetMod;
 
 impl NetInterface for NetMod {
-    fn send(_data: &[u8]) {
-        debug!("do nothing");
-        // NET.lock().as_mut().unwrap().send(data);
+    fn send(data: &[u8]) {
+        // debug!("do nothing");
+        NET_DEVICES.lock()[0].send(data);
     }
 
     fn local_mac_address() -> MacAddress {
@@ -472,14 +473,14 @@ pub async fn sys_shutdown(socket_fd: usize, how: usize) -> Result<usize, LinuxEr
 
 pub async fn sys_accept4(
     socket_fd: usize,
-    socket_addr: usize,
+    socket_addr: UserRef<SocketAddrIn>,
     len: usize,
     flags: usize,
 ) -> Result<usize, LinuxError> {
     let task = current_user_task();
     let flags = OpenFlags::from_bits_truncate(flags);
-    debug!(
-        "[task {}] sys_accept4 @ socket_fd: {:#x}, socket_addr: {:#x}, len: {:#x}, flags: {:?}",
+    log::info!(
+        "[task {}] sys_accept4 @ socket_fd: {:#x}, socket_addr: {:#x?}, len: {:#x}, flags: {:?}",
         task.get_task_id(),
         socket_fd,
         socket_addr,
@@ -494,6 +495,10 @@ pub async fn sys_accept4(
     let fd = task.alloc_fd().ok_or(LinuxError::EMFILE)?;
     loop {
         if let Ok(new_socket) = socket.inner.accept() {
+            let sa = socket_addr.get_mut();
+            sa.family = 2;
+            sa.in_port = new_socket.get_remote().unwrap().port();
+            sa.addr = new_socket.get_remote().unwrap().ip().clone();
             let new_file = FileItem::new_dev(Socket::new_with_inner(
                 socket.domain,
                 socket.net_type,

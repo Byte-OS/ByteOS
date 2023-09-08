@@ -3,7 +3,7 @@ use core::fmt::Debug;
 use alloc::{
     string::{String, ToString},
     sync::{Arc, Weak},
-    vec::Vec,
+    vec::Vec, collections::VecDeque,
 };
 use sync::{LazyInit, Mutex};
 use vfscore::{INodeInterface, OpenFlags, VfsError};
@@ -81,7 +81,7 @@ impl DentryNode {
         Ok(())
     }
 
-    pub fn unmount(path: String) -> Result<(), VfsError> {
+    pub fn unmount(_path: String) -> Result<(), VfsError> {
         todo!("unmount in dentry node");
     }
 
@@ -103,6 +103,20 @@ impl DentryNode {
                 }
                 Err(_) => None,
             }
+        }
+    }
+
+    pub fn path(&self) -> String {
+        if let Some(_) = self.parent.upgrade() {
+            let mut path = String::from("/") + &self.filename.clone();
+            let mut pd = self.parent.clone();
+            while let Some(parent) = pd.upgrade() && parent.filename != "/" {
+                path = String::from("/") + &parent.filename + &path;
+                pd = parent.parent.clone();
+            }
+            path
+        } else {
+            String::from("/")
         }
     }
 }

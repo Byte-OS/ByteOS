@@ -73,9 +73,9 @@ pub async fn sys_write(fd: usize, buf_ptr: VirtAddr, count: usize) -> Result<usi
     );
     let buffer = buf_ptr.slice_with_len(count);
     let file = task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-    if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
-        yield_now().await;
-    }
+    // if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
+    //     yield_now().await;
+    // }
     file.async_write(buffer).await.map_err(from_vfs)
 }
 
@@ -846,14 +846,21 @@ pub async fn sys_epoll_wait(
         .downcast_arc::<EpollFile>()
         .map_err(|_| LinuxError::EINVAL)?;
     let stime = current_nsec();
-    let end = stime + timeout * 0x1000_000;
+    let end = if timeout == usize::MAX {
+        usize::MAX
+    } else {
+        stime + timeout * 0x1000_000
+    };
     let buffer = events.slice_mut_with_len(max_events);
+    debug!("epoll_wait:{:#x?}", epfile.data.lock());
     let n = loop {
+        yield_now().await;
         let mut num = 0;
         for (fd, ev) in epfile.data.lock().iter() {
             if let Some(file) = task.get_fd(*fd) {
                 if let Ok(pevent) = file.poll(ev.events.to_poll()) {
                     if pevent != PollEvent::NONE {
+                        debug!("poll {} {:?}", fd, pevent);
                         buffer[num] = ev.clone();
                         num += 1;
                     }
@@ -863,7 +870,6 @@ pub async fn sys_epoll_wait(
         if current_nsec() >= end || num > 0 {
             break num;
         }
-        yield_now().await;
     };
 
     Ok(n)

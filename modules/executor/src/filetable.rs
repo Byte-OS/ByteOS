@@ -14,6 +14,8 @@ use vfscore::{
     DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
 };
 
+use crate::yield_now;
+
 const FILE_MAX: usize = 255;
 const FD_NONE: Option<Arc<FileItem>> = Option::None;
 
@@ -69,7 +71,6 @@ impl Default for FileOptions {
 }
 
 pub struct FileItem {
-    pub path: String,
     pub inner: Arc<dyn INodeInterface>,
     pub dentry: Option<Arc<DentryNode>>,
     pub options: FileOptions,
@@ -84,7 +85,6 @@ impl<'a> FileItem {
         options: FileOptions,
     ) -> Arc<Self> {
         Arc::new(Self {
-            path: String::new(),
             inner,
             options,
             dentry,
@@ -95,7 +95,6 @@ impl<'a> FileItem {
 
     pub fn new_dev(inner: Arc<dyn INodeInterface>) -> Arc<Self> {
         Arc::new(Self {
-            path: String::new(),
             inner,
             offset: Mutex::new(0),
             dentry: None,
@@ -123,7 +122,6 @@ impl<'a> FileItem {
             0
         };
         Ok(Arc::new(Self {
-            path: path.to_string(),
             inner: dentry_node.node.clone(),
             options,
             dentry: Some(dentry_node),
@@ -133,9 +131,22 @@ impl<'a> FileItem {
     }
 
     pub fn dentry_open(&self, path: &str, flags: OpenFlags) -> Result<Arc<Self>, VfsError> {
+        let mut options = FileOptions::R | FileOptions::X;
+        if flags.contains(OpenFlags::O_WRONLY)
+            || flags.contains(OpenFlags::O_RDWR)
+            || flags.contains(OpenFlags::O_ACCMODE)
+        {
+            options = options.union(FileOptions::W);
+        }
         assert!(self.dentry.is_some());
-        dentry_open(self.dentry.clone().unwrap(), path, flags)
-            .map(|x| FileItem::new(x.node.clone(), Some(x), FileOptions::all()))
+        dentry_open(self.dentry.clone().unwrap(), path, flags.clone())
+            .map(|x| Arc::new(FileItem {
+                inner: x.node.clone(),
+                dentry: Some(x),
+                offset: Mutex::new(0),
+                flags: Mutex::new(flags.clone()),
+                options,
+            }))
     }
 
     #[inline(always)]
@@ -147,8 +158,13 @@ impl<'a> FileItem {
         }
     }
 
-    pub fn path(&'a self) -> Result<&'a str, VfsError> {
-        Ok(&self.path)
+    pub fn path(&self) -> Result<String, VfsError> {
+        // Ok(&self.path)
+        // dentry_open(dentry, path, flags)
+        match &self.dentry {
+            Some(dentry) => Ok(dentry.path()),
+            None => Err(VfsError::NotFile),
+        }
     }
 }
 
