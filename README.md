@@ -5,7 +5,9 @@
 ## Kernel struct Design
 
 > ByteOS is a posix-compatible kernel.
+>
 > If you are interested in this project, please contact me.
+>
 > email: 321353225@qq.com  qq: 321353225
 
 ```plain
@@ -35,6 +37,7 @@ crates --> arch --> modules --> kernel
 - [x] process support
 - [x] VIRTIO net device support
 - [ ] smp support
+- [ ] desktop support. eg: dwm, hyprland.
 
 ## Progrem support
 
