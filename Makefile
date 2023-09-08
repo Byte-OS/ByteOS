@@ -49,8 +49,6 @@ endif
 features += board-$(BOARD)
 
 all: 
-	rm rust-toolchain.toml
-	cp -R cargo .cargo
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
 #	cp $(KERNEL_ELF) kernel-qemu
@@ -60,6 +58,7 @@ fs-img:
 	rm -f $(FS_IMG)
 	dd if=/dev/zero of=$(FS_IMG) bs=1M count=2000
 	mkfs.vfat -F 32 $(FS_IMG)
+	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	rm -rf mount/*
 	-cp -rf tools/$(TESTCASE)/* mount/
