@@ -21,6 +21,7 @@ QEMU_EXEC := qemu-system-riscv64 \
 				-bios $(SBI) \
 				-nographic \
 				-smp 2
+TESTCASE := testcase-gcc
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm 
@@ -61,7 +62,7 @@ fs-img:
 	mkfs.vfat -F 32 $(FS_IMG)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	rm -rf mount/*
-	-cp -rf tools/testcase-gcc/* mount/
+	-cp -rf tools/$(TESTCASE)/* mount/
 	sudo umount $(FS_IMG)
 
 build:
