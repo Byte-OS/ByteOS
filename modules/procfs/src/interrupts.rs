@@ -1,6 +1,6 @@
 use core::cmp;
 
-use alloc::{string::String, format};
+use alloc::{format, string::String};
 use arch::get_int_records;
 use vfscore::{INodeInterface, StatMode, VfsResult};
 

@@ -95,17 +95,16 @@ pub async fn user_entry() {
             cx_ref.sepc()
         );
 
-        let res = 
-            future::or(handle_user_interrupt(task.clone(), cx_ref), async {
-                loop {
-                    check_signal().await;
+        let res = future::or(handle_user_interrupt(task.clone(), cx_ref), async {
+            loop {
+                check_signal().await;
 
-                    if let Some(_exit_code) = check_thread_exit(&task) {
-                        return UserTaskControlFlow::Break;
-                    }
-                    check_timer(&task);
-                    yield_now().await;
+                if let Some(_exit_code) = check_thread_exit(&task) {
+                    return UserTaskControlFlow::Break;
                 }
+                check_timer(&task);
+                yield_now().await;
+            }
         });
 
         // let res = loop {

@@ -1,6 +1,8 @@
 use alloc::{sync::Arc, vec::Vec};
 use devices::NET_DEVICES;
-use executor::{current_task, thread, AsyncTask, Executor, KernelTask, TaskId, UserTask, yield_now, TASK_QUEUE};
+use executor::{
+    current_task, thread, yield_now, AsyncTask, Executor, KernelTask, TaskId, UserTask, TASK_QUEUE,
+};
 
 use crate::syscall::{exec_with_process, NET_SERVER};
 

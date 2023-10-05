@@ -13,7 +13,7 @@ pub mod memory;
 // pub mod virtio;
 
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use device::{BlkDriver, Driver, NetDriver, RtcDriver};
+use device::{BlkDriver, Driver, IntDriver, NetDriver, RtcDriver};
 use fdt::{self, node::FdtNode, Fdt};
 use kheader::macros::link_define;
 use sync::{LazyInit, Mutex};
@@ -21,9 +21,11 @@ use sync::{LazyInit, Mutex};
 // pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
 pub static DEVICE_TREE: LazyInit<Vec<u8>> = LazyInit::new();
 pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode)>> = Mutex::new(BTreeMap::new());
+pub static IRQ_MANAGER: Mutex<BTreeMap<u32, Arc<dyn Driver>>> = Mutex::new(BTreeMap::new());
 pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
 pub static BLK_DEVICES: Mutex<Vec<Arc<dyn BlkDriver>>> = Mutex::new(Vec::new());
 pub static NET_DEVICES: Mutex<Vec<Arc<dyn NetDriver>>> = Mutex::new(Vec::new());
+pub static INT_DEVICES: Mutex<Vec<Arc<dyn IntDriver>>> = Mutex::new(Vec::new());
 
 link_define! {
     pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
@@ -73,10 +75,9 @@ pub fn prepare_devices() {
     for f in DRIVERS_INIT {
         f().map(|device| match device.device_type() {
             device::DeviceType::Rtc => todo!(),
-            device::DeviceType::Block => {
-                BLK_DEVICES.lock().push(device.as_blk().unwrap());
-            }
+            device::DeviceType::Block => BLK_DEVICES.lock().push(device.as_blk().unwrap()),
             device::DeviceType::Net => todo!(),
+            device::DeviceType::Int => todo!(),
         });
     }
 
@@ -91,10 +92,21 @@ pub fn prepare_devices() {
     }
 }
 
-pub macro driver_define($obj:expr, $body: expr) {
-    #[kheader::macros::linker_use($crate::DRIVERS_INIT)]
-    #[linkme(crate = kheader::macros::linkme)]
-    fn __driver_init() -> Option<Arc<dyn devices::device::Driver>> {
-        $body
-    }
+#[macro_export]
+macro_rules! driver_define {
+    ($body: block) => {
+        #[kheader::macros::linker_use($crate::DRIVERS_INIT)]
+        #[linkme(crate = kheader::macros::linkme)]
+        fn __driver_init() -> Option<alloc::sync::Arc<dyn devices::device::Driver>> {
+            $body
+        }
+    };
+    ($obj:expr, $func: expr) => {
+        #[kheader::macros::linker_use($crate::DRIVERS_INIT)]
+        #[linkme(crate = kheader::macros::linkme)]
+        fn __driver_init() -> Option<alloc::sync::Arc<dyn devices::device::Driver>> {
+            $crate::DRIVER_REGS.lock().insert($obj, $func);
+            None
+        }
+    };
 }
