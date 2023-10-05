@@ -64,9 +64,7 @@ pub fn add_irq(irq: usize) {
 
 pub fn get_int_records() -> Vec<usize> {
     // INT_RECORDS.lock().clone()
-    unsafe {
-        INT_RECORDS.clone()
-    }
+    unsafe { INT_RECORDS.clone() }
 }
 
 // 内核中断回调

@@ -111,7 +111,7 @@ pub fn config_pci() {
     info!("nvme pci 配置完毕");
 }
 
-driver_define!("nvme", {
+driver_define!({
     // 初始化 pci
     config_pci();
 

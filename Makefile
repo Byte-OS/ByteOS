@@ -20,6 +20,7 @@ QEMU_EXEC := qemu-system-riscv64 \
 				-m 128M \
 				-bios $(SBI) \
 				-nographic \
+				-device virtio-keyboard-device \
 				-smp 2
 TESTCASE := testcase-gcc
 ifeq ($(NVME), on)

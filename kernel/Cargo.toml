@@ -43,3 +43,4 @@ kvirtio = { path = "../drivers/kvirtio" }
 kgoldfish-rtc = { path = "../drivers/kgoldfish-rtc" }
 kcvitek-sd = { path = "../drivers/kcvitek-sd" }
 k210-sdcard = { path = "../drivers/k210-sdcard" }
+general-plic = { path = "../drivers/general-plic" }

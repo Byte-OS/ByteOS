@@ -1,9 +1,10 @@
 use core::fmt::Debug;
 
 use alloc::{
+    collections::VecDeque,
     string::{String, ToString},
     sync::{Arc, Weak},
-    vec::Vec, collections::VecDeque,
+    vec::Vec,
 };
 use sync::{LazyInit, Mutex};
 use vfscore::{INodeInterface, OpenFlags, VfsError};

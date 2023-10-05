@@ -30,6 +30,7 @@ members = [
     "drivers/kvirtio",
     "drivers/kcvitek-sd",
     "drivers/k210-sdcard",
+    "drivers/general-plic",
 
     # kernel
     "kernel"

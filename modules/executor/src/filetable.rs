@@ -139,14 +139,15 @@ impl<'a> FileItem {
             options = options.union(FileOptions::W);
         }
         assert!(self.dentry.is_some());
-        dentry_open(self.dentry.clone().unwrap(), path, flags.clone())
-            .map(|x| Arc::new(FileItem {
+        dentry_open(self.dentry.clone().unwrap(), path, flags.clone()).map(|x| {
+            Arc::new(FileItem {
                 inner: x.node.clone(),
                 dentry: Some(x),
                 offset: Mutex::new(0),
                 flags: Mutex::new(flags.clone()),
                 options,
-            }))
+            })
+        })
     }
 
     #[inline(always)]

@@ -39,7 +39,7 @@ pub struct Socket {
     pub net_type: NetType,
     pub inner: Arc<dyn SocketInterface>,
     pub options: Mutex<SocketOptions>,
-    pub buf: Mutex<Vec<u8>>
+    pub buf: Mutex<Vec<u8>>,
 }
 
 unsafe impl Sync for Socket {}
@@ -74,7 +74,7 @@ impl Socket {
             net_type,
             inner,
             options: Mutex::new(SocketOptions { wsize: 0, rsize: 0 }),
-            buf: Mutex::new(vec![])
+            buf: Mutex::new(vec![]),
         })
     }
 
@@ -96,7 +96,7 @@ impl Socket {
             net_type,
             inner,
             options: Mutex::new(SocketOptions { wsize: 0, rsize: 0 }),
-            buf: Mutex::new(vec![])
+            buf: Mutex::new(vec![]),
         })
     }
 
@@ -110,7 +110,7 @@ impl Socket {
                         net_type: self.net_type,
                         inner: socket_inner,
                         options: Mutex::new(self.options.lock().clone()),
-                        buf: Mutex::new(vec![])
+                        buf: Mutex::new(vec![]),
                     }
                 } else {
                     unreachable!("can't reusetcp in blank tcp")
@@ -123,7 +123,7 @@ impl Socket {
                         net_type: self.net_type,
                         inner: socket_inner,
                         options: Mutex::new(self.options.lock().clone()),
-                        buf: Mutex::new(vec![])
+                        buf: Mutex::new(vec![]),
                     }
                 } else {
                     unreachable!("can't reusetcp in blank udp")
@@ -150,13 +150,13 @@ impl INodeInterface for Socket {
         // let rlen;
         // if buf.len() > 0 {
         //     rlen = cmp::min(buf.len(), buffer.len());
-        //     let 
+        //     let
         // } else {
         //     rlen = cmp::min(data.len(), buffer.len());
         //     buffer[..rlen].copy_from_slice(&data[..rlen]);
         //     self.options.lock().rsize += rlen;
         //     if rlen < data.len() {
-                
+
         //     }
         // }
         // Ok(rlen)
@@ -194,7 +194,10 @@ impl INodeInterface for Socket {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLOUT) && !self.inner.is_closed().unwrap() && self.inner.get_remote().is_ok() {
+        if events.contains(PollEvent::POLLOUT)
+            && !self.inner.is_closed().unwrap()
+            && self.inner.get_remote().is_ok()
+        {
             res |= PollEvent::POLLOUT;
         }
         if self.inner.readable().unwrap() && events.contains(PollEvent::POLLIN) {

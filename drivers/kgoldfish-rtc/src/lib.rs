@@ -11,7 +11,7 @@ use arch::VIRT_ADDR_START;
 use core::ptr::read_volatile;
 use devices::{
     device::{DeviceType, Driver, RtcDriver},
-    driver_define, DRIVER_REGS, RTC_DEVICES,
+    driver_define, RTC_DEVICES,
 };
 use fdt::node::FdtNode;
 use timestamp::DateTime;
@@ -72,7 +72,4 @@ pub fn init_rtc(node: &FdtNode) {
     );
 }
 
-driver_define!("google,goldfish-rtc", {
-    DRIVER_REGS.lock().insert("google,goldfish-rtc", init_rtc);
-    None
-});
+driver_define!("google,goldfish-rtc", init_rtc);

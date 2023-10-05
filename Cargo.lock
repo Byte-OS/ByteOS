@@ -353,6 +353,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "general-plic"
+version = "0.1.0"
+dependencies = [
+ "arch",
+ "devices",
+ "fdt",
+ "frame_allocator",
+ "kheader",
+ "log",
+ "sync",
+]
+
+[[package]]
 name = "hal"
 version = "0.1.0"
 dependencies = [
@@ -459,6 +472,7 @@ dependencies = [
  "frame_allocator",
  "fs",
  "futures-lite",
+ "general-plic",
  "hal",
  "hashbrown",
  "k210-sdcard",

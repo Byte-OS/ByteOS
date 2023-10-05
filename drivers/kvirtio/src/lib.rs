@@ -11,8 +11,9 @@ pub mod virtio_net;
 
 use core::ptr::NonNull;
 
+use alloc::vec::Vec;
 use arch::VIRT_ADDR_START;
-use devices::{driver_define, DRIVER_REGS};
+use devices::driver_define;
 use fdt::node::FdtNode;
 use virtio_drivers::transport::{
     mmio::{MmioTransport, VirtIOHeader},
@@ -26,11 +27,17 @@ pub fn init_mmio(node: &FdtNode) {
         let header = NonNull::new(vaddr as *mut VirtIOHeader).unwrap();
         if let Ok(transport) = unsafe { MmioTransport::new(header) } {
             info!(
-                "Detected virtio MMIO device with vendor id {:#X}, device type {:?}, version {:?} addr @ {:#X}",
+                "Detected virtio MMIO device with
+                    vendor id {:#X}
+                    device type {:?}
+                    version {:?} 
+                    addr @ {:#X} 
+                    interrupt: {:?}",
                 transport.vendor_id(),
                 transport.device_type(),
                 transport.version(),
-                vaddr
+                vaddr,
+                node.interrupts().map(|x| x.collect::<Vec<usize>>())
             );
             virtio_device(transport);
         }
@@ -43,17 +50,11 @@ fn virtio_device(transport: MmioTransport) {
         DeviceType::GPU => info!("unsupport gpu device now"),
         DeviceType::Input => info!("unsupport input device now"),
         DeviceType::Network => virtio_net::init(transport),
+        DeviceType::Console => {
+            info!("virtio INPUT");
+        }
         t => warn!("Unrecognized virtio device: {:?}", t),
     }
 }
 
-// mmio
-// pub fn driver_init() {
-//
-// }
-
-driver_define!("virtio,mmio", {
-    info!("init virtio drivers");
-    DRIVER_REGS.lock().insert("virtio,mmio", init_mmio);
-    None
-});
+driver_define!("virtio,mmio", init_mmio);
