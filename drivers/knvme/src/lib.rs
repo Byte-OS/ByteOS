@@ -10,8 +10,8 @@ extern crate log;
 use alloc::{sync::Arc, vec::Vec};
 use arch::{PAGE_SIZE, VIRT_ADDR_START};
 use devices::{
-    device::{BlkDriver, DeviceType, Driver},
-    driver_define, BLK_DEVICES,
+    device::{BlkDriver, DeviceType, DeviceWrapperEnum, Driver},
+    driver_define,
 };
 use frame_allocator::{frame_alloc_much, FrameTracker};
 use nvme_driver::{DmaAllocator, IrqController, NvmeInterface};
@@ -70,8 +70,8 @@ impl Driver for VirtIOBlock {
         "nvme"
     }
 
-    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
-        Some(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
+        DeviceWrapperEnum::BLOCK(self.clone())
     }
 }
 
@@ -121,7 +121,9 @@ driver_define!({
     ));
     let mut buffer = vec![0u8; 512];
     device.read_block(0, &mut buffer);
+    log::info!("detected the nvme device");
     // 加入设备表
-    BLK_DEVICES.lock().push(Arc::new(device));
-    None
+    // BLK_DEVICES.lock().push(Arc::new(device));
+    // None
+    Some(Arc::new(device))
 });

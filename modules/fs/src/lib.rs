@@ -32,7 +32,6 @@ extern crate alloc;
 #[macro_use]
 extern crate logging;
 
-mod cache;
 pub mod dentry;
 mod fatfs_shim;
 pub mod pipe;
@@ -114,7 +113,6 @@ pub fn init() {
                 .expect(&format!("can't mount fs_{i} {mount_point}"));
         }
     }
-    cache::init();
 }
 
 pub fn get_filesystem(id: usize) -> &'static Arc<dyn FileSystem> {

@@ -15,7 +15,7 @@ use executor::{
     MemType, UserTask, TASK_QUEUE,
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
-use fs::dentry::{dentry_open, dentry_root, DentryNode};
+use fs::dentry::{dentry_open, dentry_root};
 use fs::TimeSpec;
 use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
@@ -127,6 +127,7 @@ pub struct TaskCacheTemplate {
 }
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
+#[allow(dead_code)]
 pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
     let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)
         .map_err(from_vfs)?
@@ -270,7 +271,6 @@ pub async fn exec_with_process<'a>(
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     let path = String::from(path);
-    debug!("exec: {:?}", args);
     let user_task = task.clone().as_user_task().unwrap();
     user_task.pcb.lock().memset.clear();
     user_task.page_table.restore();

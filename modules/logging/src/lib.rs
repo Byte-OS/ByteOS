@@ -49,9 +49,9 @@ impl Write for Logger {
     }
 }
 
-pub fn init() {
+pub fn init(level: Option<&str>) {
     log::set_logger(&Logger).unwrap();
-    log::set_max_level(match option_env!("LOG") {
+    log::set_max_level(match level {
         Some("error") => LevelFilter::Error,
         Some("warn") => LevelFilter::Warn,
         Some("info") => LevelFilter::Info,

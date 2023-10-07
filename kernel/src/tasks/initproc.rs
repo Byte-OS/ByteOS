@@ -136,9 +136,6 @@ async fn file_command(cmd: &str) {
             // args.into_iter().for_each(|x| args_extend.push(x));
             let task_id = add_user_task(&filename, args_extend, Vec::new()).await;
             loop {
-                // if TASK_QUEUE.lock().len() == 0 {
-                //     break;
-                // }
                 if TASK_QUEUE
                     .lock()
                     .iter()

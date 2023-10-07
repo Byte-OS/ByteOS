@@ -7,7 +7,6 @@
 #![feature(const_mut_refs)]
 #![feature(const_slice_from_raw_parts_mut)]
 
-#[macro_use]
 extern crate alloc;
 
 #[macro_use]
@@ -58,6 +57,7 @@ pub enum TrapType {
     UserEnvCall,
     Time,
     Unknown,
+    SupervisorExternal,
     StorePageFault(usize),
     LoadPageFault(usize),
     InstructionPageFault(usize),

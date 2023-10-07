@@ -1,8 +1,7 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
-use arch::{
-    get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, PhysPage, VirtPage,
-};
+use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
+use devices::INT_DEVICES;
 use executor::{AsyncTask, MapTrack, MemType, UserTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
@@ -160,6 +159,13 @@ pub async fn handle_user_interrupt(
         arch::TrapType::Unknown => {
             debug!("unknown trap: {:#x?}", cx_ref);
             panic!("");
+        }
+        arch::TrapType::SupervisorExternal => {
+            INT_DEVICES
+                .lock()
+                .first()
+                .expect("can't find supervisor external device")
+                .try_handle_interrupt(u32::MAX);
         }
         arch::TrapType::IllegalInstruction(addr) => {
             let vpn = VirtPage::from_addr(addr);

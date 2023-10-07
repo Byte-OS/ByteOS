@@ -10,8 +10,8 @@ use alloc::sync::Arc;
 use arch::VIRT_ADDR_START;
 use core::ptr::read_volatile;
 use devices::{
-    device::{DeviceType, Driver, RtcDriver},
-    driver_define, RTC_DEVICES,
+    device::{DeviceType, DeviceWrapperEnum, Driver, RtcDriver},
+    driver_define,
 };
 use fdt::node::FdtNode;
 use timestamp::DateTime;
@@ -32,8 +32,8 @@ impl Driver for RtcGoldfish {
         "rtc_goldfish"
     }
 
-    fn as_rtc(self: Arc<Self>) -> Option<Arc<dyn RtcDriver>> {
-        Some(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
+        DeviceWrapperEnum::RTC(self.clone())
     }
 }
 
@@ -53,15 +53,13 @@ impl RtcDriver for RtcGoldfish {
     }
 }
 
-pub fn init_rtc(node: &FdtNode) {
+pub fn init_rtc(node: &FdtNode) -> Arc<dyn Driver> {
     let addr = node.property("reg").unwrap().value[4..8]
         .iter()
         .fold(0, |acc, x| (acc << 8) | (*x as usize));
     let rtc = Arc::new(RtcGoldfish {
         base: VIRT_ADDR_START + addr,
     });
-
-    RTC_DEVICES.lock().push(rtc.clone());
 
     let date_time = DateTime::new(rtc.read_timestamp() as usize);
 
@@ -70,6 +68,8 @@ pub fn init_rtc(node: &FdtNode) {
         "the standard Beijing time: {}   timestamp : {}",
         date_time, date_time.timestamp
     );
+
+    rtc
 }
 
 driver_define!("google,goldfish-rtc", init_rtc);

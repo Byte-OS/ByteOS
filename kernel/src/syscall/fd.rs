@@ -16,7 +16,6 @@ use fs::{
 use log::debug;
 
 use crate::epoll::{EpollEvent, EpollFile};
-use crate::socket::Socket;
 use crate::syscall::consts::{from_vfs, FcntlCmd, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
 use crate::syscall::time::current_nsec;

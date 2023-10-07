@@ -1,7 +1,6 @@
 use core::fmt::Debug;
 
 use alloc::{
-    collections::VecDeque,
     string::{String, ToString},
     sync::{Arc, Weak},
     vec::Vec,

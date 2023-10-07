@@ -10,7 +10,7 @@ use alloc::sync::Arc;
 use cv1811_sd::clk_en;
 use devices::{
     device::{BlkDriver, DeviceType, Driver},
-    driver_define, BLK_DEVICES,
+    driver_define,
 };
 use fdt::node::FdtNode;
 
@@ -28,8 +28,8 @@ impl Driver for CvSd {
         "cvitek,sd"
     }
 
-    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
-        Some(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> devices::device::DeviceWrapperEnum {
+        devices::device::DeviceWrapperEnum::BLOCK(self.clone())
     }
 }
 
@@ -48,11 +48,11 @@ impl BlkDriver for CvSd {
     }
 }
 
-pub fn init_driver(_node: &FdtNode) {
+pub fn init_driver(_node: &FdtNode) -> Arc<dyn Driver> {
     let blk = CvSd;
     cv1811_sd::init().expect("init with err");
-    BLK_DEVICES.lock().push(Arc::new(blk));
     info!("Initailize virtio-block device");
+    Arc::new(blk)
 }
 
 driver_define!("cvitek,mars-sd", init_driver);

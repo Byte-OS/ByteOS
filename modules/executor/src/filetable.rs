@@ -1,7 +1,7 @@
 use core::ops::{Deref, DerefMut};
 
 use alloc::{
-    string::{String, ToString},
+    string::String,
     sync::Arc,
     vec::Vec,
 };
@@ -13,8 +13,6 @@ use sync::Mutex;
 use vfscore::{
     DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
 };
-
-use crate::yield_now;
 
 const FILE_MAX: usize = 255;
 const FD_NONE: Option<Arc<FileItem>> = Option::None;
