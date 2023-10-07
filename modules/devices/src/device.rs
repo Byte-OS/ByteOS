@@ -5,9 +5,20 @@ pub enum DeviceType {
     Block,
     Net,
     Int,
+    Input,
+    Unsupported,
 }
 
-pub trait Driver: Sync + Send {
+pub enum DeviceWrapperEnum {
+    RTC(Arc<dyn RtcDriver>),
+    BLOCK(Arc<dyn BlkDriver>),
+    NET(Arc<dyn NetDriver>),
+    INPUT(Arc<dyn InputDriver>),
+    INT(Arc<dyn IntDriver>),
+    None,
+}
+
+pub trait Driver: Send + Sync {
     fn device_type(&self) -> DeviceType;
 
     fn get_id(&self) -> &str;
@@ -20,17 +31,7 @@ pub trait Driver: Sync + Send {
         false
     }
 
-    fn as_rtc(self: Arc<Self>) -> Option<Arc<dyn RtcDriver>> {
-        None
-    }
-
-    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
-        None
-    }
-
-    fn as_net(self: Arc<Self>) -> Option<Arc<dyn NetDriver>> {
-        None
-    }
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum;
 }
 
 pub trait RtcDriver: Driver {
@@ -54,11 +55,27 @@ pub trait NetDriver: Driver {
 }
 
 pub trait IntDriver: Driver {
-    fn register_irq(&self, irq: usize, driver: Arc<dyn Driver>);
+    fn register_irq(&self, irq: u32, driver: Arc<dyn Driver>);
 }
 
-pub trait InputDevice: Driver{
+pub trait InputDriver: Driver {
     fn read_event(&self) -> u64;
     fn handle_irq(&self);
     fn is_empty(&self) -> bool;
+}
+
+pub struct UnsupportedDriver;
+
+impl Driver for UnsupportedDriver {
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Unsupported
+    }
+
+    fn get_id(&self) -> &str {
+        "unsupported-driver"
+    }
+
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
+        DeviceWrapperEnum::None
+    }
 }

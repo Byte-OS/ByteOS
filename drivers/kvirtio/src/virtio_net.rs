@@ -1,8 +1,7 @@
 use core::cmp;
 
 use alloc::sync::Arc;
-use devices::device::{DeviceType, Driver, NetDriver, NetError};
-use devices::NET_DEVICES;
+use devices::device::{DeviceType, DeviceWrapperEnum, Driver, NetDriver, NetError};
 use sync::Mutex;
 use virtio_drivers::device::net::{self, TxBuffer};
 use virtio_drivers::transport::mmio::MmioTransport;
@@ -16,15 +15,15 @@ unsafe impl Send for VirtIONet {}
 
 impl Driver for VirtIONet {
     fn device_type(&self) -> DeviceType {
-        DeviceType::Block
+        DeviceType::Net
     }
 
     fn get_id(&self) -> &str {
         "virtio-blk"
     }
 
-    fn as_net(self: Arc<Self>) -> Option<Arc<dyn NetDriver>> {
-        Some(self)
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
+        DeviceWrapperEnum::NET(self.clone())
     }
 }
 
@@ -49,11 +48,11 @@ impl NetDriver for VirtIONet {
     }
 }
 
-pub fn init(transport: MmioTransport) {
+pub fn init(transport: MmioTransport) -> Arc<dyn Driver> {
     let net = VirtIONet(Mutex::new(
         net::VirtIONet::<HalImpl, MmioTransport, 32>::new(transport, 2048)
             .expect("failed to create blk driver"),
     ));
-    NET_DEVICES.lock().push(Arc::new(net));
     info!("Initailize virtio-net device");
+    Arc::new(net)
 }

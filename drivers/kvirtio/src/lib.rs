@@ -7,20 +7,24 @@ extern crate log;
 
 pub mod virtio_blk;
 pub mod virtio_impl;
+pub mod virtio_input;
 pub mod virtio_net;
 
 use core::ptr::NonNull;
 
-use alloc::vec::Vec;
+use alloc::{sync::Arc, vec::Vec};
 use arch::VIRT_ADDR_START;
-use devices::driver_define;
+use devices::{
+    device::{Driver, UnsupportedDriver},
+    driver_define,
+};
 use fdt::node::FdtNode;
 use virtio_drivers::transport::{
     mmio::{MmioTransport, VirtIOHeader},
     DeviceType, Transport,
 };
 
-pub fn init_mmio(node: &FdtNode) {
+pub fn init_mmio(node: &FdtNode) -> Arc<dyn Driver> {
     if let Some(reg) = node.reg().and_then(|mut reg| reg.next()) {
         let paddr = reg.starting_address as usize;
         let vaddr = VIRT_ADDR_START + paddr;
@@ -39,21 +43,21 @@ pub fn init_mmio(node: &FdtNode) {
                 vaddr,
                 node.interrupts().map(|x| x.collect::<Vec<usize>>())
             );
-            virtio_device(transport);
+            return virtio_device(transport, node);
         }
     }
+    Arc::new(UnsupportedDriver)
 }
 
-fn virtio_device(transport: MmioTransport) {
+fn virtio_device(transport: MmioTransport, node: &FdtNode) -> Arc<dyn Driver> {
     match transport.device_type() {
-        DeviceType::Block => virtio_blk::init(transport),
-        DeviceType::GPU => info!("unsupport gpu device now"),
-        DeviceType::Input => info!("unsupport input device now"),
+        DeviceType::Block => virtio_blk::init(transport, node),
+        DeviceType::Input => virtio_input::init(transport, node),
         DeviceType::Network => virtio_net::init(transport),
-        DeviceType::Console => {
-            info!("virtio INPUT");
+        device_type => {
+            warn!("Unrecognized virtio device: {:?}", device_type);
+            Arc::new(UnsupportedDriver)
         }
-        t => warn!("Unrecognized virtio device: {:?}", t),
     }
 }
 

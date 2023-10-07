@@ -26,7 +26,9 @@ pub struct NetMod;
 impl NetInterface for NetMod {
     fn send(data: &[u8]) {
         // debug!("do nothing");
-        NET_DEVICES.lock()[0].send(data);
+        NET_DEVICES.lock()[0]
+            .send(data)
+            .expect("can't send data in net interface");
     }
 
     fn local_mac_address() -> MacAddress {

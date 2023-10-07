@@ -103,6 +103,7 @@ fn kernel_callback(context: &mut Context) -> usize {
             context.sepc += 4;
             TrapType::UserEnvCall
         }
+        Trap::Interrupt(Interrupt::SupervisorExternal) => TrapType::SupervisorExternal,
         // // 缺页异常
         // Trap::Exception(Exception::StorePageFault) => handle_page_fault(context, stval),
         // // 加载页面错误
@@ -168,6 +169,7 @@ pub fn trap_pre_handle(context: &mut Context) -> TrapType {
         }
         Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
         Trap::Exception(Exception::LoadPageFault) => TrapType::LoadPageFault(stval),
+        Trap::Interrupt(Interrupt::SupervisorExternal) => TrapType::SupervisorExternal,
         _ => {
             error!(
                 "用户态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
@@ -370,5 +372,12 @@ pub unsafe extern "C" fn uservec() {
 pub fn enable_irq() {
     unsafe {
         sstatus::set_sie();
+    }
+}
+
+#[inline(always)]
+pub fn enable_external_irq() {
+    unsafe {
+        riscv::register::sie::set_sext();
     }
 }

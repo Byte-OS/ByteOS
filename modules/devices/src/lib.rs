@@ -2,6 +2,7 @@
 #![feature(used_with_arg)]
 #![feature(drain_filter)]
 #![feature(decl_macro)]
+#![feature(iter_intersperse)]
 
 #[macro_use]
 extern crate log;
@@ -12,20 +13,22 @@ pub mod device;
 pub mod memory;
 // pub mod virtio;
 
-use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use device::{BlkDriver, Driver, IntDriver, NetDriver, RtcDriver};
+use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
+use device::{BlkDriver, Driver, InputDriver, IntDriver, NetDriver, RtcDriver};
 use fdt::{self, node::FdtNode, Fdt};
 use kheader::macros::link_define;
 use sync::{LazyInit, Mutex};
 
 // pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
 pub static DEVICE_TREE: LazyInit<Vec<u8>> = LazyInit::new();
-pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode)>> = Mutex::new(BTreeMap::new());
+pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode) -> Arc<dyn Driver>>> =
+    Mutex::new(BTreeMap::new());
 pub static IRQ_MANAGER: Mutex<BTreeMap<u32, Arc<dyn Driver>>> = Mutex::new(BTreeMap::new());
 pub static RTC_DEVICES: Mutex<Vec<Arc<dyn RtcDriver>>> = Mutex::new(Vec::new());
 pub static BLK_DEVICES: Mutex<Vec<Arc<dyn BlkDriver>>> = Mutex::new(Vec::new());
 pub static NET_DEVICES: Mutex<Vec<Arc<dyn NetDriver>>> = Mutex::new(Vec::new());
 pub static INT_DEVICES: Mutex<Vec<Arc<dyn IntDriver>>> = Mutex::new(Vec::new());
+pub static INPUT_DEVICES: Mutex<Vec<Arc<dyn InputDriver>>> = Mutex::new(Vec::new());
 
 link_define! {
     pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
@@ -56,6 +59,27 @@ pub fn init_device(device_tree: usize) {
     memory::init();
 }
 
+pub fn add_device(device: Arc<dyn Driver>) {
+    // match device.device_type() {
+    //     device::DeviceType::Rtc   => RTC_DEVICES.lock().push(device.as_rtc().unwrap()),
+    //     device::DeviceType::Block => BLK_DEVICES.lock().push(device.as_blk().unwrap()),
+    //     device::DeviceType::Net   => NET_DEVICES.lock().push(device.as_net().unwrap()),
+    //     device::DeviceType::Int   => INT_DEVICES.lock().push(device.as_int().unwrap()),
+    //     device::DeviceType::Input => INPUT_DEVICES.lock().push(device.as_input().unwrap()),
+    //     device::DeviceType::Unsupported => {
+    //         log::info!("unsupported device");
+    //     },
+    // }
+    match device.get_device_wrapper() {
+        device::DeviceWrapperEnum::RTC(device) => RTC_DEVICES.lock().push(device),
+        device::DeviceWrapperEnum::BLOCK(device) => BLK_DEVICES.lock().push(device),
+        device::DeviceWrapperEnum::NET(device) => NET_DEVICES.lock().push(device),
+        device::DeviceWrapperEnum::INPUT(device) => INPUT_DEVICES.lock().push(device),
+        device::DeviceWrapperEnum::INT(device) => INT_DEVICES.lock().push(device),
+        device::DeviceWrapperEnum::None => {}
+    }
+}
+
 pub fn prepare_devices() {
     // let fdt =
     //     unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Acquire) as *const u8).unwrap() };
@@ -73,23 +97,48 @@ pub fn prepare_devices() {
     let node = fdt.all_nodes();
 
     for f in DRIVERS_INIT {
-        f().map(|device| match device.device_type() {
-            device::DeviceType::Rtc => todo!(),
-            device::DeviceType::Block => BLK_DEVICES.lock().push(device.as_blk().unwrap()),
-            device::DeviceType::Net => todo!(),
-            device::DeviceType::Int => todo!(),
-        });
+        f().map(|device| add_device(device));
     }
 
     let driver_manager = DRIVER_REGS.lock();
     for child in node {
         if let Some(compatible) = child.compatible() {
-            if let Some(f) = driver_manager.get(compatible.first()) {
-                f(&child);
+            info!(
+                "    {}  {}",
+                child.name,
+                compatible.all().intersperse(" ").collect::<String>()
+            );
+            for compati in compatible.all() {
+                if let Some(f) = driver_manager.get(compati) {
+                    add_device(f(&child));
+                    break;
+                }
             }
-            info!("    {}  {}", child.name, compatible.first());
         }
     }
+
+    debug!("block device len: {}", BLK_DEVICES.lock().len());
+
+    // register the drivers in the IRQ MANAGER.
+    if let Some(plic) = INT_DEVICES.lock().first() {
+        for (irq, driver) in IRQ_MANAGER.lock().iter() {
+            plic.register_irq(*irq, driver.clone());
+        }
+    }
+}
+
+// register the irqs
+pub fn register_device_irqs(driver: Arc<dyn Driver>) {
+    let mut irq_manager = IRQ_MANAGER.lock();
+    driver.interrupts().iter().for_each(|irq| {
+        irq_manager.insert(*irq, driver.clone());
+    });
+}
+
+pub fn node_to_interrupts(node: &FdtNode) -> Vec<u32> {
+    node.interrupts()
+        .map(|x| x.map(|x| x as u32).collect())
+        .unwrap_or_default()
 }
 
 #[macro_export]

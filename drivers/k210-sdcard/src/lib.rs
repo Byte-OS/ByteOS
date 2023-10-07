@@ -10,7 +10,7 @@ extern crate alloc;
 use alloc::sync::Arc;
 use core::{cell::RefCell, convert::TryInto};
 use devices::{
-    device::{BlkDriver, Driver},
+    device::{BlkDriver, DeviceWrapperEnum, Driver},
     driver_define, DRIVERS_INIT,
 };
 use k210_hal::prelude::*;
@@ -775,8 +775,8 @@ impl Driver for SDCardWrapper {
         "k210-sdcard"
     }
 
-    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
-        Some(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
+        DeviceWrapperEnum::BLOCK(self.clone())
     }
 }
 

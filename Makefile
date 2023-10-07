@@ -20,8 +20,7 @@ QEMU_EXEC := qemu-system-riscv64 \
 				-m 128M \
 				-bios $(SBI) \
 				-nographic \
-				-device virtio-keyboard-device \
-				-smp 2
+				-smp 1
 TESTCASE := testcase-gcc
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
@@ -71,6 +70,10 @@ build:
 
 run: fs-img build
 	time $(QEMU_EXEC)
+
+fdt:
+	@qemu-system-riscv64 -M 128m -machine virt,dumpdtb=virt.out
+	fdtdump virt.out
 
 justrun: build
 	$(QEMU_EXEC)

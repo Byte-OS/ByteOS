@@ -3,7 +3,6 @@ use core::cmp;
 use alloc::collections::VecDeque;
 use arch::console_getchar;
 use bitflags::bitflags;
-use log::debug;
 use logging::puts;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;

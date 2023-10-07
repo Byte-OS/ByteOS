@@ -31,7 +31,7 @@ use hal;
 use kalloc;
 use vfscore::{INodeInterface, OpenFlags};
 
-use crate::{syscall::cache_task_template, tasks::kernel::kernel_interrupt};
+use crate::tasks::kernel::kernel_interrupt;
 
 #[no_mangle]
 fn main(hart_id: usize, device_tree: usize) {
@@ -47,8 +47,10 @@ fn main(hart_id: usize, device_tree: usize) {
     let str = include_str!("banner.txt");
     println!("{}", str);
 
+    println!("run kernel @ hart {}", hart_id);
+
     // initialize logging module
-    logging::init();
+    logging::init(option_env!("LOG"));
 
     info!(
         "program size: {}KB",

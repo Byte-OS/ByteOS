@@ -1,51 +1,70 @@
 use alloc::sync::Arc;
-use devices::device::{BlkDriver, Driver};
-use devices::BLK_DEVICES;
+use alloc::vec::Vec;
+use devices::device::{DeviceType, DeviceWrapperEnum, Driver, InputDriver};
+use devices::IRQ_MANAGER;
+use fdt::node::FdtNode;
 use sync::Mutex;
-use virtio_drivers::device::blk::VirtIOBlk;
+use virtio_drivers::device::input::VirtIOInput as VirtIOInputWrapper;
 use virtio_drivers::transport::mmio::MmioTransport;
 
 use super::virtio_impl::HalImpl;
 
-pub struct VirtIOBlock(Mutex<VirtIOBlk<HalImpl, MmioTransport>>);
+pub struct VirtIOInput {
+    _inner: Mutex<VirtIOInputWrapper<HalImpl, MmioTransport>>,
+    interrupts: Vec<u32>,
+}
 
-unsafe impl Sync for VirtIOBlock {}
-unsafe impl Send for VirtIOBlock {}
+unsafe impl Sync for VirtIOInput {}
+unsafe impl Send for VirtIOInput {}
 
-impl Driver for VirtIOBlock {
-    fn device_type(&self) -> devices::device::DeviceType {
-        devices::device::DeviceType::Block
+impl Driver for VirtIOInput {
+    fn device_type(&self) -> DeviceType {
+        DeviceType::Input
     }
 
     fn get_id(&self) -> &str {
-        "virtio-blk"
+        "virtio-input"
     }
 
-    fn as_blk(self: Arc<Self>) -> Option<Arc<dyn BlkDriver>> {
-        Some(self.clone())
-    }
-}
-
-impl BlkDriver for VirtIOBlock {
-    fn read_block(&self, block_id: usize, buf: &mut [u8]) {
-        self.0
-            .lock()
-            .read_block(block_id, buf)
-            .expect("can't read block by virtio block");
+    fn interrupts(&self) -> &[u32] {
+        &self.interrupts
     }
 
-    fn write_block(&self, block_id: usize, buf: &[u8]) {
-        self.0
-            .lock()
-            .write_block(block_id, buf)
-            .expect("can't write block by virtio block");
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
+        DeviceWrapperEnum::INPUT(self.clone())
     }
 }
 
-pub fn init(transport: MmioTransport) {
-    let blk = VirtIOBlock(Mutex::new(
-        VirtIOBlk::<HalImpl, MmioTransport>::new(transport).expect("failed to create blk driver"),
-    ));
-    BLK_DEVICES.lock().push(Arc::new(blk));
-    info!("Initailize virtio-block device");
+impl InputDriver for VirtIOInput {
+    fn read_event(&self) -> u64 {
+        todo!()
+    }
+
+    fn handle_irq(&self) {
+        todo!()
+    }
+
+    fn is_empty(&self) -> bool {
+        todo!()
+    }
+}
+
+pub fn init(transport: MmioTransport, node: &FdtNode) -> Arc<dyn Driver> {
+    let input_device = Arc::new(VirtIOInput {
+        _inner: Mutex::new(
+            VirtIOInputWrapper::<HalImpl, MmioTransport>::new(transport)
+                .expect("failed to create blk driver"),
+        ),
+        interrupts: node
+            .interrupts()
+            .map(|x| x.map(|x| x as u32).collect())
+            .unwrap_or_default(),
+    });
+    node.interrupts().map(|x| {
+        x.for_each(|x| {
+            IRQ_MANAGER.lock().insert(x as _, input_device.clone());
+        })
+    });
+    info!("Initailize virtio-iput device");
+    input_device
 }
