@@ -31,6 +31,7 @@ members = [
     "drivers/kcvitek-sd",
     "drivers/k210-sdcard",
     "drivers/general-plic",
+    "drivers/ns16550a",
 
     # kernel
     "kernel"

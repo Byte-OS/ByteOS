@@ -1,4 +1,6 @@
-use alloc::sync::Arc;
+use alloc::{sync::Arc, vec::Vec};
+
+use crate::{INT_DEVICE, MAIN_UART};
 
 pub enum DeviceType {
     Rtc,
@@ -6,6 +8,7 @@ pub enum DeviceType {
     Net,
     Int,
     Input,
+    Uart,
     Unsupported,
 }
 
@@ -15,7 +18,45 @@ pub enum DeviceWrapperEnum {
     NET(Arc<dyn NetDriver>),
     INPUT(Arc<dyn InputDriver>),
     INT(Arc<dyn IntDriver>),
+    UART(Arc<dyn UartDriver>),
     None,
+}
+
+pub struct DeviceSet {
+    pub rtc: Vec<Arc<dyn RtcDriver>>,
+    pub blk: Vec<Arc<dyn BlkDriver>>,
+    pub net: Vec<Arc<dyn NetDriver>>,
+    pub uart: Vec<Arc<dyn UartDriver>>,
+    pub input: Vec<Arc<dyn InputDriver>>,
+}
+
+impl DeviceSet {
+    pub const fn new() -> Self {
+        Self {
+            rtc: vec![],
+            blk: vec![],
+            net: vec![],
+            uart: vec![],
+            input: vec![],
+        }
+    }
+
+    pub fn add_device(&mut self, device: Arc<dyn Driver>) {
+        match device.get_device_wrapper() {
+            DeviceWrapperEnum::RTC(device) => self.rtc.push(device),
+            DeviceWrapperEnum::BLOCK(device) => self.blk.push(device),
+            DeviceWrapperEnum::NET(device) => self.net.push(device),
+            DeviceWrapperEnum::INPUT(device) => self.input.push(device),
+            DeviceWrapperEnum::INT(device) => INT_DEVICE.init_by(device),
+            DeviceWrapperEnum::UART(device) => {
+                if self.uart.len() == 0 {
+                    MAIN_UART.init_by(device.clone());
+                }
+                self.uart.push(device)
+            }
+            DeviceWrapperEnum::None => {}
+        }
+    }
 }
 
 pub trait Driver: Send + Sync {
@@ -62,6 +103,11 @@ pub trait InputDriver: Driver {
     fn read_event(&self) -> u64;
     fn handle_irq(&self);
     fn is_empty(&self) -> bool;
+}
+
+pub trait UartDriver: Driver {
+    fn put(&self, c: u8);
+    fn get(&self) -> Option<u8>;
 }
 
 pub struct UnsupportedDriver;

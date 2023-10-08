@@ -76,7 +76,6 @@ pub fn init() {
     } else {
         filesystems.push((RamFs::new(), "/"));
     }
-
     filesystems.push((build_devfs(&filesystems), "/dev"));
     filesystems.push((RamFs::new(), "/tmp"));
     filesystems.push((RamFs::new(), "/dev/shm"));

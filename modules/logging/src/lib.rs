@@ -2,6 +2,7 @@
 
 use arch::console_putchar;
 use core::fmt::{self, Write};
+use devices::MAIN_UART;
 
 use log::{self, info, Level, LevelFilter, Log, Metadata, Record};
 
@@ -84,7 +85,15 @@ pub fn print(args: fmt::Arguments) {
 
 #[inline]
 pub fn puts(buffer: &[u8]) {
-    for i in buffer {
-        console_putchar(*i);
+    // use the main uart if it exists.
+    if MAIN_UART.is_init() {
+        for i in buffer {
+            // console_putchar(*i);
+            MAIN_UART.put(*i);
+        }
+    } else {
+        for i in buffer {
+            console_putchar(*i);
+        }
     }
 }

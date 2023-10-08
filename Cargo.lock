@@ -167,7 +167,6 @@ dependencies = [
 name = "devfs"
 version = "0.1.0"
 dependencies = [
- "arch",
  "bitflags 2.0.2",
  "devices",
  "hal",
@@ -485,6 +484,7 @@ dependencies = [
  "log",
  "logging",
  "lose-net-stack",
+ "ns16550a 0.1.0",
  "num-derive",
  "num-traits",
  "signal",
@@ -610,6 +610,7 @@ name = "logging"
 version = "0.1.0"
 dependencies = [
  "arch",
+ "devices",
  "log",
 ]
 
@@ -664,6 +665,26 @@ name = "nb"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
+
+[[package]]
+name = "ns16550a"
+version = "0.1.0"
+dependencies = [
+ "arch",
+ "devices",
+ "fdt",
+ "frame_allocator",
+ "kheader",
+ "log",
+ "ns16550a 0.2.0",
+ "sync",
+]
+
+[[package]]
+name = "ns16550a"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a38464b781e571e0447c11c029ce798383b5e79ac3270df63b3254192a05458d"
 
 [[package]]
 name = "num-derive"

@@ -1,8 +1,8 @@
 use core::cmp;
 
 use alloc::collections::VecDeque;
-use arch::console_getchar;
 use bitflags::bitflags;
+use devices::get_main_uart;
 use logging::puts;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
@@ -37,19 +37,13 @@ impl INodeInterface for Tty {
             }
             Ok(rlen)
         } else {
-            let c = console_getchar() as u8;
-            if c != (-1 as i8 as u8) {
+            // VfsError::Blocking
+            if let Some(c) = get_main_uart().get() {
                 buffer[0] = c as u8;
                 Ok(1)
             } else {
                 Err(VfsError::Blocking)
             }
-            // loop {
-            //     if c != (-1 as i8 as u8) {
-            //         break;
-            //     }
-            //     c = console_getchar() as u8;
-            // }
         }
     }
 
@@ -79,8 +73,7 @@ impl INodeInterface for Tty {
             if buf_len > 0 {
                 res |= PollEvent::POLLIN;
             } else {
-                let c = console_getchar() as u8;
-                if c != u8::MAX {
+                if let Some(c) = get_main_uart().get() {
                     res |= PollEvent::POLLIN;
                     self.buffer.lock().push_back(c);
                 }

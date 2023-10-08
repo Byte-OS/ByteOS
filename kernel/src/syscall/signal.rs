@@ -103,7 +103,7 @@ pub async fn sys_sigaction(
     oldact: UserRef<SigAction>,
 ) -> Result<usize, LinuxError> {
     let signal = SignalFlags::from_usize(sig);
-    info!(
+    debug!(
         "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
         signal, act, oldact
     );
