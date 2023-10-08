@@ -78,7 +78,6 @@ pub async fn sys_getgid() -> Result<usize, LinuxError> {
 }
 
 pub async fn sys_getuid() -> Result<usize, LinuxError> {
-    warn!("set_getuid");
     Ok(0)
 }
 
@@ -86,8 +85,7 @@ pub async fn sys_getpgid() -> Result<usize, LinuxError> {
     Ok(0)
 }
 
-pub async fn sys_setpgid(pid: usize, pgid: usize) -> Result<usize, LinuxError> {
-    warn!("set_pgid @ pid: {}, pgid: {}", pid, pgid);
+pub async fn sys_setpgid(_pid: usize, _pgid: usize) -> Result<usize, LinuxError> {
     Ok(0)
 }
 

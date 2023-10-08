@@ -1,10 +1,6 @@
 use core::ops::{Deref, DerefMut};
 
-use alloc::{
-    string::String,
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use fs::{
     dentry::{self, dentry_open, dentry_root, DentryNode},
     INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite,

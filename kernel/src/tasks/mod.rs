@@ -1,5 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use devices::NET_DEVICES;
+use devices::get_net_device;
 use executor::{
     current_task, thread, yield_now, AsyncTask, Executor, KernelTask, TaskId, UserTask, TASK_QUEUE,
 };
@@ -65,7 +65,7 @@ pub async fn handle_net() {
         if TASK_QUEUE.lock().len() == 0 {
             break;
         }
-        let res = NET_DEVICES.lock()[0].recv(&mut buffer);
+        let res = get_net_device(0).recv(&mut buffer);
         if let Ok(rlen) = res {
             NET_SERVER.analysis_net_data(&buffer[..rlen]);
         }

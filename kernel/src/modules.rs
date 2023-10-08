@@ -2,12 +2,13 @@
 use kheader::macros::module_use;
 
 module_use!(kvirtio);
+
 #[cfg(feature = "nvme")]
 module_use!(knvme);
 
 module_use!(kgoldfish_rtc);
-
 module_use!(general_plic);
+module_use!(ns16550a);
 
 #[cfg(feature = "board-k210")]
 module_use!(k210_sdcard);

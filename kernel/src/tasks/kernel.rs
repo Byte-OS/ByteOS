@@ -1,6 +1,6 @@
 use super::user::user_cow_int;
 use arch::{Context, TrapType, VIRT_ADDR_START};
-use devices::INT_DEVICES;
+use devices::get_int_device;
 use executor::get_current_task;
 
 pub fn kernel_interrupt(_cx: &mut Context, trap_type: TrapType) {
@@ -26,11 +26,7 @@ pub fn kernel_interrupt(_cx: &mut Context, trap_type: TrapType) {
             }
         }
         TrapType::SupervisorExternal => {
-            INT_DEVICES
-                .lock()
-                .first()
-                .expect("can't find plic device")
-                .try_handle_interrupt(u32::MAX);
+            get_int_device().try_handle_interrupt(u32::MAX);
         }
         _ => {
             // warn!("trap_type: {:?}  context: {:#x?}", trap_type, cx);

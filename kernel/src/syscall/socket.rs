@@ -2,7 +2,7 @@ use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
-use devices::NET_DEVICES;
+use devices::get_net_device;
 use executor::{current_user_task, yield_now, AsyncTask, FileItem};
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
@@ -25,8 +25,7 @@ pub struct NetMod;
 
 impl NetInterface for NetMod {
     fn send(data: &[u8]) {
-        // debug!("do nothing");
-        NET_DEVICES.lock()[0]
+        get_net_device(0)
             .send(data)
             .expect("can't send data in net interface");
     }
