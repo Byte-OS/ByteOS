@@ -39,7 +39,7 @@ crates --> arch --> modules --> kernel
 - [ ] smp support
 - [ ] desktop support. eg: dwm, hyprland.
 
-## Progrem support
+## Program support
 
 
 tools/final2023:
