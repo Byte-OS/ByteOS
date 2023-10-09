@@ -10,7 +10,7 @@ use alloc::sync::Arc;
 use arch::VIRT_ADDR_START;
 use core::ptr::read_volatile;
 use devices::{
-    device::{DeviceType, DeviceWrapperEnum, Driver, RtcDriver},
+    device::{DeviceType, Driver, RtcDriver},
     driver_define,
 };
 use fdt::node::FdtNode;
@@ -24,16 +24,13 @@ pub struct RtcGoldfish {
 }
 
 impl Driver for RtcGoldfish {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Rtc
-    }
 
     fn get_id(&self) -> &str {
         "rtc_goldfish"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::RTC(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::RTC(self.clone())
     }
 }
 

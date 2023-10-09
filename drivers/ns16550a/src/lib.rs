@@ -6,7 +6,7 @@ extern crate alloc;
 use alloc::{sync::Arc, vec::Vec};
 use arch::VIRT_ADDR_START;
 use devices::{
-    device::{DeviceType, DeviceWrapperEnum, Driver, UartDriver},
+    device::{DeviceType, Driver, UartDriver},
     driver_define, node_to_interrupts, register_device_irqs,
 };
 use fdt::node::FdtNode;
@@ -22,16 +22,12 @@ pub struct NS16550a {
 }
 
 impl Driver for NS16550a {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Uart
-    }
-
     fn get_id(&self) -> &str {
         "ns16550a"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::UART(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::UART(self.clone())
     }
 
     fn try_handle_interrupt(&self, _irq: u32) -> bool {

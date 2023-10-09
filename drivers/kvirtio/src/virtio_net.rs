@@ -1,7 +1,7 @@
 use core::cmp;
 
 use alloc::sync::Arc;
-use devices::device::{DeviceType, DeviceWrapperEnum, Driver, NetDriver, NetError};
+use devices::device::{DeviceType, Driver, NetDriver, NetError};
 use sync::Mutex;
 use virtio_drivers::device::net::{self, TxBuffer};
 use virtio_drivers::transport::mmio::MmioTransport;
@@ -14,16 +14,12 @@ unsafe impl Sync for VirtIONet {}
 unsafe impl Send for VirtIONet {}
 
 impl Driver for VirtIONet {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Net
-    }
-
     fn get_id(&self) -> &str {
         "virtio-blk"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::NET(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::NET(self.clone())
     }
 }
 

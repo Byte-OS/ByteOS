@@ -8,7 +8,7 @@ mod plic;
 use alloc::sync::Arc;
 use arch::{enable_external_irq, VIRT_ADDR_START};
 use devices::{
-    device::{DeviceWrapperEnum, Driver, IntDriver},
+    device::{DeviceType, Driver, IntDriver},
     driver_define,
 };
 use fdt::node::FdtNode;
@@ -18,10 +18,6 @@ pub struct PLIC {
 }
 
 impl Driver for PLIC {
-    fn device_type(&self) -> devices::device::DeviceType {
-        devices::device::DeviceType::Int
-    }
-
     fn get_id(&self) -> &str {
         "riscv-plic"
     }
@@ -32,8 +28,8 @@ impl Driver for PLIC {
         false
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::INT(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::INT(self.clone())
     }
 }
 

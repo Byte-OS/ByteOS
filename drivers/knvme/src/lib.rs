@@ -10,7 +10,7 @@ extern crate log;
 use alloc::{sync::Arc, vec::Vec};
 use arch::{PAGE_SIZE, VIRT_ADDR_START};
 use devices::{
-    device::{BlkDriver, DeviceType, DeviceWrapperEnum, Driver},
+    device::{BlkDriver, DeviceType, Driver},
     driver_define,
 };
 use frame_allocator::{frame_alloc_much, FrameTracker};
@@ -62,16 +62,12 @@ impl IrqController for IrqControllerImpl {
 pub struct VirtIOBlock(pub NvmeInterface<DmaAllocatorImpl, IrqControllerImpl>);
 
 impl Driver for VirtIOBlock {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Block
-    }
-
     fn get_id(&self) -> &str {
         "nvme"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::BLOCK(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::BLOCK(self.clone())
     }
 }
 

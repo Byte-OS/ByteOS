@@ -9,7 +9,7 @@ extern crate log;
 use alloc::sync::Arc;
 use cv1811_sd::clk_en;
 use devices::{
-    device::{BlkDriver, DeviceType, Driver},
+    device::{BlkDriver, Driver, DeviceType},
     driver_define,
 };
 use fdt::node::FdtNode;
@@ -20,16 +20,12 @@ unsafe impl Sync for CvSd {}
 unsafe impl Send for CvSd {}
 
 impl Driver for CvSd {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Block
-    }
-
     fn get_id(&self) -> &str {
         "cvitek,sd"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> devices::device::DeviceWrapperEnum {
-        devices::device::DeviceWrapperEnum::BLOCK(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::BLOCK(self.clone())
     }
 }
 
@@ -41,7 +37,6 @@ impl BlkDriver for CvSd {
     }
 
     fn write_block(&self, block_id: usize, buf: &[u8]) {
-        // unimplemented!("cv sd write");
         clk_en(true);
         cv1811_sd::write_block(block_id as _, buf).expect("can't write block by using CvSd");
         clk_en(false);

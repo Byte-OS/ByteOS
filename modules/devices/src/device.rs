@@ -3,16 +3,6 @@ use alloc::{sync::Arc, vec::Vec};
 use crate::{INT_DEVICE, MAIN_UART};
 
 pub enum DeviceType {
-    Rtc,
-    Block,
-    Net,
-    Int,
-    Input,
-    Uart,
-    Unsupported,
-}
-
-pub enum DeviceWrapperEnum {
     RTC(Arc<dyn RtcDriver>),
     BLOCK(Arc<dyn BlkDriver>),
     NET(Arc<dyn NetDriver>),
@@ -43,25 +33,23 @@ impl DeviceSet {
 
     pub fn add_device(&mut self, device: Arc<dyn Driver>) {
         match device.get_device_wrapper() {
-            DeviceWrapperEnum::RTC(device) => self.rtc.push(device),
-            DeviceWrapperEnum::BLOCK(device) => self.blk.push(device),
-            DeviceWrapperEnum::NET(device) => self.net.push(device),
-            DeviceWrapperEnum::INPUT(device) => self.input.push(device),
-            DeviceWrapperEnum::INT(device) => INT_DEVICE.init_by(device),
-            DeviceWrapperEnum::UART(device) => {
+            DeviceType::RTC(device) => self.rtc.push(device),
+            DeviceType::BLOCK(device) => self.blk.push(device),
+            DeviceType::NET(device) => self.net.push(device),
+            DeviceType::INPUT(device) => self.input.push(device),
+            DeviceType::INT(device) => INT_DEVICE.init_by(device),
+            DeviceType::UART(device) => {
                 if self.uart.len() == 0 {
                     MAIN_UART.init_by(device.clone());
                 }
                 self.uart.push(device)
             }
-            DeviceWrapperEnum::None => {}
+            DeviceType::None => {}
         }
     }
 }
 
 pub trait Driver: Send + Sync {
-    fn device_type(&self) -> DeviceType;
-
     fn get_id(&self) -> &str;
 
     fn interrupts(&self) -> &[u32] {
@@ -72,7 +60,7 @@ pub trait Driver: Send + Sync {
         false
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum;
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType;
 }
 
 pub trait RtcDriver: Driver {
@@ -113,15 +101,11 @@ pub trait UartDriver: Driver {
 pub struct UnsupportedDriver;
 
 impl Driver for UnsupportedDriver {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Unsupported
-    }
-
     fn get_id(&self) -> &str {
         "unsupported-driver"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::None
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::None
     }
 }
