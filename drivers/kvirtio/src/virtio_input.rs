@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use devices::device::{DeviceType, DeviceWrapperEnum, Driver, InputDriver};
+use devices::device::{DeviceType, Driver, InputDriver};
 use devices::IRQ_MANAGER;
 use fdt::node::FdtNode;
 use sync::Mutex;
@@ -18,10 +18,6 @@ unsafe impl Sync for VirtIOInput {}
 unsafe impl Send for VirtIOInput {}
 
 impl Driver for VirtIOInput {
-    fn device_type(&self) -> DeviceType {
-        DeviceType::Input
-    }
-
     fn get_id(&self) -> &str {
         "virtio-input"
     }
@@ -30,8 +26,8 @@ impl Driver for VirtIOInput {
         &self.interrupts
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::INPUT(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::INPUT(self.clone())
     }
 }
 

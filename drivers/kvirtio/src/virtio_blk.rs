@@ -1,6 +1,6 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
-use devices::device::{BlkDriver, DeviceWrapperEnum, Driver};
+use devices::device::{BlkDriver, DeviceType, Driver};
 use devices::{node_to_interrupts, register_device_irqs};
 use fdt::node::FdtNode;
 use sync::Mutex;
@@ -22,16 +22,12 @@ impl Driver for VirtIOBlock {
         &self.irqs
     }
 
-    fn device_type(&self) -> devices::device::DeviceType {
-        devices::device::DeviceType::Block
-    }
-
     fn get_id(&self) -> &str {
         "virtio-blk"
     }
 
-    fn get_device_wrapper(self: Arc<Self>) -> DeviceWrapperEnum {
-        DeviceWrapperEnum::BLOCK(self.clone())
+    fn get_device_wrapper(self: Arc<Self>) -> DeviceType {
+        DeviceType::BLOCK(self.clone())
     }
 }
 
