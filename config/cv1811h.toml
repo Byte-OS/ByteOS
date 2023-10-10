@@ -1,0 +1,14 @@
+# TIPS: This is a config file for cv1811h platform.
+
+# driver list
+drivers = [
+    "general-plic",
+    "ns16550a",
+    "kcvitek-sd",
+]
+
+cfgs = [
+    "c906"
+]
+
+features = []

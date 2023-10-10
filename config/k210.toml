@@ -1,0 +1,11 @@
+# TIPS: This is a config file for qemu-system-riscv64 platform.
+
+# driver list
+drivers = [
+    "kvirtio",
+    "k210-sdcard",
+    "general-plic",
+    "ns16550a",
+]
+
+ld_file = "linker-k210.ld"

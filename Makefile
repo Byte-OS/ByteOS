@@ -13,7 +13,6 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-RUST_BUILD_OPTIONS := 
 QEMU_EXEC := qemu-system-riscv64 \
 				-machine virt \
 				-kernel $(KERNEL_ELF) \
@@ -25,7 +24,6 @@ TESTCASE := testcase-gcc
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm 
-features += nvme
 else
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
@@ -37,19 +35,13 @@ QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::6379-:6379,hostfwd=tcp::2222-:222
 features += net
 endif
 
-ifeq ($(RELEASE), release)
-	RUST_BUILD_OPTIONS += --release
-endif
-
 ifeq ($(BOARD), k210)
 SBI = tools/rustsbi-k210.bin
 features += k210
 endif
 
-features += board-$(BOARD)
-
 all: 
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" --offline
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --releaes --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
 #	cp $(KERNEL_ELF) kernel-qemu
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
@@ -65,8 +57,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	cp .cargo/linker-$(BOARD).ld .cargo/linker-riscv.ld
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(RUST_BUILD_OPTIONS) --features "$(features)" $(OFFLINE)
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --release --features "$(features)"
 
 run: fs-img build
 	time $(QEMU_EXEC)

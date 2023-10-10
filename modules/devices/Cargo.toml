@@ -6,9 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-nvme = ["dep:nvme_driver"]
-
-default = []
 
 [dependencies]
 arch = { path = "../../arch" }
@@ -19,4 +16,3 @@ virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1
 kheader = { path = "../kheader" }
 frame_allocator = { path = "../frame_allocator" }
 timestamp = { path = "../../crates/timestamp" }
-nvme_driver = { git = "https://github.com/rcore-os/nvme_driver", rev = "8ae0572", optional = true }
