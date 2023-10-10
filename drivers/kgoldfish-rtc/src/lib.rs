@@ -24,7 +24,6 @@ pub struct RtcGoldfish {
 }
 
 impl Driver for RtcGoldfish {
-
     fn get_id(&self) -> &str {
         "rtc_goldfish"
     }

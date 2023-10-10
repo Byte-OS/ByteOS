@@ -190,7 +190,7 @@ impl PhysPage {
     #[inline]
     pub fn copy_value_from_another(&self, ppn: PhysPage) {
         self.get_buffer().copy_from_slice(&ppn.get_buffer());
-        #[cfg(feature = "board-cv1811h")]
+        #[cfg(c906)]
         unsafe {
             asm!(".long 0x0010000b"); // dcache.all
             asm!(".long 0x01b0000b"); // sync.is
@@ -200,7 +200,7 @@ impl PhysPage {
     #[inline]
     pub fn drop_clear(&self) {
         self.get_buffer().fill(0);
-        #[cfg(feature = "board-cv1811h")]
+        #[cfg(c906)]
         unsafe {
             asm!(".long 0x0010000b"); // dcache.all
             asm!(".long 0x01b0000b"); // sync.is

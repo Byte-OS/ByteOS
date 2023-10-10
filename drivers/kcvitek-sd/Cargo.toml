@@ -13,5 +13,4 @@ kheader = { path = "../../modules/kheader" }
 devices = { path = "../../modules/devices" }
 frame_allocator = { path = "../../modules/frame_allocator" }
 log = "0.4"
-nvme_driver = { git = "https://github.com/rcore-os/nvme_driver", rev = "8ae0572" }
 cv1811-sd = { path = "../../crates/cv1811-sd" }

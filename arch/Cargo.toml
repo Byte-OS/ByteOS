@@ -6,10 +6,12 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [features]
-board-k210 = []
-board-qemu = []
-board-cv1811h = []
-# default = ["board-cv1811h"]
+
+[build-dependencies]
+toml = "0.5.2"
+serde = "1.0.136"
+serde_derive = "1.0.136"
+autocfg = "1.1.0"
 
 [dependencies]
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }

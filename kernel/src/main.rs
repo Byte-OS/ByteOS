@@ -8,6 +8,9 @@
 #![feature(panic_info_message)]
 #![feature(stdsimd)]
 
+// include modules drivers
+include!(concat!(env!("OUT_DIR"), "/modules.rs"));
+
 #[macro_use]
 extern crate logging;
 #[macro_use]
@@ -16,7 +19,7 @@ extern crate alloc;
 extern crate bitflags;
 
 mod epoll;
-mod modules;
+// mod modules;
 mod panic;
 mod socket;
 mod syscall;

@@ -1,0 +1,14 @@
+# TIPS: This is a config file for qemu-system-riscv64 platform.
+
+# driver list
+drivers = [
+    "kvirtio",
+    "kgoldfish-rtc",
+    "general-plic",
+    "ns16550a",
+    # "knvme",
+]
+
+features = [
+    "nvme"
+]

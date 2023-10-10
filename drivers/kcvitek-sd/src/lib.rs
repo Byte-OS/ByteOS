@@ -9,7 +9,7 @@ extern crate log;
 use alloc::sync::Arc;
 use cv1811_sd::clk_en;
 use devices::{
-    device::{BlkDriver, Driver, DeviceType},
+    device::{BlkDriver, DeviceType, Driver},
     driver_define,
 };
 use fdt::node::FdtNode;
