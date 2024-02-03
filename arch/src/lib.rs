@@ -2,7 +2,6 @@
 #![no_main]
 #![feature(naked_functions)]
 #![feature(asm_const)]
-#![feature(once_cell)]
 #![feature(stdsimd)]
 #![feature(const_mut_refs)]
 #![feature(const_slice_from_raw_parts_mut)]

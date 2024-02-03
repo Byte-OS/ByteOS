@@ -9,7 +9,7 @@
 #![feature(stdsimd)]
 
 // include modules drivers
-include!(concat!(env!("OUT_DIR"), "/modules.rs"));
+include!(concat!(env!("OUT_DIR"), "/drivers.rs"));
 
 #[macro_use]
 extern crate logging;

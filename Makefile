@@ -25,7 +25,7 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC := qemu-system-riscv64 \
+QEMU_EXEC := qemu-system-$(ARCH) \
 				-machine virt \
 				-kernel $(KERNEL_ELF) \
 				-m 128M \
@@ -56,7 +56,9 @@ SBI = tools/rustsbi-k210.bin
 features += k210
 endif
 
-all: 
+all: build
+
+offline:
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
 #	cp $(KERNEL_ELF) kernel-qemu
@@ -73,7 +75,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)"
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
 
 justbuild: fs-img build 
 

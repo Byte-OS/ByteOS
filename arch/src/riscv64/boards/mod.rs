@@ -9,10 +9,11 @@ cfg_if::cfg_if! {
         mod cv1811h;
         pub use cv1811h::*;
     } else {
+        compile_error!("not support this board");
         pub const CLOCK_FREQ: usize = 12500000;
 
         pub fn init_device(hartid: usize, device_tree: usize) -> (usize, usize) {
-            warn!("use default board config");
+            // warn!("use default board config");
             (hartid, device_tree)
         }
     }

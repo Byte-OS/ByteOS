@@ -11,7 +11,6 @@ net = []
 toml = "0.5.2"
 serde = "1.0.136"
 serde_derive = "1.0.136"
-autocfg = "1.1.0"
 
 [dependencies]
 frame_allocator = { path = "../modules/frame_allocator" }
