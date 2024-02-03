@@ -539,7 +539,7 @@ pub async fn sys_wait4(
             .pcb
             .lock()
             .children
-            .drain_filter(|x| x.task_id == child_task.get_task_id());
+            .retain(|x| x.task_id != child_task.get_task_id());
         debug!("wait pid: {}", child_task.exit_code().unwrap());
 
         if status.is_valid() {
@@ -562,7 +562,7 @@ pub async fn sys_wait4(
                     .pcb
                     .lock()
                     .children
-                    .drain_filter(|x| x.task_id == child_task.task_id);
+                    .retain(|x| x.task_id != child_task.task_id);
                 if status.is_valid() {
                     *status.get_mut() = (t1 as i32) << 8;
                 }

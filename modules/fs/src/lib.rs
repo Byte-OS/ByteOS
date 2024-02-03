@@ -1,5 +1,5 @@
 #![no_std]
-#![feature(drain_filter)]
+#![feature(extract_if)]
 #![feature(associated_type_bounds)]
 #![feature(let_chains)]
 

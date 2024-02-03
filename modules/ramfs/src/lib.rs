@@ -1,6 +1,5 @@
 #![no_std]
-#![feature(drain_filter)]
-
+#![feature(extract_if)]
 #[macro_use]
 extern crate alloc;
 
@@ -184,7 +183,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .drain_filter(|x| match x {
+            .extract_if(|x| match x {
                 FileContainer::Dir(x) => x.name == name,
                 _ => false,
             })
@@ -227,7 +226,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .drain_filter(|x| match x {
+            .extract_if(|x| match x {
                 FileContainer::File(x) => x.name == name,
                 FileContainer::Dir(_) => false,
                 FileContainer::Link(x) => x.name == name,

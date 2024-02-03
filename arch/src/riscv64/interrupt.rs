@@ -378,6 +378,6 @@ pub fn enable_irq() {
 #[inline(always)]
 pub fn enable_external_irq() {
     unsafe {
-        riscv::register::sie::set_sext();
+        // riscv::register::sie::set_sext();
     }
 }

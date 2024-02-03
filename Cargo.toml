@@ -4,10 +4,13 @@ members = [
     "arch",
 
     # crates
-    "crates/backtrace",
+    # "crates/backtrace",
     "crates/timestamp",
     "crates/vfscore",
     "crates/cv1811-sd",
+    "crates/page_table",
+    "crates/page_table_entry",
+    "crates/memory_addr",
 
     # modules
     "modules/logging",
@@ -36,3 +39,6 @@ members = [
     # kernel
     "kernel"
 ]
+
+[profile.release]
+debug = true

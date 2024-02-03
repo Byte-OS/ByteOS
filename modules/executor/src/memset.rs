@@ -194,7 +194,7 @@ impl MemArea {
                 mtype: self.mtype,
                 mtrackers: self
                     .mtrackers
-                    .drain_filter(|x| new_area_range.contains(&x.vpn.to_addr()))
+                    .extract_if(|x| new_area_range.contains(&x.vpn.to_addr()))
                     .collect(),
                 file: self.file.clone(),
                 start: end,
@@ -240,7 +240,7 @@ impl MemArea {
         // drop the sub memory area pages.
         let new_self_rang = self.start..self.start + self.len;
         self.mtrackers
-            .drain_filter(|x| !new_self_rang.contains(&x.vpn.to_addr()))
+            .extract_if(|x| !new_self_rang.contains(&x.vpn.to_addr()))
             .for_each(|x| {
                 pt.unmap(x.vpn);
             });
