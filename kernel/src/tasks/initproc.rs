@@ -309,7 +309,7 @@ pub async fn initproc() {
     // command("busybox sh ./multi.sh 1").await;
     // command("busybox sh ./tst.sh ./sort.src").await;
     // command("entry-dynamic.exe pthread_cancel_points").await;
-
+    // command("bin/sh").await;
     command("busybox sh").await;
     // command("cloudreve").await;
     // command("miniftpd").await;

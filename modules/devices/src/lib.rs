@@ -1,6 +1,5 @@
 #![no_std]
 #![feature(used_with_arg)]
-#![feature(drain_filter)]
 #![feature(decl_macro)]
 #![feature(iter_intersperse)]
 

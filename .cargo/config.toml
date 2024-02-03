@@ -2,11 +2,16 @@
 [build]
 # target = ".cargo/riscv64imac-unknown-none-elf.json"
 target = "riscv64imac-unknown-none-elf"
+# target = "x86_64-unknown-none"
 
 [target.riscv64imac-unknown-none-elf]
 rustflags = [
-    "-Cforce-frame-pointers=yes"
+    "-Cforce-frame-pointers=yes",
+    "--cfg=hello_world",
+    "--cfg=board=\"qemu\""
 ]
+
+[target.x86_64-unknown-none]
 
 [unstable]
 features = ["dev_dep","host_dep"]

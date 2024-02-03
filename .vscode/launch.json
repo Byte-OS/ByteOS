@@ -1,0 +1,48 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "gdb",
+            "request": "attach",
+            "name": "Attach to Qemu",
+            "executable": "${userHome}/Code/ByteOS/target/riscv64imac-unknown-none-elf/debug/kernel",
+            "target": ":1234",//不能和Qemu开放的tcp端口重叠
+            "remote": true,
+            "cwd": "${workspaceRoot}",
+            "valuesFormatting": "parseText",
+            "gdbpath": "gdb-multiarch",
+            "preLaunchTask": "Build",
+            "showDevDebugOutput":true,
+            "internalConsoleOptions": "openOnSessionStart",
+            "printCalls": true,
+            "stopAtConnect": true,
+            "qemuPath": "qemu-system-riscv64",
+            "qemuArgs": [
+                "-machine",
+                "virt",
+                "-kernel",
+                "target/riscv64imac-unknown-none-elf/debug/kernel",
+                "-m",
+                "128M",
+                "-bios",
+                "tools/opensbi-qemu.bin",
+                "-nographic",
+                "-smp",
+                "1",
+                "-drive",
+                "file=mount.img,if=none,format=raw,id=x0",
+                "-device",
+                "virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0",
+                "-s",
+                "-S"
+            ],
+         "userSpaceDebuggeeFolder":"/home/yufeng/Code/Starry/testcases/sdcard",
+         "KERNEL_IN_BREAKPOINTS_LINE":14, // src/trap/mod.rs中内核入口行号。可能要修改
+         "KERNEL_OUT_BREAKPOINTS_LINE":750, // src/trap/mod.rs中内核出口行号。可能要修改
+         "GO_TO_KERNEL_LINE":30, // src/trap/mod.rs中，用于从用户态返回内核的断点行号。在rCore-Tutorial-v3中，这是set_user_trap_entry函数中的stvec::write(TRAMPOLINE as usize, TrapMode::Direct);语句。
+         "KERNEL_IN_BREAKPOINTS_FILENAME":"/home/yufeng/Code/Starry/modules/axhal/src/arch/x86_64/trap.rs",
+         "KERNEL_OUT_BREAKPOINTS_FILENAME":"/home/yufeng/Code/Starry/modules/axtask/src/task.rs",
+         "GO_TO_KERNEL_FILENAME":"src/trap/mod.rs"
+        },
+    ]
+}

@@ -3,7 +3,7 @@ use core::arch::riscv64::sfence_vma_all;
 use crate::VIRT_ADDR_START;
 use crate::{PTEFlags, PAGE_ITEM_COUNT, PTE};
 
-const STACK_SIZE: usize = 0x8000;
+const STACK_SIZE: usize = 0x80000;
 
 #[link_section = ".bss.stack"]
 static mut STACK: [u8; STACK_SIZE] = [0u8; STACK_SIZE];

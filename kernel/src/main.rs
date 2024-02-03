@@ -1,7 +1,7 @@
 #![no_main]
 #![no_std]
 #![feature(exclusive_range_pattern)]
-#![feature(drain_filter)]
+#![feature(extract_if)]
 #![feature(ip_in_core)]
 #![feature(async_closure)]
 #![feature(let_chains)]

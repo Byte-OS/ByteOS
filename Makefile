@@ -1,11 +1,23 @@
 SHELL := /bin/bash
 NVME := off
 NET  := off
-ARCH := riscv64imac
+ARCH := riscv64
 LOG  := error
 BOARD:= qemu
 RELEASE := release
-KERNEL_ELF = target/$(ARCH)-unknown-none-elf/$(RELEASE)/kernel
+ifeq ($(ARCH), x86_64)
+  TARGET := x86_64-unknown-none
+else ifeq ($(ARCH), riscv64)
+  TARGET := riscv64imac-unknown-none-elf
+else ifeq ($(ARCH), aarch64)
+  TARGET := aarch64-unknown-none-softfloat
+else ifeq ($(ARCH), longarch64)
+  $(error "longarch64 is currently not supported ")
+else
+  $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "longarch64")
+endif
+
+KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
 BIN_FILE = byteos.bin
 # SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
@@ -20,7 +32,11 @@ QEMU_EXEC := qemu-system-riscv64 \
 				-bios $(SBI) \
 				-nographic \
 				-smp 1
-TESTCASE := testcase-gcc
+BUILD_ARGS :=
+ifeq ($(RELEASE), release)
+	BUILD_ARGS += --release
+endif
+TESTCASE := testcase-final2023
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm 
@@ -41,7 +57,7 @@ features += k210
 endif
 
 all: 
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --releaes --features "$(features)" --offline
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
 #	cp $(KERNEL_ELF) kernel-qemu
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
@@ -57,7 +73,9 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --release --features "$(features)"
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)"
+
+justbuild: fs-img build 
 
 run: fs-img build
 	time $(QEMU_EXEC)
@@ -88,7 +106,7 @@ flash: k210-build
 debug: fs-img build
 	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
-	tmux split-window -h "riscv64-elf-gdb -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
+	tmux split-window -h "gdb-multiarch -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
 	tmux -2 attach-session -d
 
 clean:
@@ -103,4 +121,4 @@ gdb:
 addr2line:
 	addr2line -sfipe $(KERNEL_ELF) | rustfilt
 
-.PHONY: all run build clean gdb
+.PHONY: all run build clean gdb justbuild

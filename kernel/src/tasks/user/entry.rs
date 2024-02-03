@@ -52,7 +52,6 @@ pub async fn user_entry() {
         // hexdump(core::slice::from_raw_parts_mut(0x48000 as *mut u8, 0x1000), 0x48000);
         // debug!("ppn: {:?}", task.page_table.virt_to_phys(entry.into()));
     }
-
     let check_signal = async || {
         loop {
             let sig_mask = task.tcb.read().sigmask;
