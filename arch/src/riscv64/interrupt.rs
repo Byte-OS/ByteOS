@@ -1,12 +1,11 @@
 use core::arch::{asm, global_asm};
 
-use alloc::vec::Vec;
 use riscv::register::{
     scause::{self, Exception, Interrupt, Trap},
     sstatus, stval,
 };
 
-use crate::{interrupt_table, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
+use crate::{add_irq, interrupt_table, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
 
 use super::timer;
 
@@ -39,6 +38,7 @@ global_asm!(
 pub fn init_interrupt() {
     crate::riscv64::page_table::sigtrx::init();
     // 输出内核信息
+
     unsafe {
         asm!("csrw stvec, a0", in("a0") kernelvec as usize);
 
@@ -51,21 +51,6 @@ pub fn init_interrupt() {
     timer::init();
 }
 
-static mut INT_RECORDS: Vec<usize> = Vec::new();
-
-pub fn add_irq(irq: usize) {
-    unsafe {
-        while INT_RECORDS.len() < 256 {
-            INT_RECORDS.push(0);
-        }
-        INT_RECORDS[irq] += 1;
-    }
-}
-
-pub fn get_int_records() -> Vec<usize> {
-    // INT_RECORDS.lock().clone()
-    unsafe { INT_RECORDS.clone() }
-}
 
 // 内核中断回调
 #[no_mangle]
