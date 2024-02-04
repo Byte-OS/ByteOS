@@ -14,6 +14,7 @@ extern crate log;
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
 
+use alloc::vec::Vec;
 #[cfg(target_arch = "riscv64")]
 pub use riscv64::*;
 
@@ -73,4 +74,20 @@ pub enum MapPageSize {
     Page4k,
     Page2m,
     Page1G,
+}
+
+static mut INT_RECORDS: Vec<usize> = Vec::new();
+
+pub fn add_irq(irq: usize) {
+    unsafe {
+        while INT_RECORDS.len() < 256 {
+            INT_RECORDS.push(0);
+        }
+        INT_RECORDS[irq] += 1;
+    }
+}
+
+pub fn get_int_records() -> Vec<usize> {
+    // INT_RECORDS.lock().clone()
+    unsafe { INT_RECORDS.clone() }
 }

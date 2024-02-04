@@ -48,7 +48,10 @@ dependencies = [
  "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
  "serde",
  "serde_derive",
+ "spin 0.9.8",
  "toml",
+ "x86",
+ "x86_64",
 ]
 
 [[package]]
@@ -1084,6 +1087,17 @@ name = "volatile"
 version = "0.4.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "442887c63f2c839b346c192d047a7c87e73d0689c9157b00b53dcc27dd5ea793"
+
+[[package]]
+name = "x86"
+version = "0.52.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2781db97787217ad2a2845c396a5efe286f87467a5810836db6d74926e94a385"
+dependencies = [
+ "bit_field",
+ "bitflags 1.3.2",
+ "raw-cpuid",
+]
 
 [[package]]
 name = "x86_64"
