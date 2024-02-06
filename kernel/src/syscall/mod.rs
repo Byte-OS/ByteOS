@@ -65,7 +65,7 @@ use self::{
     },
 };
 
-pub async fn syscall(call_type: usize, args: [usize; 7]) -> Result<usize, LinuxError> {
+pub async fn syscall(call_type: usize, args: [usize; 6]) -> Result<usize, LinuxError> {
     match call_type {
         SYS_GETCWD => sys_getcwd(args[0].into(), args[1] as _).await,
         SYS_CHDIR => sys_chdir(args[0].into()).await,

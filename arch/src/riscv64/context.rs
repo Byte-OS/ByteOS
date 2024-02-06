@@ -72,8 +72,8 @@ impl ContextOps for Context {
     }
 
     #[inline]
-    fn args(&self) -> [usize; 7] {
-        self.x[10..17].try_into().expect("args slice force convert")
+    fn args(&self) -> [usize; 6] {
+        self.x[10..16].try_into().expect("args slice force convert")
     }
 
     #[inline]
@@ -95,14 +95,6 @@ impl ContextOps for Context {
 
     fn set_arg2(&mut self, ret: usize) {
         self.x[12] = ret;
-    }
-
-    fn set_tp(&mut self, tp: usize) {
-        self.x[4] = tp;
-    }
-
-    fn tp(&self) -> usize {
-        self.x[4]
     }
 
     fn clear(&mut self) {
