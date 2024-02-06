@@ -5,10 +5,16 @@ ARCH := riscv64
 LOG  := error
 BOARD:= qemu
 RELEASE := release
+QEMU_EXEC ?= 
 ifeq ($(ARCH), x86_64)
   TARGET := x86_64-unknown-none
+  QEMU_EXEC += qemu-system-x86_64 \
+				-machine q35
 else ifeq ($(ARCH), riscv64)
   TARGET := riscv64imac-unknown-none-elf
+  QEMU_EXEC += qemu-system-$(ARCH) \
+				-machine virt \
+				-bios $(SBI)
 else ifeq ($(ARCH), aarch64)
   TARGET := aarch64-unknown-none-softfloat
 else ifeq ($(ARCH), longarch64)
@@ -25,13 +31,10 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC := qemu-system-$(ARCH) \
-				-machine virt \
-				-kernel $(KERNEL_ELF) \
-				-m 128M \
-				-bios $(SBI) \
-				-nographic \
-				-smp 1
+QEMU_EXEC += -kernel $(KERNEL_ELF) \
+			-m 128M \
+			-nographic \
+			-smp 1
 BUILD_ARGS :=
 ifeq ($(RELEASE), release)
 	BUILD_ARGS += --release
@@ -41,8 +44,8 @@ ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm 
 else
-QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
-        		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
+# QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
+#         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
 endif
 
 ifeq ($(NET), on)
@@ -108,7 +111,7 @@ flash: k210-build
 debug: fs-img build
 	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
-	tmux split-window -h "gdb-multiarch -ex 'file $(KERNEL_ELF)' -ex 'set arch riscv:rv64' -ex 'target remote localhost:1234'" && \
+	tmux split-window -h "gdb-multiarch -ex 'file $(KERNEL_ELF)' -ex 'target remote localhost:1234'" && \
 	tmux -2 attach-session -d
 
 clean:

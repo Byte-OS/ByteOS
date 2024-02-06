@@ -1,4 +1,4 @@
-use core::arch::riscv64::sfence_vma_all;
+// use core::arch::riscv64::sfence_vma_all;
 
 use alloc::sync::Arc;
 use arch::ContextOps;
@@ -43,7 +43,7 @@ pub async fn user_entry() {
     let mut times = 0;
 
     unsafe {
-        sfence_vma_all();
+        // sfence_vma_all();
         // use this statement to simulate a breakpoint.
         // *(0x0000000000484a8 as *mut u32) = 0;
         // *(0x10ab8 as *mut u32) = 0;

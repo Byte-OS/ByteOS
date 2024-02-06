@@ -248,11 +248,6 @@ impl PageTable {
     }
 }
 
-/// ppn convert, 如果在高半核空间
-pub const fn ppn_c(ppn: PhysPage) -> PhysPage {
-    PhysPage(ppn.0 | (PAGE_FRAME_BASE >> 12))
-}
-
 /// paddr convert, 如果在高半核空间
 pub fn paddr_c(paddr: PhysAddr) -> PhysAddr {
     assert!(paddr.0 < PAGE_FRAME_BASE);

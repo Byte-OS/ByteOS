@@ -11,12 +11,15 @@ extern crate alloc;
 #[macro_use]
 extern crate log;
 
+// mod pte;
+// pub use pte::MappingFlags;
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
 
 use alloc::vec::Vec;
 #[cfg(target_arch = "riscv64")]
 pub use riscv64::*;
+
 
 #[cfg(target_arch = "x86_64")]
 mod x86_64;
@@ -35,21 +38,17 @@ pub trait ContextOps {
     fn ra(&self) -> usize;
     fn set_sepc(&mut self, sepc: usize);
     fn sepc(&self) -> usize;
-    fn set_tp(&mut self, tp: usize);
-    fn tp(&self) -> usize;
 
+    fn args(&self) -> [usize; 6];
     fn set_arg0(&mut self, ret: usize);
     fn set_arg1(&mut self, ret: usize);
     fn set_arg2(&mut self, ret: usize);
 
     fn syscall_number(&self) -> usize;
-    fn args(&self) -> [usize; 7];
     fn syscall_ok(&mut self);
 
     fn set_ret(&mut self, ret: usize);
-
     fn clear(&mut self);
-
     fn set_tls(&mut self, tls: usize);
 }
 

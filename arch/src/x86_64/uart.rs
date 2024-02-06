@@ -90,8 +90,12 @@ pub fn console_putchar(c: u8) {
     COM1.lock().putchar(c);
 }
 
-pub fn console_getchar() -> Option<u8> {
-    COM1.lock().getchar()
+pub fn console_getchar() -> char {
+    loop {
+        if let Some(c) = COM1.lock().getchar() {
+            return c as char;
+        }
+    }
 }
 
 pub fn init_early() {
