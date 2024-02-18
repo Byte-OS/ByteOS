@@ -43,17 +43,10 @@ impl ArchInterface for ArchInterfaceImpl {
         // initialize logging module
         logging::init(option_env!("LOG"));
     }
-}
-
-struct ArchInterfaceImpl1;
-
-#[crate_interface::impl_interface]
-impl ArchInterface for ArchInterfaceImpl1 {
-    fn interrupt_table() -> Option<fn(&mut Context, TrapType)> {
-        todo!()
+    fn interrupt_table() -> fn(&mut Context, TrapType) {
+        kernel_interrupt
     }
 }
-
 
 #[no_mangle]
 fn main(hart_id: usize, device_tree: usize) {
@@ -78,7 +71,6 @@ fn main(hart_id: usize, device_tree: usize) {
 
     // initialize interrupt
     hal::interrupt::init();
-    hal::interrupt::reg_kernel_int(kernel_interrupt);
 
     // print boot info
     info!("booting at core {}", hart_id);

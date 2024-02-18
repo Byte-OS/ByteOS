@@ -1,5 +1,6 @@
 #![feature(lazy_cell)]
 
+use std::io::Result;
 use std::{
     env, fs,
     path::{Path, PathBuf},
@@ -20,12 +21,6 @@ fn write_module_config(driver_list: Vec<String>) {
         if !Path::new(&format!("../drivers/{module}/Cargo.toml")).exists() {
             panic!("can't find module {}", module);
         }
-        // use cargo command to add driver to kernel.
-        // Command::new("cargo")
-        //     .args(["add", "--path", &format!("../drivers/{module}")])
-        //     .output()
-        //     .expect("failed to execute cargo add");
-        
         module_file_content.push_str(&format!("extern crate {};\n", module.replace("-", "_")))
     });
     fs::write(out_path.join("drivers.rs"), module_file_content)
@@ -41,6 +36,35 @@ fn main() {
 
     // write module configuration to OUT_PATH, then it will be included in the main.rs
     write_module_config(drivers);
+    gen_linker_script(&env::var("CARGO_CFG_BOARD").expect("can't find board"))
+        .expect("can't generate linker script");
+    println!("cargo:rerun-if-env-changed=CARGO_CFG_TARGET_ARCH");
+    println!("cargo:rerun-if-env-changed=CARGO_CFG_KERNEL_BASE");
+    println!("cargo:rerun-if-env-changed=CARGO_CFG_BOARD");
     println!("cargo:rerun-if-env-changed=CARGO_CFG_DRIVER");
     println!("cargo:rerun-if-changed=build.rs");
+    println!("cargo:rerun-if-changed=linker.lds.S");
+}
+
+fn gen_linker_script(platform: &str) -> Result<()> {
+    let fname = format!("linker_{}.lds", platform);
+    let arch = env::var("CARGO_CFG_TARGET_ARCH").expect("can't find target");
+    let output_arch = if arch == "x86_64" {
+        "i386:x86-64"
+    } else if arch.contains("riscv") {
+        "riscv" // OUTPUT_ARCH of both riscv32/riscv64 is "riscv"
+    } else {
+        &arch
+    };
+    display!("output_arch: {}", output_arch);
+    let ld_content = std::fs::read_to_string("linker.lds.S")?;
+    let ld_content = ld_content.replace("%ARCH%", output_arch);
+    let ld_content = ld_content.replace(
+        "%KERNEL_BASE%",
+        &env::var("CARGO_CFG_KERNEL_BASE").expect("can't find KERNEL_BASE cfg"),
+    );
+
+    std::fs::write(&fname, ld_content)?;
+    println!("cargo:rustc-link-arg=-Tkernel/{}", fname);
+    Ok(())
 }

@@ -55,10 +55,6 @@ pub trait ContextOps {
     fn set_tls(&mut self, tls: usize);
 }
 
-extern "Rust" {
-    fn interrupt_table() -> Option<fn(&mut Context, TrapType)>;
-}
-
 #[derive(Debug)]
 pub enum TrapType {
     Breakpoint,
@@ -92,4 +88,10 @@ pub fn add_irq(irq: usize) {
 pub fn get_int_records() -> Vec<usize> {
     // INT_RECORDS.lock().clone()
     unsafe { INT_RECORDS.clone() }
+}
+
+pub fn prepare_init() {
+    ArchInterface::init_logging();
+    // Init allocator
+    allocator::init();
 }
