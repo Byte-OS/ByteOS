@@ -25,16 +25,35 @@ mod socket;
 mod syscall;
 mod tasks;
 
-use arch::enable_irq;
+use arch::{enable_irq, ArchInterface, Context, TrapType};
 use devices;
 use executor::FileItem;
 use frame_allocator;
 use fs::get_filesystem;
 use hal;
-use kalloc;
 use vfscore::{INodeInterface, OpenFlags};
 
 use crate::tasks::kernel::kernel_interrupt;
+
+struct ArchInterfaceImpl;
+
+#[crate_interface::impl_interface]
+impl ArchInterface for ArchInterfaceImpl {
+    fn init_logging() {
+        // initialize logging module
+        logging::init(option_env!("LOG"));
+    }
+}
+
+struct ArchInterfaceImpl1;
+
+#[crate_interface::impl_interface]
+impl ArchInterface for ArchInterfaceImpl1 {
+    fn interrupt_table() -> Option<fn(&mut Context, TrapType)> {
+        todo!()
+    }
+}
+
 
 #[no_mangle]
 fn main(hart_id: usize, device_tree: usize) {
@@ -52,9 +71,6 @@ fn main(hart_id: usize, device_tree: usize) {
 
     println!("run kernel @ hart {}", hart_id);
 
-    // initialize logging module
-    logging::init(option_env!("LOG"));
-
     info!(
         "program size: {}KB",
         (end as usize - start as usize) / 0x400
@@ -66,9 +82,6 @@ fn main(hart_id: usize, device_tree: usize) {
 
     // print boot info
     info!("booting at core {}", hart_id);
-
-    // initialize kernel alloc module
-    kalloc::init();
 
     // initialize device settings
     devices::init_device(device_tree);

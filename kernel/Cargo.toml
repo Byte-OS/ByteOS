@@ -13,9 +13,9 @@ serde = "1.0.136"
 serde_derive = "1.0.136"
 
 [dependencies]
+crate_interface = { path = "../crates/crate_interface" }
 frame_allocator = { path = "../modules/frame_allocator" }
 logging = { path = "../modules/logging" }
-kalloc = { path = "../modules/kalloc" }
 log = "0.4"
 devices = { path = "../modules/devices" }
 hal = { path = "../modules/hal" }

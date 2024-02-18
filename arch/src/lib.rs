@@ -11,6 +11,7 @@ extern crate alloc;
 #[macro_use]
 extern crate log;
 
+mod api;
 // mod pte;
 // pub use pte::MappingFlags;
 #[cfg(target_arch = "riscv64")]
@@ -26,6 +27,8 @@ mod x86_64;
 
 #[cfg(target_arch = "x86_64")]
 pub use x86_64::*;
+
+pub use api::*;
 
 pub struct IntTable {
     pub timer: fn(),

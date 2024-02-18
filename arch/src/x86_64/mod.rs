@@ -6,6 +6,7 @@ mod interrupt;
 mod page_table;
 mod uart;
 mod sigtrx;
+mod multiboot;
 
 pub use addr::*;
 pub use consts::*;
