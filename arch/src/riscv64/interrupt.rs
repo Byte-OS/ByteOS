@@ -5,7 +5,7 @@ use riscv::register::{
     sstatus, stval,
 };
 
-use crate::{add_irq, interrupt_table, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
+use crate::{add_irq, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
 
 use super::timer;
 
@@ -51,13 +51,11 @@ pub fn init_interrupt() {
     timer::init();
 }
 
-
 // 内核中断回调
 #[no_mangle]
 fn kernel_callback(context: &mut Context) -> usize {
     let scause = scause::read();
     let stval = stval::read();
-    let int_table = unsafe { interrupt_table() };
     debug!(
         "内核态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
         scause.bits(),
@@ -116,9 +114,7 @@ fn kernel_callback(context: &mut Context) -> usize {
             panic!("未知中断")
         }
     };
-    if let Some(func) = int_table {
-        func(context, trap_type);
-    }
+    crate::api::ArchInterface::interrupt_table()(context, trap_type);
     context as *const Context as usize
 }
 

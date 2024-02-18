@@ -1,8 +1,7 @@
-OUTPUT_ARCH(riscv)
+OUTPUT_ARCH(%ARCH%)
 ENTRY(_start)
 
-BASE_ADDRESS = 0xffffffc080200000;
-__ENTRY_ADDR = 0x80200000;
+BASE_ADDRESS = %KERNEL_BASE%;
 
 SECTIONS
 {
@@ -10,7 +9,7 @@ SECTIONS
     . = BASE_ADDRESS;
     start = .;
 
-    .text ALIGN(4K): AT(__ENTRY_ADDR) {
+    .text ALIGN(4K): {
         stext = .;
         *(.text.entry)
         *(.text .text.*)
