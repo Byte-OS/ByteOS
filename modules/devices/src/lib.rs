@@ -67,6 +67,9 @@ pub fn get_net_device(id: usize) -> Arc<dyn NetDriver> {
 }
 
 pub fn init_device(device_tree: usize) {
+    if device_tree == 0 {
+        return;
+    }
     // DEVICE_TREE_ADDR.store(device_tree, Ordering::Relaxed);
     let fdt = unsafe { Fdt::from_ptr(device_tree as *const u8).unwrap() };
     let mut dt_buf = vec![0u8; fdt.total_size()];

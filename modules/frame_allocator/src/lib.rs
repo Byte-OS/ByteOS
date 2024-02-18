@@ -223,6 +223,25 @@ impl FrameAllocator {
 /// 一个总的页帧分配器
 pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = Mutex::new(FrameAllocator::new());
 
+pub extern "Rust" fn add_frame_map(mm_start: usize, mm_end: usize) {
+    extern "C" {
+        fn end();
+    }
+    let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
+    info!("initialize frame allocator");
+
+    if phys_end > mm_start && phys_end < mm_end {
+        unsafe {
+            core::slice::from_raw_parts_mut(
+                phys_end as *mut usize,
+                (mm_end - phys_end) / size_of::<usize>(),
+            )
+            .fill(0);
+        };
+        FRAME_ALLOCATOR.lock().add_memory_region(phys_end, mm_end);
+    }
+}
+
 /// 页帧分配器初始化
 pub fn init() {
     extern "C" {

@@ -1,5 +1,5 @@
 [package]
-name = "kalloc"
+name = "allocator"
 version = "0.1.0"
 edition = "2021"
 
@@ -10,5 +10,3 @@ buddy_system_allocator = "0.9"
 log = "0.4"
 
 # customizable-buddy = "0.0.3"
-sync = { path = "../sync" }
-arch = { path = "../../arch"}

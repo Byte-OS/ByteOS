@@ -40,6 +40,7 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
     }
 
     clear_bss();
+    crate::prepare_init();
 
     let (hartid, device_tree) = boards::init_device(hartid, device_tree);
 

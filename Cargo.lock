@@ -32,6 +32,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator"
+version = "0.1.0"
+dependencies = [
+ "buddy_system_allocator",
+ "log",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -41,10 +49,13 @@ checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 name = "arch"
 version = "0.1.0"
 dependencies = [
+ "allocator",
  "autocfg",
  "bitflags 2.4.2",
  "cfg-if",
+ "crate_interface",
  "log",
+ "multiboot",
  "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
  "serde",
  "serde_derive",
@@ -142,6 +153,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bdecfbb28672ad3664e71ae05a398a52df430d86d660691501b28968cc4467e6"
 dependencies = [
  "tock-registers 0.7.0",
+]
+
+[[package]]
+name = "crate_interface"
+version = "0.1.1"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.48",
 ]
 
 [[package]]
@@ -440,16 +460,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "kalloc"
-version = "0.1.0"
-dependencies = [
- "arch",
- "buddy_system_allocator",
- "log",
- "sync",
-]
-
-[[package]]
 name = "kcvitek-sd"
 version = "0.1.0"
 dependencies = [
@@ -471,6 +481,7 @@ dependencies = [
  "async-recursion",
  "bit_field",
  "bitflags 2.4.2",
+ "crate_interface",
  "devices",
  "executor",
  "frame_allocator",
@@ -480,7 +491,6 @@ dependencies = [
  "hal",
  "hashbrown",
  "k210-sdcard",
- "kalloc",
  "kcvitek-sd",
  "kgoldfish-rtc",
  "kheader",
@@ -665,6 +675,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "multiboot"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f87ad3b7b7bcf5da525c22221e3eb3a020cd68b2d55ae62f629c15e8bc3bd56e"
+dependencies = [
+ "paste",
+]
+
+[[package]]
 name = "nb"
 version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -772,6 +791,12 @@ dependencies = [
  "memory_addr",
  "x86_64",
 ]
+
+[[package]]
+name = "paste"
+version = "1.0.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
 name = "pin-project-lite"
