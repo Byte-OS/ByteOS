@@ -22,10 +22,6 @@ pub trait AsyncTask: Send + Sync {
     }
 }
 
-// pub struct TaskCollection {
-//     pub tasks: BTreeMap<usize, PinedFuture>,
-// }
-
 pub struct TaskFutureItem(pub PinedFuture);
 
 unsafe impl Send for TaskFutureItem {}
@@ -64,6 +60,7 @@ impl Executor {
         let task = TASK_QUEUE.lock().pop_front();
         if let Some(task) = &task {
             task.before_run();
+
             *CURRENT_TASK.lock() = Some(task.clone());
             let waker = self.create_waker(task.as_ref()).into();
             let mut context = Context::from_waker(&waker);

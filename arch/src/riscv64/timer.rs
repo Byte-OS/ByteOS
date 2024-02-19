@@ -4,12 +4,11 @@ use crate::set_timer;
 
 pub use crate::riscv64::boards::CLOCK_FREQ;
 const TICKS_PER_SEC: usize = 100;
-#[allow(dead_code)]
 const MSEC_PER_SEC: usize = 1000;
 const USEC_PER_SEC: usize = 1000_000;
 const NSEC_PER_SEC: usize = 1000_000_000;
 
-#[allow(dead_code)]
+#[inline]
 pub fn get_time_ms() -> usize {
     time::read() / (CLOCK_FREQ / MSEC_PER_SEC)
 }

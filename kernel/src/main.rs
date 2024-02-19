@@ -25,10 +25,10 @@ mod socket;
 mod syscall;
 mod tasks;
 
-use arch::{enable_irq, ArchInterface, Context, TrapType};
+use arch::{enable_irq, ArchInterface, Context, PhysPage, TrapType};
 use devices;
 use executor::FileItem;
-use frame_allocator;
+use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use fs::get_filesystem;
 use hal;
 use vfscore::{INodeInterface, OpenFlags};
@@ -52,6 +52,18 @@ impl ArchInterface for ArchInterfaceImpl {
 
     fn add_memory_region(start: usize, end: usize) {
         frame_allocator::add_frame_map(start, end)
+    }
+
+    fn frame_alloc_persist() -> Option<PhysPage> {
+        unsafe {
+            frame_alloc_persist()
+        }
+    }
+
+    fn frame_unalloc(ppn: PhysPage) {
+        unsafe {
+            frame_unalloc(ppn)
+        }
     }
 }
 

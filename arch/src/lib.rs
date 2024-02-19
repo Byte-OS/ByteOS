@@ -11,8 +11,8 @@ extern crate alloc;
 #[macro_use]
 extern crate log;
 
-mod api;
 mod addr;
+mod api;
 // mod pte;
 // pub use pte::MappingFlags;
 #[cfg(target_arch = "riscv64")]
@@ -22,15 +22,14 @@ use alloc::vec::Vec;
 #[cfg(target_arch = "riscv64")]
 pub use riscv64::*;
 
-
 #[cfg(target_arch = "x86_64")]
 mod x86_64;
 
 #[cfg(target_arch = "x86_64")]
 pub use x86_64::*;
 
-pub use api::*;
 pub use addr::*;
+pub use api::*;
 
 pub struct IntTable {
     pub timer: fn(),
@@ -88,7 +87,6 @@ pub fn add_irq(irq: usize) {
 }
 
 pub fn get_int_records() -> Vec<usize> {
-    // INT_RECORDS.lock().clone()
     unsafe { INT_RECORDS.clone() }
 }
 

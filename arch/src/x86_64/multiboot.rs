@@ -3,11 +3,13 @@ extern crate core;
 use multiboot::information::{MemoryManagement, Multiboot, PAddr};
 use core::{slice, mem};
 
+use crate::VIRT_ADDR_START;
+
 struct Mem;
 
 impl MemoryManagement for Mem {
     unsafe fn paddr_to_slice(&self, addr: PAddr, size: usize) -> Option<&'static [u8]> {
-        let ptr = mem::transmute(addr);
+        let ptr = mem::transmute(addr | VIRT_ADDR_START as u64);
         Some(slice::from_raw_parts(ptr, size))
     }
     

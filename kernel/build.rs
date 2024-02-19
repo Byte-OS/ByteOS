@@ -47,8 +47,8 @@ fn main() {
 }
 
 fn gen_linker_script(platform: &str) -> Result<()> {
-    let fname = format!("linker_{}.lds", platform);
     let arch = env::var("CARGO_CFG_TARGET_ARCH").expect("can't find target");
+    let fname = format!("linker_{}_{}.lds", arch, platform);
     let (output_arch, kernel_base) = if arch == "x86_64" {
         ("i386:x86-64", "0xffffff8000200000")
     } else if arch.contains("riscv") {
@@ -56,7 +56,6 @@ fn gen_linker_script(platform: &str) -> Result<()> {
     } else {
         (arch.as_str(), "0")
     };
-    display!("output_arch: {}", output_arch);
     let ld_content = std::fs::read_to_string("linker.lds.S")?;
     let ld_content = ld_content.replace("%ARCH%", output_arch);
     // let ld_content = ld_content.replace(
@@ -67,7 +66,6 @@ fn gen_linker_script(platform: &str) -> Result<()> {
         "%KERNEL_BASE%",
         kernel_base,
     );
-    display!("kernel_base: {}", env::var("CARGO_CFG_KERNEL_BASE").unwrap());
     
     std::fs::write(&fname, ld_content)?;
     println!("cargo:rustc-link-arg=-Tkernel/{}", fname);

@@ -22,14 +22,12 @@ pub mod signal;
 pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
-        "store/instruction page fault @ {:#x} vpn: {} ppn: {} flags: {:?} task_id: {}",
+        "store/instruction page fault @ {:#x} vpn: {} ppn: {} task_id: {}",
         addr,
         vpn,
         task.page_table.virt_to_phys(addr.into()),
-        task.page_table.virt_flags(addr.into()),
         task.get_task_id()
     );
-    // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
     let mut pcb = task.pcb.lock();
     let area = pcb
         .memset
@@ -77,44 +75,6 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     } else {
         task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
     }
-
-    // let finded = pcb
-    //     .memset
-    //     .iter_mut()
-    //     .rev()
-    //     .filter(|x| x.mtype != executor::MemType::Shared)
-    //     .find_map(|mem_area| {
-    //         mem_area
-    //             .mtrackers
-    //             .iter_mut()
-    //             // .find(|x| x.vpn == vpn && mem_area.mtype == MemType::Clone)
-    //             .find(|x| x.vpn == vpn)
-    //     });
-
-    // match finded {
-    //     Some(map_track) => {
-    //         // tips: this finded will consume a strong count.
-    //         debug!("strong count: {}", Arc::strong_count(&map_track.tracker));
-    //         if Arc::strong_count(&map_track.tracker) > 1 {
-    //             let src_ppn = map_track.tracker.0;
-    //             let dst_ppn = frame_alloc().expect("can't alloc @ user page fault");
-    //             dst_ppn.0.copy_value_from_another(src_ppn);
-    //             map_track.tracker = Arc::new(dst_ppn);
-    //         }
-    //         task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
-    //         // hexdump(map_track.tracker.0.get_buffer(), vpn.to_addr());
-    //     }
-    //     None => {
-    //         drop(pcb);
-    //         if (0x7ff00000..0x7ffff000).contains(&addr) {
-    //             task.frame_alloc(vpn, executor::MemType::Stack, 1);
-    //         } else {
-    //             // warn!("task exit with page fault, its context: {:#X?}", cx_ref);
-    //             // task.exit_with_signal(SignalFlags::SIGABRT.num());
-    //             task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
-    //         }
-    //     }
-    // }
 }
 
 /// Handle user interrupt.
@@ -166,11 +126,10 @@ pub async fn handle_user_interrupt(
         arch::TrapType::IllegalInstruction(addr) => {
             let vpn = VirtPage::from_addr(addr);
             warn!(
-                "store/instruction page fault @ {:#x} vpn: {} ppn: {} flags: {:?}",
+                "store/instruction page fault @ {:#x} vpn: {} ppn: {}",
                 addr,
                 vpn,
                 task.page_table.virt_to_phys(addr.into()),
-                task.page_table.virt_flags(addr.into())
             );
             warn!("the fault occurs @ {:#x}", cx_ref.sepc());
             // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
