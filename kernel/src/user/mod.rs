@@ -8,10 +8,8 @@ use log::{debug, warn};
 
 use crate::{
     syscall::{consts::SYS_SIGRETURN, syscall},
-    tasks::hexdump,
+    tasks::{hexdump, UserTaskControlFlow},
 };
-
-use super::UserTaskControlFlow;
 
 pub mod entry;
 pub mod signal;

@@ -24,6 +24,7 @@ mod panic;
 mod socket;
 mod syscall;
 mod tasks;
+mod user;
 
 use arch::{enable_irq, ArchInterface, Context, PhysPage, TrapType};
 use devices;

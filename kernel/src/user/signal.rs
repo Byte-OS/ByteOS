@@ -7,7 +7,7 @@ use log::debug;
 use signal::SignalFlags;
 
 use crate::syscall::consts::{SignalUserContext, UserRef};
-use crate::tasks::user::handle_user_interrupt;
+use crate::user::handle_user_interrupt;
 use crate::tasks::UserTaskControlFlow;
 
 pub async fn handle_signal(task: Arc<UserTask>, signal: SignalFlags) {

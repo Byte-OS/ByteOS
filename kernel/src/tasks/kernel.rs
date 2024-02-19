@@ -1,4 +1,4 @@
-use super::user::user_cow_int;
+use crate::user::user_cow_int;
 use arch::{Context, TrapType, VIRT_ADDR_START};
 use devices::get_int_device;
 use executor::get_current_task;

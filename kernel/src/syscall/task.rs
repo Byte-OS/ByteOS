@@ -1,7 +1,7 @@
 use crate::syscall::consts::{from_vfs, CloneFlags, Rusage};
 use crate::syscall::time::WaitUntilsec;
 use crate::tasks::elf::{init_task_stack, ElfExtra};
-use crate::tasks::user::entry::user_entry;
+use crate::user::entry::user_entry;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
 use alloc::string::{String, ToString};
 use alloc::sync::Weak;
