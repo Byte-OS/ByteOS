@@ -9,7 +9,7 @@ use hal::TimeVal;
 use log::debug;
 use signal::{SigProcMask, SignalFlags};
 
-use crate::tasks::user::{handle_user_interrupt, signal::handle_signal};
+use crate::user::{handle_user_interrupt, signal::handle_signal};
 use crate::tasks::UserTaskControlFlow;
 
 pub fn check_timer(task: &Arc<UserTask>) {

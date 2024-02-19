@@ -7,7 +7,7 @@ use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;
 
-use super::user::entry::mask_signal_list;
+use crate::user::entry::mask_signal_list;
 
 pub struct NextTick(usize);
 
