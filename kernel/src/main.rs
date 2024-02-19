@@ -46,6 +46,13 @@ impl ArchInterface for ArchInterfaceImpl {
     fn interrupt_table() -> fn(&mut Context, TrapType) {
         kernel_interrupt
     }
+    fn main(hart_id: usize, device_tree: usize) {
+        main(hart_id, device_tree)
+    }
+
+    fn add_memory_region(start: usize, end: usize) {
+        frame_allocator::add_frame_map(start, end)
+    }
 }
 
 #[no_mangle]

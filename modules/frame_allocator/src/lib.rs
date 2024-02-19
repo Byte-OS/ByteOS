@@ -6,7 +6,7 @@ extern crate alloc;
 use core::mem::size_of;
 
 use alloc::vec::Vec;
-use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
+use arch::{PhysPage, PAGE_SIZE};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
 use log::info;
@@ -223,13 +223,14 @@ impl FrameAllocator {
 /// 一个总的页帧分配器
 pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = Mutex::new(FrameAllocator::new());
 
-pub extern "Rust" fn add_frame_map(mm_start: usize, mm_end: usize) {
+pub fn add_frame_map(mm_start: usize, mm_end: usize) {
     extern "C" {
         fn end();
     }
-    let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
-    info!("initialize frame allocator");
-
+    let phys_end = floor(end as usize, PAGE_SIZE) * PAGE_SIZE;
+    // let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
+    info!("add frame memory region {:#x} - {:#x}", mm_start, mm_end);
+    info!("{:#x}", phys_end);
     if phys_end > mm_start && phys_end < mm_end {
         unsafe {
             core::slice::from_raw_parts_mut(
@@ -244,27 +245,11 @@ pub extern "Rust" fn add_frame_map(mm_start: usize, mm_end: usize) {
 
 /// 页帧分配器初始化
 pub fn init() {
-    extern "C" {
-        fn end();
-    }
     info!("initialize frame allocator");
-    let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
-
-    // 从设备树中获取内存分布
-    let mrs = get_memorys();
-
+    
     // 在帧分配器中添加内存
-    mrs.iter().for_each(|mr| {
-        if phys_end > mr.start && phys_end < mr.end {
-            unsafe {
-                core::slice::from_raw_parts_mut(
-                    phys_end as *mut usize,
-                    (mr.end - phys_end) / size_of::<usize>(),
-                )
-                .fill(0);
-            };
-            FRAME_ALLOCATOR.lock().add_memory_region(phys_end, mr.end);
-        }
+    get_memorys().iter().for_each(|mr| {
+        add_frame_map(mr.start, mr.end)
     });
 
     // 确保帧分配器一定能工作

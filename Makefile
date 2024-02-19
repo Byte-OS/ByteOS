@@ -24,6 +24,7 @@ else
 endif
 
 KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
+KERNEL_BIN = target/$(TARGET)/$(RELEASE)/kernel.bin
 BIN_FILE = byteos.bin
 # SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
@@ -31,10 +32,12 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC += -kernel $(KERNEL_ELF) \
+QEMU_EXEC += -kernel $(KERNEL_BIN) \
 			-m 128M \
 			-nographic \
-			-smp 1
+			-smp 1 \
+			-D qemu.log -d in_asm,int,mmu,pcall,cpu_reset,guest_errors
+
 BUILD_ARGS :=
 ifeq ($(RELEASE), release)
 	BUILD_ARGS += --release
@@ -42,7 +45,7 @@ endif
 TESTCASE := testcase-final2023
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
-				-device nvme,serial=deadbeef,drive=nvm 
+				-device nvme,serial=deadbeef,drive=nvm \
 else
 # QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
 #         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
@@ -79,6 +82,7 @@ fs-img:
 
 build:
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
+	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
 
@@ -111,7 +115,7 @@ flash: k210-build
 debug: fs-img build
 	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
-	tmux split-window -h "gdb-multiarch -ex 'file $(KERNEL_ELF)' -ex 'target remote localhost:1234'" && \
+	tmux split-window -h "gdb -ex 'file $(KERNEL_ELF)' -ex 'target remote localhost:1234'" && \
 	tmux -2 attach-session -d
 
 clean:

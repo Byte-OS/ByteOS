@@ -63,8 +63,10 @@ fn gen_linker_script(platform: &str) -> Result<()> {
         "%KERNEL_BASE%",
         &env::var("CARGO_CFG_KERNEL_BASE").expect("can't find KERNEL_BASE cfg"),
     );
-
+    display!("kernel_base: {}", env::var("CARGO_CFG_KERNEL_BASE").unwrap());
+    
     std::fs::write(&fname, ld_content)?;
     println!("cargo:rustc-link-arg=-Tkernel/{}", fname);
+    println!("cargo:rerun-if-env-changed=CARGO_CFG_KERNEL_BASE");
     Ok(())
 }

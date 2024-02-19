@@ -22,24 +22,9 @@ pub use timer::*;
 
 use riscv::register::sstatus;
 
-fn clear_bss() {
-    extern "C" {
-        fn _sbss();
-        fn _ebss();
-    }
-    unsafe {
-        core::slice::from_raw_parts_mut(_sbss as usize as *mut u8, _ebss as usize - _sbss as usize)
-            .fill(0);
-    }
-}
-
 #[no_mangle]
 extern "C" fn rust_main(hartid: usize, device_tree: usize) {
-    extern "Rust" {
-        fn main(hartid: usize, device_tree: usize);
-    }
-
-    clear_bss();
+    crate::clear_bss();
     crate::prepare_init();
 
     let (hartid, device_tree) = boards::init_device(hartid, device_tree);
@@ -48,9 +33,8 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
     unsafe {
         // 开启浮点运算
         sstatus::set_fs(sstatus::FS::Dirty);
-
-        main(hartid, device_tree);
     }
+    crate::ArchInterface::main(hartid, device_tree);
     shutdown();
 }
 

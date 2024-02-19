@@ -83,6 +83,9 @@ pub fn init_device(device_tree: usize) {
 }
 
 pub fn prepare_devices() {
+    if !DEVICE_TREE.is_init() {
+        return;
+    }
     let mut all_devices = ALL_DEVICES.lock();
     // let fdt =
     //     unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Acquire) as *const u8).unwrap() };
