@@ -91,11 +91,11 @@ impl FrameRegionMap {
     ///
     /// index: usize 指定的位置 self.bits[index]
     #[inline]
-    fn alloc_in_pos(&mut self, index: usize) -> Option<FrameTracker> {
+    fn alloc_in_pos(&mut self, index: usize) -> Option<PhysPage> {
         for bit_index in 0..64 {
             if !self.bits[index].get_bit(bit_index) {
                 self.bits[index].set_bit(bit_index, true);
-                return Some(FrameTracker::new(self.ppn + index * 64 + bit_index));
+                return Some(self.ppn + index * 64 + bit_index);
             }
         }
         None
@@ -103,7 +103,7 @@ impl FrameRegionMap {
 
     /// 申请一个空闲页
     #[inline]
-    pub fn alloc(&mut self) -> Option<FrameTracker> {
+    pub fn alloc(&mut self) -> Option<PhysPage> {
         for i in 0..self.bits.len() {
             if self.bits[i] != usize::MAX {
                 return self.alloc_in_pos(i);
@@ -183,7 +183,7 @@ impl FrameAllocator {
 
     /// 申请一个空闲页
     #[inline]
-    pub fn alloc(&mut self) -> Option<FrameTracker> {
+    pub fn alloc(&mut self) -> Option<PhysPage> {
         for frm in &mut self.0 {
             let frame = frm.alloc();
             if frame.is_some() {
@@ -259,9 +259,19 @@ pub fn init() {
     );
 }
 
+/// 申请一个持久化存在的页表，需要手动释放
+pub unsafe fn frame_alloc_persist() -> Option<PhysPage> {
+    FRAME_ALLOCATOR.lock().alloc()
+}
+
+/// 手动释放一个页表
+pub unsafe fn frame_unalloc(ppn: PhysPage) {
+    FRAME_ALLOCATOR.lock().dealloc(ppn)
+}
+
 /// 申请一个空闲页表
 pub fn frame_alloc() -> Option<FrameTracker> {
-    FRAME_ALLOCATOR.lock().alloc()
+    FRAME_ALLOCATOR.lock().alloc().map(FrameTracker)
 }
 
 /// 申请多个空闲连续页表

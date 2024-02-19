@@ -47,8 +47,12 @@ ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm
 else
-QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
-        		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
+ifeq ($(ARCH), x86_64)
+    QEMU_EXEC += -device virtio-blk-pci,drive=x0 -drive file=$(FS_IMG),if=none,format=raw,id=x0
+else
+	QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
+		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
+endif
 endif
 
 ifeq ($(NET), on)

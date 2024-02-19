@@ -3,8 +3,7 @@ use core::arch::{asm, riscv64::sfence_vma};
 use bitflags::bitflags;
 
 use crate::{
-    current_page_table, sigtrx::get_trx_mapping, PhysAddr, PhysPage, VirtAddr, VirtPage,
-    PAGE_FRAME_BASE, PAGE_ITEM_COUNT, PAGE_SIZE,
+    sigtrx::get_trx_mapping, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -150,7 +149,7 @@ impl PageTable {
 
     #[inline]
     pub fn get_pte_list(&self) -> &'static mut [PTE] {
-        unsafe { core::slice::from_raw_parts_mut(paddr_c(self.0).0 as *mut PTE, PAGE_ITEM_COUNT) }
+        unsafe { core::slice::from_raw_parts_mut(self.0.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
     }
 
     #[inline]
@@ -229,38 +228,4 @@ impl PageTable {
         }
         PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE)
     }
-
-    #[inline]
-    pub fn virt_flags(&self, vaddr: VirtAddr) -> PTEFlags {
-        let mut paddr = self.0;
-        for i in (0..3).rev() {
-            let page_table = PageTable(paddr);
-            let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
-            let pte = &page_table.get_pte_list()[value];
-            // 如果当前页是大页 返回相关的位置
-            // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
-            if pte.is_huge() {
-                return pte.flags();
-            }
-            paddr = pte.to_ppn().into()
-        }
-        PTEFlags::NONE
-    }
-}
-
-/// paddr convert, 如果在高半核空间
-pub fn paddr_c(paddr: PhysAddr) -> PhysAddr {
-    assert!(paddr.0 < PAGE_FRAME_BASE);
-    PhysAddr(paddr.0 + PAGE_FRAME_BASE)
-}
-
-/// paddr number convert, 如果在高半核空间
-pub fn paddr_cn(paddr: usize) -> usize {
-    assert!(paddr < PAGE_FRAME_BASE);
-    paddr + PAGE_FRAME_BASE
-}
-
-/// 虚拟地址转物理地址
-pub fn virt_to_phys(vaddr: VirtAddr) -> PhysAddr {
-    current_page_table().virt_to_phys(vaddr)
 }

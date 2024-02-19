@@ -4,7 +4,7 @@ use core::{
     ops::Add,
 };
 
-use crate::{paddr_cn, PAGE_FRAME_BASE, PAGE_SIZE};
+use crate::{PAGE_SIZE, VIRT_ADDR_START};
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub(crate) usize);
@@ -21,28 +21,28 @@ impl PhysAddr {
     }
 
     #[inline]
-    pub fn get_ref<T>(&self) -> *const T {
-        paddr_cn(self.0) as *const T
+    pub fn get_ptr<T>(&self) -> *const T {
+        (self.0 | VIRT_ADDR_START) as *const T
     }
 
     #[inline]
-    pub fn get_mut_ref<T>(&self) -> *mut T {
-        paddr_cn(self.0) as *mut T
+    pub fn get_mut_ptr<T>(&self) -> *mut T {
+        (self.0 | VIRT_ADDR_START) as *mut T
     }
 
     #[inline]
     pub fn slice_with_len<T>(&self, len: usize) -> &'static [T] {
-        unsafe { core::slice::from_raw_parts(self.get_ref(), len) }
+        unsafe { core::slice::from_raw_parts(self.get_ptr(), len) }
     }
 
     #[inline]
     pub fn slice_mut_with_len<T>(&self, len: usize) -> &'static mut [T] {
-        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ref(), len) }
+        unsafe { core::slice::from_raw_parts_mut(self.get_mut_ptr(), len) }
     }
 
     #[inline]
     pub fn get_cstr(&self) -> &CStr {
-        unsafe { CStr::from_ptr(self.get_ref::<i8>()) }
+        unsafe { CStr::from_ptr(self.get_ptr::<i8>()) }
     }
 }
 
@@ -183,7 +183,7 @@ impl PhysPage {
     #[inline]
     pub const fn get_buffer(&self) -> &'static mut [u8] {
         unsafe {
-            core::slice::from_raw_parts_mut((self.0 << 12 | PAGE_FRAME_BASE) as *mut u8, PAGE_SIZE)
+            core::slice::from_raw_parts_mut((self.0 << 12 | VIRT_ADDR_START) as *mut u8, PAGE_SIZE)
         }
     }
 

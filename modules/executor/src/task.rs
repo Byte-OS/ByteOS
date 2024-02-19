@@ -7,7 +7,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::{
-    paddr_c, Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
+    Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
 };
 use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -323,7 +323,7 @@ impl UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
-                (paddr_c(addr).addr() as *mut u32).write(0);
+                addr.get_mut_ptr::<u32>().write(0);
                 futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
             }
         }
@@ -370,7 +370,7 @@ impl UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
-                (paddr_c(addr).addr() as *mut u32).write(0);
+                addr.get_mut_ptr::<u32>().write(0);
                 futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
             }
         }
@@ -547,19 +547,7 @@ impl UserTask {
     }
 
     pub fn push_str(&self, str: &str) -> usize {
-        let mut tcb = self.tcb.write();
-
-        const ULEN: usize = size_of::<usize>();
-        let bytes = str.as_bytes();
-        let len = bytes.len();
-        let sp = tcb.cx.sp() - (len + ULEN) / ULEN * ULEN;
-
-        let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
-        unsafe {
-            core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(bytes);
-        }
-        tcb.cx.set_sp(sp);
-        sp
+        self.push_arr(str.as_bytes())
     }
 
     pub fn push_arr(&self, buffer: &[u8]) -> usize {
@@ -569,10 +557,7 @@ impl UserTask {
         let len = buffer.len();
         let sp = tcb.cx.sp() - ceil_div(len, ULEN) * ULEN;
 
-        let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
-        unsafe {
-            core::slice::from_raw_parts_mut(phys_sp.addr() as *mut u8, len).copy_from_slice(buffer);
-        }
+        VirtAddr::from(sp).slice_mut_with_len(len).copy_from_slice(buffer);
         tcb.cx.set_sp(sp);
         sp
     }
@@ -583,11 +568,7 @@ impl UserTask {
         const ULEN: usize = size_of::<usize>();
         let sp = tcb.cx.sp() - ULEN;
 
-        let phys_sp = paddr_c(self.page_table.virt_to_phys(VirtAddr::new(sp)));
-
-        unsafe {
-            (phys_sp.addr() as *mut usize).write(num);
-        }
+        *VirtAddr::from(sp).get_mut_ref() = num;
         tcb.cx.set_sp(sp);
         sp
     }
