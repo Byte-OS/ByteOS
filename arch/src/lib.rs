@@ -95,3 +95,14 @@ pub fn prepare_init() {
     // Init allocator
     allocator::init();
 }
+
+pub fn clear_bss() {
+    extern "C" {
+        fn _sbss();
+        fn _ebss();
+    }
+    unsafe {
+        core::slice::from_raw_parts_mut(_sbss as usize as *mut u8, _ebss as usize - _sbss as usize)
+            .fill(0);
+    }
+}

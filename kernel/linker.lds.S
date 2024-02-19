@@ -8,6 +8,7 @@ SECTIONS
     /* Load the kernel at this address: "." means the current address */
     . = BASE_ADDRESS;
     start = .;
+    _skernel = .;
 
     .text ALIGN(4K): {
         stext = .;
