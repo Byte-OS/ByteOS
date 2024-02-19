@@ -1,4 +1,3 @@
-mod addr;
 mod boards;
 mod consts;
 mod context;
@@ -8,7 +7,6 @@ mod page_table;
 mod sbi;
 mod timer;
 
-pub use addr::*;
 pub use boards::*;
 pub use consts::*;
 pub use context::*;

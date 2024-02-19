@@ -87,18 +87,6 @@ fn kernel_callback(context: &mut Context) -> usize {
             TrapType::UserEnvCall
         }
         Trap::Interrupt(Interrupt::SupervisorExternal) => TrapType::SupervisorExternal,
-        // // 缺页异常
-        // Trap::Exception(Exception::StorePageFault) => handle_page_fault(context, stval),
-        // // 加载页面错误
-        // Trap::Exception(Exception::LoadPageFault) => {
-        //     panic!("加载权限异常 地址:{:#x}", stval)
-        // },
-        // Trap::Exception(Exception::InstructionPageFault) => handle_page_fault(context, stval),
-        // // 页面未对齐异常
-        // Trap::Exception(Exception::StoreMisaligned) => {
-        //     info!("页面未对齐");
-        // }
-        // 其他情况，终止当前线程
         Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
         Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
         Trap::Exception(Exception::IllegalInstruction) => TrapType::IllegalInstruction(stval),
@@ -359,6 +347,6 @@ pub fn enable_irq() {
 #[inline(always)]
 pub fn enable_external_irq() {
     unsafe {
-        // riscv::register::sie::set_sext();
+        riscv::register::sie::set_sext();
     }
 }

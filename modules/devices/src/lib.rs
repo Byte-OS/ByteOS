@@ -87,8 +87,7 @@ pub fn prepare_devices() {
         return;
     }
     let mut all_devices = ALL_DEVICES.lock();
-    // let fdt =
-    //     unsafe { Fdt::from_ptr(DEVICE_TREE_ADDR.load(Ordering::Acquire) as *const u8).unwrap() };
+
     let fdt = Fdt::new(DEVICE_TREE.as_ref()).unwrap();
     info!("There has {} CPU(s)", fdt.cpus().count());
 

@@ -49,19 +49,23 @@ fn main() {
 fn gen_linker_script(platform: &str) -> Result<()> {
     let fname = format!("linker_{}.lds", platform);
     let arch = env::var("CARGO_CFG_TARGET_ARCH").expect("can't find target");
-    let output_arch = if arch == "x86_64" {
-        "i386:x86-64"
+    let (output_arch, kernel_base) = if arch == "x86_64" {
+        ("i386:x86-64", "0xffffff8000200000")
     } else if arch.contains("riscv") {
-        "riscv" // OUTPUT_ARCH of both riscv32/riscv64 is "riscv"
+        ("riscv", "0xffffffc080200000") // OUTPUT_ARCH of both riscv32/riscv64 is "riscv"
     } else {
-        &arch
+        (arch.as_str(), "0")
     };
     display!("output_arch: {}", output_arch);
     let ld_content = std::fs::read_to_string("linker.lds.S")?;
     let ld_content = ld_content.replace("%ARCH%", output_arch);
+    // let ld_content = ld_content.replace(
+    //     "%KERNEL_BASE%",
+    //     &env::var("CARGO_CFG_KERNEL_BASE").expect("can't find KERNEL_BASE cfg"),
+    // );
     let ld_content = ld_content.replace(
         "%KERNEL_BASE%",
-        &env::var("CARGO_CFG_KERNEL_BASE").expect("can't find KERNEL_BASE cfg"),
+        kernel_base,
     );
     display!("kernel_base: {}", env::var("CARGO_CFG_KERNEL_BASE").unwrap());
     

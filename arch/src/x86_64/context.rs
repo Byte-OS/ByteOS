@@ -12,8 +12,8 @@ pub struct Context {
     pub rbp: usize,
     pub rsi: usize,
     pub rdi: usize,
-    pub r8:  usize,
-    pub r9:  usize,
+    pub r8: usize,
+    pub r9: usize,
     pub r10: usize,
     pub r11: usize,
     pub r12: usize,
@@ -32,7 +32,6 @@ pub struct Context {
     pub rsp: usize,
     pub ss: usize,
 }
-
 
 impl Context {
     // 创建上下文信息
@@ -60,7 +59,7 @@ impl ContextOps for Context {
         self.rsp
     }
     #[inline]
-    fn set_ra(&mut self, ra: usize) {
+    fn set_ra(&mut self, _ra: usize) {
         unimplemented!("set ra in x86_64 is not implemented")
     }
 
@@ -86,20 +85,12 @@ impl ContextOps for Context {
 
     #[inline]
     fn args(&self) -> [usize; 6] {
-        [
-            self.rdi,
-            self.rsi,
-            self.rdx,
-            self.r10,
-            self.r8,
-            self.r9,
-        ]
+        [self.rdi, self.rsi, self.rdx, self.r10, self.r8, self.r9]
     }
 
     #[inline]
     fn syscall_ok(&mut self) {
         // self.sepc += 4;
-
     }
 
     fn set_ret(&mut self, ret: usize) {
@@ -123,7 +114,7 @@ impl ContextOps for Context {
     }
 
     #[inline]
-    fn set_tls(&mut self, tls: usize) {
+    fn set_tls(&mut self, _tls: usize) {
         unimplemented!("set tls is unimplemented!")
     }
 }

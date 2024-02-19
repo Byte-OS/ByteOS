@@ -6,7 +6,7 @@ extern crate alloc;
 use core::mem::size_of;
 
 use alloc::vec::Vec;
-use arch::{PhysPage, PAGE_SIZE};
+use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
 use log::info;
@@ -239,7 +239,7 @@ pub fn add_frame_map(mm_start: usize, mm_end: usize) {
             )
             .fill(0);
         };
-        FRAME_ALLOCATOR.lock().add_memory_region(phys_end, mm_end);
+        FRAME_ALLOCATOR.lock().add_memory_region(phys_end - VIRT_ADDR_START, mm_end - VIRT_ADDR_START);
     }
 }
 
@@ -249,7 +249,7 @@ pub fn init() {
     
     // 在帧分配器中添加内存
     get_memorys().iter().for_each(|mr| {
-        add_frame_map(mr.start, mr.end)
+        add_frame_map(mr.start | VIRT_ADDR_START, mr.end | VIRT_ADDR_START)
     });
 
     // 确保帧分配器一定能工作

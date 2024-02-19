@@ -1,5 +1,3 @@
-use core::arch::asm;
-
 use x86::controlregs;
 
 use crate::{PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_FRAME_BASE, PAGE_ITEM_COUNT, PAGE_SIZE};
@@ -26,24 +24,7 @@ impl PTE {
         if flags.contains(PTEFlags::W) {
             flags = flags.union(PTEFlags::D)
         }
-        // TIPS: This is prepare for the extend bits of T-HEAD C906
-        #[cfg(c906)]
-        if flags.contains(PTEFlags::G) && ppn == 0x8_0000 {
-            Self(
-                ppn << 10
-                    | flags
-                        .union(PTEFlags::C)
-                        .union(PTEFlags::B)
-                        .union(PTEFlags::K)
-                        .bits() as usize,
-            )
-        } else if flags.contains(PTEFlags::G) && ppn == 0 {
-            Self(ppn << 10 | flags.union(PTEFlags::SE).union(PTEFlags::SO).bits() as usize)
-        } else {
-            Self(ppn << 10 | flags.union(PTEFlags::C).bits() as usize)
-        }
 
-        #[cfg(not(c906))]
         Self(ppn << 10 | flags.bits() as usize)
     }
 
@@ -97,17 +78,6 @@ bitflags::bitflags! {
         const G = 1 << 5;
         const A = 1 << 6;
         const D = 1 << 7;
-
-        #[cfg(c906)]
-        const SO = 1 << 63;
-        #[cfg(c906)]
-        const C = 1 << 62;
-        #[cfg(c906)]
-        const B = 1 << 61;
-        #[cfg(c906)]
-        const K = 1 << 60;
-        #[cfg(c906)]
-        const SE = 1 << 59;
 
         const AD = Self::A.bits() | Self::D.bits();
         const VRW   = Self::V.bits() | Self::R.bits() | Self::W.bits();
