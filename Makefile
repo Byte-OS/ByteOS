@@ -45,10 +45,10 @@ endif
 TESTCASE := testcase-final2023
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
-				-device nvme,serial=deadbeef,drive=nvm \
+				-device nvme,serial=deadbeef,drive=nvm
 else
-# QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
-#         		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
+QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
+        		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
 endif
 
 ifeq ($(NET), on)

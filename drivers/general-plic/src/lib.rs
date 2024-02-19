@@ -49,7 +49,7 @@ pub fn init_driver(node: &FdtNode) -> Arc<dyn Driver> {
         base: VIRT_ADDR_START + addr,
     });
     plic.set_thresold(0, true, 0);
-    enable_external_irq();
+    // enable_external_irq();
     plic
 }
 

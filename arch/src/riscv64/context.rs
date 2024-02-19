@@ -1,4 +1,4 @@
-use riscv::register::sstatus;
+use riscv::register::sstatus::{self, Sstatus};
 
 use crate::ContextOps;
 
@@ -7,7 +7,7 @@ use crate::ContextOps;
 // 上下文
 pub struct Context {
     pub x: [usize; 32], // 32 个通用寄存器
-    pub sstatus: usize,
+    pub sstatus: Sstatus,
     pub sepc: usize,
     pub fsx: [usize; 2],
 }
@@ -18,7 +18,7 @@ impl Context {
     pub fn new() -> Self {
         Context {
             x: [0usize; 32],
-            sstatus: sstatus::read().bits(),
+            sstatus: sstatus::read(),
             sepc: 0,
             fsx: [0; 2],
         }
@@ -100,7 +100,7 @@ impl ContextOps for Context {
     fn clear(&mut self) {
         self.x.fill(0);
         self.sepc = 0;
-        self.sstatus = sstatus::read().bits();
+        self.sstatus = sstatus::read();
     }
 
     #[inline]
