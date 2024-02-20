@@ -10,7 +10,7 @@ pub trait ArchInterface {
     /// kernel main function, entry point.
     fn main(hartid: usize, device_tree: usize);
     /// Alloc a persistent memory page.
-    fn frame_alloc_persist() -> Option<PhysPage>;
+    fn frame_alloc_persist() -> PhysPage;
     /// Unalloc a persistent memory page
     fn frame_unalloc(ppn: PhysPage);
 }

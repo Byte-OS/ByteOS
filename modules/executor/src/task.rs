@@ -9,7 +9,7 @@ use alloc::{
 use arch::{
     Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
 };
-use frame_allocator::{ceil_div, frame_alloc, frame_alloc_much, FrameTracker};
+use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
 use signal::REAL_TIME_SIGNAL_NUM;
@@ -30,7 +30,7 @@ pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
 #[allow(dead_code)]
 pub struct KernelTask {
-    page_table: PageTable,
+    page_table: Arc<PageTable>,
     task_id: TaskId,
     memset: Vec<Arc<FrameTracker>>,
 }
@@ -43,17 +43,15 @@ impl Drop for KernelTask {
 
 impl KernelTask {
     pub fn new(future: impl Future<Output = ()> + 'static) -> Arc<Self> {
-        let ppn = Arc::new(frame_alloc().unwrap());
-        let page_table = PageTable::from_ppn(ppn.0);
         let task_id = task_id_alloc();
-        let memset = vec![ppn];
+        let memset = vec![];
 
         FUTURE_LIST
             .lock()
             .insert(task_id, TaskFutureItem(Box::pin(kernel_entry(future))));
 
         Arc::new(Self {
-            page_table,
+            page_table: PageTable::alloc(),
             task_id,
             memset,
         })
@@ -102,7 +100,7 @@ pub struct ThreadControlBlock {
 pub struct UserTask {
     pub task_id: TaskId,
     pub process_id: TaskId,
-    pub page_table: PageTable,
+    pub page_table: Arc<PageTable>,
     pub pcb: Arc<Mutex<ProcessControlBlock>>,
     pub parent: RwLock<Weak<dyn AsyncTask>>,
     pub tcb: RwLock<ThreadControlBlock>,
@@ -120,19 +118,9 @@ impl UserTask {
         future: impl Future<Output = ()> + 'static,
         parent: Weak<dyn AsyncTask>,
     ) -> Arc<Self> {
-        let ppn = Arc::new(frame_alloc().unwrap());
         let task_id = task_id_alloc();
         // initialize memset
-        let memset = MemSet::new(vec![MemArea::new(
-            MemType::PTE,
-            vec![MapTrack {
-                vpn: VirtPage::new(0),
-                tracker: ppn.clone(),
-                rwx: 0,
-            }],
-            0,
-            0,
-        )]);
+        let memset = MemSet::new(vec![]);
 
         FUTURE_LIST
             .lock()
@@ -168,7 +156,7 @@ impl UserTask {
         });
 
         let task = Arc::new(Self {
-            page_table: PageTable::from_ppn(ppn.0),
+            page_table: PageTable::alloc(),
             task_id,
             process_id: task_id,
             parent: RwLock::new(parent),
@@ -188,10 +176,6 @@ impl UserTask {
             ppn,
             vpn,
             flags,
-            || {
-                self.frame_alloc(VirtPage::new(0), MemType::PTE, 1)
-                    .expect("can't alloc page in map")
-            },
             3,
         );
     }
@@ -244,12 +228,10 @@ impl UserTask {
         }
         let mut inner = self.pcb.lock();
         let ppn = trackers[0].tracker.0;
-        if mtype == MemType::PTE || mtype == MemType::Stack {
+        if mtype == MemType::Stack {
             let finded_area = inner.memset.iter_mut().find(|x| x.mtype == mtype);
             if let Some(area) = finded_area {
                 area.mtrackers.extend(trackers);
-            } else if mtype == MemType::PTE {
-                inner.memset.push(MemArea::new(mtype, trackers, start, len));
             } else if mtype == MemType::Stack {
                 inner.memset.push(MemArea {
                     mtype,
@@ -334,7 +316,7 @@ impl UserTask {
 
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
-            self.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
+            self.pcb.lock().memset.clear();
             self.pcb.lock().fd_table.clear();
             self.pcb.lock().children.clear();
         }
@@ -381,7 +363,7 @@ impl UserTask {
 
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
-            self.pcb.lock().memset.retain(|x| x.mtype == MemType::PTE);
+            self.pcb.lock().memset.clear();
             self.pcb.lock().fd_table.clear();
             self.pcb.lock().children.clear();
             self.pcb.lock().exit_code = Some(exit_code);
@@ -433,7 +415,6 @@ impl UserTask {
         drop(new_pcb);
         pcb.memset
             .iter()
-            .filter(|x| x.mtype != MemType::PTE)
             .for_each(|x| {
                 let map_area = x.fork();
                 map_area.mtrackers.iter().for_each(|map_track| {
@@ -479,7 +460,6 @@ impl UserTask {
         // cow fork
         pcb.memset
             .iter()
-            .filter(|x| x.mtype != MemType::PTE)
             .for_each(|x| {
                 let map_area = x.clone();
                 map_area.mtrackers.iter().for_each(|x| {
@@ -555,7 +535,7 @@ impl UserTask {
 
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
-        let sp = tcb.cx.sp() - ceil_div(len, ULEN) * ULEN;
+        let sp = tcb.cx.sp() - ceil_div(len + 1, ULEN) * ULEN;
 
         VirtAddr::from(sp).slice_mut_with_len(len).copy_from_slice(buffer);
         tcb.cx.set_sp(sp);

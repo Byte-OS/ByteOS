@@ -263,7 +263,9 @@ pub async fn initproc() {
     // command("busybox sh busybox_testcode.sh").await;
 
     // command("busybox echo run libctest_testcode.sh").await;
-    // command("busybox sh libctest_testcode.sh").await;
+    command("busybox sh libctest_testcode.sh").await;
+    // command("./run-static.sh").await;
+    // command("./runtest.exe -w entry-static.exe argv").await;
 
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
@@ -310,7 +312,7 @@ pub async fn initproc() {
     // command("busybox sh ./tst.sh ./sort.src").await;
     // command("entry-dynamic.exe pthread_cancel_points").await;
     // command("bin/sh").await;
-    command("busybox sh").await;
+    // command("busybox sh").await;
     // command("cloudreve").await;
     // command("miniftpd").await;
     // command("/server_ftp.out").await;
