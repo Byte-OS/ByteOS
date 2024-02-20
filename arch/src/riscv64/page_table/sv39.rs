@@ -1,9 +1,10 @@
 use core::arch::{asm, riscv64::sfence_vma};
 
+use alloc::sync::Arc;
 use bitflags::bitflags;
 
 use crate::{
-    sigtrx::get_trx_mapping, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE
+    sigtrx::get_trx_mapping, ArchInterface, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -82,6 +83,14 @@ impl PTE {
                 || self.flags().contains(PTEFlags::W)
                 || self.flags().contains(PTEFlags::X));
     }
+
+    #[inline]
+    pub fn is_leaf(&self) -> bool {
+        return self.flags().contains(PTEFlags::V)
+            && !(self.flags().contains(PTEFlags::R)
+                || self.flags().contains(PTEFlags::W)
+                || self.flags().contains(PTEFlags::X));
+    }
 }
 
 bitflags! {
@@ -121,35 +130,42 @@ bitflags! {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[inline]
+pub fn get_pte_list(paddr: PhysAddr) -> &'static mut [PTE] {
+    unsafe { core::slice::from_raw_parts_mut(paddr.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
+}
+
+fn destory_pte_leaf(paddr: PhysAddr) {
+    let pte_list = get_pte_list(paddr);
+    for pte in pte_list {
+        if pte.is_leaf() {
+            destory_pte_leaf(pte.to_ppn().into());
+            ArchInterface::frame_unalloc(pte.to_ppn());
+        }
+    }
+    ArchInterface::frame_unalloc(paddr.into());
+}
+
+#[derive(Debug)]
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {
-    pub fn new(addr: PhysAddr) -> Self {
+    pub fn alloc() -> Arc<Self> {
+        let addr = ArchInterface::frame_alloc_persist().into();
         let page_table = Self(addr);
         page_table.restore();
-        page_table
-    }
-
-    #[inline]
-    pub fn from_ppn(ppn: PhysPage) -> Self {
-        Self::new(PhysAddr(ppn.0 << 12))
+        Arc::new(page_table)
     }
 
     #[inline]
     pub fn restore(&self) {
-        let arr = self.get_pte_list();
+        let arr = get_pte_list(self.0);
         arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
         arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
         arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
         arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
         arr[0..0x100].fill(PTE::from_addr(0, PTEFlags::NONE));
-    }
-
-    #[inline]
-    pub fn get_pte_list(&self) -> &'static mut [PTE] {
-        unsafe { core::slice::from_raw_parts_mut(self.0.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
     }
 
     #[inline]
@@ -161,33 +177,30 @@ impl PageTable {
     pub fn change(&self) {
         unsafe {
             asm!("csrw satp, {0}",  in(reg) self.get_satp());
-            // satp::set(Mode::Sv39, 0, self.0.0 >> 12);
             riscv::asm::sfence_vma_all();
         }
     }
 
     #[inline]
-    pub fn map<G>(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, mut falloc: G, level: usize)
-    where
-        G: FnMut() -> PhysPage,
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, level: usize)
     {
         // TODO: Add huge page support.
-        let mut page_table = PageTable(self.0);
+        let mut pte_list = get_pte_list(self.0);
         for i in (1..level).rev() {
             let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut page_table.get_pte_list()[value];
+            let pte = &mut pte_list[value];
             if i == 0 {
                 break;
             }
             if !pte.is_valid() {
-                let ppn = falloc();
-                *pte = PTE::from_ppn(ppn.0, PTEFlags::V);
+                *pte = PTE::from_ppn(ArchInterface::frame_alloc_persist().0, PTEFlags::V);
             }
 
-            page_table = PageTable(pte.to_ppn().into());
+            // page_table = PageTable(pte.to_ppn().into());
+            pte_list = get_pte_list(pte.to_ppn().into());
         }
 
-        page_table.get_pte_list()[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags);
+        pte_list[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags);
         unsafe {
             sfence_vma(vpn.to_addr(), 0);
         }
@@ -196,17 +209,17 @@ impl PageTable {
     #[inline]
     pub fn unmap(&self, vpn: VirtPage) {
         // TODO: Add huge page support.
-        let mut page_table = PageTable(self.0);
+        let mut pte_list = get_pte_list(self.0);
         for i in (1..3).rev() {
             let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut page_table.get_pte_list()[value];
+            let pte = &mut pte_list[value];
             if !pte.is_valid() {
                 return;
             }
-            page_table = PageTable(pte.to_ppn().into());
+            pte_list = get_pte_list(pte.to_ppn().into());
         }
 
-        page_table.get_pte_list()[vpn.0 & 0x1ff] = PTE::new();
+        pte_list[vpn.0 & 0x1ff] = PTE::new();
         unsafe {
             sfence_vma(vpn.to_addr(), 0);
         }
@@ -216,9 +229,8 @@ impl PageTable {
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> PhysAddr {
         let mut paddr = self.0;
         for i in (0..3).rev() {
-            let page_table = PageTable(paddr);
             let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
-            let pte = &page_table.get_pte_list()[value];
+            let pte = &get_pte_list(paddr)[value];
             // 如果当前页是大页 返回相关的位置
             // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
             if pte.is_huge() {
@@ -227,5 +239,11 @@ impl PageTable {
             paddr = pte.to_ppn().into()
         }
         PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE)
+    }
+}
+
+impl Drop for PageTable {
+    fn drop(&mut self) {
+        destory_pte_leaf(self.0);
     }
 }

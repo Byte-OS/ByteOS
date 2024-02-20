@@ -82,11 +82,13 @@ pub async fn sys_execve(
     );
     // TODO: use map_err insteads of unwrap and unsafe code.
     let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+    debug!("test0");
     let args = args
         .slice_until_valid(|x| x.is_valid())
         .into_iter()
         .map(|x| x.get_cstr().unwrap())
         .collect();
+    debug!("test1: envp: {:?}", envp);
     let envp: Vec<&str> = envp
         .slice_until_valid(|x| x.is_valid())
         .into_iter()
@@ -294,7 +296,7 @@ pub async fn exec_with_process<'a>(
         for area in &cache_task.maps {
             user_task.inner_map(|pcb| {
                 pcb.memset
-                    .sub_area(area.start, area.start + area.len, user_task.page_table);
+                    .sub_area(area.start, area.start + area.len, &user_task.page_table);
                 pcb.memset.push(area.clone());
             });
             for mtracker in area.mtrackers.iter() {
@@ -461,7 +463,7 @@ pub async fn sys_clone(
 
     let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
         true => curr_task.clone().thread_clone(user_entry()),
-        // false => curr_task.clone().fork(unsafe { user_entry() }),
+        // false => curr_task.clone().fork(user_entry()),
         // use cow(Copy On Write) to save memory.
         false => curr_task.clone().cow_fork(user_entry()),
     };

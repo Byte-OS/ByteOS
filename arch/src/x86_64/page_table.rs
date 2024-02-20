@@ -206,12 +206,6 @@ impl PageTable {
     }
 }
 
-#[inline]
-pub fn current_page_table() -> PageTable {
-    // PhysAddr::new(unsafe { controlregs::cr3() } as usize).align_down_4k()
-    todo!()
-}
-
 pub fn switch_to_kernel_page_table() {
     unsafe {
         // riscv::register::satp::set(

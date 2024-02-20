@@ -37,13 +37,9 @@ impl<'a> MemSet {
         self.0.iter().find(|x| x.overlapping(start, end)).is_some()
     }
 
-    pub fn sub_area(&mut self, start: usize, end: usize, pt: PageTable) {
+    pub fn sub_area(&mut self, start: usize, end: usize, pt: &PageTable) {
         let mut new_set = Vec::new();
         self.0.retain_mut(|area| {
-            // always save PTE.
-            if area.mtype == MemType::PTE {
-                return true;
-            }
             let res = area.sub(start, end, pt);
             if let Some(new_area) = res {
                 new_set.push(new_area);
@@ -54,10 +50,7 @@ impl<'a> MemSet {
     }
 
     pub fn clear(&mut self) {
-        self.0.retain(|x| x.mtype == MemType::PTE);
-        if self.0.len() > 0 {
-            self.0[0].mtrackers.drain(1..);
-        }
+        self.0.clear();
     }
 }
 
@@ -69,7 +62,6 @@ pub enum MemType {
     Shared,
     ShareFile,
     Clone,
-    PTE,
 }
 
 #[derive(Clone)]
@@ -139,7 +131,6 @@ impl MemArea {
     pub fn fork(&self) -> Self {
         match self.mtype {
             MemType::ShareFile | MemType::Shared => self.clone(),
-            MemType::PTE => Self::new(MemType::PTE, vec![], 0, 0),
             _ => {
                 let mut res = self.clone();
                 for map_track in res.mtrackers.iter_mut() {
@@ -171,7 +162,7 @@ impl MemArea {
 
     /// Sub the memory from this memory area.
     /// the return value indicates whether the memory is splited.
-    pub fn sub(&mut self, start: usize, end: usize, pt: PageTable) -> Option<MemArea> {
+    pub fn sub(&mut self, start: usize, end: usize, pt: &PageTable) -> Option<MemArea> {
         let range = self.start..self.start + self.len;
         let jrange = start..end;
 

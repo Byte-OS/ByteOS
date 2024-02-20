@@ -129,6 +129,12 @@ impl From<usize> for PhysPage {
     }
 }
 
+impl From<PhysAddr> for PhysPage {
+    fn from(value: PhysAddr) -> Self {
+        Self(value.0 >> 12)
+    }
+}
+
 impl From<PhysPage> for usize {
     fn from(value: PhysPage) -> Self {
         value.0

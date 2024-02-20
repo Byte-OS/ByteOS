@@ -80,7 +80,7 @@ pub async fn sys_mmap(
             task.pcb
                 .lock()
                 .memset
-                .sub_area(addr.addr(), addr.addr() + len, task.page_table);
+                .sub_area(addr.addr(), addr.addr() + len, &task.page_table);
         }
     } else if task
         .pcb
@@ -159,7 +159,7 @@ pub async fn sys_munmap(start: usize, len: usize) -> Result<usize, LinuxError> {
     debug!("sys_munmap @ start: {:#x}, len: {:#x}", start, len);
     let task = current_user_task();
     task.inner_map(|pcb| {
-        pcb.memset.sub_area(start, start + len, task.page_table);
+        pcb.memset.sub_area(start, start + len, &task.page_table);
     });
     Ok(0)
 }

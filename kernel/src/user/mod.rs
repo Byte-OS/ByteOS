@@ -2,7 +2,7 @@ use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
 use devices::get_int_device;
-use executor::{AsyncTask, MapTrack, MemType, UserTask};
+use executor::{AsyncTask, MapTrack, UserTask};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 
@@ -30,7 +30,6 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     let area = pcb
         .memset
         .iter_mut()
-        .filter(|x| x.mtype != MemType::PTE)
         .find(|x| x.contains(addr));
     if let Some(area) = area {
         let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
@@ -169,7 +168,6 @@ pub fn task_ilegal(task: &Arc<UserTask>, addr: usize, cx_ref: &mut Context) {
     let area = pcb
         .memset
         .iter_mut()
-        .filter(|x| x.mtype != MemType::PTE)
         .find(|x| x.contains(addr));
     if let Some(area) = area {
         let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);

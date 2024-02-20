@@ -99,7 +99,7 @@ fn kernel_callback(context: &mut Context) -> usize {
                 stval,
                 context.sepc
             );
-            panic!("未知中断")
+            panic!("未知中断: {:#x?}", context);
         }
     };
     crate::api::ArchInterface::interrupt_table()(context, trap_type);
