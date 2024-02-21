@@ -1,7 +1,7 @@
 use core::ops::Add;
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::{PTEFlags, VirtAddr, VirtPage, PAGE_SIZE};
+use arch::{MappingFlags, VirtAddr, VirtPage, PAGE_SIZE};
 use executor::shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use log::debug;
@@ -70,7 +70,7 @@ impl UserTaskContainer {
             .enumerate()
             .for_each(|(i, x)| {
                 debug!("map {:?} @ {:?}", vpn.add(i), x.0);
-                self.task.map(x.0, vpn.add(i), PTEFlags::UVRWX);
+                self.task.map(x.0, vpn.add(i), MappingFlags::URWX);
             });
         let size = trackers.as_ref().unwrap().trackers.len() * PAGE_SIZE;
         self.task.pcb.lock().shms.push(MapedSharedMemory {

@@ -1,124 +1,29 @@
 use alloc::sync::Arc;
-use x86::controlregs;
+use x86::bits64::paging::{
+    pd_index, pdpt_index, pml4_index, pt_index, PDEntry, PDFlags, PDPTEntry, PDPTFlags, PML4Entry,
+    PML4Flags, PTEntry, PTFlags, PAGE_SIZE_ENTRIES,
+};
+use x86_64::instructions::tlb::flush_all;
 
-use crate::{ArchInterface, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE};
+use crate::{ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_SIZE, VIRT_ADDR_START};
 
-use super::sigtrx::get_trx_mapping;
-
-#[derive(Copy, Clone, Debug)]
-pub struct PTE(usize);
-impl PTE {
-    #[inline]
-    pub const fn new() -> Self {
-        Self(0)
-    }
-
-    #[inline]
-    pub const fn from_ppn(ppn: usize, flags: PTEFlags) -> Self {
-        // let flags = flags.union(PTEFlags::D);
-        let mut flags = flags;
-        if flags.contains(PTEFlags::R) | flags.contains(PTEFlags::X) {
-            flags = flags.union(PTEFlags::A)
+impl From<MappingFlags> for PTFlags {
+    fn from(flags: MappingFlags) -> Self {
+        let mut res = Self::P;
+        if flags.contains(MappingFlags::W) {
+            res |= Self::RW;
         }
-        if flags.contains(PTEFlags::W) {
-            flags = flags.union(PTEFlags::D)
+        if flags.contains(MappingFlags::U) {
+            res |= Self::US;
         }
-        // TIPS: This is prepare for the extend bits of T-HEAD C906
-        #[cfg(c906)]
-        if flags.contains(PTEFlags::G) && ppn == 0x8_0000 {
-            Self(
-                ppn << 10
-                    | flags
-                        .union(PTEFlags::C)
-                        .union(PTEFlags::B)
-                        .union(PTEFlags::K)
-                        .bits() as usize,
-            )
-        } else if flags.contains(PTEFlags::G) && ppn == 0 {
-            Self(ppn << 10 | flags.union(PTEFlags::SE).union(PTEFlags::SO).bits() as usize)
-        } else {
-            Self(ppn << 10 | flags.union(PTEFlags::C).bits() as usize)
+        if flags.contains(MappingFlags::A) {
+            res |= Self::A;
         }
-
-        #[cfg(not(c906))]
-        Self(ppn << 10 | flags.bits() as usize)
+        if flags.contains(MappingFlags::D) {
+            res |= Self::D;
+        }
+        res
     }
-
-    #[inline]
-    pub const fn from_addr(addr: usize, flags: PTEFlags) -> Self {
-        Self::from_ppn(addr >> 12, flags)
-    }
-
-    #[inline]
-    pub const fn to_ppn(&self) -> PhysPage {
-        PhysPage((self.0 >> 10) & ((1 << 29) - 1))
-    }
-
-    #[inline]
-    pub fn set(&mut self, ppn: usize, flags: PTEFlags) {
-        self.0 = (ppn << 10) | flags.bits() as usize;
-    }
-
-    #[inline]
-    pub const fn flags(&self) -> PTEFlags {
-        PTEFlags::from_bits_truncate((self.0 & 0xff) as u64)
-    }
-
-    #[inline]
-    pub const fn is_valid(&self) -> bool {
-        self.flags().contains(PTEFlags::V) && self.0 > u8::MAX as usize
-    }
-
-    /// 判断是否是大页
-    ///
-    /// 大页判断条件 V 位为 1, R/W/X 位至少有一个不为 0
-    /// PTE 页表范围 1G(0x4000_0000) 2M(0x20_0000) 4K(0x1000)
-    #[inline]
-    pub fn is_huge(&self) -> bool {
-        return self.flags().contains(PTEFlags::V)
-            && (self.flags().contains(PTEFlags::R)
-                || self.flags().contains(PTEFlags::W)
-                || self.flags().contains(PTEFlags::X));
-    }
-
-    #[inline]
-    pub fn is_leaf(&self) -> bool {
-        return self.flags().contains(PTEFlags::V)
-            && !(self.flags().contains(PTEFlags::R)
-                || self.flags().contains(PTEFlags::W)
-                || self.flags().contains(PTEFlags::X));
-    }
-}
-
-bitflags::bitflags! {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct PTEFlags: u64 {
-        const NONE = 0;
-        const V = 1 << 0;
-        const R = 1 << 1;
-        const W = 1 << 2;
-        const X = 1 << 3;
-        const U = 1 << 4;
-        const G = 1 << 5;
-        const A = 1 << 6;
-        const D = 1 << 7;
-
-        const AD = Self::A.bits() | Self::D.bits();
-        const VRW   = Self::V.bits() | Self::R.bits() | Self::W.bits();
-        const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
-        const UVRX = Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
-        const ADUVRX = Self::A.bits() | Self::D.bits() | Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
-        const UVRWX = Self::U.bits() | Self::VRWX.bits();
-        const UVRW = Self::U.bits() | Self::VRW.bits();
-        const GVRWX = Self::G.bits() | Self::VRWX.bits();
-        const ADVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
-        const ADGVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
-    }
-}
-
-#[inline]
-pub fn get_pte_list(paddr: PhysAddr) -> &'static mut [PTE] {
-    unsafe { core::slice::from_raw_parts_mut(paddr.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
 }
 
 #[derive(Debug)]
@@ -134,93 +39,91 @@ impl PageTable {
 
     #[inline]
     pub fn restore(&self) {
-        let arr = get_pte_list(self.0);
-        arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
-        arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
-        arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
-        arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
-        arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
-        arr[0..0x100].fill(PTE::from_addr(0, PTEFlags::NONE));
-    }
-
-    #[inline]
-    pub const fn get_satp(&self) -> usize {
-        (8 << 60) | (self.0 .0 >> 12)
+        extern "C" {
+            fn kernel_mapping_pdpt();
+        }
+        let pml4 = self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES);
+        pml4[0x1ff] = PML4Entry((kernel_mapping_pdpt as u64 - VIRT_ADDR_START as u64) | 0x3);
     }
 
     #[inline]
     pub fn change(&self) {
         unsafe {
-            controlregs::cr3_write(self.get_satp() as _);
-            x86::tlb::flush_all();
+            core::arch::asm!(
+                "
+                    mov     cr3, {}
+                ", 
+                in(reg) self.0.0
+            );
+            flush_all();
         }
     }
 
     #[inline]
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, level: usize) {
-        // TODO: Add huge page support.
-        let mut pte_list = get_pte_list(self.0);
-        for i in (1..level).rev() {
-            let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut pte_list[value];
-            if i == 0 {
-                break;
-            }
-            if !pte.is_valid() {
-                *pte = PTE::from_ppn(ArchInterface::frame_alloc_persist().0, PTEFlags::V);
-            }
+    pub fn get_entry(&self, vpn: VirtPage) -> &mut PTEntry {
+        let vaddr = vpn.to_addr().into();
 
-            // page_table = PageTable(pte.to_ppn().into());
-            pte_list = get_pte_list(pte.to_ppn().into());
+        let pml4 = self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES);
+        let pml4_index = pml4_index(vaddr);
+        if !pml4[pml4_index].is_present() {
+            pml4[pml4_index] = PML4Entry::new(
+                ArchInterface::frame_alloc_persist().to_addr().into(),
+                PML4Flags::P | PML4Flags::RW,
+            );
         }
 
-        pte_list[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags);
+        let pdpt = PhysAddr::new(pml4[pml4_index].address().into())
+            .slice_mut_with_len::<PDPTEntry>(PAGE_SIZE_ENTRIES);
+        let pdpt_index = pdpt_index(vaddr);
+        if !pdpt[pdpt_index].is_present() {
+            pdpt[pdpt_index] = PDPTEntry::new(
+                ArchInterface::frame_alloc_persist().to_addr().into(),
+                PDPTFlags::P | PDPTFlags::RW,
+            );
+        }
+
+        let pd = PhysAddr::new(pdpt[pdpt_index].address().into())
+            .slice_mut_with_len::<PDEntry>(PAGE_SIZE_ENTRIES);
+        let pd_index = pd_index(vaddr);
+        if !pd[pd_index].is_present() {
+            pd[pd_index] = PDEntry::new(
+                ArchInterface::frame_alloc_persist().to_addr().into(),
+                PDFlags::P | PDFlags::RW,
+            );
+        }
+
+        let pte = PhysAddr::new(pd[pd_index].address().into())
+            .slice_mut_with_len::<PTEntry>(PAGE_SIZE_ENTRIES);
+        let pte_index = pt_index(vaddr);
+        &mut pte[pte_index]
+    }
+
+    #[inline]
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
+        *self.get_entry(vpn) = PTEntry::new(ppn.to_addr().into(), flags.into());
     }
 
     #[inline]
     pub fn unmap(&self, vpn: VirtPage) {
-        // TODO: Add huge page support.
-        let mut pte_list = get_pte_list(self.0);
-        for i in (1..3).rev() {
-            let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut pte_list[value];
-            if !pte.is_valid() {
-                return;
-            }
-            pte_list = get_pte_list(pte.to_ppn().into());
-        }
-
-        pte_list[vpn.0 & 0x1ff] = PTE::new();
+        *self.get_entry(vpn) = PTEntry(0);
     }
 
     #[inline]
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> PhysAddr {
-        let mut paddr = self.0;
-        for i in (0..3).rev() {
-            let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
-            let pte = &get_pte_list(paddr)[value];
-            // 如果当前页是大页 返回相关的位置
-            // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
-            if pte.is_huge() {
-                return PhysAddr(pte.to_ppn().0 << 12 | vaddr.0 % (1 << (12 + 9 * i)));
-            }
-            paddr = pte.to_ppn().into()
-        }
-        PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE)
+        PhysAddr::new(self.get_entry(vaddr.into()).address().as_usize() + vaddr.0 % PAGE_SIZE)
     }
 }
 
 impl Drop for PageTable {
     fn drop(&mut self) {
-        for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
-            get_pte_list(root_pte.to_ppn().into())
-                .iter()
-                .filter(|x| x.is_leaf())
-                .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
-            ArchInterface::frame_unalloc(root_pte.to_ppn());
-        }
-        ArchInterface::frame_unalloc(self.0.into());
+        todo!("PageTable Drop")
+        // for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
+        //     get_pte_list(root_pte.to_ppn().into())
+        //         .iter()
+        //         .filter(|x| x.is_leaf())
+        //         .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
+        //     ArchInterface::frame_unalloc(root_pte.to_ppn());
+        // }
+        // ArchInterface::frame_unalloc(self.0.into());
     }
 }
-
-pub fn switch_to_kernel_page_table() {}

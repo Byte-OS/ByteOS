@@ -4,7 +4,7 @@ use alloc::sync::Arc;
 use bitflags::bitflags;
 
 use crate::{
-    sigtrx::get_trx_mapping, ArchInterface, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE
+    sigtrx::get_trx_mapping, ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -117,16 +117,39 @@ bitflags! {
         #[cfg(c906)]
         const SE = 1 << 59;
 
-        const AD = Self::A.bits() | Self::D.bits();
-        const VRW   = Self::V.bits() | Self::R.bits() | Self::W.bits();
         const VRWX  = Self::V.bits() | Self::R.bits() | Self::W.bits() | Self::X.bits();
-        const UVRX = Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
         const ADUVRX = Self::A.bits() | Self::D.bits() | Self::U.bits() | Self::V.bits() | Self::R.bits() | Self::X.bits();
-        const UVRWX = Self::U.bits() | Self::VRWX.bits();
-        const UVRW = Self::U.bits() | Self::VRW.bits();
-        const GVRWX = Self::G.bits() | Self::VRWX.bits();
-        const ADVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
-        const ADGVRWX = Self::A.bits() | Self::D.bits() | Self::G.bits() | Self::VRWX.bits();
+        const ADVRWX = Self::A.bits() | Self::D.bits() | Self::VRWX.bits();
+        const ADGVRWX = Self::G.bits() | Self::ADVRWX.bits();
+    }
+}
+
+impl From<MappingFlags> for PTEFlags {
+    fn from(flags: MappingFlags) -> Self {
+        if flags == MappingFlags::None {
+            Self::NONE
+        } else {
+            let mut res = Self::V;
+            if flags.contains(MappingFlags::R) {
+                res |= PTEFlags::R;
+            }
+            if flags.contains(MappingFlags::W) {
+                res |= PTEFlags::W;
+            }
+            if flags.contains(MappingFlags::X) {
+                res |= PTEFlags::X;
+            }
+            if flags.contains(MappingFlags::U) {
+                res |= PTEFlags::U;
+            }
+            if flags.contains(MappingFlags::A) {
+                res |= PTEFlags::A;
+            }
+            if flags.contains(MappingFlags::D) {
+                res |= PTEFlags::D;
+            }
+            res
+        }
     }
 }
 
@@ -171,7 +194,7 @@ impl PageTable {
     }
 
     #[inline]
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags, level: usize)
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, level: usize)
     {
         // TODO: Add huge page support.
         let mut pte_list = get_pte_list(self.0);
@@ -189,7 +212,7 @@ impl PageTable {
             pte_list = get_pte_list(pte.to_ppn().into());
         }
 
-        pte_list[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags);
+        pte_list[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags.into());
         unsafe {
             sfence_vma(vpn.to_addr(), 0);
         }

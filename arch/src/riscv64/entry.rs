@@ -19,10 +19,7 @@ static mut PAGE_TABLE: [PTE; PAGE_ITEM_COUNT] = {
 
     // arr[0] = PTE::from_addr(0x0000_0000, PTEFlags::VRWX);
     // arr[1] = PTE::from_addr(0x4000_0000, PTEFlags::VRWX);
-    arr[2] = PTE::from_addr(
-        0x8000_0000,
-        PTEFlags::VRWX.union(PTEFlags::D).union(PTEFlags::A),
-    );
+    arr[2] = PTE::from_addr(0x8000_0000, PTEFlags::ADVRWX);
     arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
     arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
     arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);

@@ -10,15 +10,14 @@ mod sigtrx;
 mod trap;
 mod uart;
 
-use core::mem::transmute;
-
 use ::multiboot::information::MemoryType;
 pub use consts::*;
 pub use context::Context;
 pub use interrupt::*;
 pub use page_table::*;
 pub use uart::*;
-use x86::bits64::paging::{PAddr, PDPTEntry, PDPTFlags, PML4Entry, PML4Flags, PAGE_SIZE_ENTRIES, PDPT, PML4};
+pub use entry::switch_to_kernel_page_table;
+
 use x86_64::instructions::port::PortWriteOnly;
 
 use crate::x86_64::multiboot::use_multiboot;
@@ -59,5 +58,7 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     }
 
     crate::ArchInterface::main(0, 0);
+
+    shutdown()
 }
 

@@ -119,5 +119,9 @@ bitflags::bitflags! {
         const D = 1 << 5;
         const Device = 1 << 6;
         const Cache = 1 << 7;
+
+        const URW = Self::U.bits() | Self::R.bits() | Self::W.bits();
+        const URX = Self::U.bits() | Self::R.bits() | Self::X.bits();
+        const URWX = Self::URW.bits() | Self::X.bits();
     }
 }

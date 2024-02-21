@@ -1,8 +1,7 @@
 use core::arch::{asm, global_asm};
 
 use riscv::register::{
-    scause::{self, Exception, Interrupt, Trap},
-    sstatus, stval,
+    scause::{self, Exception, Interrupt, Trap}, sie, stval
 };
 
 use crate::{add_irq, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
@@ -75,18 +74,11 @@ fn kernel_callback(context: &mut Context) -> usize {
             }
             TrapType::Unknown
         }
-        // 时钟中断
-        Trap::Interrupt(Interrupt::SupervisorTimer) => {
-            timer::set_next_timeout();
-            add_irq(5);
-            TrapType::Time
-        }
         Trap::Exception(Exception::UserEnvCall) => {
             info!("info syscall: {}", context.x[17]);
             context.sepc += 4;
             TrapType::UserEnvCall
         }
-        Trap::Interrupt(Interrupt::SupervisorExternal) => TrapType::SupervisorExternal,
         Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
         Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
         Trap::Exception(Exception::IllegalInstruction) => TrapType::IllegalInstruction(stval),
@@ -342,13 +334,14 @@ pub unsafe extern "C" fn uservec() {
 #[inline(always)]
 pub fn enable_irq() {
     unsafe {
-        sstatus::set_sie();
+        sie::set_sext();
+        sie::set_ssoft();
     }
 }
 
 #[inline(always)]
 pub fn enable_external_irq() {
     unsafe {
-        riscv::register::sie::set_sext();
+        sie::set_sext();
     }
 }

@@ -4,7 +4,7 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
-use arch::{PTEFlags, VirtAddr};
+use arch::{MappingFlags, VirtAddr};
 use bitflags::bitflags;
 use fs::VfsError;
 use hal::TimeVal;
@@ -376,17 +376,17 @@ bitflags! {
     }
 }
 
-impl Into<PTEFlags> for MmapProt {
-    fn into(self) -> PTEFlags {
-        let mut res = PTEFlags::empty();
+impl Into<MappingFlags> for MmapProt {
+    fn into(self) -> MappingFlags {
+        let mut res = MappingFlags::None;
         if self.contains(Self::PROT_READ) {
-            res |= PTEFlags::R;
+            res |= MappingFlags::R;
         }
         if self.contains(Self::PROT_WRITE) {
-            res |= PTEFlags::W;
+            res |= MappingFlags::W;
         }
         if self.contains(Self::PROT_EXEC) {
-            res |= PTEFlags::X;
+            res |= MappingFlags::X;
         }
         res
     }
