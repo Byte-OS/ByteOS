@@ -10,8 +10,6 @@ members = [
     "crates/timestamp",
     "crates/vfscore",
     "crates/cv1811-sd",
-    "crates/page_table",
-    "crates/page_table_entry",
     "crates/memory_addr",
     "crates/crate_interface",
 
