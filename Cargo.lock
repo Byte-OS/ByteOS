@@ -3,15 +3,6 @@
 version = 3
 
 [[package]]
-name = "aarch64-cpu"
-version = "9.4.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ac42a04a61c19fc8196dd728022a784baecc5d63d7e256c01ad1b3fbfab26287"
-dependencies = [
- "tock-registers 0.8.1",
-]
-
-[[package]]
 name = "ahash"
 version = "0.8.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -152,7 +143,7 @@ version = "7.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bdecfbb28672ad3664e71ae05a398a52df430d86d660691501b28968cc4467e6"
 dependencies = [
- "tock-registers 0.7.0",
+ "tock-registers",
 ]
 
 [[package]]
@@ -601,7 +592,7 @@ dependencies = [
  "raw-cpuid",
  "riscv 0.7.0",
  "spin 0.9.8",
- "tock-registers 0.7.0",
+ "tock-registers",
  "x86_64",
 ]
 
@@ -773,25 +764,6 @@ name = "once_cell"
 version = "1.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
-
-[[package]]
-name = "page_table"
-version = "0.1.0"
-dependencies = [
- "log",
- "memory_addr",
- "page_table_entry",
-]
-
-[[package]]
-name = "page_table_entry"
-version = "0.1.0"
-dependencies = [
- "aarch64-cpu",
- "bitflags 2.4.2",
- "memory_addr",
- "x86_64",
-]
 
 [[package]]
 name = "paste"
@@ -1044,12 +1016,6 @@ name = "tock-registers"
 version = "0.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4ee8fba06c1f4d0b396ef61a54530bb6b28f0dc61c38bc8bc5a5a48161e6282e"
-
-[[package]]
-name = "tock-registers"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "696941a0aee7e276a165a978b37918fd5d22c55c3d6bda197813070ca9c0f21c"
 
 [[package]]
 name = "toml"

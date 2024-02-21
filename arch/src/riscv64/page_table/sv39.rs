@@ -135,17 +135,6 @@ pub fn get_pte_list(paddr: PhysAddr) -> &'static mut [PTE] {
     unsafe { core::slice::from_raw_parts_mut(paddr.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
 }
 
-fn destory_pte_leaf(paddr: PhysAddr) {
-    let pte_list = get_pte_list(paddr);
-    for pte in pte_list {
-        if pte.is_leaf() {
-            destory_pte_leaf(pte.to_ppn().into());
-            ArchInterface::frame_unalloc(pte.to_ppn());
-        }
-    }
-    ArchInterface::frame_unalloc(paddr.into());
-}
-
 #[derive(Debug)]
 pub struct PageTable(pub(crate) PhysAddr);
 
@@ -244,6 +233,13 @@ impl PageTable {
 
 impl Drop for PageTable {
     fn drop(&mut self) {
-        destory_pte_leaf(self.0);
+        for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
+            get_pte_list(root_pte.to_ppn().into())
+                .iter()
+                .filter(|x| x.is_leaf())
+                .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
+            ArchInterface::frame_unalloc(root_pte.to_ppn());
+        }
+        ArchInterface::frame_unalloc(self.0.into());
     }
 }

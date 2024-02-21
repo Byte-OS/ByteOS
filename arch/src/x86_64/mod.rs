@@ -23,37 +23,6 @@ use x86_64::instructions::port::PortWriteOnly;
 
 use crate::x86_64::multiboot::use_multiboot;
 
-#[link_section = ".data.prepage.entry"]
-static KERNEL_PDPT: PDPT = {
-    let mut arr: PDPT = [PDPTEntry(0); PAGE_SIZE_ENTRIES];
-    // 0x00000000_80000000 -> 0x80000000 (1G)
-    // arr[0] = PDPTEntry::new(PAddr(0x0), PDPTFlags::P | PDPTFlags::RW | PDPTFlags::PS);
-    // arr[1] = PDPTEntry::new(PAddr(0x40000000), PDPTFlags::P | PDPTFlags::RW | PDPTFlags::PS);
-    // arr[2] = PDPTEntry::new(PAddr(0x80000000), PDPTFlags::P | PDPTFlags::RW | PDPTFlags::PS);
-    // arr[3] = PDPTEntry::new(PAddr(0xc0000000), PDPTFlags::P | PDPTFlags::RW | PDPTFlags::PS);
-    arr[0] = PDPTEntry(0x0 | 0x83);
-    arr[1] = PDPTEntry(0x40000000 | 0x83);
-    arr[2] = PDPTEntry(0x80000000 | 0x83);
-    arr[3] = PDPTEntry(0xc0000000 | 0x83);
-    arr
-};
-
-// #[link_section = ".data.prepage.entry"]
-// static PAGE_TABLE: PML4 = {
-//     let mut arr: PML4 = [PML4Entry(0); PAGE_SIZE_ENTRIES];
-
-//     // arr[2] = PTE::from_addr(0x8000_0000, PTEFlags::ADVRWX);
-//     // arr[0x100] = PTE::from_addr(0x0000_0000, PTEFlags::ADGVRWX);
-//     // arr[0x101] = PTE::from_addr(0x4000_0000, PTEFlags::ADGVRWX);
-//     // arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
-//     // arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADVRWX);
-//     // arr[0] = PML4Entry::new(PAddr(KERNEL_PDPT.as_ptr() as u64 - VIRT_ADDR_START as u64), PML4Flags::P | PML4Flags::RW);
-//     let ptr = &KERNEL_PDPT as *const [PDPTEntry; PAGE_SIZE_ENTRIES] as *const PDPTEntry;
-//     let paddr: u64 = unsafe { transmute(ptr.sub(VIRT_ADDR_START)) };
-//     arr[0] = PML4Entry(paddr | 3);
-//     arr
-// };
-
 pub fn shutdown() -> ! {
     unsafe { PortWriteOnly::new(0x604).write(0x2000u16) };
 
