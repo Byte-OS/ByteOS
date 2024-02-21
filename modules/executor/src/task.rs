@@ -386,8 +386,8 @@ impl UserTask {
 
         new_pcb.fd_table.0 = pcb.fd_table.0.clone();
         new_pcb.heap = pcb.heap;
-
-        new_tcb_writer.cx.clone_from(&self.tcb.read().cx);
+        
+        new_tcb_writer.cx = self.tcb.read().cx.clone();
         new_tcb_writer.cx.set_ret(0);
         new_pcb.curr_dir = pcb.curr_dir.clone();
 
@@ -432,7 +432,7 @@ impl UserTask {
         let mut pcb = self.pcb.lock();
         new_pcb.fd_table.0 = pcb.fd_table.0.clone();
         new_pcb.heap = pcb.heap;
-        new_tcb_writer.cx.clone_from(&self.tcb.read().cx);
+        new_tcb_writer.cx = self.tcb.read().cx.clone();
         new_tcb_writer.cx.set_ret(0);
         new_pcb.curr_dir = pcb.curr_dir.clone();
         pcb.children.push(new_task.clone());

@@ -109,7 +109,7 @@ impl UserTaskContainer {
         // restore sigmask to the mask before doing the signal.
         self.task.tcb.write().sigmask = task_mask;
         // store_cx.set_ret(cx_ref.args()[0]);
-        cx_ref.clone_from(&store_cx);
+        *cx_ref = store_cx;
         // copy pc from new_pc
         cx_ref.set_sepc(cx.pc);
     }

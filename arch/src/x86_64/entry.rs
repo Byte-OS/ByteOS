@@ -1,6 +1,6 @@
 const STACK_SIZE: usize = 0x80000;
 
-use crate::x86_64::{rust_entry_secondary, rust_tmp_main};
+use crate::x86_64::rust_tmp_main;
 use core::arch::global_asm;
 
 use super::VIRT_ADDR_START;
@@ -15,9 +15,6 @@ const MULTIBOOT_HEADER_FLAGS: usize = 0x0001_0002;
 
 /// The magic field should contain this.
 const MULTIBOOT_HEADER_MAGIC: usize = 0x1BADB002;
-
-/// This should be in EAX.
-pub(super) const MULTIBOOT_BOOTLOADER_MAGIC: usize = 0x2BADB002;
 
 const CR0: u64 = Cr0Flags::PROTECTED_MODE_ENABLE.bits()
     | Cr0Flags::MONITOR_COPROCESSOR.bits()
@@ -38,11 +35,9 @@ static mut BOOT_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
 global_asm!(
     include_str!("multiboot.S"),
-    mb_magic = const MULTIBOOT_BOOTLOADER_MAGIC,
     mb_hdr_magic = const MULTIBOOT_HEADER_MAGIC,
     mb_hdr_flags = const MULTIBOOT_HEADER_FLAGS,
     entry = sym rust_tmp_main,
-    entry_secondary = sym rust_entry_secondary,
 
     offset = const VIRT_ADDR_START,
     boot_stack_size = const STACK_SIZE,
