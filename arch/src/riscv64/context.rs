@@ -23,17 +23,6 @@ impl Context {
             fsx: [0; 2],
         }
     }
-    // 从另一个上下文复制
-    #[inline]
-    pub fn clone_from(&mut self, target: &Self) {
-        for i in 0..32 {
-            self.x[i] = target.x[i];
-        }
-
-        self.sstatus = target.sstatus;
-        self.sepc = target.sepc;
-        self.fsx = target.fsx;
-    }
 }
 
 impl ContextOps for Context {

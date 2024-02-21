@@ -41,11 +41,6 @@ impl Context {
             ..Default::default()
         }
     }
-    // 从另一个上下文复制
-    #[inline]
-    pub fn clone_from(&mut self, target: &Self) {
-        *self = *target;
-    }
 }
 
 impl ContextOps for Context {
