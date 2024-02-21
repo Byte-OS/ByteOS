@@ -11,9 +11,7 @@ pub fn kernel_interrupt(_cx: &mut Context, trap_type: TrapType) {
             }
             // judge whether it is trigger by a user_task handler.
             if let Some(task) = get_current_task() {
-                // let cx_ref = unsafe { task.get_cx_ptr().as_mut() }.unwrap();
                 let cx_ref = task.force_cx_ref();
-                // unsafe { task.pcb.force_unlock(); }
                 if task.pcb.is_locked() {
                     // task.pcb.force_unlock();
                     unsafe {

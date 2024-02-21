@@ -4,6 +4,11 @@ use core::{
     task::{Context, Poll},
 };
 
+use alloc::sync::Arc;
+use sync::Mutex;
+
+use crate::FutexTable;
+
 pub struct Yield(bool);
 
 impl Yield {
@@ -28,4 +33,13 @@ impl Future for Yield {
 
 pub async fn yield_now() {
     Yield::new().await;
+}
+
+#[crate_interface::def_interface]
+pub trait FutexOps {
+    fn futex_wake(
+        task: Arc<Mutex<FutexTable>>,
+        uaddr: usize,
+        wake_count: usize,
+    ) -> usize;
 }

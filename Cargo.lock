@@ -251,6 +251,7 @@ version = "0.1.0"
 dependencies = [
  "arch",
  "bitflags 2.4.2",
+ "crate_interface",
  "crossbeam-queue",
  "devfs",
  "frame_allocator",

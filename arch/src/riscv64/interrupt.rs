@@ -200,8 +200,9 @@ pub unsafe extern "C" fn kernelvec() {
 
 #[naked]
 #[no_mangle]
-pub unsafe extern "C" fn user_restore(context: *mut Context) {
-    asm!(r"
+pub extern "C" fn user_restore(context: *mut Context) {
+    unsafe {
+        asm!(r"
         .align 4
         .altmacro
         .set    REG_SIZE, 8
@@ -262,6 +263,7 @@ pub unsafe extern "C" fn user_restore(context: *mut Context) {
     ",
     uservec = sym uservec,
     options(noreturn))
+    }
 }
 
 #[naked]

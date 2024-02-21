@@ -1,4 +1,4 @@
-use signal::SignalFlags;
+use signal::{SigProcMask, SignalFlags};
 
 #[derive(Debug, Clone)]
 pub struct SignalList {
@@ -44,5 +44,11 @@ impl SignalList {
     pub fn has_sig(&self, signal: SignalFlags) -> bool {
         // self.signal & !signal.bits() as usize != 0
         self.signal & signal.bits() as usize != 0
+    }
+
+    pub fn mask(&self, mask: SigProcMask) -> SignalList {
+        SignalList {
+            signal: !mask.mask & self.signal,
+        }
     }
 }
