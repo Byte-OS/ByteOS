@@ -14,301 +14,364 @@ pub use task::{cache_task_template, exec_with_process};
 
 use log::warn;
 
-use self::{
-    consts::{
-        LinuxError, SYS_ACCEPT, SYS_ACCEPT4, SYS_BIND, SYS_BRK, SYS_CHDIR, SYS_CLOCK_GETRES,
-        SYS_CLOCK_NANOSLEEP, SYS_CLONE, SYS_CLOSE, SYS_CONNECT, SYS_COPY_FILE_RANGE, SYS_DUP,
-        SYS_DUP3, SYS_EPOLL_CREATE, SYS_EPOLL_CTL, SYS_EPOLL_WAIT, SYS_EXECVE, SYS_EXIT,
-        SYS_EXIT_GROUP, SYS_FACCESSAT, SYS_FACCESSAT2, SYS_FCNTL, SYS_FSTAT, SYS_FSTATAT,
-        SYS_FSYNC, SYS_FTRUNCATE, SYS_FUTEX, SYS_GETCWD, SYS_GETDENTS, SYS_GETEGID, SYS_GETEUID,
-        SYS_GETGID, SYS_GETPEERNAME, SYS_GETPGID, SYS_GETPID, SYS_GETPPID, SYS_GETRANDOM,
-        SYS_GETRUSAGE, SYS_GETSOCKNAME, SYS_GETSOCKOPT, SYS_GETTID, SYS_GETTIME, SYS_GETTIMEOFDAY,
-        SYS_GETUID, SYS_GET_ROBUST_LIST, SYS_IOCTL, SYS_KILL, SYS_KLOGCTL, SYS_LISTEN, SYS_LSEEK,
-        SYS_MKDIRAT, SYS_MMAP, SYS_MOUNT, SYS_MPROTECT, SYS_MSYNC, SYS_MUNMAP, SYS_NANOSLEEP,
-        SYS_OPENAT, SYS_PIPE2, SYS_PPOLL, SYS_PREAD, SYS_PRLIMIT64, SYS_PSELECT, SYS_PWRITE,
-        SYS_READ, SYS_READLINKAT, SYS_READV, SYS_RECVFROM, SYS_SCHED_GETPARAM,
-        SYS_SCHED_SETSCHEDULER, SYS_SCHED_YIELD, SYS_SENDFILE, SYS_SENDTO, SYS_SETITIMER,
-        SYS_SETPGID, SYS_SETSID, SYS_SETSOCKOPT, SYS_SET_TID_ADDRESS, SYS_SHMAT, SYS_SHMCTL,
-        SYS_SHMGET, SYS_SHUTDOWN, SYS_SIGACTION, SYS_SIGPROCMASK, SYS_SIGRETURN, SYS_SIGSUSPEND,
-        SYS_SIGTIMEDWAIT, SYS_SOCKET, SYS_SOCKETPAIR, SYS_STATFS, SYS_SYSINFO, SYS_TIMES,
-        SYS_TKILL, SYS_UMOUNT2, SYS_UNAME, SYS_UNLINKAT, SYS_UTIMEAT, SYS_WAIT4, SYS_WRITE,
-        SYS_WRITEV,
-    },
-    fd::{
-        sys_close, sys_copy_file_range, sys_dup, sys_dup3, sys_epoll_create1, sys_epoll_ctl,
-        sys_epoll_wait, sys_faccess_at, sys_fcntl, sys_fstat, sys_fstatat, sys_ftruncate,
-        sys_getdents64, sys_ioctl, sys_lseek, sys_mkdir_at, sys_mount, sys_openat, sys_pipe2,
-        sys_ppoll, sys_pread, sys_pselect, sys_pwrite, sys_read, sys_readlinkat, sys_readv,
-        sys_sendfile, sys_statfs, sys_umount2, sys_unlinkat, sys_utimensat, sys_write, sys_writev,
-    },
-    mm::{sys_brk, sys_mmap, sys_mprotect, sys_msync, sys_munmap},
-    shm::{sys_shmat, sys_shmctl, sys_shmget},
-    signal::{sys_sigaction, sys_sigprocmask, sys_sigsuspend, sys_sigtimedwait},
-    socket::{
-        sys_accept, sys_accept4, sys_bind, sys_connect, sys_getpeername, sys_getsockname,
-        sys_getsockopt, sys_listen, sys_recvfrom, sys_sendto, sys_setsockopt, sys_shutdown,
-        sys_socket, sys_socket_pair,
-    },
-    sys::{
-        sys_getegid, sys_geteuid, sys_getgid, sys_getpgid, sys_getrandom, sys_getuid, sys_info,
-        sys_klogctl, sys_prlimit64, sys_sched_getparam, sys_sched_setscheduler, sys_setpgid,
-        sys_uname,
-    },
-    task::{
-        sys_chdir, sys_clone, sys_execve, sys_exit, sys_exit_group, sys_futex, sys_getcwd,
-        sys_getpid, sys_getppid, sys_getrusage, sys_gettid, sys_kill, sys_sched_yield,
-        sys_set_tid_address, sys_setsid, sys_sigreturn, sys_tkill, sys_wait4,
-    },
-    time::{
-        sys_clock_getres, sys_clock_gettime, sys_clock_nanosleep, sys_gettimeofday, sys_nanosleep,
-        sys_setitimer, sys_times,
-    },
-};
+use crate::user::UserTaskContainer;
 
-pub async fn syscall(call_type: usize, args: [usize; 6]) -> Result<usize, LinuxError> {
-    match call_type {
-        SYS_GETCWD => sys_getcwd(args[0].into(), args[1] as _).await,
-        SYS_CHDIR => sys_chdir(args[0].into()).await,
-        SYS_OPENAT => sys_openat(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
-        SYS_DUP => sys_dup(args[0]).await,
-        SYS_DUP3 => sys_dup3(args[0], args[1]).await,
-        SYS_CLOSE => sys_close(args[0] as _).await,
-        SYS_MKDIRAT => sys_mkdir_at(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_READ => sys_read(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_WRITE => sys_write(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_EXECVE => sys_execve(args[0].into(), args[1].into(), args[2].into()).await,
-        SYS_EXIT => sys_exit(args[0] as _),
-        SYS_BRK => sys_brk(args[0] as _).await,
-        SYS_GETPID => sys_getpid().await,
-        SYS_PIPE2 => sys_pipe2(args[0].into(), args[1] as _).await,
-        SYS_GETTIMEOFDAY => sys_gettimeofday(args[0].into(), args[1] as _).await,
-        SYS_NANOSLEEP => sys_nanosleep(args[0].into(), args[1].into()).await,
-        SYS_UNAME => sys_uname(args[0].into()).await,
-        SYS_UNLINKAT => sys_unlinkat(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_FSTAT => sys_fstat(args[0] as _, args[1].into()).await,
-        SYS_CLONE => {
-            sys_clone(
-                args[0] as _,
-                args[1] as _,
-                args[2].into(),
-                args[3] as _,
-                args[4].into(),
-            )
-            .await
-        }
-        SYS_WAIT4 => sys_wait4(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_SCHED_YIELD => sys_sched_yield().await,
-        SYS_GETPPID => sys_getppid().await,
-        SYS_MOUNT => {
-            sys_mount(
-                args[0].into(),
-                args[1].into(),
-                args[2].into(),
-                args[3] as _,
-                args[4] as _,
-            )
-            .await
-        }
-        SYS_UMOUNT2 => sys_umount2(args[0].into(), args[1] as _).await,
-        SYS_MMAP => {
-            sys_mmap(
-                args[0] as _,
-                args[1] as _,
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
-                args[5] as _,
-            )
-            .await
-        }
-        SYS_MUNMAP => sys_munmap(args[0] as _, args[1] as _).await,
-        SYS_TIMES => sys_times(args[0].into()).await,
-        SYS_GETDENTS => sys_getdents64(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_SET_TID_ADDRESS => sys_set_tid_address(args[0] as _).await,
-        SYS_GETTID => sys_gettid().await,
-        SYS_LSEEK => sys_lseek(args[0] as _, args[1] as _, args[2] as _),
-        SYS_GETTIME => sys_clock_gettime(args[0] as _, args[1].into()).await,
-        SYS_SIGTIMEDWAIT => sys_sigtimedwait().await,
-        SYS_SIGSUSPEND => sys_sigsuspend(args[0].into()).await,
-        SYS_PRLIMIT64 => {
-            sys_prlimit64(args[0] as _, args[1] as _, args[2].into(), args[3].into()).await
-        }
-        SYS_READV => sys_readv(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_WRITEV => sys_writev(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_STATFS => sys_statfs(args[0].into(), args[1].into()).await,
-        SYS_PREAD => sys_pread(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
-        SYS_PWRITE => sys_pwrite(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
-        SYS_FSTATAT => sys_fstatat(args[0] as _, args[1].into(), args[2].into()).await,
-        SYS_GETEUID => sys_geteuid().await,
-        SYS_GETEGID => sys_getegid().await,
-        SYS_GETGID => sys_getgid().await,
-        SYS_GETUID => sys_getuid().await,
-        SYS_GETPGID => sys_getpgid().await,
-        SYS_IOCTL => {
-            sys_ioctl(
-                args[0] as _,
-                args[1] as _,
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
-            )
-            .await
-        }
-        SYS_FCNTL => sys_fcntl(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_UTIMEAT => {
-            sys_utimensat(args[0] as _, args[1].into(), args[2].into(), args[3] as _).await
-        }
-        SYS_SIGPROCMASK => sys_sigprocmask(args[0] as _, args[1].into(), args[2].into()).await,
-        SYS_SIGACTION => sys_sigaction(args[0] as _, args[1].into(), args[2].into()).await,
-        SYS_MPROTECT => sys_mprotect(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_FUTEX => {
-            sys_futex(
-                args[0].into(),
-                args[1] as _,
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
-                args[5] as _,
-            )
-            .await
-        }
-        SYS_READLINKAT => {
-            sys_readlinkat(args[0] as _, args[1].into(), args[2].into(), args[3] as _).await
-        }
-        SYS_SENDFILE => sys_sendfile(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await,
-        SYS_TKILL => sys_tkill(args[0] as _, args[1] as _).await,
-        SYS_SIGRETURN => sys_sigreturn().await,
-        SYS_GET_ROBUST_LIST => {
-            warn!("SYS_GET_ROBUST_LIST @ ");
-            Ok(0)
-        } // always ok for now
-        SYS_PPOLL => sys_ppoll(args[0].into(), args[1] as _, args[2].into(), args[3] as _).await,
-        SYS_GETRUSAGE => sys_getrusage(args[0] as _, args[1].into()).await,
-        SYS_SETPGID => sys_setpgid(args[0] as _, args[1] as _).await,
-        SYS_PSELECT => {
-            sys_pselect(
-                args[0] as _,
-                args[1].into(),
-                args[2].into(),
-                args[3].into(),
-                args[4].into(),
-                args[5] as _,
-            )
-            .await
-        }
-        SYS_KILL => sys_kill(args[0] as _, args[1] as _).await,
-        SYS_FSYNC => Ok(0),
-        SYS_FACCESSAT => sys_faccess_at(args[0] as _, args[1].into(), args[2], args[3]).await, // always be ok at now.
-        SYS_FACCESSAT2 => Ok(0),
-        SYS_SOCKET => sys_socket(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_SOCKETPAIR => {
-            sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3] as _).await
-        }
-        SYS_BIND => sys_bind(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_LISTEN => sys_listen(args[0] as _, args[1] as _).await,
-        SYS_ACCEPT => sys_accept(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_ACCEPT4 => sys_accept4(args[0] as _, args[1].into(), args[2] as _, args[3] as _).await,
-        SYS_CONNECT => sys_connect(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_RECVFROM => {
-            sys_recvfrom(
-                args[0] as _,
-                args[1].into(),
-                args[2] as _,
-                args[3] as _,
-                args[4].into(),
-                args[5].into(),
-            )
-            .await
-        }
-        SYS_SENDTO => {
-            sys_sendto(
-                args[0] as _,
-                args[1].into(),
-                args[2] as _,
-                args[3] as _,
-                args[4].into(),
-                args[5].into(),
-            )
-            .await
-        }
-        SYS_KLOGCTL => sys_klogctl(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_SYSINFO => sys_info(args[0].into()).await,
-        SYS_MSYNC => sys_msync(args[0], args[1], args[2] as _).await,
-        SYS_EXIT_GROUP => sys_exit_group(args[0]),
-        SYS_FTRUNCATE => sys_ftruncate(args[0], args[1]).await,
-        SYS_SHMGET => sys_shmget(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_SHMAT => sys_shmat(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_SHMCTL => sys_shmctl(args[0] as _, args[1] as _, args[2] as _).await,
-        SYS_SETITIMER => sys_setitimer(args[0] as _, args[1].into(), args[2].into()).await,
-        SYS_SETSOCKOPT => {
-            sys_setsockopt(
-                args[0] as _,
-                args[1] as _,
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
-            )
-            .await
-        }
-        SYS_GETSOCKOPT => {
-            sys_getsockopt(
-                args[0] as _,
-                args[1] as _,
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
-            )
-            .await
-        }
-        SYS_GETSOCKNAME => sys_getsockname(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_GETPEERNAME => sys_getpeername(args[0] as _, args[1].into(), args[2] as _).await,
-        SYS_SETSID => sys_setsid().await,
-        SYS_SHUTDOWN => sys_shutdown(args[0] as _, args[1] as _).await,
-        SYS_SCHED_GETPARAM => sys_sched_getparam(args[0] as _, args[1] as _).await,
-        SYS_SCHED_SETSCHEDULER => {
-            sys_sched_setscheduler(args[0] as _, args[1] as _, args[2] as _).await
-        }
-        SYS_CLOCK_GETRES => sys_clock_getres(args[0] as _, args[1].into()).await,
-        SYS_CLOCK_NANOSLEEP => {
-            sys_clock_nanosleep(args[0] as _, args[1] as _, args[2].into(), args[3].into()).await
-        }
-        SYS_EPOLL_CREATE => sys_epoll_create1(args[0] as _).await,
-        SYS_EPOLL_CTL => {
-            sys_epoll_ctl(args[0] as _, args[1] as _, args[2] as _, args[3].into()).await
-        }
-        SYS_EPOLL_WAIT => {
-            sys_epoll_wait(
-                args[0] as _,
-                args[1].into(),
-                args[2] as _,
-                args[3] as _,
-                args[4] as _,
-            )
-            .await
-        }
-        SYS_COPY_FILE_RANGE => {
-            sys_copy_file_range(
-                args[0] as _,
-                args[1].into(),
-                args[2] as _,
-                args[3].into(),
-                args[4],
-                args[5] as _,
-            )
-            .await
-        }
-        SYS_GETRANDOM => sys_getrandom(args[0].into(), args[1] as _, args[2] as _).await,
-        122 => {
-            log::debug!("sys_getaffinity() ");
-            Ok(0)
-        }
-        120 => {
-            log::debug!("sys_sched_getscheduler");
-            Ok(0)
-        }
-        _ => {
-            warn!("unsupported syscall: {}", call_type);
-            Err(LinuxError::EPERM)
+use self::consts::*;
+
+type SysResult = Result<usize, LinuxError>;
+
+impl UserTaskContainer {
+    pub async fn syscall(&self, call_id: usize, args: [usize; 6]) -> Result<usize, LinuxError> {
+        match call_id {
+            SYS_GETCWD => self.sys_getcwd(args[0].into(), args[1] as _).await,
+            SYS_CHDIR => self.sys_chdir(args[0].into()).await,
+            SYS_OPENAT => {
+                self.sys_openat(args[0] as _, args[1].into(), args[2] as _, args[3] as _)
+                    .await
+            }
+            SYS_DUP => self.sys_dup(args[0]).await,
+            SYS_DUP3 => self.sys_dup3(args[0], args[1]).await,
+            SYS_CLOSE => self.sys_close(args[0] as _).await,
+            SYS_MKDIRAT => {
+                self.sys_mkdir_at(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_READ => {
+                self.sys_read(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_WRITE => {
+                self.sys_write(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_EXECVE => {
+                self.sys_execve(args[0].into(), args[1].into(), args[2].into())
+                    .await
+            }
+            SYS_EXIT => self.sys_exit(args[0] as _).await,
+            SYS_BRK => self.sys_brk(args[0] as _).await,
+            SYS_GETPID => self.sys_getpid().await,
+            SYS_PIPE2 => self.sys_pipe2(args[0].into(), args[1] as _).await,
+            SYS_GETTIMEOFDAY => self.sys_gettimeofday(args[0].into(), args[1] as _).await,
+            SYS_NANOSLEEP => self.sys_nanosleep(args[0].into(), args[1].into()).await,
+            SYS_UNAME => self.sys_uname(args[0].into()).await,
+            SYS_UNLINKAT => {
+                self.sys_unlinkat(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_FSTAT => self.sys_fstat(args[0] as _, args[1].into()).await,
+            SYS_CLONE => {
+                self.sys_clone(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2].into(),
+                    args[3] as _,
+                    args[4].into(),
+                )
+                .await
+            }
+            SYS_WAIT4 => {
+                self.sys_wait4(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_SCHED_YIELD => self.sys_sched_yield().await,
+            SYS_GETPPID => self.sys_getppid().await,
+            SYS_MOUNT => {
+                self.sys_mount(
+                    args[0].into(),
+                    args[1].into(),
+                    args[2].into(),
+                    args[3] as _,
+                    args[4] as _,
+                )
+                .await
+            }
+            SYS_UMOUNT2 => self.sys_umount2(args[0].into(), args[1] as _).await,
+            SYS_MMAP => {
+                self.sys_mmap(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2] as _,
+                    args[3] as _,
+                    args[4] as _,
+                    args[5] as _,
+                )
+                .await
+            }
+            SYS_MUNMAP => self.sys_munmap(args[0] as _, args[1] as _).await,
+            SYS_TIMES => self.sys_times(args[0].into()).await,
+            SYS_GETDENTS => {
+                self.sys_getdents64(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_SET_TID_ADDRESS => self.sys_set_tid_address(args[0] as _).await,
+            SYS_GETTID => self.sys_gettid().await,
+            SYS_LSEEK => self.sys_lseek(args[0] as _, args[1] as _, args[2] as _),
+            SYS_GETTIME => self.sys_clock_gettime(args[0] as _, args[1].into()).await,
+            SYS_SIGTIMEDWAIT => self.sys_sigtimedwait().await,
+            SYS_SIGSUSPEND => self.sys_sigsuspend(args[0].into()).await,
+            SYS_PRLIMIT64 => {
+                self.sys_prlimit64(args[0] as _, args[1] as _, args[2].into(), args[3].into())
+                    .await
+            }
+            SYS_READV => {
+                self.sys_readv(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_WRITEV => {
+                self.sys_writev(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_STATFS => self.sys_statfs(args[0].into(), args[1].into()).await,
+            SYS_PREAD => {
+                self.sys_pread(args[0] as _, args[1].into(), args[2] as _, args[3] as _)
+                    .await
+            }
+            SYS_PWRITE => {
+                self.sys_pwrite(args[0] as _, args[1].into(), args[2] as _, args[3] as _)
+                    .await
+            }
+            SYS_FSTATAT => {
+                self.sys_fstatat(args[0] as _, args[1].into(), args[2].into())
+                    .await
+            }
+            SYS_GETEUID => self.sys_geteuid().await,
+            SYS_GETEGID => self.sys_getegid().await,
+            SYS_GETGID => self.sys_getgid().await,
+            SYS_GETUID => self.sys_getuid().await,
+            SYS_GETPGID => self.sys_getpgid().await,
+            SYS_IOCTL => {
+                self.sys_ioctl(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2] as _,
+                    args[3] as _,
+                    args[4] as _,
+                )
+                .await
+            }
+            SYS_FCNTL => {
+                self.sys_fcntl(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_UTIMEAT => {
+                self.sys_utimensat(args[0] as _, args[1].into(), args[2].into(), args[3] as _)
+                    .await
+            }
+            SYS_SIGPROCMASK => {
+                self.sys_sigprocmask(args[0] as _, args[1].into(), args[2].into())
+                    .await
+            }
+            SYS_SIGACTION => {
+                self.sys_sigaction(args[0] as _, args[1].into(), args[2].into())
+                    .await
+            }
+            SYS_MPROTECT => {
+                self.sys_mprotect(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_FUTEX => {
+                self.sys_futex(
+                    args[0].into(),
+                    args[1] as _,
+                    args[2] as _,
+                    args[3] as _,
+                    args[4] as _,
+                    args[5] as _,
+                )
+                .await
+            }
+            SYS_READLINKAT => {
+                self.sys_readlinkat(args[0] as _, args[1].into(), args[2].into(), args[3] as _)
+                    .await
+            }
+            SYS_SENDFILE => {
+                self.sys_sendfile(args[0] as _, args[1] as _, args[2] as _, args[3] as _)
+                    .await
+            }
+            SYS_TKILL => self.sys_tkill(args[0] as _, args[1] as _).await,
+            SYS_SIGRETURN => self.sys_sigreturn().await,
+            SYS_GET_ROBUST_LIST => {
+                warn!("SYS_GET_ROBUST_LIST @ ");
+                Ok(0)
+            } // always ok for now
+            SYS_PPOLL => {
+                self.sys_ppoll(args[0].into(), args[1] as _, args[2].into(), args[3] as _)
+                    .await
+            }
+            SYS_GETRUSAGE => self.sys_getrusage(args[0] as _, args[1].into()).await,
+            SYS_SETPGID => self.sys_setpgid(args[0] as _, args[1] as _).await,
+            SYS_PSELECT => {
+                self.sys_pselect(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2].into(),
+                    args[3].into(),
+                    args[4].into(),
+                    args[5] as _,
+                )
+                .await
+            }
+            SYS_KILL => self.sys_kill(args[0] as _, args[1] as _).await,
+            SYS_FSYNC => Ok(0),
+            SYS_FACCESSAT => {
+                self.sys_faccess_at(args[0] as _, args[1].into(), args[2], args[3])
+                    .await
+            } // always be ok at now.
+            SYS_FACCESSAT2 => Ok(0),
+            SYS_SOCKET => {
+                self.sys_socket(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_SOCKETPAIR => {
+                self.sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3] as _)
+                    .await
+            }
+            SYS_BIND => {
+                self.sys_bind(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_LISTEN => self.sys_listen(args[0] as _, args[1] as _).await,
+            SYS_ACCEPT => {
+                self.sys_accept(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_ACCEPT4 => {
+                self.sys_accept4(args[0] as _, args[1].into(), args[2] as _, args[3] as _)
+                    .await
+            }
+            SYS_CONNECT => {
+                self.sys_connect(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_RECVFROM => {
+                self.sys_recvfrom(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2] as _,
+                    args[3] as _,
+                    args[4].into(),
+                    args[5].into(),
+                )
+                .await
+            }
+            SYS_SENDTO => {
+                self.sys_sendto(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2] as _,
+                    args[3] as _,
+                    args[4].into(),
+                    args[5].into(),
+                )
+                .await
+            }
+            SYS_KLOGCTL => {
+                self.sys_klogctl(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_SYSINFO => self.sys_info(args[0].into()).await,
+            SYS_MSYNC => self.sys_msync(args[0], args[1], args[2] as _).await,
+            SYS_EXIT_GROUP => self.sys_exit_group(args[0]),
+            SYS_FTRUNCATE => self.sys_ftruncate(args[0], args[1]).await,
+            SYS_SHMGET => {
+                self.sys_shmget(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_SHMAT => {
+                self.sys_shmat(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_SHMCTL => {
+                self.sys_shmctl(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_SETITIMER => {
+                self.sys_setitimer(args[0] as _, args[1].into(), args[2].into())
+                    .await
+            }
+            SYS_SETSOCKOPT => {
+                self.sys_setsockopt(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2] as _,
+                    args[3] as _,
+                    args[4] as _,
+                )
+                .await
+            }
+            SYS_GETSOCKOPT => {
+                self.sys_getsockopt(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2] as _,
+                    args[3] as _,
+                    args[4] as _,
+                )
+                .await
+            }
+            SYS_GETSOCKNAME => {
+                self.sys_getsockname(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_GETPEERNAME => {
+                self.sys_getpeername(args[0] as _, args[1].into(), args[2] as _)
+                    .await
+            }
+            SYS_SETSID => self.sys_setsid().await,
+            SYS_SHUTDOWN => self.sys_shutdown(args[0] as _, args[1] as _).await,
+            SYS_SCHED_GETPARAM => self.sys_sched_getparam(args[0] as _, args[1] as _).await,
+            SYS_SCHED_SETSCHEDULER => {
+                self.sys_sched_setscheduler(args[0] as _, args[1] as _, args[2] as _)
+                    .await
+            }
+            SYS_CLOCK_GETRES => self.sys_clock_getres(args[0] as _, args[1].into()).await,
+            SYS_CLOCK_NANOSLEEP => {
+                self.sys_clock_nanosleep(args[0] as _, args[1] as _, args[2].into(), args[3].into())
+                    .await
+            }
+            SYS_EPOLL_CREATE => self.sys_epoll_create1(args[0] as _).await,
+            SYS_EPOLL_CTL => {
+                self.sys_epoll_ctl(args[0] as _, args[1] as _, args[2] as _, args[3].into())
+                    .await
+            }
+            SYS_EPOLL_WAIT => {
+                self.sys_epoll_wait(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2] as _,
+                    args[3] as _,
+                    args[4] as _,
+                )
+                .await
+            }
+            SYS_COPY_FILE_RANGE => {
+                self.sys_copy_file_range(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2] as _,
+                    args[3].into(),
+                    args[4],
+                    args[5] as _,
+                )
+                .await
+            }
+            SYS_GETRANDOM => {
+                self.sys_getrandom(args[0].into(), args[1] as _, args[2] as _)
+                    .await
+            }
+            122 => {
+                log::debug!("sys_getaffinity() ");
+                Ok(0)
+            }
+            120 => {
+                log::debug!("sys_sched_getscheduler");
+                Ok(0)
+            }
+            _ => {
+                warn!("unsupported syscall: {}", call_id);
+                Err(LinuxError::EPERM)
+            }
         }
     }
 }

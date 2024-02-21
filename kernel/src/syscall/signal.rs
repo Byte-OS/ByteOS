@@ -1,11 +1,10 @@
-use executor::{current_task, current_user_task, yield_now, AsyncTask};
+use executor::yield_now;
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 
-use crate::tasks::WaitSignal;
-use crate::user::entry::check_timer;
+use crate::{tasks::WaitSignal, user::UserTaskContainer};
 
-use super::consts::{LinuxError, UserRef};
+use super::{consts::{LinuxError, UserRef}, SysResult};
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。
@@ -54,85 +53,85 @@ use super::consts::{LinuxError, UserRef};
  *  }
  */
 
-/// TODO: finish sigtimedwait
-pub async fn sys_sigtimedwait() -> Result<usize, LinuxError> {
-    debug!("sys_sigtimedwait @ ");
-    WaitSignal(current_user_task()).await;
-    // let task = current_user_task();
-    // task.inner_map(|x| x.signal.has_signal());
-    // Err(LinuxError::EAGAIN)
-    Ok(0)
-}
-
-pub async fn sys_sigprocmask(
-    how: usize,
-    set: UserRef<SigProcMask>,
-    oldset: UserRef<SigProcMask>,
-) -> Result<usize, LinuxError> {
-    let user_task = current_task().as_user_task().unwrap();
-    debug!(
-        "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
-        user_task.get_task_id(),
-        how,
-        set,
-        oldset
-    );
-    let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
-    let mut tcb = user_task.tcb.write();
-    if oldset.is_valid() {
-        let sigmask = oldset.get_mut();
-        *sigmask = tcb.sigmask;
+impl UserTaskContainer {
+    /// TODO: finish sigtimedwait
+    pub async fn sys_sigtimedwait(&self) -> SysResult {
+        debug!("sys_sigtimedwait @ ");
+        WaitSignal(self.task.clone()).await;
+        // let task = current_user_task();
+        // task.inner_map(|x| x.signal.has_signal());
+        // Err(LinuxError::EAGAIN)
+        Ok(0)
     }
-    if set.is_valid() {
-        let sigmask = set.get_mut();
-        tcb.sigmask.handle(how, sigmask)
-    }
-    drop(tcb);
-    // Err(LinuxError::EPERM)
-    Ok(0)
-}
 
-/// 其次，每个线程都有自己独立的signal mask，但所有线程共享进程的signal action。这意味着，
-/// 你可以在线程中调用pthread_sigmask(不是sigmask)来决定本线程阻塞哪些信号。
-/// 但你不能调用sigaction来指定单个线程的信号处理方式。如果在某个线程中调用了sigaction处理某个信号，
-/// 那么这个进程中的未阻塞这个信号的线程在收到这个信号都会按同一种方式处理这个信号。
-/// 另外，注意子线程的mask是会从主线程继承而来的。
-
-pub async fn sys_sigaction(
-    sig: usize,
-    act: UserRef<SigAction>,
-    oldact: UserRef<SigAction>,
-) -> Result<usize, LinuxError> {
-    let signal = SignalFlags::from_usize(sig);
-    debug!(
-        "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
-        signal, act, oldact
-    );
-    let user_task = current_task().as_user_task().unwrap();
-    if oldact.is_valid() {
-        *oldact.get_mut() = user_task.pcb.lock().sigaction[sig];
-    }
-    if act.is_valid() {
-        user_task.pcb.lock().sigaction[sig] = *act.get_mut();
-    }
-    Ok(0)
-}
-
-pub async fn sys_sigsuspend(sigset: UserRef<SignalFlags>) -> Result<usize, LinuxError> {
-    let task = current_user_task();
-    let signal = sigset.get_ref();
-    debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
-    loop {
-        check_timer(&task);
-        let tcb = task.tcb.read();
-        if tcb.signal.has_signal() {
-            break;
+    pub async fn sys_sigprocmask(
+        &self,
+        how: usize,
+        set: UserRef<SigProcMask>,
+        oldset: UserRef<SigProcMask>,
+    ) -> SysResult {
+        debug!(
+            "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
+            self.tid,
+            how,
+            set,
+            oldset
+        );
+        let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
+        let mut tcb = self.task.tcb.write();
+        if oldset.is_valid() {
+            let sigmask = oldset.get_mut();
+            *sigmask = tcb.sigmask;
+        }
+        if set.is_valid() {
+            let sigmask = set.get_mut();
+            tcb.sigmask.handle(how, sigmask)
         }
         drop(tcb);
-        yield_now().await;
+        // Err(LinuxError::EPERM)
+        Ok(0)
     }
-    debug!("sys_sigsuspend @ sigset: {:?}", signal);
-    // Err(LinuxError::EINTR)
-    // Err(LinuxError::EPERM)
-    Ok(0)
+
+    /// 其次，每个线程都有自己独立的signal mask，但所有线程共享进程的signal action。这意味着，
+    /// 你可以在线程中调用pthread_sigmask(不是sigmask)来决定本线程阻塞哪些信号。
+    /// 但你不能调用sigaction来指定单个线程的信号处理方式。如果在某个线程中调用了sigaction处理某个信号，
+    /// 那么这个进程中的未阻塞这个信号的线程在收到这个信号都会按同一种方式处理这个信号。
+    /// 另外，注意子线程的mask是会从主线程继承而来的。
+
+    pub async fn sys_sigaction(
+        &self,
+        sig: usize,
+        act: UserRef<SigAction>,
+        oldact: UserRef<SigAction>,
+    ) -> SysResult {
+        let signal = SignalFlags::from_usize(sig);
+        debug!(
+            "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
+            signal, act, oldact
+        );
+        if oldact.is_valid() {
+            *oldact.get_mut() = self.task.pcb.lock().sigaction[sig];
+        }
+        if act.is_valid() {
+            self.task.pcb.lock().sigaction[sig] = *act.get_mut();
+        }
+        Ok(0)
+    }
+    pub async fn sys_sigsuspend(&self, sigset: UserRef<SignalFlags>) -> SysResult {
+        let signal = sigset.get_ref();
+        debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
+        loop {
+            self.check_timer();
+            let tcb = self.task.tcb.read();
+            if tcb.signal.has_signal() {
+                break;
+            }
+            drop(tcb);
+            yield_now().await;
+        }
+        debug!("sys_sigsuspend @ sigset: {:?}", signal);
+        // Err(LinuxError::EINTR)
+        // Err(LinuxError::EPERM)
+        Ok(0)
+    }
 }

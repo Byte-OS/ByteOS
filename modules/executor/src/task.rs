@@ -18,12 +18,7 @@ use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
 
 use crate::{
-    filetable::{rlimits_new, FileItem, FileTable},
-    memset::{MapTrack, MemArea, MemType},
-    shm::MapedSharedMemory,
-    signal::SignalList,
-    task_id_alloc, thread, AsyncTask, MemSet, ProcessTimer, TaskFutureItem, TaskId, FUTURE_LIST,
-    TMS,
+    filetable::{rlimits_new, FileItem, FileTable}, memset::{MapTrack, MemArea, MemType}, shm::MapedSharedMemory, signal::SignalList, task_id_alloc, thread, AsyncTask, FutexOps, MemSet, ProcessTimer, TaskFutureItem, TaskId, FUTURE_LIST, TMS
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
@@ -295,19 +290,12 @@ impl UserTask {
         let tcb_writer = self.tcb.write();
         let uaddr = tcb_writer.clear_child_tid;
         if uaddr != 0 {
-            extern "Rust" {
-                pub fn futex_wake(
-                    task: Arc<Mutex<FutexTable>>,
-                    uaddr: usize,
-                    wake_count: usize,
-                ) -> usize;
-            }
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
-                futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
             }
+            FutexOps::futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
         }
         self.pcb.lock().exit_code = Some(exit_code);
         let exit_signal = tcb_writer.exit_signal;
@@ -342,19 +330,12 @@ impl UserTask {
         let mut tcb_writer = self.tcb.write();
         let uaddr = tcb_writer.clear_child_tid;
         if uaddr != 0 {
-            extern "Rust" {
-                pub fn futex_wake(
-                    task: Arc<Mutex<FutexTable>>,
-                    uaddr: usize,
-                    wake_count: usize,
-                ) -> usize;
-            }
             debug!("write addr: {:#x}", uaddr);
             let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
-                futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
             }
+            FutexOps::futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
         }
         tcb_writer.thread_exit_code = Some(exit_code as u32);
         let exit_signal = tcb_writer.exit_signal;

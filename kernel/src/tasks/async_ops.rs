@@ -2,12 +2,10 @@ use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
 use arch::get_time_ms;
-use executor::{current_user_task, FutexTable, UserTask};
+use executor::{current_user_task, FutexOps, FutexTable, UserTask};
 use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;
-
-use crate::user::entry::mask_signal_list;
 
 pub struct NextTick(usize);
 
@@ -98,7 +96,7 @@ impl Future for WaitHandleAbleSignal {
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let task = &self.0;
         let sig_mask = task.tcb.read().sigmask;
-        let has_signal = mask_signal_list(sig_mask, task.tcb.read().signal.clone()).has_signal();
+        let has_signal = task.tcb.read().signal.mask(sig_mask).has_signal();
 
         match has_signal {
             true => Poll::Ready(()),
@@ -107,7 +105,15 @@ impl Future for WaitHandleAbleSignal {
     }
 }
 
-#[no_mangle]
+struct FutexOpsImpl;
+
+#[crate_interface::impl_interface]
+impl FutexOps for FutexOpsImpl {
+    fn futex_wake(task: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count: usize) -> usize {
+        futex_wake(task, uaddr, wake_count)
+    }
+}
+
 pub fn futex_wake(futex_table: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count: usize) -> usize {
     let mut futex_table = futex_table.lock();
     let que_size = futex_table.get_mut(&uaddr).map(|x| x.len()).unwrap_or(0);
