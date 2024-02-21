@@ -2,7 +2,7 @@ use core::pin::Pin;
 
 use ::signal::SignalFlags;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, PTEFlags, VirtPage};
+use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, MappingFlags, VirtPage};
 use devices::get_int_device;
 use executor::{AsyncTask, MapTrack, TaskId, UserTask};
 use frame_allocator::frame_alloc;
@@ -74,7 +74,7 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
             }
         };
         drop(pcb);
-        task.map(ppn, vpn, PTEFlags::UVRWX);
+        task.map(ppn, vpn, MappingFlags::URWX);
     } else {
         task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
     }

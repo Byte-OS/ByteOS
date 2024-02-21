@@ -1,4 +1,4 @@
-use crate::{PTEFlags, PAGE_ITEM_COUNT, PTE, VIRT_ADDR_START};
+use crate::{PAGE_ITEM_COUNT, VIRT_ADDR_START};
 
 /// 汇编入口函数
 ///
@@ -18,22 +18,23 @@ unsafe extern "C" fn _sigreturn() -> ! {
     )
 }
 
-#[link_section = ".data.prepage.trx1"]
-static mut TRX_STEP1: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
+// #[link_section = ".data.prepage.trx1"]
+// static mut TRX_STEP1: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
 
-#[link_section = ".data.prepage.trx2"]
-static mut TRX_STEP2: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
+// #[link_section = ".data.prepage.trx2"]
+// static mut TRX_STEP2: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
 
-pub fn init() {
-    unsafe {
-        TRX_STEP1[0] = PTE::from_addr(
-            _sigreturn as usize & !VIRT_ADDR_START,
-            PTEFlags::ADUVRX.union(PTEFlags::G),
-        );
-        TRX_STEP2[0] = PTE::from_addr(TRX_STEP1.as_ptr() as usize & !VIRT_ADDR_START, PTEFlags::V);
-    }
-}
+// pub fn init() {
+//     unsafe {
+//         TRX_STEP1[0] = PTE::from_addr(
+//             _sigreturn as usize & !VIRT_ADDR_START,
+//             PTEFlags::ADUVRX.union(PTEFlags::G),
+//         );
+//         TRX_STEP2[0] = PTE::from_addr(TRX_STEP1.as_ptr() as usize & !VIRT_ADDR_START, PTEFlags::V);
+//     }
+// }
 
 pub fn get_trx_mapping() -> usize {
-    unsafe { TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START }
+    todo!("map trx")
+    // unsafe { TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START }
 }

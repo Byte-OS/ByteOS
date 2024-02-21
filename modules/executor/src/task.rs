@@ -7,7 +7,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::{
-    Context, ContextOps, PTEFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
+    Context, ContextOps, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -166,7 +166,7 @@ impl UserTask {
         f(&mut self.pcb.lock())
     }
 
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: PTEFlags) {
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags) {
         self.page_table.map(
             ppn,
             vpn,
@@ -212,14 +212,14 @@ impl UserTask {
                 vpn.to_addr(),
                 trackers[0].tracker.0.to_addr(),
                 count * PAGE_SIZE,
-                PTEFlags::UVRWX
+                MappingFlags::URWX
             );
             // map vpn to ppn
             trackers
                 .clone()
                 .iter()
                 .filter(|x| x.vpn.to_addr() != 0)
-                .for_each(|x| self.map(x.tracker.0, x.vpn, PTEFlags::UVRWX));
+                .for_each(|x| self.map(x.tracker.0, x.vpn, MappingFlags::URWX));
         }
         let mut inner = self.pcb.lock();
         let ppn = trackers[0].tracker.0;
@@ -399,7 +399,7 @@ impl UserTask {
             .for_each(|x| {
                 let map_area = x.fork();
                 map_area.mtrackers.iter().for_each(|map_track| {
-                    new_task.map(map_track.tracker.0, map_track.vpn, PTEFlags::UVRWX);
+                    new_task.map(map_track.tracker.0, map_track.vpn, MappingFlags::URWX);
                 });
 
                 new_task.pcb.lock().memset.push(map_area);
@@ -411,7 +411,7 @@ impl UserTask {
             new_task.map(
                 x.mem.trackers[i].0,
                 VirtPage::from_addr(x.start).add(i),
-                PTEFlags::UVRWX,
+                MappingFlags::URWX,
             );
         });
         thread::spawn(new_task.clone());
@@ -444,8 +444,8 @@ impl UserTask {
             .for_each(|x| {
                 let map_area = x.clone();
                 map_area.mtrackers.iter().for_each(|x| {
-                    new_task.map(x.tracker.0, x.vpn, PTEFlags::UVRX);
-                    self.map(x.tracker.0, x.vpn, PTEFlags::UVRX);
+                    new_task.map(x.tracker.0, x.vpn, MappingFlags::URX);
+                    self.map(x.tracker.0, x.vpn, MappingFlags::URX);
                 });
                 new_task.pcb.lock().memset.push(map_area);
             });
@@ -456,7 +456,7 @@ impl UserTask {
                 new_task.map(
                     tracker.0,
                     VirtPage::from_addr(x.start).add(i),
-                    PTEFlags::UVRWX,
+                    MappingFlags::URWX
                 );
             });
         });

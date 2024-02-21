@@ -14,12 +14,14 @@ serde_derive = "1.0.136"
 autocfg = "1.1.0"
 
 [dependencies]
-riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 log = "0.4"
 bitflags = "2.0.2"
 cfg-if = "1.0.0"
 crate_interface = { path = "../crates/crate_interface" }
 allocator = { path = "../crates/allocator" }
+
+[target.'cfg(target_arch = "riscv64")'.dependencies]
+riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 
 [target.'cfg(target_arch = "x86_64")'.dependencies]
 x86 = "0.52"

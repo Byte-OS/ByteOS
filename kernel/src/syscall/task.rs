@@ -8,7 +8,7 @@ use alloc::string::{String, ToString};
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{time_to_usec, ContextOps, PTEFlags, VirtPage, PAGE_SIZE};
+use arch::{time_to_usec, ContextOps, MappingFlags, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{
@@ -214,7 +214,7 @@ pub async fn exec_with_process<'a>(
                 pcb.memset.push(area.clone());
             });
             for mtracker in area.mtrackers.iter() {
-                user_task.map(mtracker.tracker.0, mtracker.vpn, PTEFlags::ADUVRX);
+                user_task.map(mtracker.tracker.0, mtracker.vpn, MappingFlags::URX);
             }
         }
         Ok(user_task)

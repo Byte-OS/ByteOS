@@ -253,6 +253,7 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
+    command("ls").await;
     // command("busybox echo run time-test").await;
     // command("time-test").await;
 
