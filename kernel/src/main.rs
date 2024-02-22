@@ -41,6 +41,8 @@ struct ArchInterfaceImpl;
 #[crate_interface::impl_interface]
 impl ArchInterface for ArchInterfaceImpl {
     fn init_logging() {
+        let str = include_str!("banner.txt");
+        println!("{}", str);    
         // initialize logging module
         logging::init(option_env!("LOG"));
     }
@@ -75,9 +77,6 @@ fn main(hart_id: usize, device_tree: usize) {
         fn start();
         fn end();
     }
-
-    let str = include_str!("banner.txt");
-    println!("{}", str);
 
     println!("run kernel @ hart {}", hart_id);
 

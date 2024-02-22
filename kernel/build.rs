@@ -66,6 +66,10 @@ fn gen_linker_script(platform: &str) -> Result<()> {
         "%KERNEL_BASE%",
         kernel_base,
     );
+    let ld_content = ld_content.replace(
+        "%SMP%",
+        "1",
+    );
     
     std::fs::write(&fname, ld_content)?;
     println!("cargo:rustc-link-arg=-Tkernel/{}", fname);

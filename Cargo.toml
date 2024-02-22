@@ -12,6 +12,8 @@ members = [
     "crates/cv1811-sd",
     "crates/memory_addr",
     "crates/crate_interface",
+    "crates/percpu",
+    "crates/percpu_macros",
 
     # modules
     "modules/logging",

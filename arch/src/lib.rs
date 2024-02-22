@@ -5,6 +5,7 @@
 #![feature(stdsimd)]
 #![feature(const_mut_refs)]
 #![feature(const_slice_from_raw_parts_mut)]
+#![feature(result_option_inspect)]
 
 extern crate alloc;
 
