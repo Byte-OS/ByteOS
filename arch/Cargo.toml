@@ -28,3 +28,4 @@ x86 = "0.52"
 x86_64 = "0.14"
 spin = { version = "0.9.8", features = ["mutex"] }
 multiboot = "0.8.0"
+percpu = { path = "../crates/percpu" }
