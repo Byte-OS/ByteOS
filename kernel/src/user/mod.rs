@@ -29,7 +29,7 @@ pub struct UserTaskContainer {
 pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
-        "store/instruction page fault @ {:#x} vpn: {} ppn: {} task_id: {}",
+        "store/instruction page fault @ {:#x} vpn: {} ppn: {:?} task_id: {}",
         addr,
         vpn,
         task.page_table.virt_to_phys(addr.into()),
@@ -127,7 +127,7 @@ impl UserTaskContainer {
             arch::TrapType::IllegalInstruction(addr) => {
                 let vpn = VirtPage::from_addr(addr);
                 warn!(
-                    "store/instruction page fault @ {:#x} vpn: {} ppn: {}",
+                    "store/instruction page fault @ {:#x} vpn: {} ppn: {:?}",
                     addr,
                     vpn,
                     self.task.page_table.virt_to_phys(addr.into()),
@@ -135,7 +135,7 @@ impl UserTaskContainer {
                 warn!("the fault occurs @ {:#x}", cx_ref.sepc());
                 // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
                 warn!(
-                    "mapped ppn addr: {:#x} @ {}",
+                    "mapped ppn addr: {:#x} @ {:?}",
                     cx_ref.sepc(),
                     self.task.page_table.virt_to_phys(cx_ref.sepc().into())
                 );
@@ -158,7 +158,7 @@ impl UserTaskContainer {
             arch::TrapType::StorePageFault(addr)
             | arch::TrapType::InstructionPageFault(addr)
             | arch::TrapType::LoadPageFault(addr) => {
-                debug!("store page fault");
+                debug!("store page fault: {:#x}", addr);
                 user_cow_int(self.task.clone(), cx_ref, addr)
             }
         }
