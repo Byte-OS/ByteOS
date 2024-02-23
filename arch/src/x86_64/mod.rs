@@ -20,7 +20,7 @@ pub use entry::switch_to_kernel_page_table;
 
 use x86_64::instructions::port::PortWriteOnly;
 
-use crate::x86_64::multiboot::use_multiboot;
+use crate::{x86_64::multiboot::use_multiboot, ArchInterface};
 
 
 #[percpu::def_percpu]
@@ -34,13 +34,18 @@ pub fn shutdown() -> ! {
 
 fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     crate::clear_bss();
-    crate::prepare_init();
+    idt::init();
+    pic::init();
+    sigtrx::init();
+    ArchInterface::init_logging();
+    // Init allocator
+    allocator::init();
     percpu::init(1);
     percpu::set_local_thread_pointer(0);
 
     info!("TEST CPU ID: {}  ptr: {:#x}", CPU_ID.read_current(), unsafe { CPU_ID.current_ptr() } as usize);
-    idt::init();
-    pic::init();
+    CPU_ID.write_current(345);
+    info!("TEST CPU ID: {}  ptr: {:#x}", CPU_ID.read_current(), unsafe { CPU_ID.current_ptr() } as usize);
 
     info!("magic: {:#x}, mboot_ptr: {:#x}", magic, mboot_ptr);
 
@@ -60,7 +65,9 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
         }
     }
 
-    crate::ArchInterface::main(0, 0);
+    ArchInterface::prepare_drivers();
+
+    crate::ArchInterface::main(0);
 
     shutdown()
 }

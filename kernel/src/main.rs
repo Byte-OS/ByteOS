@@ -29,6 +29,7 @@ mod user;
 use arch::{enable_irq, ArchInterface, Context, PhysPage, TrapType};
 use devices;
 use executor::FileItem;
+use fdt::node::FdtNode;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use fs::get_filesystem;
 use hal;
@@ -46,11 +47,13 @@ impl ArchInterface for ArchInterfaceImpl {
         // initialize logging module
         logging::init(option_env!("LOG"));
     }
+
     fn interrupt_table() -> fn(&mut Context, TrapType) {
         kernel_interrupt
     }
-    fn main(hart_id: usize, device_tree: usize) {
-        main(hart_id, device_tree)
+
+    fn main(hart_id: usize) {
+        main(hart_id)
     }
 
     fn add_memory_region(start: usize, end: usize) {
@@ -65,10 +68,18 @@ impl ArchInterface for ArchInterfaceImpl {
         unsafe { frame_unalloc(ppn) }
         ppn.drop_clear();
     }
+
+    fn prepare_drivers() {
+        devices::prepare_drivers();
+    }
+
+    fn try_to_add_device(node: &FdtNode) {
+        devices::try_to_add_device(node);
+    }
 }
 
 #[no_mangle]
-fn main(hart_id: usize, device_tree: usize) {
+fn main(hart_id: usize) {
     // if hart_id != 0 {
     //     loop {}
     // }
@@ -88,21 +99,11 @@ fn main(hart_id: usize, device_tree: usize) {
     // initialize interrupt
     hal::interrupt::init();
 
-    // print boot info
-    info!("booting at core {}", hart_id);
-
-    // initialize device settings
-    devices::init_device(device_tree);
-
-    // initialize frame allocator
-    frame_allocator::init();
-
     // get devices and init
-    devices::prepare_devices();
+    devices::regist_devices_irq();
 
     // initialize filesystem
     fs::init();
-
     {
         // let cache_file = vec!["busybox", "entry-static.exe", "runtest.exe"];
         let rootfs = get_filesystem(0).root_dir();

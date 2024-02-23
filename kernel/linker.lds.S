@@ -17,10 +17,6 @@ SECTIONS
         etext = .;
     }
 
-    .sigtrx ALIGN(4K): {
-        *(.sigtrx .sigtrx.*)
-    }
-
     .rodata ALIGN(4K): {
         srodata = .;
         *(.rodata .rodata.*)
@@ -37,6 +33,12 @@ SECTIONS
         *(.sdata .sdata.*)
         _edata = .;
     }
+
+    .sigtrx ALIGN(4K): {
+        *(.sigtrx .sigtrx.*)
+    }
+
+    _load_end = .;
 
     . = ALIGN(4K);
     _percpu_start = .;
@@ -61,4 +63,7 @@ SECTIONS
     }
 
     PROVIDE(end = .);
+    /DISCARD/ : {
+        *(.comment) *(.gnu*) *(.note*) *(.eh_frame*)
+    }
 }

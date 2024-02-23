@@ -1,4 +1,6 @@
-use crate::{PAGE_ITEM_COUNT, VIRT_ADDR_START};
+use x86::bits64::paging::{PDEntry, PDFlags, PTEntry, PTFlags, PAGE_SIZE_ENTRIES, PD, PT};
+
+use crate::VIRT_ADDR_START;
 
 /// 汇编入口函数
 ///
@@ -18,23 +20,15 @@ unsafe extern "C" fn _sigreturn() -> ! {
     )
 }
 
-// #[link_section = ".data.prepage.trx1"]
-// static mut TRX_STEP1: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
+#[link_section = ".data.prepage"]
+static mut TRX_STEP1: PD = [PDEntry(0); PAGE_SIZE_ENTRIES];
 
-// #[link_section = ".data.prepage.trx2"]
-// static mut TRX_STEP2: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
+#[link_section = ".data.prepage"]
+static mut TRX_STEP2: PT = [PTEntry(0); PAGE_SIZE_ENTRIES];
 
-// pub fn init() {
-//     unsafe {
-//         TRX_STEP1[0] = PTE::from_addr(
-//             _sigreturn as usize & !VIRT_ADDR_START,
-//             PTEFlags::ADUVRX.union(PTEFlags::G),
-//         );
-//         TRX_STEP2[0] = PTE::from_addr(TRX_STEP1.as_ptr() as usize & !VIRT_ADDR_START, PTEFlags::V);
-//     }
-// }
-
-pub fn get_trx_mapping() -> usize {
-    todo!("map trx")
-    // unsafe { TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START }
+pub fn init() {
+    unsafe {
+        TRX_STEP1[0] = PDEntry::new((TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START).into(), PDFlags::P | PDFlags::RW);
+        TRX_STEP2[0] = PTEntry::new((_sigreturn as usize & !VIRT_ADDR_START).into(), PTFlags::P | PTFlags::US);
+    }
 }

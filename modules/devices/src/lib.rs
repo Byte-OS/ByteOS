@@ -2,6 +2,7 @@
 #![feature(used_with_arg)]
 #![feature(decl_macro)]
 #![feature(iter_intersperse)]
+#![feature(fn_ptr_trait)]
 
 #[macro_use]
 extern crate log;
@@ -79,49 +80,38 @@ pub fn init_device(device_tree: usize) {
     DEVICE_TREE.init_by(dt_buf);
 
     // init memory
-    memory::init();
+    // memory::init();
 }
 
-pub fn prepare_devices() {
-    if !DEVICE_TREE.is_init() {
-        return;
-    }
+/// prepare_drivers
+/// This function will init drivers 
+#[inline]
+pub fn prepare_drivers() {
     let mut all_devices = ALL_DEVICES.lock();
-
-    let fdt = Fdt::new(DEVICE_TREE.as_ref()).unwrap();
-    info!("There has {} CPU(s)", fdt.cpus().count());
-
-    fdt.memory().regions().for_each(|x| {
-        info!(
-            "memory region {:#X} - {:#X}",
-            x.starting_address as usize,
-            x.starting_address as usize + x.size.unwrap()
-        );
-    });
-
-    let node = fdt.all_nodes();
-
-    for f in DRIVERS_INIT {
+    DRIVERS_INIT.iter().for_each(|f| {
         f().map(|device| all_devices.add_device(device));
-    }
+    });
+}
 
+pub fn try_to_add_device(node: &FdtNode) {
+    let mut all_devices = ALL_DEVICES.lock();
     let driver_manager = DRIVER_REGS.lock();
-    for child in node {
-        if let Some(compatible) = child.compatible() {
-            info!(
-                "    {}  {}",
-                child.name,
-                compatible.all().intersperse(" ").collect::<String>()
-            );
-            for compati in compatible.all() {
-                if let Some(f) = driver_manager.get(compati) {
-                    all_devices.add_device(f(&child));
-                    break;
-                }
+    if let Some(compatible) = node.compatible() {
+        info!(
+            "    {}  {}",
+            node.name,
+            compatible.all().intersperse(" ").collect::<String>()
+        );
+        for compati in compatible.all() {
+            if let Some(f) = driver_manager.get(compati) {
+                all_devices.add_device(f(&node));
+                break;
             }
         }
     }
+}
 
+pub fn regist_devices_irq() {
     // register the drivers in the IRQ MANAGER.
     if let Some(plic) = INT_DEVICE.try_get() {
         for (irq, driver) in IRQ_MANAGER.lock().iter() {
