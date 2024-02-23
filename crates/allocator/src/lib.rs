@@ -20,7 +20,7 @@ static HEAP_ALLOCATOR: LockedHeap<30> = LockedHeap::empty();
 pub fn init() {
     unsafe {
         info!(
-            "kernel HEAP init: {:#x}-{:#x}",
+            "kernel HEAP init: {:#x} - {:#x}",
             HEAP.as_ptr() as usize,
             HEAP.as_ptr() as usize + HEAP_SIZE
         );

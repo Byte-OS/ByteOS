@@ -15,6 +15,7 @@ autocfg = "1.1.0"
 
 [dependencies]
 log = "0.4"
+fdt = "0.1.5"
 bitflags = "2.0.2"
 cfg-if = "1.0.0"
 crate_interface = { path = "../crates/crate_interface" }

@@ -91,12 +91,6 @@ pub fn get_int_records() -> Vec<usize> {
     unsafe { INT_RECORDS.clone() }
 }
 
-pub fn prepare_init() {
-    ArchInterface::init_logging();
-    // Init allocator
-    allocator::init();
-}
-
 pub fn clear_bss() {
     extern "C" {
         fn _sbss();
