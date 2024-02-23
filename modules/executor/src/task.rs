@@ -6,9 +6,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::{
-    Context, ContextOps, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE
-};
+use arch::{Context, ContextOps, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
@@ -18,7 +16,12 @@ use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
 
 use crate::{
-    filetable::{rlimits_new, FileItem, FileTable}, memset::{MapTrack, MemArea, MemType}, shm::MapedSharedMemory, signal::SignalList, task_id_alloc, thread, AsyncTask, FutexOps, MemSet, ProcessTimer, TaskFutureItem, TaskId, FUTURE_LIST, TMS
+    filetable::{rlimits_new, FileItem, FileTable},
+    memset::{MapTrack, MemArea, MemType},
+    shm::MapedSharedMemory,
+    signal::SignalList,
+    task_id_alloc, thread, AsyncTask, FutexOps, MemSet, ProcessTimer, TaskFutureItem, TaskId,
+    FUTURE_LIST, TMS,
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
@@ -167,12 +170,7 @@ impl UserTask {
     }
 
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags) {
-        self.page_table.map(
-            ppn,
-            vpn,
-            flags,
-            3,
-        );
+        self.page_table.map(ppn, vpn, flags, 3);
     }
 
     pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> Option<PhysPage> {
@@ -291,7 +289,10 @@ impl UserTask {
         let uaddr = tcb_writer.clear_child_tid;
         if uaddr != 0 {
             debug!("write addr: {:#x}", uaddr);
-            let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
+            let addr = self
+                .page_table
+                .virt_to_phys(VirtAddr::from(uaddr))
+                .expect("can't find a valid addr");
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
             }
@@ -331,7 +332,10 @@ impl UserTask {
         let uaddr = tcb_writer.clear_child_tid;
         if uaddr != 0 {
             debug!("write addr: {:#x}", uaddr);
-            let addr = self.page_table.virt_to_phys(VirtAddr::from(uaddr));
+            let addr = self
+                .page_table
+                .virt_to_phys(VirtAddr::from(uaddr))
+                .expect("can't find a valid addr");
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
             }
@@ -386,7 +390,7 @@ impl UserTask {
 
         new_pcb.fd_table.0 = pcb.fd_table.0.clone();
         new_pcb.heap = pcb.heap;
-        
+
         new_tcb_writer.cx = self.tcb.read().cx.clone();
         new_tcb_writer.cx.set_ret(0);
         new_pcb.curr_dir = pcb.curr_dir.clone();
@@ -394,16 +398,14 @@ impl UserTask {
         pcb.children.push(new_task.clone());
         new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
-        pcb.memset
-            .iter()
-            .for_each(|x| {
-                let map_area = x.fork();
-                map_area.mtrackers.iter().for_each(|map_track| {
-                    new_task.map(map_track.tracker.0, map_track.vpn, MappingFlags::URWX);
-                });
-
-                new_task.pcb.lock().memset.push(map_area);
+        pcb.memset.iter().for_each(|x| {
+            let map_area = x.fork();
+            map_area.mtrackers.iter().for_each(|map_track| {
+                new_task.map(map_track.tracker.0, map_track.vpn, MappingFlags::URWX);
             });
+
+            new_task.pcb.lock().memset.push(map_area);
+        });
         drop(new_tcb_writer);
         // map shms
         warn!("map shms");
@@ -439,16 +441,14 @@ impl UserTask {
         new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
         // cow fork
-        pcb.memset
-            .iter()
-            .for_each(|x| {
-                let map_area = x.clone();
-                map_area.mtrackers.iter().for_each(|x| {
-                    new_task.map(x.tracker.0, x.vpn, MappingFlags::URX);
-                    self.map(x.tracker.0, x.vpn, MappingFlags::URX);
-                });
-                new_task.pcb.lock().memset.push(map_area);
+        pcb.memset.iter().for_each(|x| {
+            let map_area = x.clone();
+            map_area.mtrackers.iter().for_each(|x| {
+                new_task.map(x.tracker.0, x.vpn, MappingFlags::URX);
+                self.map(x.tracker.0, x.vpn, MappingFlags::URX);
             });
+            new_task.pcb.lock().memset.push(map_area);
+        });
         drop(new_tcb_writer);
         // copy shm and map them
         pcb.shms.iter().for_each(|x| {
@@ -456,7 +456,7 @@ impl UserTask {
                 new_task.map(
                     tracker.0,
                     VirtPage::from_addr(x.start).add(i),
-                    MappingFlags::URWX
+                    MappingFlags::URWX,
                 );
             });
         });
@@ -518,7 +518,9 @@ impl UserTask {
         let len = buffer.len();
         let sp = tcb.cx.sp() - ceil_div(len + 1, ULEN) * ULEN;
 
-        VirtAddr::from(sp).slice_mut_with_len(len).copy_from_slice(buffer);
+        VirtAddr::from(sp)
+            .slice_mut_with_len(len)
+            .copy_from_slice(buffer);
         tcb.cx.set_sp(sp);
         sp
     }

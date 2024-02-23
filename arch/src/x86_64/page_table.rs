@@ -109,8 +109,8 @@ impl PageTable {
     }
 
     #[inline]
-    pub fn virt_to_phys(&self, vaddr: VirtAddr) -> PhysAddr {
-        PhysAddr::new(self.get_entry(vaddr.into()).address().as_usize() + vaddr.0 % PAGE_SIZE)
+    pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
+        Some(PhysAddr::new(self.get_entry(vaddr.into()).address().as_usize() + vaddr.0 % PAGE_SIZE))
     }
 }
 

@@ -238,19 +238,22 @@ impl PageTable {
     }
 
     #[inline]
-    pub fn virt_to_phys(&self, vaddr: VirtAddr) -> PhysAddr {
+    pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
         let mut paddr = self.0;
         for i in (0..3).rev() {
             let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
             let pte = &get_pte_list(paddr)[value];
             // 如果当前页是大页 返回相关的位置
             // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
+            if !pte.flags().contains(PTEFlags::V) {
+                return None;
+            }
             if pte.is_huge() {
-                return PhysAddr(pte.to_ppn().0 << 12 | vaddr.0 % (1 << (12 + 9 * i)));
+                return Some(PhysAddr(pte.to_ppn().0 << 12 | vaddr.0 % (1 << (12 + 9 * i))));
             }
             paddr = pte.to_ppn().into()
         }
-        PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE)
+        Some(PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE))
     }
 }
 
