@@ -4,8 +4,9 @@ use crate::{Context, PhysPage, TrapType};
 
 #[crate_interface::def_interface]
 pub trait ArchInterface {
-    fn interrupt_table() -> fn(&mut Context, TrapType);
-    // fn add_device
+    /// kernel interrupt
+    fn kernel_interrupt(ctx: &mut Context, trap_type: TrapType);
+    /// init log
     fn init_logging();
     /// add a memory region
     fn add_memory_region(start: usize, end: usize);

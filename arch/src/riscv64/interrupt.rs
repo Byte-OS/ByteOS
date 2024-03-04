@@ -94,7 +94,7 @@ fn kernel_callback(context: &mut Context) -> usize {
             panic!("未知中断: {:#x?}", context);
         }
     };
-    crate::api::ArchInterface::interrupt_table()(context, trap_type);
+    crate::api::ArchInterface::kernel_interrupt(context, trap_type);
     context as *const Context as usize
 }
 

@@ -53,6 +53,10 @@ fn gen_linker_script(platform: &str) -> Result<()> {
         ("i386:x86-64", "0xffffff8000200000")
     } else if arch.contains("riscv") {
         ("riscv", "0xffffffc080200000") // OUTPUT_ARCH of both riscv32/riscv64 is "riscv"
+    } else if arch.contains("aarch64") {
+        // ("aarch64", "0x40080000")
+        ("aarch64", "0xffffff8040080000")
+        // ("aarch64", "0xffff000040080000")
     } else {
         (arch.as_str(), "0")
     };
@@ -62,15 +66,9 @@ fn gen_linker_script(platform: &str) -> Result<()> {
     //     "%KERNEL_BASE%",
     //     &env::var("CARGO_CFG_KERNEL_BASE").expect("can't find KERNEL_BASE cfg"),
     // );
-    let ld_content = ld_content.replace(
-        "%KERNEL_BASE%",
-        kernel_base,
-    );
-    let ld_content = ld_content.replace(
-        "%SMP%",
-        "1",
-    );
-    
+    let ld_content = ld_content.replace("%KERNEL_BASE%", kernel_base);
+    let ld_content = ld_content.replace("%SMP%", "1");
+
     std::fs::write(&fname, ld_content)?;
     println!("cargo:rustc-link-arg=-Tkernel/{}", fname);
     println!("cargo:rerun-if-env-changed=CARGO_CFG_KERNEL_BASE");

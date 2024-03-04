@@ -29,12 +29,14 @@ mod x86_64;
 #[cfg(target_arch = "x86_64")]
 pub use x86_64::*;
 
+#[cfg(target_arch = "aarch64")]
+mod aarch64;
+
+#[cfg(target_arch = "aarch64")]
+pub use aarch64::*;
+
 pub use addr::*;
 pub use api::*;
-
-pub struct IntTable {
-    pub timer: fn(),
-}
 
 pub trait ContextOps {
     fn set_sp(&mut self, sp: usize);
@@ -75,6 +77,11 @@ pub enum MapPageSize {
     Page2m,
     Page1G,
 }
+
+const STACK_SIZE: usize = 0x80000;
+
+#[link_section = ".bss.stack"]
+static mut BOOT_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
 static mut INT_RECORDS: Vec<usize> = Vec::new();
 

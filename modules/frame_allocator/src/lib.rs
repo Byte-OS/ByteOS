@@ -13,11 +13,11 @@ use log::info;
 use sync::Mutex;
 
 pub const fn floor(a: usize, b: usize) -> usize {
-    return (a + b - 1) / b;
+    (a + b - 1) / b
 }
 
 pub const fn ceil_div(a: usize, b: usize) -> usize {
-    return (a + b - 1) / b;
+    (a + b - 1) / b
 }
 
 #[derive(Debug)]
@@ -238,18 +238,20 @@ pub fn add_frame_map(mm_start: usize, mm_end: usize) {
             )
             .fill(0);
         };
-        FRAME_ALLOCATOR.lock().add_memory_region(phys_end - VIRT_ADDR_START, mm_end - VIRT_ADDR_START);
+        FRAME_ALLOCATOR
+            .lock()
+            .add_memory_region(phys_end - VIRT_ADDR_START, mm_end - VIRT_ADDR_START);
     }
 }
 
 /// 页帧分配器初始化
 pub fn init() {
     info!("initialize frame allocator");
-    
+
     // 在帧分配器中添加内存
-    get_memorys().iter().for_each(|mr| {
-        add_frame_map(mr.start | VIRT_ADDR_START, mr.end | VIRT_ADDR_START)
-    });
+    get_memorys()
+        .iter()
+        .for_each(|mr| add_frame_map(mr.start | VIRT_ADDR_START, mr.end | VIRT_ADDR_START));
 
     // 确保帧分配器一定能工作
     assert!(

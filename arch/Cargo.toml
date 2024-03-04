@@ -30,3 +30,10 @@ x86_64 = "0.14"
 spin = { version = "0.9.8", features = ["mutex"] }
 multiboot = "0.8.0"
 percpu = { path = "../crates/percpu" }
+
+[target.'cfg(target_arch = "aarch64")'.dependencies]
+aarch64-cpu = "9.3"
+arm_pl011 = { path = "../crates/arm_pl011" }
+tock-registers = "0.8"
+spin = { version = "0.9.8", features = ["mutex"] }
+

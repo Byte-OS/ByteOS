@@ -1,5 +1,3 @@
-const STACK_SIZE: usize = 0x80000;
-
 use crate::x86_64::rust_tmp_main;
 use core::arch::global_asm;
 
@@ -29,9 +27,6 @@ const CR4: u64 = Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits()
         0
     };
 const EFER: u64 = EferFlags::LONG_MODE_ENABLE.bits() | EferFlags::NO_EXECUTE_ENABLE.bits();
-
-#[link_section = ".bss.stack"]
-static mut BOOT_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];
 
 global_asm!(
     include_str!("multiboot.S"),
