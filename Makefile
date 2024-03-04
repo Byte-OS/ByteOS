@@ -17,6 +17,9 @@ else ifeq ($(ARCH), riscv64)
 				-bios $(SBI)
 else ifeq ($(ARCH), aarch64)
   TARGET := aarch64-unknown-none-softfloat
+  QEMU_EXEC += qemu-system-$(ARCH) \
+				-cpu cortex-a72 \
+				-machine virt
 else ifeq ($(ARCH), longarch64)
   $(error "longarch64 is currently not supported ")
 else
@@ -42,7 +45,7 @@ BUILD_ARGS :=
 ifeq ($(RELEASE), release)
 	BUILD_ARGS += --release
 endif
-TESTCASE := testcase-final2023
+TESTCASE := testcase-x86_64
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm
@@ -119,7 +122,7 @@ flash: k210-build
 debug: fs-img build
 	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
-	tmux split-window -h "gdb -ex 'file $(KERNEL_ELF)' -ex 'target remote localhost:1234'" && \
+	tmux split-window -h "gdb-multiarch -ex 'file $(KERNEL_ELF)' -ex 'target remote localhost:1234'" && \
 	tmux -2 attach-session -d
 
 clean:

@@ -1,37 +1,29 @@
-mod boards;
+mod boot;
 mod consts;
 mod context;
-mod entry;
 mod interrupt;
 mod page_table;
-mod sbi;
-mod timer;
+mod pl011;
+mod psci;
+mod trap;
 
 use alloc::vec::Vec;
-pub use boards::*;
 pub use consts::*;
-pub use context::*;
-pub use entry::switch_to_kernel_page_table;
+pub use context::Context;
 use fdt::Fdt;
-pub use interrupt::{
-    enable_external_irq, enable_irq, init_interrupt, trap_pre_handle, user_restore,
-};
+pub use interrupt::*;
 pub use page_table::*;
-pub use sbi::*;
-pub use timer::*;
+pub use pl011::{console_getchar, console_putchar};
+pub use psci::system_off as shutdown;
 
-use riscv::register::sstatus;
+use crate::{clear_bss, ArchInterface};
 
-use crate::ArchInterface;
-
-#[no_mangle]
-extern "C" fn rust_main(hartid: usize, device_tree: usize) {
-    crate::clear_bss();
+pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
+    clear_bss();
+    pl011::init_early();
     ArchInterface::init_logging();
-    // Init allocator
+    trap::init();
     allocator::init();
-
-    let (hartid, device_tree) = boards::init_device(hartid, device_tree);
 
     let mut dt_buf = Vec::new();
 
@@ -44,7 +36,7 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
 
         info!("There has {} CPU(s)", fdt.cpus().count());
 
-        fdt.memory().regions().for_each(|x| {
+        fdt.memory().regions().for_each(|x: fdt::standard_nodes::MemoryRegion| {
             info!(
                 "memory region {:#X} - {:#X}",
                 x.starting_address as usize,
@@ -66,23 +58,25 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
         }
     }
 
-    // 开启 SUM
-    unsafe {
-        // 开启浮点运算
-        sstatus::set_fs(sstatus::FS::Dirty);
-    }
-
     drop(dt_buf);
 
-    crate::ArchInterface::main(hartid);
+    ArchInterface::main(hart_id);
+
     shutdown();
 }
 
-#[inline]
-pub fn wfi() {
-    unsafe {
-        riscv::register::sstatus::clear_sie();
-        riscv::asm::wfi();
-        riscv::register::sstatus::set_sie();
-    }
+pub fn time_to_usec(_t: usize) -> usize {
+    todo!("time to usec")
+}
+
+pub fn get_time() -> usize {
+    todo!("get_time")
+}
+
+pub fn get_time_ms() -> usize {
+    todo!("get_time_ms")
+}
+
+pub fn switch_to_kernel_page_table() {
+    todo!("switch to kernel page table")
 }

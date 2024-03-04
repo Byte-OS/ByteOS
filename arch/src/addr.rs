@@ -26,7 +26,7 @@ impl PhysAddr {
     }
 
     #[inline]
-    pub fn get_mut_ptr<T>(&self) -> *mut T {
+    pub const fn get_mut_ptr<T>(&self) -> *mut T {
         (self.0 | VIRT_ADDR_START) as *mut T
     }
 
@@ -219,6 +219,12 @@ impl Add<usize> for VirtPage {
 
     fn add(self, rhs: usize) -> Self::Output {
         VirtPage(self.0 + rhs)
+    }
+}
+
+impl From<VirtPage> for VirtAddr {
+    fn from(value: VirtPage) -> Self {
+        Self(value.to_addr())
     }
 }
 
