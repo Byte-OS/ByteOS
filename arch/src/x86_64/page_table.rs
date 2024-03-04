@@ -5,7 +5,9 @@ use x86::bits64::paging::{
 };
 use x86_64::instructions::tlb::flush_all;
 
-use crate::{ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_SIZE, VIRT_ADDR_START};
+use crate::{
+    ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_SIZE, VIRT_ADDR_START,
+};
 
 impl From<MappingFlags> for PTFlags {
     fn from(flags: MappingFlags) -> Self {
@@ -110,7 +112,9 @@ impl PageTable {
 
     #[inline]
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
-        Some(PhysAddr::new(self.get_entry(vaddr.into()).address().as_usize() + vaddr.0 % PAGE_SIZE))
+        Some(PhysAddr::new(
+            self.get_entry(vaddr.into()).address().as_usize() + vaddr.0 % PAGE_SIZE,
+        ))
     }
 }
 

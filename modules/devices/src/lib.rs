@@ -84,7 +84,7 @@ pub fn init_device(device_tree: usize) {
 }
 
 /// prepare_drivers
-/// This function will init drivers 
+/// This function will init drivers
 #[inline]
 pub fn prepare_drivers() {
     let mut all_devices = ALL_DEVICES.lock();

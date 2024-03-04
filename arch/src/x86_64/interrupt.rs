@@ -2,7 +2,6 @@ use core::arch::{asm, global_asm};
 
 use crate::{Context, TrapType};
 
-
 global_asm!(
     r"
     .altmacro
@@ -161,7 +160,7 @@ pub unsafe extern "C" fn kernelvec() {
         //     addi    x1, sp, 34*8
         //     sd      x1, 2*8(sp)
         //     .set    n, 3
-        //     .rept   29 
+        //     .rept   29
         //         SAVE_N  %n
         //     .set    n, n + 1
         //     .endr
@@ -207,7 +206,7 @@ pub extern "C" fn user_restore(context: *mut Context) {
             //     // 下次发生中断必然会进入中断入口然后恢复这个上下文.
             //     // 仅保存 Callee-saved regs、gp、tp、ra.
             // "   addi    sp, sp, -18*8
-                
+
             //     sd      sp, 8*1(sp)
             //     sd      gp, 8*2(sp)
             //     sd      tp, 8*3(sp)
@@ -225,7 +224,7 @@ pub extern "C" fn user_restore(context: *mut Context) {
             //     sd      s11, 8*15(sp)
             //     sd      a0,  8*16(sp)
             //     sd      ra,  8*17(sp)
-                
+
             //     la a1, {uservec}
             //     csrw stvec, a1
             // ",
@@ -233,7 +232,7 @@ pub extern "C" fn user_restore(context: *mut Context) {
             //     // a0 是传入的Context, 然后下面会再次恢复 sp 地址.
             // "   csrw    sscratch, sp
             //     mv      sp, a0
-            
+
             //     LOAD    t0, 32
             //     LOAD    t1, 33
             //     .short 0x2452
@@ -252,13 +251,14 @@ pub extern "C" fn user_restore(context: *mut Context) {
             //         LOAD_N  %n
             //         .set    n, n + 1
             //     .endr",
-            //     // 恢复 sp（又名 x2）这里最后恢复是为了上面可以正常使用 LOAD 宏    
+            //     // 恢复 sp（又名 x2）这里最后恢复是为了上面可以正常使用 LOAD 宏
             // r"  LOAD    x2, 2
             //     sret
             // ",
-        // uservec = sym uservec,
-        "",
-        options(noreturn))
+            // uservec = sym uservec,
+            "",
+            options(noreturn)
+        )
     }
 }
 
@@ -305,7 +305,7 @@ pub unsafe extern "C" fn uservec() {
         //     sd a0, 4*8(tp)
         // ",
         //     // 恢复内核上下文信息, 仅恢复 callee-saved 寄存器和 ra、gp、tp
-        // "  
+        // "
         //     ld      gp, 8*2(sp)
         //     ld      tp, 8*3(sp)
         //     ld      s0, 8*4(sp)
@@ -321,16 +321,16 @@ pub unsafe extern "C" fn uservec() {
         //     ld      s10, 8*14(sp)
         //     ld      s11, 8*15(sp)
         //     ld      ra,  8*17(sp)
-            
+
         //     ld      sp, 8(sp)
-        
+
         //     la a0, {kernelvec}
         //     csrw stvec, a0
         // ",
         //     // 回收栈
         // "   addi sp, sp, 18*8
         //     ret
-        // ", 
+        // ",
         // kernelvec = sym kernelvec,
         "",
         options(noreturn)
@@ -340,21 +340,17 @@ pub unsafe extern "C" fn uservec() {
 #[allow(dead_code)]
 #[inline(always)]
 pub fn enable_irq() {
-    unsafe {
-        asm!("sti")
-    }
+    unsafe { asm!("sti") }
 }
 
 pub fn close_irq() {
-    unsafe {
-        asm!("cli")
-    }
+    unsafe { asm!("cli") }
 }
 
 #[inline(always)]
 pub fn enable_external_irq() {
     // unsafe {
-        
+
     // }
 }
 
@@ -367,13 +363,9 @@ pub fn time_to_usec(tiscks: usize) -> usize {
 }
 
 pub fn get_time() -> usize {
-    unsafe {
-        core::arch::x86_64::_rdtsc() as _
-    }
+    unsafe { core::arch::x86_64::_rdtsc() as _ }
 }
 
 pub fn get_time_ms() -> usize {
-    unsafe {
-        core::arch::x86_64::_rdtsc() as _
-    }
+    unsafe { core::arch::x86_64::_rdtsc() as _ }
 }

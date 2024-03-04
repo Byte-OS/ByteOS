@@ -1,6 +1,9 @@
 use log::{debug, warn};
 
-use crate::{syscall::consts::{Rlimit, UTSname}, user::UserTaskContainer};
+use crate::{
+    syscall::consts::{Rlimit, UTSname},
+    user::UserTaskContainer,
+};
 
 use super::{consts::UserRef, SysResult};
 
@@ -89,12 +92,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_klogctl(
-        &self,
-        log_type: usize,
-        buf: UserRef<u8>,
-        len: usize,
-    ) -> SysResult {
+    pub async fn sys_klogctl(&self, log_type: usize, buf: UserRef<u8>, len: usize) -> SysResult {
         debug!(
             "sys_klogctl @ log_type: {:?} buf: {:?} len: {:?}",
             log_type, buf, len
@@ -131,12 +129,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_getrandom(
-        &self,
-        buf: UserRef<u8>,
-        buf_len: usize,
-        flags: usize,
-    ) -> SysResult {
+    pub async fn sys_getrandom(&self, buf: UserRef<u8>, buf_len: usize, flags: usize) -> SysResult {
         debug!(
             "sys_getrandom @ buf: {}, buf_len: {:#x}, flags: {:#x}",
             buf, buf_len, flags

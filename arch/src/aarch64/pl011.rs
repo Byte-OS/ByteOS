@@ -7,8 +7,7 @@ use crate::PhysAddr;
 
 const UART_BASE: PhysAddr = PhysAddr(0x0900_0000);
 
-static UART: Mutex<Pl011Uart> =
-    Mutex::new(Pl011Uart::new(UART_BASE.get_mut_ptr()));
+static UART: Mutex<Pl011Uart> = Mutex::new(Pl011Uart::new(UART_BASE.get_mut_ptr()));
 
 /// Writes a byte to the console.
 pub fn console_putchar(c: u8) {

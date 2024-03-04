@@ -1,5 +1,7 @@
-use aarch64_cpu::registers::{Writeable, TTBR0_EL1};
+use core::arch::asm;
+
 use aarch64_cpu::asm::barrier;
+use aarch64_cpu::registers::{Writeable, TTBR0_EL1};
 use alloc::sync::Arc;
 use bitflags::bitflags;
 
@@ -30,7 +32,7 @@ impl PTE {
 
     #[inline]
     pub const fn to_ppn(&self) -> PhysPage {
-        PhysPage((self.0 >> 10) & ((1 << 29) - 1))
+        PhysPage((self.0 & 0xffff_ffff_ffff_f000) >> 12)
     }
 
     #[inline]
@@ -61,17 +63,17 @@ impl PTE {
 
 impl From<MappingFlags> for PTEFlags {
     fn from(value: MappingFlags) -> Self {
-        let mut flags = PTEFlags::VALID | PTEFlags::AF;
+        let mut flags = PTEFlags::VALID | PTEFlags::NON_BLOCK | PTEFlags::AF | PTEFlags::NG;
         if !value.contains(MappingFlags::W) {
-            // flags |= PTEFlags::AP_RO;
+            flags |= PTEFlags::AP_RO;
         }
 
         if !value.contains(MappingFlags::X) {
-            // flags |= PTEFlags::UXN | PTEFlags::PXN;
+            flags |= PTEFlags::UXN | PTEFlags::PXN;
         }
 
         if value.contains(MappingFlags::U) {
-            // flags |= PTEFlags::AP_EL0;
+            flags |= PTEFlags::AP_EL0;
         }
         flags
     }
@@ -88,6 +90,7 @@ bitflags::bitflags! {
         const NON_BLOCK =   1 << 1;
         /// Memory attributes index field.
         const ATTR_INDX =   0b111 << 2;
+        const NORMAL_NONCACHE = 0b010 << 2;
         /// Non-secure bit. For memory accesses from Secure state, specifies whether the output
         /// address is in Secure or Non-secure memory.
         const NS =          1 << 5;
@@ -151,20 +154,23 @@ impl PageTable {
     pub fn change(&self) {
         debug!("change ttbr0 to :{:#x}", self.0.addr());
         TTBR0_EL1.set((self.0.addr() & 0xFFFF_FFFF_F000) as _);
-        flush_tlb(None);
-        barrier::isb(barrier::SY);
+        unsafe { asm!("dsb ish;tlbi vmalle1is;") }
     }
 
     #[inline]
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
         let l1_list = self.0.slice_mut_with_len::<PTE>(512);
         let l1_index = (vpn.0 >> (9 * 2)) & 0x1ff;
+
+        // l2 pte
         let l2_pte = &mut l1_list[l1_index];
         if !l2_pte.is_valid() {
             *l2_pte = PTE(ArchInterface::frame_alloc_persist().to_addr() | 0b11);
         }
         let l2_list = l2_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
         let l2_index = (vpn.0 >> 9) & 0x1ff;
+
+        // l3 pte
         let l3_pte = &mut l2_list[l2_index];
         if !l3_pte.is_valid() {
             *l3_pte = PTE(ArchInterface::frame_alloc_persist().to_addr() | 0b11);
@@ -172,13 +178,11 @@ impl PageTable {
         let l3_list = l3_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
         let l3_index = vpn.0 & 0x1ff;
         l3_list[l3_index] = PTE::from_ppn(ppn.0, flags.into());
-        flush_tlb(None);
-        barrier::isb(barrier::SY);
-
     }
 
     #[inline]
     pub fn unmap(&self, vpn: VirtPage) {
+        todo!("unmap pages");
         // TODO: Add huge page support.
         let mut pte_list = get_pte_list(self.0);
         for i in (1..3).rev() {
@@ -197,13 +201,21 @@ impl PageTable {
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
         let mut paddr = self.0;
         for i in (0..3).rev() {
-            let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
+            info!(
+                "i: {} index: {:#x} paddr: {:#x?}",
+                i,
+                (vaddr.0 >> (12 + 9 * i)) & 0x1ff,
+                paddr
+            );
+            let value = (vaddr.0 >> (12 + 9 * i)) & 0x1ff;
             let pte = &get_pte_list(paddr)[value];
+            info!("pte list: {:#x?}", pte);
             // 如果当前页是大页 返回相关的位置
             // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
             if !pte.is_valid() {
                 return None;
             }
+            info!("pte: {:#x?}  ppn: {:#x?}", pte, pte.to_ppn());
             paddr = pte.to_ppn().into()
         }
         Some(PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE))
@@ -222,4 +234,3 @@ impl PageTable {
 //         ArchInterface::frame_unalloc(self.0.into());
 //     }
 // }
-

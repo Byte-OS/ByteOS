@@ -164,8 +164,14 @@ pub fn impl_interface(attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
     // ast.trait_.as_mut().unwrap().1.segments.last_mut().unwrap().ident = format_ident!("{}Trait",trait_name);
-    ast.trait_.as_mut().unwrap().1.segments.push(PathSegment::from(format_ident!("InnerTrait")));
-    quote! { 
-        #ast 
-    }.into()
+    ast.trait_
+        .as_mut()
+        .unwrap()
+        .1
+        .segments
+        .push(PathSegment::from(format_ident!("InnerTrait")));
+    quote! {
+        #ast
+    }
+    .into()
 }

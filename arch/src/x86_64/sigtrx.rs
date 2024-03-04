@@ -28,7 +28,13 @@ static mut TRX_STEP2: PT = [PTEntry(0); PAGE_SIZE_ENTRIES];
 
 pub fn init() {
     unsafe {
-        TRX_STEP1[0] = PDEntry::new((TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START).into(), PDFlags::P | PDFlags::RW);
-        TRX_STEP2[0] = PTEntry::new((_sigreturn as usize & !VIRT_ADDR_START).into(), PTFlags::P | PTFlags::US);
+        TRX_STEP1[0] = PDEntry::new(
+            (TRX_STEP2.as_ptr() as usize & !VIRT_ADDR_START).into(),
+            PDFlags::P | PDFlags::RW,
+        );
+        TRX_STEP2[0] = PTEntry::new(
+            (_sigreturn as usize & !VIRT_ADDR_START).into(),
+            PTFlags::P | PTFlags::US,
+        );
     }
 }

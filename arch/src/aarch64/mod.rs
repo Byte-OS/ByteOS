@@ -5,6 +5,7 @@ mod interrupt;
 mod page_table;
 mod pl011;
 mod psci;
+mod timer;
 mod trap;
 
 use alloc::vec::Vec;
@@ -15,6 +16,7 @@ pub use interrupt::*;
 pub use page_table::*;
 pub use pl011::{console_getchar, console_putchar};
 pub use psci::system_off as shutdown;
+pub use timer::get_time;
 
 use crate::{clear_bss, ArchInterface};
 
@@ -36,18 +38,20 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
 
         info!("There has {} CPU(s)", fdt.cpus().count());
 
-        fdt.memory().regions().for_each(|x: fdt::standard_nodes::MemoryRegion| {
-            info!(
-                "memory region {:#X} - {:#X}",
-                x.starting_address as usize,
-                x.starting_address as usize + x.size.unwrap()
-            );
+        fdt.memory()
+            .regions()
+            .for_each(|x: fdt::standard_nodes::MemoryRegion| {
+                info!(
+                    "memory region {:#X} - {:#X}",
+                    x.starting_address as usize,
+                    x.starting_address as usize + x.size.unwrap()
+                );
 
-            ArchInterface::add_memory_region(
-                x.starting_address as usize | VIRT_ADDR_START,
-                (x.starting_address as usize + x.size.unwrap()) | VIRT_ADDR_START
-            );
-        });
+                ArchInterface::add_memory_region(
+                    x.starting_address as usize | VIRT_ADDR_START,
+                    (x.starting_address as usize + x.size.unwrap()) | VIRT_ADDR_START,
+                );
+            });
     }
 
     ArchInterface::prepare_drivers();
@@ -67,10 +71,6 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
 
 pub fn time_to_usec(_t: usize) -> usize {
     todo!("time to usec")
-}
-
-pub fn get_time() -> usize {
-    todo!("get_time")
 }
 
 pub fn get_time_ms() -> usize {

@@ -37,9 +37,5 @@ pub async fn yield_now() {
 
 #[crate_interface::def_interface]
 pub trait FutexOps {
-    fn futex_wake(
-        task: Arc<Mutex<FutexTable>>,
-        uaddr: usize,
-        wake_count: usize,
-    ) -> usize;
+    fn futex_wake(task: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count: usize) -> usize;
 }

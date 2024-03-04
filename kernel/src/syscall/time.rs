@@ -14,7 +14,10 @@ use log::{debug, warn};
 
 use crate::{tasks::WaitHandleAbleSignal, user::UserTaskContainer};
 
-use super::{consts::{LinuxError, UserRef}, SysResult};
+use super::{
+    consts::{LinuxError, UserRef},
+    SysResult,
+};
 impl UserTaskContainer {
     pub async fn sys_gettimeofday(
         &self,

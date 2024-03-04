@@ -4,7 +4,8 @@ use alloc::sync::Arc;
 use bitflags::bitflags;
 
 use crate::{
-    sigtrx::get_trx_mapping, ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE
+    sigtrx::get_trx_mapping, ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage,
+    PAGE_ITEM_COUNT, PAGE_SIZE,
 };
 
 #[derive(Copy, Clone, Debug)]
@@ -194,8 +195,7 @@ impl PageTable {
     }
 
     #[inline]
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, level: usize)
-    {
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, level: usize) {
         // TODO: Add huge page support.
         let mut pte_list = get_pte_list(self.0);
         for i in (1..level).rev() {
@@ -249,7 +249,9 @@ impl PageTable {
                 return None;
             }
             if pte.is_huge() {
-                return Some(PhysAddr(pte.to_ppn().0 << 12 | vaddr.0 % (1 << (12 + 9 * i))));
+                return Some(PhysAddr(
+                    pte.to_ppn().0 << 12 | vaddr.0 % (1 << (12 + 9 * i)),
+                ));
             }
             paddr = pte.to_ppn().into()
         }
