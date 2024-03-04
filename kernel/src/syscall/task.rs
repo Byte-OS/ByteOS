@@ -1,8 +1,8 @@
 use crate::syscall::consts::{from_vfs, CloneFlags, Rusage};
 use crate::syscall::time::WaitUntilsec;
 use crate::tasks::elf::{init_task_stack, ElfExtra};
-use crate::user::entry::user_entry;
 use crate::tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid};
+use crate::user::entry::user_entry;
 use crate::user::UserTaskContainer;
 use alloc::string::{String, ToString};
 use alloc::sync::Weak;
@@ -12,8 +12,7 @@ use arch::{time_to_usec, ContextOps, MappingFlags, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{
-    select, yield_now, AsyncTask, FileItem, MapTrack, MemArea,
-    MemType, UserTask, TASK_QUEUE,
+    select, yield_now, AsyncTask, FileItem, MapTrack, MemArea, MemType, UserTask, TASK_QUEUE,
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::dentry::{dentry_open, dentry_root};
@@ -28,7 +27,6 @@ use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError, UserRef};
 use super::SysResult;
-
 
 pub struct TaskCacheTemplate {
     name: String,
@@ -377,11 +375,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_exit(&self, exit_code: isize) -> SysResult {
-        debug!(
-            "sys_exit @ exit_code: {}  task_id: {}",
-            exit_code,
-            self.tid
-        );
+        debug!("sys_exit @ exit_code: {}  task_id: {}", exit_code, self.tid);
         // current_task().as_user_task().unwrap().exit(exit_code as _);
         self.task.thread_exit(exit_code as _);
         Ok(0)
@@ -442,22 +436,12 @@ impl UserTaskContainer {
         let sig = flags & 0xff;
         debug!(
             "[task {}] sys_clone @ flags: {:#x}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
-            self.tid,
-            flags,
-            stack,
-            ptid,
-            tls,
-            ctid
+            self.tid, flags, stack, ptid, tls, ctid
         );
         let flags = CloneFlags::from_bits_truncate(flags);
         debug!(
             "[task {}] sys_clone @ flags: {:?}, stack: {:#x}, ptid: {}, tls: {:#x}, ctid: {}",
-            self.tid,
-            flags,
-            stack,
-            ptid,
-            tls,
-            ctid
+            self.tid, flags, stack, ptid, tls, ctid
         );
 
         let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
@@ -502,10 +486,7 @@ impl UserTaskContainer {
     ) -> SysResult {
         debug!(
             "[task {}] sys_wait4 @ pid: {}, status: {}, options: {}",
-            self.tid,
-            pid,
-            status,
-            options
+            self.tid, pid, status, options
         );
 
         // return LinuxError::ECHILD if there has no child process.
@@ -548,7 +529,8 @@ impl UserTaskContainer {
             }
             Ok(child_task.task_id)
         } else if options == 1 {
-            let child_task = self.task
+            let child_task = self
+                .task
                 .pcb
                 .lock()
                 .children
@@ -666,7 +648,8 @@ impl UserTaskContainer {
                     let wait_func = WaitFutex(futex_table.clone(), self.tid);
                     if value2 != 0 {
                         let timeout = UserRef::<TimeSpec>::from(value2).get_mut();
-                        match select(wait_func, WaitUntilsec(current_nsec() + timeout.to_nsec())).await
+                        match select(wait_func, WaitUntilsec(current_nsec() + timeout.to_nsec()))
+                            .await
                         {
                             executor::Either::Left((res, _)) => res,
                             executor::Either::Right(_) => Err(LinuxError::ETIMEDOUT),
@@ -780,9 +763,7 @@ impl UserTaskContainer {
         let signal = SignalFlags::from_usize(signum);
         debug!(
             "[task {}] sys_kill @ pid: {}, signum: {:?}",
-            self.tid,
-            pid,
-            signal
+            self.tid, pid, signal
         );
 
         let user_task = match pid == self.tid {
@@ -824,5 +805,4 @@ impl UserTaskContainer {
         }
         Ok(0)
     }
-
 }

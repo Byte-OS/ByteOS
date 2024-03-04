@@ -1,4 +1,5 @@
 use crate::x86_64::rust_tmp_main;
+use crate::{BOOT_STACK, STACK_SIZE};
 use core::arch::global_asm;
 
 use super::VIRT_ADDR_START;

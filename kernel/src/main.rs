@@ -118,10 +118,7 @@ impl ArchInterface for ArchInterfaceImpl {
 
         println!("run kernel @ hart {}", hart_id);
 
-        info!(
-            "program size: {}KB",
-            (end as usize - start as usize) / 1024
-        );
+        info!("program size: {}KB", (end as usize - start as usize) / 1024);
 
         // initialize interrupt
         hal::interrupt::init();

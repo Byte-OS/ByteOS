@@ -60,12 +60,7 @@ pub struct SocketAddrIn {
 }
 
 impl UserTaskContainer {
-    pub async fn sys_socket(
-        &self,
-        domain: usize,
-        net_type: usize,
-        protocol: usize,
-    ) -> SysResult {
+    pub async fn sys_socket(&self, domain: usize, net_type: usize, protocol: usize) -> SysResult {
         debug!(
             "[task {}] sys_socket @ domain: {:#x}, net_type: {:#x}, protocol: {:#x}",
             self.tid, domain, net_type, protocol
@@ -173,12 +168,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_accept(
-        &self,
-        socket_fd: usize,
-        socket_addr: usize,
-        len: usize,
-    ) -> SysResult {
+    pub async fn sys_accept(&self, socket_fd: usize, socket_addr: usize, len: usize) -> SysResult {
         debug!(
             "[task {}] sys_accept @ socket_fd: {:#x}, socket_addr: {:#x}, len: {:#x}",
             self.tid, socket_fd, socket_addr, len

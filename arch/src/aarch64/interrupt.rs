@@ -1,6 +1,6 @@
-use core::arch::{asm, global_asm};
 use crate::Context;
 use crate::{add_irq, shutdown, TrapType, VIRT_ADDR_START};
+use core::arch::{asm, global_asm};
 
 // 设置中断
 pub fn init_interrupt() {
@@ -13,97 +13,11 @@ pub fn init_interrupt() {
 // 内核中断回调
 #[no_mangle]
 fn kernel_callback(context: &mut Context) -> usize {
-    // let scause = scause::read();
-    // let stval = stval::read();
-    // debug!(
-    //     "内核态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
-    //     scause.bits(),
-    //     scause.cause(),
-    //     stval,
-    //     context.sepc
-    // );
-    // let trap_type = match scause.cause() {
-    //     // 中断异常
-    //     Trap::Exception(Exception::Breakpoint) => {
-    //         context.sepc += 2;
-    //         TrapType::Breakpoint
-    //     }
-    //     Trap::Exception(Exception::LoadFault) => {
-    //         if stval > VIRT_ADDR_START {
-    //             panic!("kernel error: {:#x}", stval);
-    //         }
-    //         TrapType::Unknown
-    //     }
-    //     Trap::Exception(Exception::UserEnvCall) => {
-    //         info!("info syscall: {}", context.x[17]);
-    //         context.sepc += 4;
-    //         TrapType::UserEnvCall
-    //     }
-    //     Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
-    //     Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
-    //     Trap::Exception(Exception::IllegalInstruction) => TrapType::IllegalInstruction(stval),
-    //     _ => {
-    //         // warn!("未知中断");
-    //         error!(
-    //             "内核态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
-    //             scause.bits(),
-    //             scause.cause(),
-    //             stval,
-    //             context.sepc
-    //         );
-    //         panic!("未知中断: {:#x?}", context);
-    //     }
-    // };
-    // crate::api::ArchInterface::kernel_interrupt(context, trap_type);
-    // context as *const Context as usize
-    todo!()
+    todo!("kernel_callback")
 }
 
 pub fn trap_pre_handle(context: &mut Context) -> TrapType {
-    // let scause = scause::read();
-    // let stval = stval::read();
-    // debug!(
-    //     "用户态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
-    //     scause.bits(),
-    //     scause.cause(),
-    //     stval,
-    //     context.sepc
-    // );
-    // match scause.cause() {
-    //     // 中断异常
-    //     Trap::Exception(Exception::Breakpoint) => {
-    //         context.sepc += 2;
-    //         TrapType::Breakpoint
-    //     }
-    //     Trap::Exception(Exception::LoadFault) => {
-    //         shutdown();
-    //     }
-    //     // 时钟中断
-    //     Trap::Interrupt(Interrupt::SupervisorTimer) => {
-    //         timer::set_next_timeout();
-    //         add_irq(5);
-    //         TrapType::Time
-    //     }
-    //     Trap::Exception(Exception::StorePageFault) => TrapType::StorePageFault(stval),
-    //     Trap::Exception(Exception::InstructionPageFault) => TrapType::InstructionPageFault(stval),
-    //     Trap::Exception(Exception::IllegalInstruction) => {
-    //         TrapType::IllegalInstruction(context.sepc)
-    //     }
-    //     Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
-    //     Trap::Exception(Exception::LoadPageFault) => TrapType::LoadPageFault(stval),
-    //     Trap::Interrupt(Interrupt::SupervisorExternal) => TrapType::SupervisorExternal,
-    //     _ => {
-    //         error!(
-    //             "用户态中断发生: {:#x} {:?}  stval {:#x}  sepc: {:#x}",
-    //             scause.bits(),
-    //             scause.cause(),
-    //             stval,
-    //             context.sepc
-    //         );
-    //         TrapType::Unknown
-    //     }
-    // }
-    todo!()
+    todo!("trap_pre_handle")
 }
 
 #[naked]
@@ -122,7 +36,7 @@ pub unsafe extern "C" fn kernelvec() {
     //         addi    x1, sp, 34*8
     //         sd      x1, 2*8(sp)
     //         .set    n, 3
-    //         .rept   29 
+    //         .rept   29
     //             SAVE_N  %n
     //         .set    n, n + 1
     //         .endr
@@ -150,7 +64,7 @@ pub unsafe extern "C" fn kernelvec() {
     //     ",
     //     options(noreturn)
     // )
-    asm!("",options(noreturn))
+    asm!("", options(noreturn))
 }
 
 #[naked]
@@ -167,7 +81,7 @@ pub extern "C" fn user_restore(context: *mut Context) {
     //     // 下次发生中断必然会进入中断入口然后恢复这个上下文.
     //     // 仅保存 Callee-saved regs、gp、tp、ra.
     // "   addi    sp, sp, -18*8
-        
+
     //     sd      sp, 8*1(sp)
     //     sd      gp, 8*2(sp)
     //     sd      tp, 8*3(sp)
@@ -185,7 +99,7 @@ pub extern "C" fn user_restore(context: *mut Context) {
     //     sd      s11, 8*15(sp)
     //     sd      a0,  8*16(sp)
     //     sd      ra,  8*17(sp)
-        
+
     //     la a1, {uservec}
     //     csrw stvec, a1
     // ",
@@ -193,7 +107,7 @@ pub extern "C" fn user_restore(context: *mut Context) {
     //     // a0 是传入的Context, 然后下面会再次恢复 sp 地址.
     // "   csrw    sscratch, sp
     //     mv      sp, a0
-    
+
     //     LOAD    t0, 32
     //     LOAD    t1, 33
     //     .short 0x2452
@@ -212,16 +126,14 @@ pub extern "C" fn user_restore(context: *mut Context) {
     //         LOAD_N  %n
     //         .set    n, n + 1
     //     .endr",
-    //     // 恢复 sp（又名 x2）这里最后恢复是为了上面可以正常使用 LOAD 宏    
+    //     // 恢复 sp（又名 x2）这里最后恢复是为了上面可以正常使用 LOAD 宏
     // r"  LOAD    x2, 2
     //     sret
     // ",
     // uservec = sym uservec,
     // options(noreturn))
     // }
-    unsafe {
-        asm!("",options(noreturn))
-    }
+    unsafe { asm!("", options(noreturn)) }
 }
 
 #[naked]
@@ -266,7 +178,7 @@ pub unsafe extern "C" fn uservec() {
     //     sd a0, 4*8(tp)
     // ",
     //     // 恢复内核上下文信息, 仅恢复 callee-saved 寄存器和 ra、gp、tp
-    // "  
+    // "
     //     ld      gp, 8*2(sp)
     //     ld      tp, 8*3(sp)
     //     ld      s0, 8*4(sp)
@@ -282,21 +194,19 @@ pub unsafe extern "C" fn uservec() {
     //     ld      s10, 8*14(sp)
     //     ld      s11, 8*15(sp)
     //     ld      ra,  8*17(sp)
-        
+
     //     ld      sp, 8(sp)
-    
+
     //     la a0, {kernelvec}
     //     csrw stvec, a0
     // ",
     //     // 回收栈
     // "   addi sp, sp, 18*8
     //     ret
-    // ", 
+    // ",
     // kernelvec = sym kernelvec,
     // options(noreturn));
-    asm!(
-        "",options(noreturn)
-    )
+    asm!("", options(noreturn))
 }
 
 #[allow(dead_code)]

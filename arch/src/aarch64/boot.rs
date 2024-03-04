@@ -52,20 +52,20 @@ unsafe fn switch_to_el1() {
 }
 
 unsafe fn init_mmu() {
-    MAIR_EL1.set(0x04 | (0xff << 8));
+    MAIR_EL1.set(0x44_ff_04);
 
     // Enable TTBR0 and TTBR1 walks, page size = 4K, vaddr size = 48 bits, paddr size = 40 bits.
     let tcr_flags0 = TCR_EL1::EPD0::EnableTTBR0Walks
         + TCR_EL1::TG0::KiB_4
-        + TCR_EL1::SH0::None
-        + TCR_EL1::ORGN0::NonCacheable
-        + TCR_EL1::IRGN0::NonCacheable
+        + TCR_EL1::SH0::Inner
+        + TCR_EL1::ORGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL1::IRGN0::WriteBack_ReadAlloc_WriteAlloc_Cacheable
         + TCR_EL1::T0SZ.val(25);
     let tcr_flags1 = TCR_EL1::EPD1::EnableTTBR1Walks
         + TCR_EL1::TG1::KiB_4
-        + TCR_EL1::SH1::None
-        + TCR_EL1::ORGN1::NonCacheable
-        + TCR_EL1::IRGN1::NonCacheable
+        + TCR_EL1::SH1::Inner
+        + TCR_EL1::ORGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
+        + TCR_EL1::IRGN1::WriteBack_ReadAlloc_WriteAlloc_Cacheable
         + TCR_EL1::T1SZ.val(25);
     TCR_EL1.write(TCR_EL1::IPS::Bits_48 + tcr_flags0 + tcr_flags1);
     barrier::isb(barrier::SY);
@@ -80,18 +80,16 @@ unsafe fn init_mmu() {
     flush_tlb(None);
 
     // Enable the MMU and turn on I-cache and D-cache
-    SCTLR_EL1.modify(SCTLR_EL1::M::Enable);
+    SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
     barrier::isb(barrier::SY);
 }
 
 unsafe fn init_boot_page_table() {
     // Level 1 Entry for Huge Page
-    BOOT_PT_L1[0] = 0 | (
-        PTEFlags::VALID | PTEFlags::AF | PTEFlags::ATTR_INDX
-    ).bits();
-    BOOT_PT_L1[1] = (0x4000_0000) | (
-        PTEFlags::VALID | PTEFlags::AF | PTEFlags::ATTR_INDX
-    ).bits();
+    BOOT_PT_L1[0] =
+        0 | (PTEFlags::VALID | PTEFlags::AF | PTEFlags::ATTR_INDX | PTEFlags::NG).bits();
+    BOOT_PT_L1[1] = (0x4000_0000)
+        | (PTEFlags::VALID | PTEFlags::AF | PTEFlags::ATTR_INDX | PTEFlags::NG).bits();
 }
 /// The earliest entry point for the primary CPU.
 #[naked]

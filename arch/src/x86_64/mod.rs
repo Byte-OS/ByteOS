@@ -13,15 +13,14 @@ mod uart;
 use ::multiboot::information::MemoryType;
 pub use consts::*;
 pub use context::Context;
+pub use entry::switch_to_kernel_page_table;
 pub use interrupt::*;
 pub use page_table::*;
 pub use uart::*;
-pub use entry::switch_to_kernel_page_table;
 
 use x86_64::instructions::port::PortWriteOnly;
 
 use crate::{x86_64::multiboot::use_multiboot, ArchInterface};
-
 
 #[percpu::def_percpu]
 static CPU_ID: usize = 1;
@@ -43,15 +42,27 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     percpu::init(1);
     percpu::set_local_thread_pointer(0);
 
-    info!("TEST CPU ID: {}  ptr: {:#x}", CPU_ID.read_current(), unsafe { CPU_ID.current_ptr() } as usize);
+    info!(
+        "TEST CPU ID: {}  ptr: {:#x}",
+        CPU_ID.read_current(),
+        unsafe { CPU_ID.current_ptr() } as usize
+    );
     CPU_ID.write_current(345);
-    info!("TEST CPU ID: {}  ptr: {:#x}", CPU_ID.read_current(), unsafe { CPU_ID.current_ptr() } as usize);
+    info!(
+        "TEST CPU ID: {}  ptr: {:#x}",
+        CPU_ID.read_current(),
+        unsafe { CPU_ID.current_ptr() } as usize
+    );
 
     info!("magic: {:#x}, mboot_ptr: {:#x}", magic, mboot_ptr);
 
     if let Some(mboot) = use_multiboot(mboot_ptr as _) {
-        mboot.boot_loader_name().inspect(|x| info!("bootloader: {}", x));
-        mboot.command_line().inspect(|x| info!("command_line: {}", x));
+        mboot
+            .boot_loader_name()
+            .inspect(|x| info!("bootloader: {}", x));
+        mboot
+            .command_line()
+            .inspect(|x| info!("command_line: {}", x));
         if mboot.has_memory_map() {
             mboot
                 .memory_regions()
@@ -71,4 +82,3 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
 
     shutdown()
 }
-

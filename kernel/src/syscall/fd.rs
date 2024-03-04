@@ -45,12 +45,7 @@ impl UserTaskContainer {
         Ok(fd_dst)
     }
 
-    pub async fn sys_read(
-        &self,
-        fd: usize,
-        buf_ptr: UserRef<u8>,
-        count: usize,
-    ) -> SysResult {
+    pub async fn sys_read(&self, fd: usize, buf_ptr: UserRef<u8>, count: usize) -> SysResult {
         debug!(
             "[task {}] sys_read @ fd: {} buf_ptr: {:?} count: {}",
             self.tid, fd as isize, buf_ptr, count
@@ -64,12 +59,7 @@ impl UserTaskContainer {
             .map_err(from_vfs)
     }
 
-    pub async fn sys_write(
-        &self,
-        fd: usize,
-        buf_ptr: VirtAddr,
-        count: usize,
-    ) -> SysResult {
+    pub async fn sys_write(&self, fd: usize, buf_ptr: VirtAddr, count: usize) -> SysResult {
         debug!(
             "[task {}] sys_write @ fd: {} buf_ptr: {:?} count: {}",
             self.tid, fd as isize, buf_ptr, count
@@ -82,12 +72,7 @@ impl UserTaskContainer {
         file.async_write(buffer).await.map_err(from_vfs)
     }
 
-    pub async fn sys_readv(
-        &self,
-        fd: usize,
-        iov: UserRef<IoVec>,
-        iocnt: usize,
-    ) -> SysResult {
+    pub async fn sys_readv(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
         debug!("sys_readv @ fd: {}, iov: {}, iocnt: {}", fd, iov, iocnt);
 
         let mut rsize = 0;
@@ -103,12 +88,7 @@ impl UserTaskContainer {
         Ok(rsize)
     }
 
-    pub async fn sys_writev(
-        &self,
-        fd: usize,
-        iov: UserRef<IoVec>,
-        iocnt: usize,
-    ) -> SysResult {
+    pub async fn sys_writev(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
         debug!("sys_writev @ fd: {}, iov: {}, iocnt: {}", fd, iov, iocnt);
         let mut wsize = 0;
 
@@ -131,12 +111,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_mkdir_at(
-        &self,
-        dir_fd: usize,
-        path: UserRef<i8>,
-        mode: usize,
-    ) -> SysResult {
+    pub async fn sys_mkdir_at(&self, dir_fd: usize, path: UserRef<i8>, mode: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
         debug!(
             "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
@@ -163,12 +138,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_unlinkat(
-        &self,
-        dir_fd: usize,
-        path: UserRef<i8>,
-        flags: usize,
-    ) -> SysResult {
+    pub async fn sys_unlinkat(&self, dir_fd: usize, path: UserRef<i8>, flags: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
         debug!(
             "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
@@ -296,11 +266,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_pipe2(
-        &self,
-        fds_ptr: UserRef<u32>,
-        _unknown: usize,
-    ) -> SysResult {
+    pub async fn sys_pipe2(&self, fds_ptr: UserRef<u32>, _unknown: usize) -> SysResult {
         debug!("sys_pipe2 @ fds_ptr: {}, _unknown: {}", fds_ptr, _unknown);
         let fds = fds_ptr.slice_mut_with_len(2);
 
@@ -374,11 +340,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_umount2(
-        &self,
-        special: UserRef<i8>,
-        flags: usize,
-    ) -> SysResult {
+    pub async fn sys_umount2(&self, special: UserRef<i8>, flags: usize) -> SysResult {
         let special = special.get_cstr().map_err(|_| LinuxError::EINVAL)?;
         debug!("sys_umount @ special: {}, flags: {}", special, flags);
         match special.starts_with("/dev") {
@@ -395,12 +357,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_getdents64(
-        &self,
-        fd: usize,
-        buf_ptr: UserRef<u8>,
-        len: usize,
-    ) -> SysResult {
+    pub async fn sys_getdents64(&self, fd: usize, buf_ptr: UserRef<u8>, len: usize) -> SysResult {
         debug!(
             "[task {}] sys_getdents64 @ fd: {}, buf_ptr: {}, len: {}",
             self.tid, fd, buf_ptr, len

@@ -97,7 +97,7 @@ impl ContextOps for Context {
     #[inline]
     fn args(&self) -> [usize; 6] {
         [
-            self.regs.x30, 
+            self.regs.x30,
             self.regs.x1,
             self.regs.x2,
             self.regs.x3,

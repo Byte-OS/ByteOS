@@ -4,7 +4,10 @@ use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 
 use crate::{tasks::WaitSignal, user::UserTaskContainer};
 
-use super::{consts::{LinuxError, UserRef}, SysResult};
+use super::{
+    consts::{LinuxError, UserRef},
+    SysResult,
+};
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。
@@ -72,10 +75,7 @@ impl UserTaskContainer {
     ) -> SysResult {
         debug!(
             "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
-            self.tid,
-            how,
-            set,
-            oldset
+            self.tid, how, set, oldset
         );
         let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
         let mut tcb = self.task.tcb.write();

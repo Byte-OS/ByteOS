@@ -53,7 +53,7 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
 
             ArchInterface::add_memory_region(
                 x.starting_address as usize | VIRT_ADDR_START,
-                (x.starting_address as usize + x.size.unwrap()) | VIRT_ADDR_START
+                (x.starting_address as usize + x.size.unwrap()) | VIRT_ADDR_START,
             );
         });
     }

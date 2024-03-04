@@ -1,7 +1,8 @@
 use core::arch::{asm, global_asm};
 
 use riscv::register::{
-    scause::{self, Exception, Interrupt, Trap}, sie, stval
+    scause::{self, Exception, Interrupt, Trap},
+    sie, stval,
 };
 
 use crate::{add_irq, riscv64::context::Context, shutdown, TrapType, VIRT_ADDR_START};
