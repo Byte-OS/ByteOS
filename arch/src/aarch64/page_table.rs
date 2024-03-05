@@ -201,21 +201,13 @@ impl PageTable {
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
         let mut paddr = self.0;
         for i in (0..3).rev() {
-            info!(
-                "i: {} index: {:#x} paddr: {:#x?}",
-                i,
-                (vaddr.0 >> (12 + 9 * i)) & 0x1ff,
-                paddr
-            );
             let value = (vaddr.0 >> (12 + 9 * i)) & 0x1ff;
             let pte = &get_pte_list(paddr)[value];
-            info!("pte list: {:#x?}", pte);
             // 如果当前页是大页 返回相关的位置
             // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
             if !pte.is_valid() {
                 return None;
             }
-            info!("pte: {:#x?}  ppn: {:#x?}", pte, pte.to_ppn());
             paddr = pte.to_ppn().into()
         }
         Some(PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE))

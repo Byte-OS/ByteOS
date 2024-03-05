@@ -1,22 +1,23 @@
 mod boot;
 mod consts;
 mod context;
-mod interrupt;
 mod page_table;
 mod pl011;
 mod psci;
 mod timer;
 mod trap;
 
+use aarch64_cpu::registers::Writeable;
+use aarch64_cpu::{asm::barrier, registers::CPACR_EL1};
 use alloc::vec::Vec;
 pub use consts::*;
 pub use context::Context;
 use fdt::Fdt;
-pub use interrupt::*;
 pub use page_table::*;
 pub use pl011::{console_getchar, console_putchar};
 pub use psci::system_off as shutdown;
 pub use timer::get_time;
+pub use trap::{enable_external_irq, enable_irq, init_interrupt, trap_pre_handle, user_restore};
 
 use crate::{clear_bss, ArchInterface};
 
@@ -63,6 +64,10 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
     }
 
     drop(dt_buf);
+
+    // enable fp
+    CPACR_EL1.write(CPACR_EL1::FPEN::TrapNothing);
+    barrier::isb(barrier::SY);
 
     ArchInterface::main(hart_id);
 

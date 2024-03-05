@@ -45,7 +45,7 @@ BUILD_ARGS :=
 ifeq ($(RELEASE), release)
 	BUILD_ARGS += --release
 endif
-TESTCASE := testcase-x86_64
+TESTCASE := testcase-$(ARCH)
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm
