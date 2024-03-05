@@ -36,6 +36,7 @@ futures-lite = { version = "1.13.0", default-features = false, features=["alloc"
 kheader = { path = "../modules/kheader" }
 # backtrace = { path = "../crates/backtrace" }
 hashbrown = "0.14"
+cfg-if = "1.0.0"
 
 num-traits = { version = "0.2", default-features = false}
 num-derive = "0.4"

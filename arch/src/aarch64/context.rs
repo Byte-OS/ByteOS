@@ -42,10 +42,9 @@ pub struct GeneralRegs {
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Context {
     pub regs: GeneralRegs,
-    pub usp: usize,
+    pub sp: usize,
     pub elr: usize,
     pub spsr: usize,
-    pub sp: usize,
     pub tpidr: usize,
 }
 
@@ -91,13 +90,13 @@ impl ContextOps for Context {
 
     #[inline]
     fn syscall_number(&self) -> usize {
-        self.regs.x7
+        self.regs.x8
     }
 
     #[inline]
     fn args(&self) -> [usize; 6] {
         [
-            self.regs.x30,
+            self.regs.x0,
             self.regs.x1,
             self.regs.x2,
             self.regs.x3,
@@ -112,7 +111,7 @@ impl ContextOps for Context {
     }
 
     fn set_ret(&mut self, ret: usize) {
-        self.regs.x30 = ret;
+        self.regs.x0 = ret;
     }
 
     fn set_arg0(&mut self, ret: usize) {
