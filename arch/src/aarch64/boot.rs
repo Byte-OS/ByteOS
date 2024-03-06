@@ -54,7 +54,7 @@ unsafe fn switch_to_el1() {
 unsafe fn init_mmu() {
     MAIR_EL1.set(0x44_ff_04);
 
-    // Enable TTBR0 and TTBR1 walks, page size = 4K, vaddr size = 48 bits, paddr size = 40 bits.
+    // Enable TTBR0 and TTBR1 walks, page size = 4K, vaddr size = 39 bits, paddr size = 40 bits.
     let tcr_flags0 = TCR_EL1::EPD0::EnableTTBR0Walks
         + TCR_EL1::TG0::KiB_4
         + TCR_EL1::SH0::Inner

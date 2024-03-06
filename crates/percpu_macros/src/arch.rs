@@ -33,6 +33,12 @@ pub fn gen_offset(symbol: &Ident) -> proc_macro2::TokenStream {
                 out(reg) value,
                 VAR = sym #symbol,
             );
+            #[cfg(any(target_arch = "loongarch64"))]
+            ::core::arch::asm!(
+                "la.abs {0}, {VAR}",
+                out(reg) value,
+                VAR = sym #symbol,
+            );
         }
         value
     }
@@ -58,6 +64,8 @@ pub fn gen_current_ptr(symbol: &Ident, ty: &Type) -> proc_macro2::TokenStream {
             ::core::arch::asm!("mrs {}, TPIDR_EL1", out(reg) base);
             #[cfg(any(target_arch = "riscv32", target_arch = "riscv64"))]
             ::core::arch::asm!("mv {}, gp", out(reg) base);
+            #[cfg(target_arch = "loongarch64")]
+            ::core::arch::asm!("move {}, $r21", out(reg) base);
             (base + self.offset()) as *const #ty
         }
     })
@@ -79,6 +87,24 @@ pub fn gen_read_current_raw(symbol: &Ident, ty: &Type) -> proc_macro2::TokenStre
             "lui {0}, %hi({VAR})",
             "add {0}, {0}, gp",
             concat!(#rv64_op, " {0}, %lo({VAR})({0})"),
+            out(reg) value,
+            VAR = sym #symbol,
+        )
+    };
+    let la64_op = match ty_str.as_str() {
+        "bool" => "ld.bu",
+        "u8" => "ld.bu",
+        "u16" => "ld.hu",
+        "u32" => "ld.wu",
+        "u64" => "ld.d",
+        "usize" => "ld.d",
+        _ => unreachable!(),
+    };
+    let la64_asm = quote! {
+        ::core::arch::asm!(
+            "la.abs {0}, {VAR}",
+            "add.d {0}, {0}, $r21",
+            concat!(#la64_op, " {0}, {0}, 0"),
             out(reg) value,
             VAR = sym #symbol,
         )
@@ -123,10 +149,13 @@ pub fn gen_read_current_raw(symbol: &Ident, ty: &Type) -> proc_macro2::TokenStre
     };
 
     let rv64_code = gen_code(rv64_asm);
+    let la64_code = gen_code(la64_asm);
     let x64_code = gen_code(x64_asm);
     macos_unimplemented(quote! {
         #[cfg(target_arch = "riscv64")]
         { #rv64_code }
+        #[cfg(target_arch = "loongarch64")]
+        { #la64_code }
         #[cfg(target_arch = "x86_64")]
         { #x64_code }
         #[cfg(not(any(target_arch = "riscv64", target_arch = "x86_64")))]
@@ -162,6 +191,26 @@ pub fn gen_write_current_raw(symbol: &Ident, val: &Ident, ty: &Type) -> proc_mac
         );
     };
 
+    let la64_op = match ty_str.as_str() {
+        "bool" => "st.b",
+        "u8" => "st.b",
+        "u16" => "st.h",
+        "u32" => "st.w",
+        "u64" => "st.d",
+        "usize" => "st.d",
+        _ => unreachable!(),
+    };
+    let la64_code = quote! {
+        ::core::arch::asm!(
+            "la.abs {0}, {VAR}",
+            "add.d {0}, {0}, $r21",
+            concat!(#la64_op, " {1}, {0}, 0"),
+            out(reg) _,
+            in(reg) #val as #ty_fixup,
+            VAR = sym #symbol,
+        );
+    };
+
     let (x64_asm, x64_reg) = if ["bool", "u8"].contains(&ty_str.as_str()) {
         (
             "mov byte ptr gs:[offset {VAR}], {0}".into(),
@@ -187,6 +236,8 @@ pub fn gen_write_current_raw(symbol: &Ident, val: &Ident, ty: &Type) -> proc_mac
     macos_unimplemented(quote! {
         #[cfg(target_arch = "riscv64")]
         { #rv64_code }
+        #[cfg(target_arch = "loongarch64")]
+        { #la64_code }
         #[cfg(target_arch = "x86_64")]
         { #x64_code }
         #[cfg(not(any(target_arch = "riscv64", target_arch = "x86_64")))]

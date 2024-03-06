@@ -29,9 +29,7 @@ _trap_handlers:
 
 .Ltrap_common:
     test    byte ptr [rsp + 3 * 8], 3   # swap GS if it comes from user space
-    jz      1f
-    swapgs
-1:
+    jnz      .Ltrap_from_user
     push    r15
     push    r14
     push    r13
@@ -67,12 +65,42 @@ _trap_handlers:
     pop     r14
     pop     r15
 
-    test    byte ptr [rsp + 3 * 8], 3   # swap GS back if return to user space
-    jz      2f
-    swapgs
-2:
     add     rsp, 16                     # pop vector, error_code
     iretq
+
+.Ltrap_from_user:
+    push    r15
+    push    r14
+    push    r13
+    push    r12
+    push    r11
+    push    r10
+    push    r9
+    push    r8
+    push    rdi
+    push    rsi
+    push    rbp
+    push    rbx
+    push    rdx
+    push    rcx
+    push    rax
+    
+    swapgs
+
+    mov    rsp, gs:[offset __PERCPU_KERNEL_RSP_OFFSET]  // kernel rsp
+
+    pop rcx
+    mov ss, rcx
+    pop rax
+    mov cs, rax
+    pop r15
+    pop r14
+    pop r13
+    pop r12
+    pop rbx
+    pop rbp
+
+    ret
 
 .section .rodata
 .global trap_handler_table

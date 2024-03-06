@@ -57,6 +57,8 @@ fn gen_linker_script(platform: &str) -> Result<()> {
         // ("aarch64", "0x40080000")
         ("aarch64", "0xffffff8040080000")
         // ("aarch64", "0xffff000040080000")
+    } else if arch.contains("loongarch64") {
+        ("loongarch64", "0x9000000092000000")
     } else {
         (arch.as_str(), "0")
     };

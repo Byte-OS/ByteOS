@@ -52,7 +52,9 @@ impl UserTaskContainer {
                     let mut tcb = self.task.tcb.write();
                     tcb.signal.remove_signal(signal.clone());
                     // check if it is a real time signal
-                    if let Some(index) = signal.real_time_index() && tcb.signal_queue[index] > 0 {
+                    if let Some(index) = signal.real_time_index()
+                        && tcb.signal_queue[index] > 0
+                    {
                         tcb.signal.add_signal(signal.clone());
                         tcb.signal_queue[index] -= 1;
                     }

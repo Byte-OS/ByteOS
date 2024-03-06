@@ -20,10 +20,11 @@ else ifeq ($(ARCH), aarch64)
   QEMU_EXEC += qemu-system-$(ARCH) \
 				-cpu cortex-a72 \
 				-machine virt
-else ifeq ($(ARCH), longarch64)
-  $(error "longarch64 is currently not supported ")
+else ifeq ($(ARCH), loongarch64)
+  TARGET := loongarch64-unknown-none
+  QEMU_EXEC += qemu-system-$(ARCH)
 else
-  $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "longarch64")
+  $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
 endif
 
 KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
