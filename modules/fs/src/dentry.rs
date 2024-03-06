@@ -110,7 +110,9 @@ impl DentryNode {
         if let Some(_) = self.parent.upgrade() {
             let mut path = String::from("/") + &self.filename.clone();
             let mut pd = self.parent.clone();
-            while let Some(parent) = pd.upgrade() && parent.filename != "/" {
+            while let Some(parent) = pd.upgrade()
+                && parent.filename != "/"
+            {
                 path = String::from("/") + &parent.filename + &path;
                 pd = parent.parent.clone();
             }

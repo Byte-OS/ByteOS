@@ -21,6 +21,9 @@ pub struct Context {
     pub r14: usize,
     pub r15: usize,
 
+    // pub fs_base: usize,
+    // pub gs_base: usize,
+
     // Pushed by `trap.S`
     pub vector: usize,
     pub error_code: usize,

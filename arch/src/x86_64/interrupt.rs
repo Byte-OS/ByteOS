@@ -196,67 +196,26 @@ pub unsafe extern "C" fn kernelvec() {
 pub extern "C" fn user_restore(context: *mut Context) {
     unsafe {
         asm!(
-            // r"
-            //     .align 4
-            //     .altmacro
-            //     .set    REG_SIZE, 8
-            //     .set    CONTEXT_SIZE, 34
-            // ",
-            //     // 在内核态栈中开一个空间来存储内核态信息
-            //     // 下次发生中断必然会进入中断入口然后恢复这个上下文.
-            //     // 仅保存 Callee-saved regs、gp、tp、ra.
-            // "   addi    sp, sp, -18*8
-
-            //     sd      sp, 8*1(sp)
-            //     sd      gp, 8*2(sp)
-            //     sd      tp, 8*3(sp)
-            //     sd      s0, 8*4(sp)
-            //     sd      s1, 8*5(sp)
-            //     sd      s2, 8*6(sp)
-            //     sd      s3, 8*7(sp)
-            //     sd      s4, 8*8(sp)
-            //     sd      s5, 8*9(sp)
-            //     sd      s6, 8*10(sp)
-            //     sd      s7, 8*11(sp)
-            //     sd      s8, 8*12(sp)
-            //     sd      s9, 8*13(sp)
-            //     sd      s10, 8*14(sp)
-            //     sd      s11, 8*15(sp)
-            //     sd      a0,  8*16(sp)
-            //     sd      ra,  8*17(sp)
-
-            //     la a1, {uservec}
-            //     csrw stvec, a1
-            // ",
-            //     // 将栈信息保存到用户栈.
-            //     // a0 是传入的Context, 然后下面会再次恢复 sp 地址.
-            // "   csrw    sscratch, sp
-            //     mv      sp, a0
-
-            //     LOAD    t0, 32
-            //     LOAD    t1, 33
-            //     .short 0x2452
-            //     .short 0x24f2
-            // ",
-            //     // fld  fs0, 272(sp)
-            //     // fld  fs1, 280(sp)
-            // "
-            //     csrw    sstatus, t0
-            //     csrw    sepc, t1
-            // ",
-            //     // 恢复用户态通用寄存器x1, x3 - x31
-            // r"  LOAD    x1, 1
-            //     .set    n, 3
-            //     .rept   29
-            //         LOAD_N  %n
-            //         .set    n, n + 1
-            //     .endr",
-            //     // 恢复 sp（又名 x2）这里最后恢复是为了上面可以正常使用 LOAD 宏
-            // r"  LOAD    x2, 2
-            //     sret
-            // ",
-            // uservec = sym uservec,
-            "",
+            // Save callee saved registers and cs and others.
+            r"
+                push rbp
+                push rbx
+                push r12
+                push r13
+                push r14
+                push r15
+                mov rax, cs
+                push rax
+                mov rcx, ss
+                push rcx
+            ",
+            // push fs_base
+            "
+                mov ecx, 0xC0000100
+                rdmsr
+                mov [rsp + 18*8+4], edx
+                mov [rsp + 18*8], eax   # push fabase
+            ",
             options(noreturn)
         )
     }

@@ -6,6 +6,9 @@ use crate::Context;
 
 global_asm!(include_str!("trap.S"));
 
+#[percpu::def_percpu]
+static KERNEL_RSP: usize = 1;
+
 #[no_mangle]
 fn x86_trap_handler(tf: &mut Context) {
     match tf.vector as u8 {
