@@ -40,6 +40,14 @@ SECTIONS
 
     _load_end = .;
 
+    .bss ALIGN(4K): {
+        *(.bss.stack)
+        _sbss = .;
+        *(.bss .bss.*)
+        *(.sbss .sbss.*)
+        _ebss = .;
+    }
+
     . = ALIGN(4K);
     _percpu_start = .;
     .percpu 0x0 : AT(_percpu_start) {
@@ -53,14 +61,6 @@ SECTIONS
     }
     . = _percpu_start + SIZEOF(.percpu);
     _percpu_end = .;
-
-    .bss ALIGN(4K): {
-        *(.bss.stack)
-        _sbss = .;
-        *(.bss .bss.*)
-        *(.sbss .sbss.*)
-        _ebss = .;
-    }
 
     PROVIDE(end = .);
     /DISCARD/ : {

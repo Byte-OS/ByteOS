@@ -51,14 +51,14 @@ fn gen_linker_script(platform: &str) -> Result<()> {
     let fname = format!("linker_{}_{}.lds", arch, platform);
     let (output_arch, kernel_base) = if arch == "x86_64" {
         ("i386:x86-64", "0xffffff8000200000")
-    } else if arch.contains("riscv") {
+    } else if arch.contains("riscv64") {
         ("riscv", "0xffffffc080200000") // OUTPUT_ARCH of both riscv32/riscv64 is "riscv"
     } else if arch.contains("aarch64") {
         // ("aarch64", "0x40080000")
         ("aarch64", "0xffffff8040080000")
         // ("aarch64", "0xffff000040080000")
     } else if arch.contains("loongarch64") {
-        ("loongarch64", "0x9000000092000000")
+        ("loongarch64", "0x9000000090000000")
     } else {
         (arch.as_str(), "0")
     };

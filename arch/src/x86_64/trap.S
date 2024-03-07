@@ -87,7 +87,7 @@ _trap_handlers:
     
     swapgs
 
-    mov    rsp, gs:[offset __PERCPU_KERNEL_RSP_OFFSET]  // kernel rsp
+    mov    rsp, gs:[offset __PERCPU_KERNEL_RSP]  // kernel rsp
 
     pop rcx
     mov ss, rcx

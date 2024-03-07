@@ -31,3 +31,6 @@ arm_pl011 = { path = "../crates/arm_pl011" }
 tock-registers = "0.8"
 spin = { version = "0.9.8", features = ["mutex"] }
 
+[target.'cfg(target_arch = "loongarch64")'.dependencies]
+spin = { version = "0.9.8", features = ["mutex"] }
+loongarch64 = {git = "https://github.com/Godones/loongArch64",package = "loongarch64" }
