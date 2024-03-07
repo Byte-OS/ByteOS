@@ -184,7 +184,7 @@ pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
 
 // 中断调用列表
 cfg_if::cfg_if! {
-    if #[cfg(any(target_arch = "riscv", target_arch = "aarch64", target_arch = "loongarch64"))] {
+    if #[cfg(any(target_arch = "riscv64", target_arch = "aarch64", target_arch = "loongarch64", target_arch="x86_64"))] {
         pub const SYS_GETCWD: usize = 17;
         pub const SYS_EPOLL_CREATE: usize = 20;
         pub const SYS_EPOLL_CTL: usize = 21;

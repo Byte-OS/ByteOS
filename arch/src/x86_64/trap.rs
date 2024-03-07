@@ -6,6 +6,7 @@ use crate::Context;
 
 global_asm!(include_str!("trap.S"));
 
+#[no_mangle]
 #[percpu::def_percpu]
 static KERNEL_RSP: usize = 1;
 

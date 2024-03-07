@@ -57,6 +57,7 @@ dependencies = [
  "crate_interface",
  "fdt",
  "log",
+ "loongarch64",
  "multiboot",
  "percpu",
  "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
@@ -641,6 +642,15 @@ dependencies = [
  "arch",
  "devices",
  "log",
+]
+
+[[package]]
+name = "loongarch64"
+version = "0.2.3"
+source = "git+https://github.com/Godones/loongArch64#096b2c32cdd0209bfc33c901c4a65705e1158b1d"
+dependencies = [
+ "bit_field",
+ "bitflags 1.3.2",
 ]
 
 [[package]]

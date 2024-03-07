@@ -9,20 +9,23 @@ QEMU_EXEC ?=
 ifeq ($(ARCH), x86_64)
   TARGET := x86_64-unknown-none
   QEMU_EXEC += qemu-system-x86_64 \
-				-machine q35
+				-machine q35 \
+				-kernel $(KERNEL_ELF)
 else ifeq ($(ARCH), riscv64)
   TARGET := riscv64imac-unknown-none-elf
   QEMU_EXEC += qemu-system-$(ARCH) \
 				-machine virt \
-				-bios $(SBI)
+				-bios $(SBI) \
+				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), aarch64)
   TARGET := aarch64-unknown-none-softfloat
   QEMU_EXEC += qemu-system-$(ARCH) \
 				-cpu cortex-a72 \
-				-machine virt
+				-machine virt \
+				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), loongarch64)
   TARGET := loongarch64-unknown-none
-  QEMU_EXEC += qemu-system-$(ARCH)
+  QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
 else
   $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
 endif
@@ -36,8 +39,7 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC += -kernel $(KERNEL_BIN) \
-			-m 128M \
+QEMU_EXEC += -m 1G\
 			-nographic \
 			-smp 1 \
 			-D qemu.log -d in_asm,int,mmu,pcall,cpu_reset,guest_errors
@@ -51,11 +53,13 @@ ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm
 else
+QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0
 ifeq ($(ARCH), x86_64)
-    QEMU_EXEC += -device virtio-blk-pci,drive=x0 -drive file=$(FS_IMG),if=none,format=raw,id=x0
+    QEMU_EXEC += -device virtio-blk-pci,drive=x0
+else ifeq ($(ARCH), loongarch64)
+    QEMU_EXEC += -device virtio-blk-pci,drive=x0
 else
-	QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0 \
-		-device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
+	QEMU_EXEC += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
 endif
 endif
 
@@ -73,7 +77,7 @@ endif
 all: build
 
 offline:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build -Z build-std $(BUILD_ARGS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
 #	cp $(KERNEL_ELF) kernel-qemu
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
@@ -89,7 +93,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build -Z build-std --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 

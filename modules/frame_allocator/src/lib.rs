@@ -229,8 +229,8 @@ pub fn add_frame_map(mm_start: usize, mm_end: usize) {
     }
     let phys_end = floor(end as usize, PAGE_SIZE) * PAGE_SIZE;
     // let phys_end = floor(end as usize - VIRT_ADDR_START, PAGE_SIZE) * PAGE_SIZE;
-    info!("add frame memory region {:#x} - {:#x}", mm_start, mm_end);
     if phys_end > mm_start && phys_end < mm_end {
+        info!("add frame memory region {:#x} - {:#x}", phys_end, mm_end);
         unsafe {
             core::slice::from_raw_parts_mut(
                 phys_end as *mut usize,
