@@ -86,12 +86,6 @@ impl ContextOps for Context {
         self.x[12] = ret;
     }
 
-    fn clear(&mut self) {
-        self.x.fill(0);
-        self.sepc = 0;
-        self.sstatus = sstatus::read();
-    }
-
     #[inline]
     fn set_tls(&mut self, tls: usize) {
         self.x[4] = tls;

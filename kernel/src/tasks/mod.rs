@@ -14,7 +14,7 @@ pub mod elf;
 mod initproc;
 
 pub use async_ops::{
-    futex_requeue, futex_wake, NextTick, WaitFutex, WaitHandleAbleSignal, WaitPid, WaitSignal,
+    futex_requeue, futex_wake, WaitFutex, WaitHandleAbleSignal, WaitPid, WaitSignal,
 };
 
 pub enum UserTaskControlFlow {

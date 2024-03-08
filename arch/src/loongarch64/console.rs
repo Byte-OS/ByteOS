@@ -1,4 +1,3 @@
-
 use core::fmt::Write;
 
 use spin::Mutex;
@@ -57,14 +56,6 @@ impl Write for Uart {
 
 /// Writes a byte to the console.
 pub fn console_putchar(c: u8) {
-    // let mut uart = COM1.lock();
-    // match c {
-    //     b'\n' => {
-    //         uart.putchar(b'\r');
-    //         uart.putchar(b'\n');
-    //     }
-    //     c => uart.putchar(c),
-    // }
     COM1.lock().putchar(c)
 }
 
@@ -73,7 +64,7 @@ pub fn write_fmt(args: core::fmt::Arguments) {
     COM1.lock().write_fmt(args).unwrap();
 }
 
-/// Reads a byte from the console, or returns [`None`] if no input is available.
+/// read a byte, return -1 if nothing exists.
 pub fn console_getchar() -> u8 {
     COM1.lock().getchar().unwrap_or(u8::MAX)
 }

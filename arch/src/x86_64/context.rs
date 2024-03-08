@@ -1,5 +1,7 @@
 use crate::ContextOps;
 
+use super::gdt::GdtStruct;
+
 /// Saved registers when a trap (interrupt or exception) occurs.
 #[allow(missing_docs)]
 #[repr(C)]
@@ -21,8 +23,8 @@ pub struct Context {
     pub r14: usize,
     pub r15: usize,
 
-    // pub fs_base: usize,
-    // pub gs_base: usize,
+    pub fs_base: usize,
+    pub gs_base: usize,
 
     // Pushed by `trap.S`
     pub vector: usize,
@@ -40,7 +42,14 @@ impl Context {
     // 创建上下文信息
     #[inline]
     pub fn new() -> Self {
+        debug!(
+            "new_user cs: {:#x}, ss: {:#x}",
+            GdtStruct::UCODE64_SELECTOR.0,
+            GdtStruct::UDATA_SELECTOR.0
+        );
         Self {
+            cs: GdtStruct::UCODE64_SELECTOR.0 as _,
+            ss: GdtStruct::UDATA_SELECTOR.0 as _,
             ..Default::default()
         }
     }
@@ -107,12 +116,8 @@ impl ContextOps for Context {
         self.rdx = ret;
     }
 
-    fn clear(&mut self) {
-        *self = Default::default();
-    }
-
     #[inline]
-    fn set_tls(&mut self, _tls: usize) {
-        unimplemented!("set tls is unimplemented!")
+    fn set_tls(&mut self, tls: usize) {
+        self.fs_base = tls;
     }
 }

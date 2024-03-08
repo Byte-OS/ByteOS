@@ -1,23 +1,22 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use devices::device::{BlkDriver, DeviceType, Driver};
-use devices::{node_to_interrupts, register_device_irqs};
-use fdt::node::FdtNode;
+use devices::register_device_irqs;
 use sync::Mutex;
 use virtio_drivers::device::blk::VirtIOBlk;
-use virtio_drivers::transport::mmio::MmioTransport;
+use virtio_drivers::transport::Transport;
 
 use super::virtio_impl::HalImpl;
 
-pub struct VirtIOBlock {
-    inner: Mutex<VirtIOBlk<HalImpl, MmioTransport>>,
+pub struct VirtIOBlock<T: Transport> {
+    inner: Mutex<VirtIOBlk<HalImpl, T>>,
     irqs: Vec<u32>,
 }
 
-unsafe impl Sync for VirtIOBlock {}
-unsafe impl Send for VirtIOBlock {}
+unsafe impl<T: Transport> Sync for VirtIOBlock<T> {}
+unsafe impl<T: Transport> Send for VirtIOBlock<T> {}
 
-impl Driver for VirtIOBlock {
+impl<T: Transport + 'static> Driver for VirtIOBlock<T> {
     fn interrupts(&self) -> &[u32] {
         &self.irqs
     }
@@ -31,29 +30,28 @@ impl Driver for VirtIOBlock {
     }
 }
 
-impl BlkDriver for VirtIOBlock {
+impl<T: Transport + 'static> BlkDriver for VirtIOBlock<T> {
     fn read_block(&self, block_id: usize, buf: &mut [u8]) {
         self.inner
             .lock()
-            .read_block(block_id, buf)
+            .read_blocks(block_id, buf)
             .expect("can't read block by virtio block");
     }
 
     fn write_block(&self, block_id: usize, buf: &[u8]) {
         self.inner
             .lock()
-            .write_block(block_id, buf)
+            .write_blocks(block_id, buf)
             .expect("can't write block by virtio block");
     }
 }
 
-pub fn init(transport: MmioTransport, node: &FdtNode) -> Arc<dyn Driver> {
+pub fn init<T: Transport + 'static>(transport: T, irqs: Vec<u32>) -> Arc<dyn Driver> {
     let blk_device = Arc::new(VirtIOBlock {
         inner: Mutex::new(
-            VirtIOBlk::<HalImpl, MmioTransport>::new(transport)
-                .expect("failed to create blk driver"),
+            VirtIOBlk::<HalImpl, T>::new(transport).expect("failed to create blk driver"),
         ),
-        irqs: node_to_interrupts(node),
+        irqs,
     });
 
     register_device_irqs(blk_device.clone());

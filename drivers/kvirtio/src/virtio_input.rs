@@ -1,8 +1,7 @@
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use devices::device::{DeviceType, Driver, InputDriver};
-use devices::IRQ_MANAGER;
-use fdt::node::FdtNode;
+use devices::register_device_irqs;
 use sync::Mutex;
 use virtio_drivers::device::input::VirtIOInput as VirtIOInputWrapper;
 use virtio_drivers::transport::mmio::MmioTransport;
@@ -45,22 +44,15 @@ impl InputDriver for VirtIOInput {
     }
 }
 
-pub fn init(transport: MmioTransport, node: &FdtNode) -> Arc<dyn Driver> {
+pub fn init(transport: MmioTransport, irqs: Vec<u32>) -> Arc<dyn Driver> {
     let input_device = Arc::new(VirtIOInput {
         _inner: Mutex::new(
             VirtIOInputWrapper::<HalImpl, MmioTransport>::new(transport)
                 .expect("failed to create blk driver"),
         ),
-        interrupts: node
-            .interrupts()
-            .map(|x| x.map(|x| x as u32).collect())
-            .unwrap_or_default(),
+        interrupts: irqs,
     });
-    node.interrupts().map(|x| {
-        x.for_each(|x| {
-            IRQ_MANAGER.lock().insert(x as _, input_device.clone());
-        })
-    });
+    register_device_irqs(input_device.clone());
     info!("Initailize virtio-iput device");
     input_device
 }

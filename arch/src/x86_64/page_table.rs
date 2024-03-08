@@ -18,11 +18,14 @@ impl From<MappingFlags> for PTFlags {
         if flags.contains(MappingFlags::U) {
             res |= Self::US;
         }
-        if flags.contains(MappingFlags::A) {
-            res |= Self::A;
-        }
-        if flags.contains(MappingFlags::D) {
-            res |= Self::D;
+        // if flags.contains(MappingFlags::A) {
+        //     res |= Self::A;
+        // }
+        // if flags.contains(MappingFlags::D) {
+        //     res |= Self::D;
+        // }
+        if flags.contains(MappingFlags::X) {
+            res.remove(Self::XD);
         }
         res
     }
@@ -51,12 +54,8 @@ impl PageTable {
     #[inline]
     pub fn change(&self) {
         unsafe {
-            core::arch::asm!(
-                "
-                    mov     cr3, {}
-                ", 
-                in(reg) self.0.0
-            );
+            debug!("page_table: {:#x}", self.0 .0);
+            core::arch::asm!("mov     cr3, {}", in(reg) self.0.0);
             flush_all();
         }
     }
@@ -70,7 +69,7 @@ impl PageTable {
         if !pml4[pml4_index].is_present() {
             pml4[pml4_index] = PML4Entry::new(
                 ArchInterface::frame_alloc_persist().to_addr().into(),
-                PML4Flags::P | PML4Flags::RW,
+                PML4Flags::P | PML4Flags::RW | PML4Flags::US,
             );
         }
 
@@ -80,7 +79,7 @@ impl PageTable {
         if !pdpt[pdpt_index].is_present() {
             pdpt[pdpt_index] = PDPTEntry::new(
                 ArchInterface::frame_alloc_persist().to_addr().into(),
-                PDPTFlags::P | PDPTFlags::RW,
+                PDPTFlags::P | PDPTFlags::RW | PDPTFlags::US,
             );
         }
 
@@ -90,7 +89,7 @@ impl PageTable {
         if !pd[pd_index].is_present() {
             pd[pd_index] = PDEntry::new(
                 ArchInterface::frame_alloc_persist().to_addr().into(),
-                PDFlags::P | PDFlags::RW,
+                PDFlags::P | PDFlags::RW | PDFlags::US,
             );
         }
 

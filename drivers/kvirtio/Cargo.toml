@@ -10,7 +10,7 @@ arch = { path = "../../arch" }
 fdt = "0.1.5"
 log = "0.4"
 sync = { path = "../../modules/sync" }
-virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1d1cbb"}
+virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "61ece50"}
 kheader = { path = "../../modules/kheader" }
 devices = { path = "../../modules/devices" }
 frame_allocator = { path = "../../modules/frame_allocator" }
