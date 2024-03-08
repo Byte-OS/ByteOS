@@ -6,7 +6,7 @@ extern crate alloc;
 mod plic;
 
 use alloc::sync::Arc;
-use arch::{enable_external_irq, VIRT_ADDR_START};
+use arch::VIRT_ADDR_START;
 use devices::{
     device::{DeviceType, Driver, IntDriver},
     driver_define,

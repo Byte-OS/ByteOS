@@ -1,5 +1,5 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use arch::{ContextOps, VirtPage, PAGE_SIZE};
+use arch::{Context, ContextOps, VirtPage, PAGE_SIZE};
 use executor::{AsyncTask, MemType, UserTask};
 use log::warn;
 use xmas_elf::{
@@ -127,7 +127,7 @@ pub fn init_task_stack(
 
     let mut tcb = user_task.tcb.write();
 
-    tcb.cx.clear();
+    tcb.cx = Context::new();
     tcb.cx.set_sp(0x8000_0000); // stack top;
     tcb.cx.set_sepc(base + entry_point);
     tcb.cx.set_tls(tls);

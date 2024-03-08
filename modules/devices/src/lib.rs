@@ -87,14 +87,12 @@ pub fn init_device(device_tree: usize) {
 /// This function will init drivers
 #[inline]
 pub fn prepare_drivers() {
-    let mut all_devices = ALL_DEVICES.lock();
     DRIVERS_INIT.iter().for_each(|f| {
-        f().map(|device| all_devices.add_device(device));
+        f().map(|device| ALL_DEVICES.lock().add_device(device));
     });
 }
 
 pub fn try_to_add_device(node: &FdtNode) {
-    let mut all_devices = ALL_DEVICES.lock();
     let driver_manager = DRIVER_REGS.lock();
     if let Some(compatible) = node.compatible() {
         info!(
@@ -104,7 +102,7 @@ pub fn try_to_add_device(node: &FdtNode) {
         );
         for compati in compatible.all() {
             if let Some(f) = driver_manager.get(compati) {
-                all_devices.add_device(f(&node));
+                ALL_DEVICES.lock().add_device(f(&node));
                 break;
             }
         }

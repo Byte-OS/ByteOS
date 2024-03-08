@@ -18,7 +18,7 @@ multiboot_header:
     .int    multiboot_header - {offset}         # header_addr
     .int    _skernel - {offset}                 # load_addr
     .int    _load_end - {offset}                   # load_end
-    .int    _ebss - {offset}                    # bss_end_addr
+    .int    end - {offset}                    # bss_end_addr
     .int    _start - {offset}                   # entry_addr
 
 # Common code in 32-bit, prepare states to enter 64-bit.

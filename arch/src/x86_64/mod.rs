@@ -1,20 +1,19 @@
 mod consts;
 mod context;
-mod entry;
+mod gdt;
 mod idt;
 mod interrupt;
 mod multiboot;
 mod page_table;
 mod pic;
 mod sigtrx;
-mod trap;
 mod uart;
 
 use ::multiboot::information::MemoryType;
 pub use consts::*;
 pub use context::Context;
-pub use entry::switch_to_kernel_page_table;
 pub use interrupt::*;
+pub use multiboot::switch_to_kernel_page_table;
 pub use page_table::*;
 pub use uart::*;
 
@@ -41,6 +40,8 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     allocator::init();
     percpu::init(1);
     percpu::set_local_thread_pointer(0);
+    gdt::init();
+    interrupt::init_syscall();
 
     info!(
         "TEST CPU ID: {}  ptr: {:#x}",

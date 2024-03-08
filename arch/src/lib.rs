@@ -5,6 +5,7 @@
 #![feature(stdsimd)]
 #![feature(const_mut_refs)]
 #![feature(const_slice_from_raw_parts_mut)]
+#![cfg_attr(target_arch = "riscv64", feature(riscv_ext_intrinsics))]
 
 extern crate alloc;
 
@@ -60,7 +61,6 @@ pub trait ContextOps {
     fn syscall_ok(&mut self);
 
     fn set_ret(&mut self, ret: usize);
-    fn clear(&mut self);
     fn set_tls(&mut self, tls: usize);
 }
 

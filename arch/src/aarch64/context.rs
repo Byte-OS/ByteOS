@@ -126,10 +126,6 @@ impl ContextOps for Context {
         self.regs.x2 = ret;
     }
 
-    fn clear(&mut self) {
-        *self = Default::default();
-    }
-
     #[inline]
     fn set_tls(&mut self, tls: usize) {
         self.tpidr = tls
