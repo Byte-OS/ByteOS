@@ -33,7 +33,7 @@ pub fn gen_offset(symbol: &Ident) -> proc_macro2::TokenStream {
                 out(reg) value,
                 VAR = sym #symbol,
             );
-            #[cfg(any(target_arch = "loongarch64"))]
+            #[cfg(target_arch = "loongarch64")]
             ::core::arch::asm!(
                 "la.abs {0}, {VAR}",
                 out(reg) value,
@@ -158,7 +158,7 @@ pub fn gen_read_current_raw(symbol: &Ident, ty: &Type) -> proc_macro2::TokenStre
         { #la64_code }
         #[cfg(target_arch = "x86_64")]
         { #x64_code }
-        #[cfg(not(any(target_arch = "riscv64", target_arch = "x86_64")))]
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64", target_arch = "x86_64")))]
         { *self.current_ptr() }
     })
 }
@@ -240,7 +240,7 @@ pub fn gen_write_current_raw(symbol: &Ident, val: &Ident, ty: &Type) -> proc_mac
         { #la64_code }
         #[cfg(target_arch = "x86_64")]
         { #x64_code }
-        #[cfg(not(any(target_arch = "riscv64", target_arch = "x86_64")))]
+        #[cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64", target_arch = "x86_64")))]
         { *(self.current_ptr() as *mut #ty) = #val }
     })
 }

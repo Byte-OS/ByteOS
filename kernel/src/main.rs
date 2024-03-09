@@ -17,6 +17,8 @@ extern crate logging;
 extern crate alloc;
 #[macro_use]
 extern crate bitflags;
+#[macro_use]
+extern crate log;
 
 mod epoll;
 // mod modules;
@@ -26,15 +28,19 @@ mod syscall;
 mod tasks;
 mod user;
 
-use arch::{enable_irq, ArchInterface, Context, PhysPage, TrapType, VIRT_ADDR_START};
+use arch::{
+    enable_irq, ArchInterface, Context, ContextOps, PhysPage, TrapType, VirtPage, VIRT_ADDR_START,
+};
 use devices::{self, get_int_device};
-use executor::{get_current_task, FileItem};
+use executor::{current_user_task, get_current_task, FileItem};
 use fdt::node::FdtNode;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use fs::get_filesystem;
 use hal;
 use user::user_cow_int;
 use vfscore::{INodeInterface, OpenFlags};
+
+use crate::user::task_ilegal;
 
 struct ArchInterfaceImpl;
 
@@ -49,9 +55,11 @@ impl ArchInterface for ArchInterfaceImpl {
     }
 
     /// Handle kernel interrupt
-    fn kernel_interrupt(_ctx: &mut Context, trap_type: TrapType) {
+    fn kernel_interrupt(cx_ref: &mut Context, trap_type: TrapType) {
         match trap_type {
-            TrapType::StorePageFault(addr) | TrapType::InstructionPageFault(addr) => {
+            TrapType::StorePageFault(addr)
+            | TrapType::InstructionPageFault(addr)
+            | TrapType::LoadPageFault(addr) => {
                 if addr > VIRT_ADDR_START {
                     panic!("kernel error: {:#x}", addr);
                 }
@@ -68,6 +76,40 @@ impl ArchInterface for ArchInterfaceImpl {
                 } else {
                     panic!("page fault: {:?}", trap_type);
                 }
+            }
+            TrapType::IllegalInstruction(addr) => {
+                if addr > VIRT_ADDR_START {
+                    return;
+                }
+                let task = current_user_task();
+                let vpn = VirtPage::from_addr(addr);
+                warn!(
+                    "store/instruction page fault @ {:#x} vpn: {} ppn: {:?}",
+                    addr,
+                    vpn,
+                    task.page_table.virt_to_phys(addr.into()),
+                );
+                warn!("the fault occurs @ {:#x}", cx_ref.sepc());
+                // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
+                warn!(
+                    "mapped ppn addr: {:#x} @ {:?}",
+                    cx_ref.sepc(),
+                    task.page_table.virt_to_phys(cx_ref.sepc().into())
+                );
+                task_ilegal(&task, cx_ref.sepc(), cx_ref);
+                // panic!("illegal Instruction")
+                // let signal = task.tcb.read().signal.clone();
+                // if signal.has_sig(SignalFlags::SIGSEGV) {
+                //     task.exit_with_signal(SignalFlags::SIGSEGV.num());
+                // } else {
+                //     return UserTaskControlFlow::Break
+                // }
+                // current_user_task()
+                //     .tcb
+                //     .write()
+                //     .signal
+                //     .add_signal(SignalFlags::SIGSEGV);
+                // return UserTaskControlFlow::Break;
             }
             TrapType::SupervisorExternal => {
                 get_int_device().try_handle_interrupt(u32::MAX);

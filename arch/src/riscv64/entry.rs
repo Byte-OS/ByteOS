@@ -3,11 +3,6 @@ use core::arch::riscv64::sfence_vma_all;
 use crate::VIRT_ADDR_START;
 use crate::{PTEFlags, PAGE_ITEM_COUNT, PTE};
 
-const STACK_SIZE: usize = 0x80000;
-
-#[link_section = ".bss.stack"]
-static mut STACK: [u8; STACK_SIZE] = [0u8; STACK_SIZE];
-
 #[link_section = ".data.prepage.entry"]
 static mut PAGE_TABLE: [PTE; PAGE_ITEM_COUNT] = {
     let mut arr: [PTE; PAGE_ITEM_COUNT] = [PTE::new(); PAGE_ITEM_COUNT];
@@ -61,8 +56,8 @@ unsafe extern "C" fn _start() -> ! {
             or      a2, a2, s0
             jalr    a2                      // call rust_main
         ",
-        stack_size = const STACK_SIZE,
-        boot_stack = sym STACK,
+        stack_size = const crate::STACK_SIZE,
+        boot_stack = sym crate::BOOT_STACK,
         page_table = sym PAGE_TABLE,
         virt_addr_start = const VIRT_ADDR_START,
         options(noreturn),
