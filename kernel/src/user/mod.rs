@@ -2,8 +2,7 @@ use core::pin::Pin;
 
 use ::signal::SignalFlags;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use arch::{get_time, trap_pre_handle, user_restore, Context, ContextOps, MappingFlags, VirtPage};
-use devices::get_int_device;
+use arch::{get_time, run_user_task, Context, ContextOps, MappingFlags, VirtPage};
 use executor::{AsyncTask, MapTrack, TaskId, UserTask};
 use frame_allocator::frame_alloc;
 use futures_lite::Future;
@@ -82,88 +81,49 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
 
 impl UserTaskContainer {
     /// Handle user interrupt.
-    pub async fn handle_user_interrupt(&self, cx_ref: &mut Context) -> UserTaskControlFlow {
-        let ustart = 0;
-        user_restore(cx_ref);
-        self.task
-            .inner_map(|inner| inner.tms.utime += (get_time() - ustart) as u64);
+    pub async fn handle_syscall(&self, cx_ref: &mut Context) -> UserTaskControlFlow {
+        let ustart = get_time();
+        if let Some(()) = run_user_task(cx_ref) {
+            self.task
+                .inner_map(|inner| inner.tms.utime += (get_time() - ustart) as u64);
 
-        let sstart = 0;
-        let trap_type = trap_pre_handle(cx_ref);
-        match trap_type {
-            arch::TrapType::Breakpoint => {}
-            arch::TrapType::UserEnvCall => {
-                // if it is sigreturn then break the control flow.
-                if cx_ref.syscall_number() == SYS_SIGRETURN {
-                    return UserTaskControlFlow::Break;
-                }
+            let sstart = get_time();
+            if cx_ref.syscall_number() == SYS_SIGRETURN {
+                return UserTaskControlFlow::Break;
+            }
 
-                debug!("syscall num: {}", cx_ref.syscall_number());
-                // sepc += 4, let it can go to next command.
-                cx_ref.syscall_ok();
-                let result =
-                    self.syscall(cx_ref.syscall_number(), cx_ref.args())
-                        .await
-                        .map_or_else(|e| -e.code(), |x| x as isize) as usize;
+            debug!("syscall num: {}", cx_ref.syscall_number());
+            // sepc += 4, let it can go to next command.
+            cx_ref.syscall_ok();
+            let result = self
+                .syscall(cx_ref.syscall_number(), cx_ref.args())
+                .await
+                .map_or_else(|e| -e.code(), |x| x as isize) as usize;
 
-                debug!(
-                    "[task {}] syscall result: {}",
-                    self.task.get_task_id(),
-                    result as isize
-                );
+            debug!(
+                "[task {}] syscall result: {}",
+                self.task.get_task_id(),
+                result as isize
+            );
 
-                cx_ref.set_ret(result);
-            }
-            arch::TrapType::Time => {
-                // debug!("time interrupt from user");
-            }
-            arch::TrapType::Unknown => {
-                debug!("unknown trap: {:#x?}", cx_ref);
-                panic!("");
-            }
-            arch::TrapType::SupervisorExternal => {
-                get_int_device().try_handle_interrupt(u32::MAX);
-            }
-            arch::TrapType::IllegalInstruction(addr) => {
-                let vpn = VirtPage::from_addr(addr);
-                warn!(
-                    "store/instruction page fault @ {:#x} vpn: {} ppn: {:?}",
-                    addr,
-                    vpn,
-                    self.task.page_table.virt_to_phys(addr.into()),
-                );
-                warn!("the fault occurs @ {:#x}", cx_ref.sepc());
-                // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
-                warn!(
-                    "mapped ppn addr: {:#x} @ {:?}",
-                    cx_ref.sepc(),
-                    self.task.page_table.virt_to_phys(cx_ref.sepc().into())
-                );
-
-                task_ilegal(&self.task, cx_ref.sepc(), cx_ref);
-                // panic!("illegal Instruction")
-                // let signal = task.tcb.read().signal.clone();
-                // if signal.has_sig(SignalFlags::SIGSEGV) {
-                //     task.exit_with_signal(SignalFlags::SIGSEGV.num());
-                // } else {
-                //     return UserTaskControlFlow::Break
-                // }
-                // current_user_task()
-                //     .tcb
-                //     .write()
-                //     .signal
-                //     .add_signal(SignalFlags::SIGSEGV);
-                // return UserTaskControlFlow::Break;
-            }
-            arch::TrapType::StorePageFault(addr)
-            | arch::TrapType::InstructionPageFault(addr)
-            | arch::TrapType::LoadPageFault(addr) => {
-                debug!("store page fault: {:#x}", addr);
-                user_cow_int(self.task.clone(), cx_ref, addr)
-            }
+            cx_ref.set_ret(result);
+            self.task
+                .inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
         }
-        self.task
-            .inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
+
+        // let trap_type = trap_pre_handle(cx_ref);
+        // match trap_type {
+        //     arch::TrapType::Time => {
+        //         // debug!("time interrupt from user");
+        //     }
+        //     arch::TrapType::Unknown => {
+        //         debug!("unknown trap: {:#x?}", cx_ref);
+        //         panic!("");
+        //     }
+        //     arch::TrapType::SupervisorExternal => {
+        //         get_int_device().try_handle_interrupt(u32::MAX);
+        //     }
+        // }
         UserTaskControlFlow::Continue
     }
 }

@@ -13,9 +13,7 @@ pub use consts::*;
 pub use context::*;
 pub use entry::switch_to_kernel_page_table;
 use fdt::Fdt;
-pub use interrupt::{
-    enable_external_irq, enable_irq, init_interrupt, trap_pre_handle, user_restore,
-};
+pub use interrupt::{enable_external_irq, enable_irq, init_interrupt, run_user_task};
 pub use page_table::*;
 pub use sbi::*;
 pub use timer::*;
@@ -31,10 +29,12 @@ extern "C" fn rust_main(hartid: usize, device_tree: usize) {
     // Init allocator
     allocator::init();
 
+    percpu::init(1);
+    percpu::set_local_thread_pointer(hartid);
+
     let (hartid, device_tree) = boards::init_device(hartid, device_tree);
 
     let mut dt_buf = Vec::new();
-
     if device_tree != 0 {
         let fdt = unsafe { Fdt::from_ptr(device_tree as *const u8).unwrap() };
 

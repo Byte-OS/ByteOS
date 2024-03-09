@@ -19,6 +19,8 @@ mod api;
 #[cfg(target_arch = "riscv64")]
 mod riscv64;
 
+use core::mem::size_of;
+
 use alloc::vec::Vec;
 #[cfg(target_arch = "riscv64")]
 pub use riscv64::*;
@@ -64,7 +66,7 @@ pub trait ContextOps {
     fn set_tls(&mut self, tls: usize);
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum TrapType {
     Breakpoint,
     UserEnvCall,
@@ -84,6 +86,7 @@ pub enum MapPageSize {
 }
 
 const STACK_SIZE: usize = 0x80000;
+const CONTEXT_SIZE: usize = size_of::<Context>();
 
 #[link_section = ".bss.stack"]
 static mut BOOT_STACK: [u8; STACK_SIZE] = [0; STACK_SIZE];

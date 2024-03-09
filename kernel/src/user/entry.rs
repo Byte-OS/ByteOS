@@ -85,7 +85,7 @@ impl UserTaskContainer {
                 cx_ref.sepc()
             );
 
-            let res = future::or(self.handle_user_interrupt(cx_ref), async {
+            let res = future::or(self.handle_syscall(cx_ref), async {
                 loop {
                     check_signal().await;
 

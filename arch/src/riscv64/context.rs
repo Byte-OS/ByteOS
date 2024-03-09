@@ -6,10 +6,10 @@ use crate::ContextOps;
 #[derive(Debug, Clone)]
 // 上下文
 pub struct Context {
-    pub x: [usize; 32], // 32 个通用寄存器
-    pub sstatus: Sstatus,
-    pub sepc: usize,
-    pub fsx: [usize; 2],
+    pub(crate) x: [usize; 32], // 32 个通用寄存器
+    pub(crate) sstatus: Sstatus,
+    pub(crate) sepc: usize,
+    pub(crate) fsx: [usize; 2],
 }
 
 impl Context {

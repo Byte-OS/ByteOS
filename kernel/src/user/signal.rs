@@ -97,7 +97,7 @@ impl UserTaskContainer {
                 cx_ref.sepc()
             );
 
-            if let UserTaskControlFlow::Break = self.handle_user_interrupt(cx_ref).await {
+            if let UserTaskControlFlow::Break = self.handle_syscall(cx_ref).await {
                 break;
             }
         }
