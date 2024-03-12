@@ -91,6 +91,7 @@ bsp_entry64:
 .Ltmp_gdt_end:
 
 .balign 4096
+.global kernel_page_table
 kernel_page_table:
     # 0x0000_0000 ~ 0xffff_ffff
     .quad kernel_mapping_pdpt - {offset} + 0x3   # PRESENT | WRITABLE | paddr(tmp_pdpt)

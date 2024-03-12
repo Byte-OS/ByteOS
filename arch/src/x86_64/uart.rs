@@ -1,12 +1,12 @@
 //! Uart 16550.
 
-use spin::Mutex;
+use irq_safety::MutexIrqSafe;
 use x86_64::instructions::port::{Port, PortReadOnly, PortWriteOnly};
 
 const UART_CLOCK_FACTOR: usize = 16;
 const OSC_FREQ: usize = 1_843_200;
 
-static COM1: Mutex<Uart16550> = Mutex::new(Uart16550::new(0x3f8));
+static COM1: MutexIrqSafe<Uart16550> = MutexIrqSafe::new(Uart16550::new(0x3f8));
 
 bitflags::bitflags! {
     /// Line status flags
@@ -90,12 +90,8 @@ pub fn console_putchar(c: u8) {
     COM1.lock().putchar(c);
 }
 
-pub fn console_getchar() -> char {
-    loop {
-        if let Some(c) = COM1.lock().getchar() {
-            return c as char;
-        }
-    }
+pub fn console_getchar() -> Option<u8> {
+    COM1.lock().getchar()
 }
 
 pub fn init_early() {

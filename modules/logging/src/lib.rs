@@ -1,6 +1,6 @@
 #![no_std]
 
-use arch::console_putchar;
+use arch::{console_getchar, console_putchar};
 use core::fmt::{self, Write};
 use devices::MAIN_UART;
 
@@ -95,5 +95,13 @@ pub fn puts(buffer: &[u8]) {
         for i in buffer {
             console_putchar(*i);
         }
+    }
+}
+
+pub fn get_char() -> Option<u8> {
+    if let Some(uart) = MAIN_UART.try_get() {
+        uart.get()
+    } else {
+        console_getchar()
     }
 }

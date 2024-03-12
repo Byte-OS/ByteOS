@@ -23,7 +23,10 @@ riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
 x86 = "0.52"
 x86_64 = "0.14"
 spin = { version = "0.9.8", features = ["mutex"] }
+irq_safety = { git = "https://github.com/theseus-os/irq_safety.git"}
 multiboot = "0.8.0"
+x2apic = "0.4"
+raw-cpuid = "11.0"
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "9.3"

@@ -198,6 +198,7 @@ impl TimeSpec {
 
 #[repr(C)]
 #[derive(Debug)]
+#[cfg(not(target_arch = "x86_64"))]
 pub struct Stat {
     pub dev: u64,        // 设备号
     pub ino: u64,        // inode
@@ -207,6 +208,27 @@ pub struct Stat {
     pub gid: u32,        // 文件gid
     pub rdev: u64,       // 文件rdev
     pub __pad: u64,      // 保留
+    pub size: u64,       // 文件大小
+    pub blksize: u32,    // 占用块大小
+    pub __pad2: u32,     // 保留
+    pub blocks: u64,     // 占用块数量
+    pub atime: TimeSpec, // 最后访问时间
+    pub mtime: TimeSpec, // 最后修改时间
+    pub ctime: TimeSpec, // 最后创建时间
+}
+
+#[repr(C)]
+#[derive(Debug)]
+#[cfg(target_arch = "x86_64")]
+pub struct Stat {
+    pub dev: u64,       // 设备号
+    pub ino: u64,       // inode
+    pub nlink: u64,     // 文件links
+    pub mode: StatMode, // 设备mode
+    pub uid: u32,       // 文件uid
+    pub gid: u32,       // 文件gid
+    pub _pad0: u32,
+    pub rdev: u64,       // 文件rdev
     pub size: u64,       // 文件大小
     pub blksize: u32,    // 占用块大小
     pub __pad2: u32,     // 保留

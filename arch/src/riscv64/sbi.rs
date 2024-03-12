@@ -41,8 +41,13 @@ pub fn console_putchar(ch: u8) {
 
 /// 获取输入
 #[inline]
-pub fn console_getchar() -> char {
-    sbi_call(SBI_CONSOLE_GET_CHAR, 0, 0, 0) as u8 as char
+pub fn console_getchar() -> Option<u8> {
+    let c = sbi_call(SBI_CONSOLE_GET_CHAR, 0, 0, 0) as u8;
+    if c == u8::MAX {
+        None
+    } else {
+        Some(c)
+    }
 }
 
 /// 调用 SBI_SHUTDOWN 来关闭操作系统（直接退出 QEMU）

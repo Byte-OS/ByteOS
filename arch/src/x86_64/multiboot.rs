@@ -23,7 +23,11 @@ const CR0: u64 = Cr0Flags::PROTECTED_MODE_ENABLE.bits()
     | Cr0Flags::NUMERIC_ERROR.bits()
     | Cr0Flags::WRITE_PROTECT.bits()
     | Cr0Flags::PAGING.bits();
-const CR4: u64 = Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits() | Cr4Flags::PAGE_GLOBAL.bits();
+
+const CR4: u64 = Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits()
+    | Cr4Flags::PAGE_GLOBAL.bits()
+    | Cr4Flags::OSFXSR.bits()
+    | Cr4Flags::OSXMMEXCPT_ENABLE.bits();
 const EFER: u64 = EferFlags::LONG_MODE_ENABLE.bits() | EferFlags::NO_EXECUTE_ENABLE.bits();
 
 static mut MEM: Mem = Mem;
@@ -70,13 +74,13 @@ global_asm!(
     efer = const EFER,
 );
 
+#[no_mangle]
 pub fn switch_to_kernel_page_table() {
     unsafe {
         core::arch::asm!(
             "
-                .code32
-                lea     eax, [kernel_page_table - {offset}]
-                mov     cr3, eax
+                lea     rax, [kernel_page_table - {offset}]
+                mov     cr3, rax
             ", 
             offset = const VIRT_ADDR_START
         );

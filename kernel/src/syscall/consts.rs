@@ -4,8 +4,9 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
-use arch::{MappingFlags, VirtAddr};
+use arch::{Context, MappingFlags, VirtAddr};
 use bitflags::bitflags;
+use cfg_if::cfg_if;
 use fs::VfsError;
 use hal::TimeVal;
 use num_derive::FromPrimitive;
@@ -184,7 +185,7 @@ pub fn from_vfs(vfs_error: VfsError) -> LinuxError {
 
 // 中断调用列表
 cfg_if::cfg_if! {
-    if #[cfg(any(target_arch = "riscv64", target_arch = "aarch64", target_arch = "loongarch64", target_arch="x86_64"))] {
+    if #[cfg(any(target_arch = "riscv64", target_arch = "aarch64", target_arch = "loongarch64"))] {
         pub const SYS_GETCWD: usize = 17;
         pub const SYS_EPOLL_CREATE: usize = 20;
         pub const SYS_EPOLL_CTL: usize = 21;
@@ -290,7 +291,123 @@ cfg_if::cfg_if! {
         pub const SYS_GETRANDOM: usize = 278;
         pub const SYS_COPY_FILE_RANGE: usize = 285;
         pub const SYS_FACCESSAT2: usize = 439;
+    } else if #[cfg(target_arch = "x86_64")] {
+        pub const SYS_OPEN: usize = 2;
+        pub const SYS_GETCWD: usize = 79;
+        pub const SYS_EPOLL_CREATE: usize = 213;
+        pub const SYS_EPOLL_CTL: usize = 233;
+        pub const SYS_EPOLL_WAIT: usize = 232;
+        pub const SYS_DUP: usize = 32;
+        pub const SYS_DUP2: usize = 33;
+        pub const SYS_FORK: usize = 57;
+        pub const SYS_DUP3: usize = 292;
+        pub const SYS_FCNTL: usize = 72;
+        pub const SYS_IOCTL: usize = 16;
+        pub const SYS_MKDIRAT: usize = 258;
+        pub const SYS_UNLINK: usize = 87;
+        pub const SYS_STAT: usize = 4;
+        pub const SYS_LSTAT: usize = 6;
+        pub const SYS_POLL: usize = 7;
+        pub const SYS_UNLINKAT: usize = 263;
+        pub const SYS_UMOUNT2: usize = 166;
+        pub const SYS_MOUNT: usize = 165;
+        pub const SYS_STATFS: usize = 137;
+        pub const SYS_FTRUNCATE: usize = 77;
+        pub const SYS_FACCESSAT: usize = 269;
+        pub const SYS_CHDIR: usize = 80;
+        pub const SYS_OPENAT: usize = 257;
+        pub const SYS_CLOSE: usize = 3;
+        pub const SYS_PIPE2: usize = 293;
+        pub const SYS_PIPE: usize = 22;
+        pub const SYS_GETDENTS: usize = 217;
+        pub const SYS_LSEEK: usize = 8;
+        pub const SYS_READ: usize = 0;
+        pub const SYS_WRITE: usize = 1;
+        pub const SYS_READV: usize = 19;
+        pub const SYS_WRITEV: usize = 20;
+        pub const SYS_PREAD: usize = 17;
+        pub const SYS_PWRITE: usize = 18;
+        pub const SYS_SENDFILE: usize = 40;
+        pub const SYS_PSELECT: usize = 270;
+        pub const SYS_PPOLL: usize = 271;
+        pub const SYS_READLINKAT: usize = 267;
+        pub const SYS_FSTATAT: usize = 262;
+        pub const SYS_FSTAT: usize = 5;
+        pub const SYS_FSYNC: usize = 74;
+        pub const SYS_UTIMEAT: usize = 280;
+        pub const SYS_EXIT: usize = 60;
+        pub const SYS_EXIT_GROUP: usize = 231;
+        pub const SYS_SET_TID_ADDRESS: usize = 218;
+        pub const SYS_FUTEX: usize = 202;
+        pub const SYS_SET_ROBUST_LIST: usize = 273;
+        pub const SYS_GET_ROBUST_LIST: usize = 274;
+        pub const SYS_NANOSLEEP: usize = 35;
+        pub const SYS_SETITIMER: usize = 38;
+        pub const SYS_GETTIME: usize = 228;
+        pub const SYS_CLOCK_GETRES: usize = 229;
+        pub const SYS_CLOCK_NANOSLEEP: usize = 230;
+        pub const SYS_KLOGCTL: usize = 103;
+        pub const SYS_SCHED_SETSCHEDULER: usize = 144;
+        pub const SYS_SCHED_GETSCHEDULER: usize = 145;
+        pub const SYS_SCHED_GETPARAM: usize = 143;
+        pub const SYS_SCHED_SETAFFINITY: usize = 203;
+        pub const SYS_SCHED_GETAFFINITY: usize = 204;
+        pub const SYS_SCHED_YIELD: usize = 24;
+        pub const SYS_KILL: usize = 62;
+        pub const SYS_TKILL: usize = 200;
+        pub const SYS_TGKILL: usize = 234;
+        pub const SYS_SIGSUSPEND: usize = 130;
+        pub const SYS_SIGACTION: usize = 13;
+        pub const SYS_SIGPROCMASK: usize = 14;
+        pub const SYS_SIGTIMEDWAIT: usize = 128;
+        pub const SYS_SIGRETURN: usize = 15;
+        pub const SYS_TIMES: usize = 100;
+        pub const SYS_SETPGID: usize = 109;
+        pub const SYS_GETPGID: usize = 121;
+        pub const SYS_SETSID: usize = 112;
+        pub const SYS_ARCH_PRCTL: usize = 158;
+        pub const SYS_UNAME: usize = 63;
+        pub const SYS_GETRUSAGE: usize = 98;
+        pub const SYS_GETTIMEOFDAY: usize = 96;
+        pub const SYS_GETPID: usize = 39;
+        pub const SYS_GETPPID: usize = 110;
+        pub const SYS_GETUID: usize = 102;
+        pub const SYS_GETEUID: usize = 107;
+        pub const SYS_GETGID: usize = 104;
+        pub const SYS_GETEGID: usize = 108;
+        pub const SYS_GETTID: usize = 186;
+        pub const SYS_SYSINFO: usize = 99;
+        pub const SYS_SHMGET: usize = 29;
+        pub const SYS_SHMCTL: usize = 31;
+        pub const SYS_SHMAT: usize = 30;
+        pub const SYS_SOCKET: usize = 41;
+        pub const SYS_SOCKETPAIR: usize = 53;
+        pub const SYS_BIND: usize = 49;
+        pub const SYS_LISTEN: usize = 50;
+        pub const SYS_ACCEPT: usize = 43;
+        pub const SYS_CONNECT: usize = 42;
+        pub const SYS_GETSOCKNAME: usize = 51;
+        pub const SYS_GETPEERNAME: usize = 52;
+        pub const SYS_SENDTO: usize = 44;
+        pub const SYS_RECVFROM: usize = 45;
+        pub const SYS_SETSOCKOPT: usize = 54;
+        pub const SYS_GETSOCKOPT: usize = 55;
+        pub const SYS_SHUTDOWN: usize = 48;
+        pub const SYS_BRK: usize = 12;
+        pub const SYS_CLONE: usize = 56;
+        pub const SYS_EXECVE: usize = 59;
+        pub const SYS_MMAP: usize = 9;
+        pub const SYS_MPROTECT: usize = 10;
+        pub const SYS_MSYNC: usize = 26;
+        pub const SYS_MUNMAP: usize = 11;
+        pub const SYS_ACCEPT4: usize = 288;
+        pub const SYS_WAIT4: usize = 61;
+        pub const SYS_PRLIMIT64: usize = 302;
+        pub const SYS_GETRANDOM: usize = 318;
+        pub const SYS_COPY_FILE_RANGE: usize = 326;
+        pub const SYS_FACCESSAT2: usize = 439;
     }
+
 }
 
 pub const AT_CWD: usize = -100 as isize as usize;
@@ -497,6 +614,16 @@ pub enum FcntlCmd {
     DUPFDCLOEXEC = 0x406,
 }
 
+#[repr(usize)]
+#[derive(Debug, Clone, FromPrimitive)]
+#[allow(non_camel_case_types)]
+pub enum ArchPrctlCode {
+    ARCH_SET_GS = 0x1001,
+    ARCH_SET_FS = 0x1002,
+    ARCH_GET_FS = 0x1003,
+    ARCH_GET_GS = 0x1004,
+}
+
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct Rlimit {
@@ -507,7 +634,7 @@ pub struct Rlimit {
 pub const RLIMIT_NOFILE: usize = 7;
 
 bitflags! {
-    #[derive(Clone)]
+    #[derive(Debug, Clone)]
     pub struct SignalStackFlags : u32 {
         const ONSTACK = 1;
         const DISABLE = 2;
@@ -516,25 +643,108 @@ bitflags! {
 }
 
 #[repr(C)]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SignalStack {
     pub sp: usize,
     pub flags: SignalStackFlags,
     pub size: usize,
 }
 
-#[repr(C)]
-#[derive(Clone)]
-pub struct SignalUserContext {
-    pub flags: usize,          // 0
-    pub link: usize,           // 1
-    pub stack: SignalStack,    // 2
-    pub sig_mask: SigProcMask, // 5
-    pub _pad: [u64; 16],
-    // pub context: Context,       // pc offset = 22 - 6=16
-    pub pc: usize,
-    pub reserved: [usize; 17],
-    pub fpstate: [usize; 66],
+cfg_if! {
+    if #[cfg(target_arch = "x86_64")] {
+        #[repr(C)]
+        #[derive(Debug, Clone)]
+        pub struct SignalUserContext {
+            pub flags: usize,          // 0
+            pub link: usize,           // 1
+            pub stack: SignalStack,    // 2
+            pub gregs: [usize; 32],
+            pub sig_mask: SigProcMask, // sigmask
+            pub _pad: [u64; 16],       // sigmask extend
+            pub __fpregs_mem: [u64; 64]
+        }
+
+        impl SignalUserContext {
+            pub fn pc(&self) -> usize {
+                self.gregs[16]
+            }
+
+            pub fn set_pc(&mut self, v: usize) {
+                self.gregs[16] = v;
+            }
+
+            pub fn store_ctx(&mut self, ctx: &Context) {
+                self.gregs[0] = ctx.r8;
+                self.gregs[1] = ctx.r9;
+                self.gregs[2] = ctx.r10;
+                self.gregs[3] = ctx.r11;
+                self.gregs[4] = ctx.r12;
+                self.gregs[5] = ctx.r13;
+                self.gregs[6] = ctx.r14;
+                self.gregs[7] = ctx.r15;
+                self.gregs[8] = ctx.rdi;
+                self.gregs[9] = ctx.rsi;
+                self.gregs[10] = ctx.rbp;
+                self.gregs[11] = ctx.rbx;
+                self.gregs[12] = ctx.rdx;
+                self.gregs[13] = ctx.rax;
+                self.gregs[14] = ctx.rcx;
+                self.gregs[15] = ctx.rsp;
+                self.gregs[16] = ctx.rip;
+            }
+
+            pub fn restore_ctx(&self, ctx: &mut Context) {
+                ctx.r8  = self.gregs[0];
+                ctx.r9  = self.gregs[1];
+                ctx.r10 = self.gregs[2];
+                ctx.r11 = self.gregs[3];
+                ctx.r12 = self.gregs[4];
+                ctx.r13 = self.gregs[5];
+                ctx.r14 = self.gregs[6];
+                ctx.r15 = self.gregs[7];
+                ctx.rdi = self.gregs[8];
+                ctx.rsi = self.gregs[9];
+                ctx.rbp = self.gregs[10];
+                ctx.rbx = self.gregs[11];
+                ctx.rdx = self.gregs[12];
+                ctx.rax = self.gregs[13];
+                ctx.rcx = self.gregs[14];
+                ctx.rsp = self.gregs[15];
+                ctx.rip = self.gregs[16];
+            }
+        }
+    } else if #[cfg(target_arch = "riscv64")] {
+        #[repr(C)]
+        #[derive(Debug, Clone)]
+        pub struct SignalUserContext {
+            pub flags: usize,          // 0
+            pub link: usize,           // 1
+            pub stack: SignalStack,    // 2
+            pub sig_mask: SigProcMask, // 5
+            pub _pad: [u64; 16],       // mask
+            // pub context: Context,       // pc offset = 22 - 6=16
+            pub gregs: [usize; 32],
+            pub fpstate: [usize; 66],
+        }
+
+        impl SignalUserContext {
+            pub fn pc(&self) -> usize {
+                self.gregs[0]
+            }
+
+            pub fn set_pc(&mut self, v: usize) {
+                self.gregs[0] = v;
+            }
+
+            pub fn store_ctx(&mut self, ctx: &Context) {
+                self.gregs = ctx.x;
+            }
+
+            pub fn restore_ctx(&self, ctx: &mut Context) {
+                ctx.x = self.gregs;
+            }
+        }
+    }
 }
 
 #[repr(C)]

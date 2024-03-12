@@ -3,10 +3,10 @@ use x86::bits64::paging::{
     pd_index, pdpt_index, pml4_index, pt_index, PDEntry, PDFlags, PDPTEntry, PDPTFlags, PML4Entry,
     PML4Flags, PTEntry, PTFlags, PAGE_SIZE_ENTRIES,
 };
-use x86_64::instructions::tlb::flush_all;
 
 use crate::{
-    ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_SIZE, VIRT_ADDR_START,
+    flush_tlb, ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
+    VIRT_ADDR_START,
 };
 
 impl From<MappingFlags> for PTFlags {
@@ -18,12 +18,12 @@ impl From<MappingFlags> for PTFlags {
         if flags.contains(MappingFlags::U) {
             res |= Self::US;
         }
-        // if flags.contains(MappingFlags::A) {
-        //     res |= Self::A;
-        // }
-        // if flags.contains(MappingFlags::D) {
-        //     res |= Self::D;
-        // }
+        if flags.contains(MappingFlags::A) {
+            res |= Self::A;
+        }
+        if flags.contains(MappingFlags::D) {
+            res |= Self::D;
+        }
         if flags.contains(MappingFlags::X) {
             res.remove(Self::XD);
         }
@@ -54,9 +54,7 @@ impl PageTable {
     #[inline]
     pub fn change(&self) {
         unsafe {
-            debug!("page_table: {:#x}", self.0 .0);
             core::arch::asm!("mov     cr3, {}", in(reg) self.0.0);
-            flush_all();
         }
     }
 
@@ -102,11 +100,13 @@ impl PageTable {
     #[inline]
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
         *self.get_entry(vpn) = PTEntry::new(ppn.to_addr().into(), flags.into());
+        flush_tlb(Some(vpn.into()))
     }
 
     #[inline]
     pub fn unmap(&self, vpn: VirtPage) {
         *self.get_entry(vpn) = PTEntry(0);
+        flush_tlb(Some(vpn.into()))
     }
 
     #[inline]
@@ -119,14 +119,38 @@ impl PageTable {
 
 impl Drop for PageTable {
     fn drop(&mut self) {
-        todo!("PageTable Drop")
-        // for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
-        //     get_pte_list(root_pte.to_ppn().into())
-        //         .iter()
-        //         .filter(|x| x.is_leaf())
-        //         .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
-        //     ArchInterface::frame_unalloc(root_pte.to_ppn());
-        // }
-        // ArchInterface::frame_unalloc(self.0.into());
+        let drop_pd = |pd_entry: &PDEntry| {
+            if !pd_entry.is_present() || pd_entry.is_page() {
+                return;
+            }
+            ArchInterface::frame_unalloc(PhysPage::from_addr(pd_entry.address().as_usize()));
+        };
+
+        let drop_pdpt = |pdpt_entry: &PDPTEntry| {
+            if !pdpt_entry.is_present() || pdpt_entry.is_page() {
+                return;
+            }
+            PhysAddr::new(pdpt_entry.address().as_usize())
+                .slice_mut_with_len::<PDEntry>(PAGE_SIZE_ENTRIES)
+                .iter()
+                .for_each(drop_pd);
+            ArchInterface::frame_unalloc(PhysPage::from_addr(pdpt_entry.address().as_usize()));
+        };
+
+        let drop_pml4 = |pml4_entry: &PML4Entry| {
+            if !pml4_entry.is_present() {
+                return;
+            }
+            PhysAddr::new(pml4_entry.address().as_usize())
+                .slice_mut_with_len::<PDPTEntry>(PAGE_SIZE_ENTRIES)
+                .iter()
+                .for_each(drop_pdpt);
+            ArchInterface::frame_unalloc(PhysPage::from_addr(pml4_entry.address().as_usize()));
+        };
+
+        self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES)[..100]
+            .iter()
+            .for_each(drop_pml4);
+        ArchInterface::frame_unalloc(self.0.into());
     }
 }

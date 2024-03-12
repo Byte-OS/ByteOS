@@ -1,6 +1,6 @@
 use core::fmt;
 
-use spin::once::Once;
+use spin::Once;
 use x86_64::instructions::tables::{lgdt, load_tss};
 use x86_64::registers::segmentation::{Segment, SegmentSelector, CS};
 use x86_64::structures::gdt::{Descriptor, DescriptorFlags};
@@ -12,9 +12,6 @@ pub(super) static GDT: Once<GdtStruct> = Once::new();
 
 #[percpu::def_percpu]
 pub(super) static TSS: Once<TaskStateSegment> = Once::new();
-
-#[percpu::def_percpu]
-pub(super) static PERCPU_KERNEL_STACK: [u8; 0x1000] = [0u8; 0x1000];
 
 /// A wrapper of the Global Descriptor Table (GDT) with maximum 16 entries.
 #[repr(align(16))]
@@ -107,9 +104,14 @@ pub fn init() {
         let gdt = gdt.get_unchecked();
         gdt.load();
         gdt.load_tss();
+    }
+}
 
+#[inline]
+pub fn set_tss_kernel_sp(addr: usize) {
+    unsafe {
         TSS.with_current(|tss| {
-            tss.get_mut_unchecked().privilege_stack_table[0] = VirtAddr::from_ptr(PERCPU_KERNEL_STACK.current_ptr());
+            tss.get_mut_unchecked().privilege_stack_table[0] = VirtAddr::new(addr as _);
         });
     }
 }

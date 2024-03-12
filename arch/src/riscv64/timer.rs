@@ -9,11 +9,6 @@ const USEC_PER_SEC: usize = 1000_000;
 const NSEC_PER_SEC: usize = 1000_000_000;
 
 #[inline]
-pub fn get_time_ms() -> usize {
-    time::read() / (CLOCK_FREQ / MSEC_PER_SEC)
-}
-
-#[inline]
 pub fn get_time() -> usize {
     time::read()
 }

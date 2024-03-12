@@ -19,7 +19,6 @@
 .endm
 
 .section .text
-.global trap_from_user
 .code64
 _trap_handlers:
 .set i, 0
@@ -29,43 +28,9 @@ _trap_handlers:
 .endr
 
 .Ltrap_common:
-    test    byte ptr [rsp + 3 * 8], 3   # swap GS if it comes from user space
-    jnz      trap_from_user
+    test    byte ptr [rsp + 3 * 8], 3
+    jnz     uservec
     jmp     kernelvec
-
-trap_from_user:
-    push    r15
-    push    r14
-    push    r13
-    push    r12
-    push    r11
-    push    r10
-    push    r9
-    push    r8
-    push    rdi
-    push    rsi
-    push    rbp
-    push    rbx
-    push    rdx
-    push    rcx
-    push    rax
-    
-    swapgs
-
-    mov    rsp, gs:[offset __PERCPU_KERNEL_RSP]  // kernel rsp
-
-    pop rcx
-    mov ss, rcx
-    pop rax
-    mov cs, rax
-    pop r15
-    pop r14
-    pop r13
-    pop r12
-    pop rbx
-    pop rbp
-
-    ret
 
 .section .rodata
 .global trap_handler_table

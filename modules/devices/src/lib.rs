@@ -53,8 +53,8 @@ pub fn get_int_device() -> Arc<dyn IntDriver> {
 }
 
 #[inline]
-pub fn get_main_uart() -> Arc<dyn UartDriver> {
-    MAIN_UART.try_get().expect("can't find main uart").clone()
+pub fn get_main_uart() -> Option<Arc<dyn UartDriver>> {
+    MAIN_UART.try_get().cloned()
 }
 
 #[inline]

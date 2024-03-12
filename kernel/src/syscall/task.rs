@@ -478,6 +478,12 @@ impl UserTaskContainer {
         Ok(new_task.task_id)
     }
 
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_fork(&self) -> SysResult {
+        warn!("transfer syscall_fork to syscall_clone");
+        self.sys_clone(0x11, 0, 0.into(), 0, 0.into()).await
+    }
+
     pub async fn sys_wait4(
         &self,
         pid: isize,           // 指定进程ID，可为-1等待任何子进程；

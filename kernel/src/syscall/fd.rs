@@ -45,6 +45,11 @@ impl UserTaskContainer {
         Ok(fd_dst)
     }
 
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_dup2(&self, fd_src: usize, fd_dst: usize) -> SysResult {
+        self.sys_dup3(fd_src, fd_dst).await
+    }
+
     pub async fn sys_read(&self, fd: usize, buf_ptr: UserRef<u8>, count: usize) -> SysResult {
         debug!(
             "[task {}] sys_read @ fd: {} buf_ptr: {:?} count: {}",
@@ -138,6 +143,11 @@ impl UserTaskContainer {
         Ok(0)
     }
 
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_unlink(&self, path: UserRef<i8>) -> SysResult {
+        self.sys_unlinkat(AT_CWD, path, 0).await
+    }
+
     pub async fn sys_unlinkat(&self, dir_fd: usize, path: UserRef<i8>, flags: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
         debug!(
@@ -183,6 +193,12 @@ impl UserTaskContainer {
         self.task.set_fd(fd, file);
         debug!("sys_openat @ ret fd: {}", fd);
         Ok(fd)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_open(&self, path: UserRef<i8>, flags: usize, mode: usize) -> SysResult {
+        // syscall_openat(axprocess::link::AT_FDCWD, path, flags, mode)
+        self.sys_openat(AT_CWD, path, flags, mode).await
     }
 
     pub async fn sys_faccess_at(
@@ -244,8 +260,19 @@ impl UserTaskContainer {
             .node
             .stat(stat)
             .map_err(from_vfs)?;
+        debug!("stat: {:#x?}", stat);
         stat.mode |= StatMode::OWNER_MASK | StatMode::GROUP_MASK | StatMode::OTHER_MASK;
         Ok(0)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_stat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
+        self.sys_fstatat(AT_CWD, path, stat_ptr).await
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_lstat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
+        self.sys_fstatat(AT_CWD, path, stat_ptr).await
     }
 
     pub async fn sys_statfs(
@@ -600,6 +627,41 @@ impl UserTaskContainer {
             }
 
             if current_nsec() >= etime || num > 0 {
+                break num;
+            }
+            yield_now().await;
+        };
+        Ok(n)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_poll(
+        &self,
+        poll_fds_ptr: UserRef<PollFd>,
+        nfds: usize,
+        timeout: isize,
+    ) -> SysResult {
+        debug!(
+            "sys_poll @ poll_fds_ptr: {}, nfds: {}, timeout: {}",
+            poll_fds_ptr, nfds, timeout
+        );
+        let poll_fds = poll_fds_ptr.slice_mut_with_len(nfds);
+        let etime = current_nsec() + timeout as usize * 0x1000_000;
+        let n = loop {
+            let mut num = 0;
+            for i in 0..nfds {
+                poll_fds[i].revents = self
+                    .task
+                    .get_fd(poll_fds[i].fd as _)
+                    .map_or(PollEvent::NONE, |x| {
+                        x.poll(poll_fds[i].events.clone()).unwrap()
+                    });
+                if poll_fds[i].revents != PollEvent::NONE {
+                    num += 1;
+                }
+            }
+
+            if (timeout > 0 && current_nsec() >= etime) || num > 0 {
                 break num;
             }
             yield_now().await;

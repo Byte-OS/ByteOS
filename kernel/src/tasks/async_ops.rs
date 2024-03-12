@@ -1,7 +1,7 @@
 use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::get_time_ms;
+use arch::{get_time, time_to_usec};
 use executor::{current_user_task, FutexOps, FutexTable, UserTask};
 use sync::Mutex;
 
@@ -13,7 +13,7 @@ impl Future for NextTick {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        let curr = get_time_ms();
+        let curr = time_to_usec(get_time()) / 1000;
         if curr < self.0 {
             Poll::Pending
         } else {
