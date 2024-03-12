@@ -12,6 +12,7 @@ use fs::{
     File, FileType, OpenFlags,
 };
 use log::debug;
+use logging::get_char;
 
 use crate::tasks::add_user_task;
 
@@ -185,8 +186,7 @@ pub async fn simple_shell() {
             print!("> ");
             new_line = false;
         }
-        let c = console_getchar();
-        if c as i8 != -1 {
+        if let Some(c) = get_char() {
             match c as u8 {
                 CR | LF => {
                     print!("\n");
@@ -253,7 +253,15 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
-    command("ls").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cond").await;
+    // command("./entry-static.exe pthread_cond_smasher").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
+
+    // command("test-fscanf").await;
+    // command("./runtest.exe -w entry-static.exe fscanf").await;
+    // command("entry-static.exe fscanf").await;
+    // command(" busybox sh").await;
+    // command("./a.out").await;
     // command("busybox echo run time-test").await;
     // command("time-test").await;
 
@@ -266,7 +274,8 @@ pub async fn initproc() {
     // command("busybox echo run libctest_testcode.sh").await;
     command("busybox sh libctest_testcode.sh").await;
     // command("./run-static.sh").await;
-    // command("./runtest.exe -w entry-static.exe argv").await;
+    // command("./runtest.exe -w entry-static.exe fpclassify_invalid_ld80").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
 
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;

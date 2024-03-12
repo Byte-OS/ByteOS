@@ -1,4 +1,4 @@
-use arch::{Context, ContextOps};
+use arch::{switch_to_kernel_page_table, Context, ContextOps};
 use executor::{current_user_task, yield_now, AsyncTask};
 use futures_lite::future;
 use hal::TimeVal;
@@ -111,7 +111,6 @@ impl UserTaskContainer {
             }
 
             times += 1;
-
             if times >= 50 {
                 times = 0;
                 yield_now().await;
@@ -119,6 +118,7 @@ impl UserTaskContainer {
         }
 
         debug!("exit_task: {}", self.task.get_task_id());
+        switch_to_kernel_page_table();
     }
 }
 

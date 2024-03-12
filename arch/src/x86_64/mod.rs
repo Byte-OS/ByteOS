@@ -1,3 +1,4 @@
+mod apic;
 mod consts;
 mod context;
 mod gdt;
@@ -5,8 +6,8 @@ mod idt;
 mod interrupt;
 mod multiboot;
 mod page_table;
-mod pic;
 mod sigtrx;
+mod time;
 mod uart;
 
 use ::multiboot::information::MemoryType;
@@ -17,9 +18,10 @@ pub use multiboot::switch_to_kernel_page_table;
 pub use page_table::*;
 pub use uart::*;
 
+use x86::tlb;
 use x86_64::instructions::port::PortWriteOnly;
 
-use crate::{x86_64::multiboot::use_multiboot, ArchInterface};
+use crate::{x86_64::multiboot::use_multiboot, ArchInterface, VirtAddr};
 
 #[percpu::def_percpu]
 static CPU_ID: usize = 1;
@@ -33,7 +35,7 @@ pub fn shutdown() -> ! {
 fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     crate::clear_bss();
     idt::init();
-    pic::init();
+    apic::init();
     sigtrx::init();
     ArchInterface::init_logging();
     // Init allocator
@@ -42,6 +44,7 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     percpu::set_local_thread_pointer(0);
     gdt::init();
     interrupt::init_syscall();
+    time::init_early();
 
     info!(
         "TEST CPU ID: {}  ptr: {:#x}",
@@ -82,4 +85,13 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     crate::ArchInterface::main(0);
 
     shutdown()
+}
+
+#[inline]
+pub fn flush_tlb(vaddr: Option<VirtAddr>) {
+    if let Some(vaddr) = vaddr {
+        unsafe { tlb::flush(vaddr.into()) }
+    } else {
+        unsafe { tlb::flush_all() }
+    }
 }

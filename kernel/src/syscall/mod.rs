@@ -60,16 +60,6 @@ impl UserTaskContainer {
                     .await
             }
             SYS_FSTAT => self.sys_fstat(args[0] as _, args[1].into()).await,
-            SYS_CLONE => {
-                self.sys_clone(
-                    args[0] as _,
-                    args[1] as _,
-                    args[2].into(),
-                    args[3] as _,
-                    args[4].into(),
-                )
-                .await
-            }
             SYS_WAIT4 => {
                 self.sys_wait4(args[0] as _, args[1].into(), args[2] as _)
                     .await
@@ -360,14 +350,54 @@ impl UserTaskContainer {
                 self.sys_getrandom(args[0].into(), args[1] as _, args[2] as _)
                     .await
             }
-            122 => {
+            SYS_SCHED_SETAFFINITY => {
                 log::debug!("sys_getaffinity() ");
                 Ok(0)
             }
-            120 => {
+            SYS_SCHED_GETSCHEDULER => {
                 log::debug!("sys_sched_getscheduler");
                 Ok(0)
             }
+            #[cfg(not(target_arch = "x86_64"))]
+            SYS_CLONE => {
+                self.sys_clone(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2].into(),
+                    args[3] as _,
+                    args[4].into(),
+                )
+                .await
+            }
+            #[cfg(target_arch = "x86_64")]
+            SYS_CLONE => {
+                self.sys_clone(
+                    args[0] as _,
+                    args[1] as _,
+                    args[2].into(),
+                    args[4] as _,
+                    args[3].into(),
+                )
+                .await
+            }
+            #[cfg(target_arch = "x86_64")]
+            SYS_ARCH_PRCTL => self.sys_arch_prctl(args[0], args[1]).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_OPEN => self.sys_open(args[0].into(), args[1], args[2]).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_FORK => self.sys_fork().await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_PIPE => self.sys_pipe2(args[0].into(), 0).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_UNLINK => self.sys_unlink(args[0].into()).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_POLL => self.sys_poll(args[0].into(), args[1], args[2] as _).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_STAT => self.sys_stat(args[0].into(), args[1].into()).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_LSTAT => self.sys_lstat(args[0].into(), args[1].into()).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_DUP2 => self.sys_dup2(args[0], args[1]).await,
             _ => {
                 warn!("unsupported syscall: {}", call_id);
                 Err(LinuxError::EPERM)

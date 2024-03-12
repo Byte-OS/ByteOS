@@ -122,10 +122,7 @@ fn kernel_callback(context: &mut Context) -> TrapType {
             }
             TrapType::Unknown
         }
-        Trap::Exception(Exception::UserEnvCall) => {
-            info!("info syscall: {}", context.x[17]);
-            TrapType::UserEnvCall
-        }
+        Trap::Exception(Exception::UserEnvCall) => TrapType::UserEnvCall,
         // 时钟中断
         Trap::Interrupt(Interrupt::SupervisorTimer) => {
             timer::set_next_timeout();

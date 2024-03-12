@@ -1,5 +1,4 @@
-use spin::once::Once;
-
+use spin::Once;
 use x86_64::structures::idt::{Entry, HandlerFunc, InterruptDescriptorTable};
 
 const NUM_INT: usize = 256;

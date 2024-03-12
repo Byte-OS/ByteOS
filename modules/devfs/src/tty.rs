@@ -2,8 +2,7 @@ use core::cmp;
 
 use alloc::collections::VecDeque;
 use bitflags::bitflags;
-use devices::get_main_uart;
-use logging::puts;
+use logging::{get_char, puts};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use sync::Mutex;
@@ -38,7 +37,7 @@ impl INodeInterface for Tty {
             Ok(rlen)
         } else {
             // VfsError::Blocking
-            if let Some(c) = get_main_uart().get() {
+            if let Some(c) = get_char() {
                 buffer[0] = c as u8;
                 Ok(1)
             } else {
@@ -73,7 +72,7 @@ impl INodeInterface for Tty {
             if buf_len > 0 {
                 res |= PollEvent::POLLIN;
             } else {
-                if let Some(c) = get_main_uart().get() {
+                if let Some(c) = get_char() {
                     res |= PollEvent::POLLIN;
                     self.buffer.lock().push_back(c);
                 }

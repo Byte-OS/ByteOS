@@ -1,7 +1,11 @@
 use log::{debug, warn};
+use num_traits::FromPrimitive;
 
 use crate::{
-    syscall::consts::{Rlimit, UTSname},
+    syscall::{
+        consts::{Rlimit, UTSname},
+        ArchPrctlCode, LinuxError,
+    },
     user::UserTaskContainer,
 };
 
@@ -144,5 +148,25 @@ impl UserTaskContainer {
             }
         }
         Ok(buf_len)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
+        use arch::ContextOps;
+
+        let arch_prctl_code = FromPrimitive::from_usize(code).ok_or(LinuxError::EINVAL)?;
+        debug!(
+            "sys_arch_prctl @ code: {:?}, addr: {:#x}",
+            arch_prctl_code, addr
+        );
+        let cx_ref = self.task.force_cx_ref();
+        match arch_prctl_code {
+            ArchPrctlCode::ARCH_SET_FS => cx_ref.set_tls(addr),
+            _ => {
+                error!("arch prctl: {:#x?}", arch_prctl_code);
+                return Err(LinuxError::EPERM);
+            }
+        }
+        Ok(0)
     }
 }

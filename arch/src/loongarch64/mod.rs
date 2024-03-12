@@ -37,10 +37,6 @@ pub fn time_to_usec(_t: usize) -> usize {
     todo!("time to usec")
 }
 
-pub fn get_time_ms() -> usize {
-    todo!("get_time_ms")
-}
-
 pub fn switch_to_kernel_page_table() {
     todo!("switch to kernel page table")
 }

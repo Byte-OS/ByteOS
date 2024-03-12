@@ -129,6 +129,11 @@ debug: fs-img build
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
 	tmux split-window -h "gdb-multiarch $(KERNEL_ELF) -ex 'target remote localhost:1234' -ex 'disp /16i $pc' " && \
 	tmux -2 attach-session -d
+	# $(QEMU_EXEC) -s -S &
+	# sleep 1
+	# gdb-multiarch $(KERNEL_ELF) \
+	# 	-ex 'target remote localhost:1234' \
+	# 	-ex 'disp /16i $pc'
 
 clean:
 	rm -rf target/

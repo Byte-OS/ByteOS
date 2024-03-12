@@ -1,11 +1,60 @@
+use core::fmt::Debug;
+
+use x86_64::registers::rflags::RFlags;
+
 use crate::ContextOps;
 
 use super::gdt::GdtStruct;
 
+#[repr(C, align(16))]
+#[derive(Clone)]
+pub struct FxsaveArea {
+    pub fcw: u16,
+    pub fsw: u16,
+    pub ftw: u16,
+    pub fop: u16,
+    pub fip: u64,
+    pub fdp: u64,
+    pub mxcsr: u32,
+    pub mxcsr_mask: u32,
+    pub st: [u64; 16],
+    pub xmm: [u64; 32],
+    _padding: [u64; 12],
+}
+
+impl FxsaveArea {
+    #[inline]
+    pub(crate) fn save(&mut self) {
+        unsafe { core::arch::x86_64::_fxsave64(self as *mut _ as *mut u8) }
+    }
+
+    #[inline]
+    pub(crate) fn restore(&self) {
+        unsafe { core::arch::x86_64::_fxrstor64(self as *const _ as *const u8) }
+    }
+}
+
+impl Default for FxsaveArea {
+    fn default() -> Self {
+        let mut area: FxsaveArea = unsafe { core::mem::MaybeUninit::zeroed().assume_init() };
+        area.fcw = 0x37f;
+        area.ftw = 0xffff;
+        area.mxcsr = 0x1f80;
+        area
+    }
+}
+
+impl Debug for FxsaveArea {
+    fn fmt(&self, _f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        Ok(())
+    }
+}
+
 /// Saved registers when a trap (interrupt or exception) occurs.
+/// This is need be align 16, because tss trap ptr should be align 16? I think it is.
 #[allow(missing_docs)]
-#[repr(C)]
-#[derive(Debug, Default, Clone, Copy)]
+#[repr(C, align(16))]
+#[derive(Debug, Default, Clone)]
 pub struct Context {
     pub rax: usize,
     pub rcx: usize,
@@ -36,6 +85,9 @@ pub struct Context {
     pub rflags: usize,
     pub rsp: usize,
     pub ss: usize,
+
+    // save fx area
+    pub fx_area: FxsaveArea,
 }
 
 impl Context {
@@ -50,6 +102,7 @@ impl Context {
         Self {
             cs: GdtStruct::UCODE64_SELECTOR.0 as _,
             ss: GdtStruct::UDATA_SELECTOR.0 as _,
+            rflags: RFlags::INTERRUPT_FLAG.bits() as _,
             ..Default::default()
         }
     }
@@ -66,8 +119,13 @@ impl ContextOps for Context {
         self.rsp
     }
     #[inline]
-    fn set_ra(&mut self, _ra: usize) {
-        unimplemented!("set ra in x86_64 is not implemented")
+    fn set_ra(&mut self, ra: usize) {
+        warn!("set_ra in x86_64 is push return address to rsp, shoule be execute at end");
+        self.rsp -= 8;
+        unsafe {
+            *(self.rsp as *mut usize) = ra;
+        }
+        // unimplemented!("set ra in x86_64 is not implemented")
     }
 
     #[inline]
@@ -119,5 +177,12 @@ impl ContextOps for Context {
     #[inline]
     fn set_tls(&mut self, tls: usize) {
         self.fs_base = tls;
+    }
+}
+
+impl Context {
+    #[inline]
+    pub fn is_user(&self) -> bool {
+        self.cs == GdtStruct::UCODE64_SELECTOR.0 as _
     }
 }
