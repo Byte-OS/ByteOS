@@ -1,13 +1,14 @@
 mod boot;
 mod consts;
 mod context;
+mod gic;
 mod page_table;
 mod pl011;
 mod psci;
 mod timer;
 mod trap;
 
-use aarch64_cpu::registers::Writeable;
+use aarch64_cpu::registers::{Writeable, TTBR0_EL1};
 use aarch64_cpu::{asm::barrier, registers::CPACR_EL1};
 use alloc::vec::Vec;
 pub use consts::*;
@@ -16,8 +17,8 @@ use fdt::Fdt;
 pub use page_table::*;
 pub use pl011::{console_getchar, console_putchar};
 pub use psci::system_off as shutdown;
-pub use timer::get_time;
-pub use trap::{enable_external_irq, enable_irq, init_interrupt, trap_pre_handle, user_restore};
+pub use timer::{get_time, time_to_usec};
+pub use trap::{enable_external_irq, enable_irq, init_interrupt, run_user_task};
 
 use crate::{clear_bss, ArchInterface};
 
@@ -27,6 +28,9 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
     ArchInterface::init_logging();
     trap::init();
     allocator::init();
+    gic::init();
+
+    timer::init();
 
     let mut dt_buf = Vec::new();
 
@@ -74,10 +78,6 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
     shutdown();
 }
 
-pub fn time_to_usec(_t: usize) -> usize {
-    todo!("time to usec")
-}
-
 pub fn switch_to_kernel_page_table() {
-    todo!("switch to kernel page table")
+    TTBR0_EL1.set_baddr(TTBR0_EL1.get_baddr())
 }

@@ -6,6 +6,7 @@
 #![feature(const_mut_refs)]
 #![feature(const_slice_from_raw_parts_mut)]
 #![cfg_attr(target_arch = "riscv64", feature(riscv_ext_intrinsics))]
+#![cfg_attr(target_arch = "aarch64", feature(const_option))]
 
 extern crate alloc;
 

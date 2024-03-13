@@ -1,9 +1,7 @@
 use core::arch::asm;
 
-use aarch64_cpu::asm::barrier;
 use aarch64_cpu::registers::{Writeable, TTBR0_EL1};
 use alloc::sync::Arc;
-use bitflags::bitflags;
 
 use crate::{
     ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
@@ -58,6 +56,11 @@ impl PTE {
     #[inline]
     pub fn get_next_ptr(&self) -> PhysAddr {
         PhysAddr(self.0 & 0xffff_ffff_f000)
+    }
+
+    #[inline]
+    pub fn is_leaf(&self) -> bool {
+        self.flags().contains(PTEFlags::VALID | PTEFlags::NON_BLOCK)
     }
 }
 
@@ -157,8 +160,7 @@ impl PageTable {
         unsafe { asm!("dsb ish;tlbi vmalle1is;") }
     }
 
-    #[inline]
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
+    pub fn get_mut_entry(&self, vpn: VirtPage) -> &mut PTE {
         let l1_list = self.0.slice_mut_with_len::<PTE>(512);
         let l1_index = (vpn.0 >> (9 * 2)) & 0x1ff;
 
@@ -177,24 +179,23 @@ impl PageTable {
         }
         let l3_list = l3_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
         let l3_index = vpn.0 & 0x1ff;
-        l3_list[l3_index] = PTE::from_ppn(ppn.0, flags.into());
+        &mut l3_list[l3_index]
+    }
+
+    #[inline]
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
+        *self.get_mut_entry(vpn) = PTE::from_ppn(ppn.0, flags.into());
+        flush_tlb(Some(vpn.into()))
+        // flush_tlb(None)
     }
 
     #[inline]
     pub fn unmap(&self, vpn: VirtPage) {
-        todo!("unmap pages");
-        // TODO: Add huge page support.
-        let mut pte_list = get_pte_list(self.0);
-        for i in (1..3).rev() {
-            let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut pte_list[value];
-            if !pte.is_valid() {
-                return;
-            }
-            pte_list = get_pte_list(pte.to_ppn().into());
-        }
-
-        pte_list[vpn.0 & 0x1ff] = PTE::new();
+        let entry = self.get_mut_entry(vpn);
+        ArchInterface::frame_unalloc(entry.to_ppn());
+        *entry = PTE::new();
+        // flush_tlb(Some(vpn.into()))
+        flush_tlb(None)
     }
 
     #[inline]
@@ -214,15 +215,15 @@ impl PageTable {
     }
 }
 
-// impl Drop for PageTable {
-//     fn drop(&mut self) {
-//         for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
-//             get_pte_list(root_pte.to_ppn().into())
-//                 .iter()
-//                 .filter(|x| x.is_leaf())
-//                 .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
-//             ArchInterface::frame_unalloc(root_pte.to_ppn());
-//         }
-//         ArchInterface::frame_unalloc(self.0.into());
-//     }
-// }
+impl Drop for PageTable {
+    fn drop(&mut self) {
+        for root_pte in get_pte_list(self.0).iter().filter(|x| x.is_leaf()) {
+            get_pte_list(root_pte.to_ppn().into())
+                .iter()
+                .filter(|x| x.is_leaf())
+                .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
+            ArchInterface::frame_unalloc(root_pte.to_ppn());
+        }
+        ArchInterface::frame_unalloc(self.0.into());
+    }
+}

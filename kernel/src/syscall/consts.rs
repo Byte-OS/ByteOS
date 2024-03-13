@@ -744,6 +744,39 @@ cfg_if! {
                 ctx.x = self.gregs;
             }
         }
+    } else if #[cfg(target_arch = "aarch64")] {
+        #[repr(C)]
+        #[derive(Debug, Clone)]
+        pub struct SignalUserContext {
+            pub flags: usize,          // 0
+            pub link: usize,           // 1
+            pub stack: SignalStack,    // 2
+            pub sig_mask: SigProcMask, // 5
+            pub fault_address: usize,
+            pub regs: [usize; 31],
+            pub sp: usize,
+            pub pc: usize,
+            pub pstate: usize,
+            pub __reserved: usize,
+        }
+
+        impl SignalUserContext {
+            pub fn pc(&self) -> usize {
+                self.pc
+            }
+
+            pub fn set_pc(&mut self, v: usize) {
+                self.pc = v;
+            }
+
+            pub fn store_ctx(&mut self, ctx: &Context) {
+                self.regs = ctx.regs;
+            }
+
+            pub fn restore_ctx(&self, ctx: &mut Context) {
+                ctx.regs = self.regs;
+            }
+        }
     }
 }
 

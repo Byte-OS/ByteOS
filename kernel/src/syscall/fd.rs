@@ -260,7 +260,6 @@ impl UserTaskContainer {
             .node
             .stat(stat)
             .map_err(from_vfs)?;
-        debug!("stat: {:#x?}", stat);
         stat.mode |= StatMode::OWNER_MASK | StatMode::GROUP_MASK | StatMode::OTHER_MASK;
         Ok(0)
     }

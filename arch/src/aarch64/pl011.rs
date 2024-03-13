@@ -1,13 +1,13 @@
 //! PL011 UART.
 
 use arm_pl011::pl011::Pl011Uart;
-use spin::Mutex;
+use irq_safety::MutexIrqSafe;
 
 use crate::PhysAddr;
 
 const UART_BASE: PhysAddr = PhysAddr(0x0900_0000);
 
-static UART: Mutex<Pl011Uart> = Mutex::new(Pl011Uart::new(UART_BASE.get_mut_ptr()));
+static UART: MutexIrqSafe<Pl011Uart> = MutexIrqSafe::new(Pl011Uart::new(UART_BASE.get_mut_ptr()));
 
 /// Writes a byte to the console.
 pub fn console_putchar(c: u8) {
@@ -22,8 +22,8 @@ pub fn console_putchar(c: u8) {
 }
 
 /// Reads a byte from the console, or returns [`None`] if no input is available.
-pub fn console_getchar() -> u8 {
-    UART.lock().getchar().unwrap_or(u8::MAX)
+pub fn console_getchar() -> Option<u8> {
+    UART.lock().getchar()
 }
 
 /// Initialize the UART

@@ -13,6 +13,7 @@ members = [
     "crates/memory_addr",
     "crates/crate_interface",
     "crates/arm_pl011",
+    "crates/arm_gic",
     "crates/percpu",
     "crates/percpu_macros",
 
