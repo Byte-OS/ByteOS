@@ -113,7 +113,7 @@ pub fn clear_bss() {
         fn _ebss();
     }
     unsafe {
-        core::slice::from_raw_parts_mut(_sbss as usize as *mut u8, _ebss as usize - _sbss as usize)
+        core::slice::from_raw_parts_mut(_sbss as usize as *mut u128, (_ebss as usize - _sbss as usize) / size_of::<u128>())
             .fill(0);
     }
 }

@@ -233,8 +233,8 @@ pub fn add_frame_map(mm_start: usize, mm_end: usize) {
         info!("add frame memory region {:#x} - {:#x}", phys_end, mm_end);
         unsafe {
             core::slice::from_raw_parts_mut(
-                phys_end as *mut usize,
-                (mm_end - phys_end) / size_of::<usize>(),
+                phys_end as *mut u128,
+                (mm_end - phys_end) / size_of::<u128>(),
             )
             .fill(0);
         };

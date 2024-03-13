@@ -115,6 +115,7 @@ impl UserTask {
     pub fn new(
         future: impl Future<Output = ()> + 'static,
         parent: Weak<dyn AsyncTask>,
+        work_dir: &str
     ) -> Arc<Self> {
         let task_id = task_id_alloc();
         // initialize memset
@@ -127,7 +128,7 @@ impl UserTask {
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: FileItem::fs_open("/tmp_home", OpenFlags::all())
+            curr_dir: FileItem::fs_open(work_dir, OpenFlags::all())
                 .expect("dont' have the home dir"),
             heap: 0,
             children: Vec::new(),
@@ -382,7 +383,8 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<dyn AsyncTask> = self.clone();
-        let new_task = Self::new(future, Arc::downgrade(&parent_task));
+        let work_dir = parent_task.clone().as_user_task().unwrap().pcb.lock().curr_dir.path().expect("can't get parent work dir in the cow_fork");
+        let new_task = Self::new(future, Arc::downgrade(&parent_task), &work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
         let mut new_pcb = new_task.pcb.lock();
@@ -427,7 +429,8 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<dyn AsyncTask> = self.clone();
-        let new_task = Self::new(future, Arc::downgrade(&parent_task));
+        let work_dir = parent_task.clone().as_user_task().unwrap().pcb.lock().curr_dir.path().expect("can't get parent work dir in the cow_fork");
+        let new_task = Self::new(future, Arc::downgrade(&parent_task), &work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
         let mut new_pcb = new_task.pcb.lock();

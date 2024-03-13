@@ -79,7 +79,7 @@ pub fn init() {
     filesystems.push((build_devfs(&filesystems), "/dev"));
     filesystems.push((RamFs::new(), "/tmp"));
     filesystems.push((RamFs::new(), "/dev/shm"));
-    filesystems.push((RamFs::new(), "/tmp_home"));
+    filesystems.push((RamFs::new(), "/home"));
     filesystems.push((RamFs::new(), "/var"));
     filesystems.push((ProcFS::new(), "/proc"));
     // filesystems.push((RamFs::new(), "/bin"));
@@ -98,7 +98,7 @@ pub fn init() {
         dev.mkdir("shm").expect("can't create shm dir");
         rootfs.mkdir("tmp").expect("can't create tmp dir");
         // rootfs.mkdir("lib").expect("can't create lib dir");
-        rootfs.mkdir("tmp_home").expect("can't create tmp_home dir");
+        rootfs.mkdir("home").expect("can't create home dir");
         rootfs.mkdir("var").expect("can't create var dir");
         rootfs.mkdir("proc").expect("can't create proc dir");
         rootfs.mkdir("bin").expect("can't create var dir");

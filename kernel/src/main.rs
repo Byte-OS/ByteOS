@@ -35,7 +35,6 @@ use devices::{self, get_int_device};
 use executor::{current_user_task, get_current_task, FileItem};
 use fdt::node::FdtNode;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
-use fs::get_filesystem;
 use hal;
 use user::user_cow_int;
 use vfscore::{INodeInterface, OpenFlags};
@@ -171,18 +170,6 @@ impl ArchInterface for ArchInterfaceImpl {
         // initialize filesystem
         fs::init();
         {
-            let rootfs = get_filesystem(0).root_dir();
-            let tmpfs = FileItem::fs_open("/tmp_home", OpenFlags::O_DIRECTORY)
-                .expect("can't open /tmp_home");
-            for file in rootfs.read_dir().expect("can't read files") {
-                tmpfs
-                    .link(
-                        &file.filename,
-                        rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
-                    )
-                    .expect("can't link file to tmpfs");
-            }
-
             FileItem::fs_open("/var", OpenFlags::O_DIRECTORY)
                 .expect("can't open /var")
                 .mkdir("tmp")

@@ -358,6 +358,7 @@ impl UserTaskContainer {
                 log::debug!("sys_sched_getscheduler");
                 Ok(0)
             }
+            SYS_SCHED_GETAFFINITY => self.sys_sched_getaffinity(args[0], args[1], args[2].into()).await,
             #[cfg(not(target_arch = "x86_64"))]
             SYS_CLONE => {
                 self.sys_clone(
