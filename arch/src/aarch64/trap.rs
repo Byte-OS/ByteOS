@@ -1,9 +1,13 @@
 use core::arch::{asm, global_asm};
 
 use aarch64_cpu::registers::{Writeable, ESR_EL1, FAR_EL1, VBAR_EL1};
+use irq_safety::disable_interrupts;
 use tock_registers::interfaces::Readable;
 
-use crate::TrapType;
+use crate::{
+    aarch64::{gic::handle_irq, timer::set_next_timer},
+    ArchInterface, TrapType,
+};
 
 use super::Context;
 
@@ -30,7 +34,12 @@ enum TrapSource {
 }
 
 #[no_mangle]
-fn handle_exception(tf: &mut Context, kind: TrapKind, source: TrapSource) {
+fn handle_exception(tf: &mut Context, kind: TrapKind, source: TrapSource) -> TrapType {
+    if kind == TrapKind::Irq {
+        set_next_timer();
+        handle_irq(|_irq| {});
+        return TrapType::Time;
+    }
     if kind != TrapKind::Synchronous {
         panic!(
             "Invalid exception {:?} from {:?}:\n{:#x?}",
@@ -38,66 +47,7 @@ fn handle_exception(tf: &mut Context, kind: TrapKind, source: TrapSource) {
         );
     }
     let esr = ESR_EL1.extract();
-    match esr.read_as_enum(ESR_EL1::EC) {
-        Some(ESR_EL1::EC::Value::Brk64) => {
-            let iss = esr.read(ESR_EL1::ISS);
-            debug!("BRK #{:#x} @ {:#x} ", iss, tf.elr);
-            tf.elr += 4;
-        }
-        Some(ESR_EL1::EC::Value::SVC64) => {
-            warn!("No supervisor call is supported currently!\n: {:#x?}", tf);
-        }
-        Some(ESR_EL1::EC::Value::DataAbortLowerEL)
-        | Some(ESR_EL1::EC::Value::InstrAbortLowerEL) => {
-            let iss = esr.read(ESR_EL1::ISS);
-            warn!(
-                "EL0 Page Fault @ {:#x}, FAR={:#x}, ISS={:#x}",
-                tf.elr,
-                FAR_EL1.get(),
-                iss
-            );
-        }
-        Some(ESR_EL1::EC::Value::DataAbortCurrentEL)
-        | Some(ESR_EL1::EC::Value::InstrAbortCurrentEL) => {
-            let iss = esr.read(ESR_EL1::ISS);
-            panic!(
-                "EL1 Page Fault @ {:#x}, FAR={:#x}, ISS={:#x}:\n{:#x?}",
-                tf.elr,
-                FAR_EL1.get(),
-                iss,
-                tf,
-            );
-        }
-        _ => {
-            panic!(
-                "Unhandled synchronous exception @ {:#x}: ESR={:#x} (EC {:#08b}, ISS {:#x})",
-                tf.elr,
-                esr.get(),
-                esr.read(ESR_EL1::EC),
-                esr.read(ESR_EL1::ISS),
-            );
-        }
-    }
-}
-
-pub fn init() {
-    extern "C" {
-        fn exception_vector_base();
-    }
-    VBAR_EL1.set(exception_vector_base as _);
-}
-
-// 设置中断
-pub fn init_interrupt() {
-    unsafe {
-        asm!("brk #0");
-    }
-    enable_irq();
-}
-
-pub fn trap_pre_handle(tf: &mut Context) -> TrapType {
-    let esr = ESR_EL1.extract();
-    match esr.read_as_enum(ESR_EL1::EC) {
+    let trap_type = match esr.read_as_enum(ESR_EL1::EC) {
         Some(ESR_EL1::EC::Value::Brk64) => {
             let iss = esr.read(ESR_EL1::ISS);
             debug!("BRK #{:#x} @ {:#x} ", iss, tf.elr);
@@ -119,13 +69,14 @@ pub fn trap_pre_handle(tf: &mut Context) -> TrapType {
         Some(ESR_EL1::EC::Value::DataAbortCurrentEL)
         | Some(ESR_EL1::EC::Value::InstrAbortCurrentEL) => {
             let iss = esr.read(ESR_EL1::ISS);
-            panic!(
+            warn!(
                 "EL1 Page Fault @ {:#x}, FAR={:#x}, ISS={:#x}:\n{:#x?}",
                 tf.elr,
                 FAR_EL1.get(),
                 iss,
                 tf,
             );
+            TrapType::InstructionPageFault(FAR_EL1.get() as _)
         }
         _ => {
             panic!(
@@ -136,12 +87,28 @@ pub fn trap_pre_handle(tf: &mut Context) -> TrapType {
                 esr.read(ESR_EL1::ISS),
             );
         }
+    };
+    ArchInterface::kernel_interrupt(tf, trap_type);
+    trap_type
+}
+
+pub fn init() {
+    extern "C" {
+        fn exception_vector_base();
     }
+    VBAR_EL1.set(exception_vector_base as _);
+}
+
+// 设置中断
+pub fn init_interrupt() {
+    // unsafe {
+    //     asm!("brk #0");
+    // }
+    // enable_irq();
 }
 
 #[naked]
-#[no_mangle]
-pub extern "C" fn user_restore(context: *mut Context) {
+extern "C" fn user_restore(context: *mut Context) {
     unsafe {
         asm!(
             r"
@@ -183,6 +150,16 @@ pub extern "C" fn user_restore(context: *mut Context) {
         ",
             options(noreturn)
         )
+    }
+}
+
+pub fn run_user_task(cx: &mut Context) -> Option<()> {
+    debug!("user task");
+    disable_interrupts();
+    user_restore(cx);
+    match handle_exception(cx, TrapKind::Synchronous, TrapSource::LowerAArch64) {
+        TrapType::UserEnvCall => Some(()),
+        _ => None,
     }
 }
 

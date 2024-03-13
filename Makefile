@@ -6,6 +6,8 @@ LOG  := error
 BOARD:= qemu
 RELEASE := release
 QEMU_EXEC ?= 
+GDB  ?= gdb-multiarch
+
 ifeq ($(ARCH), x86_64)
   TARGET := x86_64-unknown-none
   QEMU_EXEC += qemu-system-x86_64 \
@@ -127,11 +129,11 @@ flash: k210-build
 debug: fs-img build
 	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
-	tmux split-window -h "gdb-multiarch $(KERNEL_ELF) -ex 'target remote localhost:1234' -ex 'disp /16i $pc' " && \
+	tmux split-window -h "$(GDB) $(KERNEL_ELF) -ex 'target remote localhost:1234' -ex 'disp /16i $pc' " && \
 	tmux -2 attach-session -d
 	# $(QEMU_EXEC) -s -S &
 	# sleep 1
-	# gdb-multiarch $(KERNEL_ELF) \
+	# $(GDB) $(KERNEL_ELF) \
 	# 	-ex 'target remote localhost:1234' \
 	# 	-ex 'disp /16i $pc'
 

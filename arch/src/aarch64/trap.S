@@ -1,5 +1,6 @@
 .macro INVALID_EXCP, kind, source
 .p2align 7
+    msr daifset, #2
     sub     sp, sp, 35 * 8
     stp     x0, x1, [sp]
     stp     x2, x3, [sp, 2 * 8]
@@ -32,8 +33,9 @@
     b       .Lexception_return
 .endm
 
-.macro USER_TRAP, kind, source
+.macro USER_TRAP, kind
 .p2align 7
+    msr daifset, #2
     str     x0, [sp, 17 * 8]
     ldr     x0, [sp, 16 * 8]
 
@@ -82,7 +84,7 @@
 .endm
 
 .section .text
-.p2align 11
+.p2align 12
 .global exception_vector_base
 exception_vector_base:
     // current EL, with SP_EL0
@@ -98,10 +100,10 @@ exception_vector_base:
     INVALID_EXCP 3 1
 
     // lower EL, aarch64
-    USER_TRAP 0 2
-    INVALID_EXCP 1 2
-    INVALID_EXCP 2 2
-    INVALID_EXCP 3 2
+    USER_TRAP 0
+    USER_TRAP 1
+    USER_TRAP 2
+    USER_TRAP 3
 
     // lower EL, aarch32
     INVALID_EXCP 0 3

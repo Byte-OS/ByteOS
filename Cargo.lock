@@ -51,6 +51,7 @@ version = "0.1.0"
 dependencies = [
  "aarch64-cpu",
  "allocator",
+ "arm_gic",
  "arm_pl011",
  "bitflags 2.4.2",
  "cfg-if",
@@ -68,6 +69,13 @@ dependencies = [
  "x2apic",
  "x86",
  "x86_64",
+]
+
+[[package]]
+name = "arm_gic"
+version = "0.1.0"
+dependencies = [
+ "tock-registers 0.8.1",
 ]
 
 [[package]]
