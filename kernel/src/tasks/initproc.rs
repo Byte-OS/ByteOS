@@ -5,14 +5,14 @@ use alloc::{
     vec::Vec,
 };
 use arch::{console_getchar, console_putchar, switch_to_kernel_page_table};
-use executor::{current_task, yield_now, FUTURE_LIST, TASK_QUEUE};
+use executor::{current_task, yield_now, FileItem, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{
-    dentry::{dentry_open, dentry_root, DentryNode},
-    File, FileType, OpenFlags,
+    dentry::{dentry_open, dentry_root, DentryNode}, get_filesystem, File, FileType, OpenFlags
 };
 use log::debug;
 use logging::get_char;
+use vfscore::INodeInterface;
 
 use crate::tasks::add_user_task;
 
@@ -216,7 +216,22 @@ pub async fn simple_shell() {
     }
 }
 
+pub const USER_WORK_DIR: &'static str = "/";
+
 pub async fn initproc() {
+    // link files.
+    // let rootfs = get_filesystem(0).root_dir();
+    // let tmpfs = FileItem::fs_open("/home", OpenFlags::O_DIRECTORY)
+    //     .expect("can't open /home");
+    // for file in rootfs.read_dir().expect("can't read files") {
+    //     tmpfs
+    //         .link(
+    //             &file.filename,
+    //             rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
+    //         )
+    //         .expect("can't link file to tmpfs");
+    // }
+
     println!("start kernel tasks");
     // command("entry-static.exe crypt").await;
     // command("./runtest.exe -w entry-dynamic.exe dlopen").await;
@@ -262,6 +277,7 @@ pub async fn initproc() {
     // command("entry-static.exe fscanf").await;
     // command(" busybox sh").await;
     // command("./a.out").await;
+
     // command("busybox echo run time-test").await;
     // command("time-test").await;
 
@@ -272,17 +288,14 @@ pub async fn initproc() {
     // command("busybox sh busybox_testcode.sh").await;
 
     // command("busybox echo run libctest_testcode.sh").await;
-    command("busybox sh libctest_testcode.sh").await;
-    // command("./run-static.sh").await;
-    // command("./runtest.exe -w entry-static.exe fpclassify_invalid_ld80").await;
-    // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
+    // command("busybox sh libctest_testcode.sh").await;
 
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 
-    // command("busybox echo run cyclic_testcode.sh").await;
-    // command("busybox sh cyclictest_testcode.sh").await;
-    // kill_all_tasks().await;
+    command("busybox echo run cyclic_testcode.sh").await;
+    command("busybox sh cyclictest_testcode.sh").await;
+    kill_all_tasks().await;
 
     // command("libc-bench").await;
 
