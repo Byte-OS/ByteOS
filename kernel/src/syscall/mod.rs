@@ -381,6 +381,21 @@ impl UserTaskContainer {
                 .await
             }
             #[cfg(target_arch = "x86_64")]
+            SYS_SELECT => {
+                self.sys_select(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2].into(),
+                    args[3].into(),
+                    args[4].into()
+                )
+                .await
+            }
+            #[cfg(target_arch = "x86_64")]
+            SYS_MKDIR => self.sys_mkdir(args[0].into(), args[1]).await,
+            #[cfg(target_arch = "x86_64")]
+            SYS_READLINK => self.sys_readlink(args[0].into(), args[1].into(), args[2]).await,
+            #[cfg(target_arch = "x86_64")]
             SYS_ARCH_PRCTL => self.sys_arch_prctl(args[0], args[1]).await,
             #[cfg(target_arch = "x86_64")]
             SYS_OPEN => self.sys_open(args[0].into(), args[1], args[2]).await,

@@ -43,7 +43,42 @@ impl PageTable {
     }
 
     #[inline]
+    /// Need to reset the user page.
     pub fn restore(&self) {
+        let map_pd = |pd_entry: &PDEntry| {
+            if !pd_entry.is_present() || pd_entry.is_page() {
+                return;
+            }
+            PhysAddr::new(pd_entry.address().as_usize())
+                .slice_mut_with_len::<PTEntry>(PAGE_SIZE_ENTRIES)
+                .iter_mut()
+                .for_each(|x| *x = PTEntry(0));
+        };
+
+        let map_pdpt = |pdpt_entry: &PDPTEntry| {
+            if !pdpt_entry.is_present() || pdpt_entry.is_page() {
+                return;
+            }
+            PhysAddr::new(pdpt_entry.address().as_usize())
+                .slice_mut_with_len::<PDEntry>(PAGE_SIZE_ENTRIES)
+                .iter()
+                .for_each(map_pd);
+        };
+
+        let map_pml4 = |pml4_entry: &mut PML4Entry| {
+            if !pml4_entry.is_present() {
+                return;
+            }
+            PhysAddr::new(pml4_entry.address().as_usize())
+                .slice_mut_with_len::<PDPTEntry>(PAGE_SIZE_ENTRIES)
+                .iter()
+                .for_each(map_pdpt);
+        };
+
+        self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES)[..0x100]
+            .iter_mut()
+            .for_each(map_pml4);
+
         extern "C" {
             fn kernel_mapping_pdpt();
         }
@@ -123,34 +158,34 @@ impl Drop for PageTable {
             if !pd_entry.is_present() || pd_entry.is_page() {
                 return;
             }
-            ArchInterface::frame_unalloc(PhysPage::from_addr(pd_entry.address().as_usize()));
-        };
+        ArchInterface::frame_unalloc(PhysPage::from_addr(pd_entry.address().as_usize()));
+    };
 
-        let drop_pdpt = |pdpt_entry: &PDPTEntry| {
-            if !pdpt_entry.is_present() || pdpt_entry.is_page() {
-                return;
-            }
-            PhysAddr::new(pdpt_entry.address().as_usize())
-                .slice_mut_with_len::<PDEntry>(PAGE_SIZE_ENTRIES)
-                .iter()
-                .for_each(drop_pd);
-            ArchInterface::frame_unalloc(PhysPage::from_addr(pdpt_entry.address().as_usize()));
-        };
-
-        let drop_pml4 = |pml4_entry: &PML4Entry| {
-            if !pml4_entry.is_present() {
-                return;
-            }
-            PhysAddr::new(pml4_entry.address().as_usize())
-                .slice_mut_with_len::<PDPTEntry>(PAGE_SIZE_ENTRIES)
-                .iter()
-                .for_each(drop_pdpt);
-            ArchInterface::frame_unalloc(PhysPage::from_addr(pml4_entry.address().as_usize()));
-        };
-
-        self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES)[..100]
+    let drop_pdpt = |pdpt_entry: &PDPTEntry| {
+        if !pdpt_entry.is_present() || pdpt_entry.is_page() {
+            return;
+        }
+        PhysAddr::new(pdpt_entry.address().as_usize())
+            .slice_mut_with_len::<PDEntry>(PAGE_SIZE_ENTRIES)
             .iter()
-            .for_each(drop_pml4);
+            .for_each(drop_pd);
+        ArchInterface::frame_unalloc(PhysPage::from_addr(pdpt_entry.address().as_usize()));
+    };
+
+    let drop_pml4 = |pml4_entry: &PML4Entry| {
+        if !pml4_entry.is_present() {
+            return;
+        }
+        PhysAddr::new(pml4_entry.address().as_usize())
+            .slice_mut_with_len::<PDPTEntry>(PAGE_SIZE_ENTRIES)
+            .iter()
+            .for_each(drop_pdpt);
+        ArchInterface::frame_unalloc(PhysPage::from_addr(pml4_entry.address().as_usize()));
+    };
+
+    self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES)[..100]
+        .iter()
+        .for_each(drop_pml4);
         ArchInterface::frame_unalloc(self.0.into());
     }
 }
