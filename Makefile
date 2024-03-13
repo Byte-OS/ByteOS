@@ -8,11 +8,14 @@ RELEASE := release
 QEMU_EXEC ?= 
 GDB  ?= gdb-multiarch
 
+BUS  := device
 ifeq ($(ARCH), x86_64)
   TARGET := x86_64-unknown-none
   QEMU_EXEC += qemu-system-x86_64 \
 				-machine q35 \
-				-kernel $(KERNEL_ELF)
+				-kernel $(KERNEL_ELF) \
+				-cpu IvyBridge-v2
+  BUS := pci
 else ifeq ($(ARCH), riscv64)
   TARGET := riscv64imac-unknown-none-elf
   QEMU_EXEC += qemu-system-$(ARCH) \
@@ -28,6 +31,7 @@ else ifeq ($(ARCH), aarch64)
 else ifeq ($(ARCH), loongarch64)
   TARGET := loongarch64-unknown-none
   QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
+  BUS := pci
 else
   $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
 endif
@@ -56,18 +60,12 @@ QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
 				-device nvme,serial=deadbeef,drive=nvm
 else
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,format=raw,id=x0
-ifeq ($(ARCH), x86_64)
-    QEMU_EXEC += -device virtio-blk-pci,drive=x0
-else ifeq ($(ARCH), loongarch64)
-    QEMU_EXEC += -device virtio-blk-pci,drive=x0
-else
-	QEMU_EXEC += -device virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0 
-endif
+	QEMU_EXEC += -device virtio-blk-$(BUS),drive=x0
 endif
 
 ifeq ($(NET), on)
 QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::6379-:6379,hostfwd=tcp::2222-:2222,hostfwd=tcp::2000-:2000,hostfwd=tcp::8487-:8487,hostfwd=tcp::5188-:5188,hostfwd=tcp::12000-:12000 -object filter-dump,id=net0,netdev=net0,file=packets.pcap \
-	-device virtio-net-device,netdev=net0
+	-device virtio-net-$(BUS),netdev=net0
 features += net
 endif
 

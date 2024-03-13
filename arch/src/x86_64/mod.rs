@@ -16,10 +16,11 @@ pub use context::Context;
 pub use interrupt::*;
 pub use multiboot::switch_to_kernel_page_table;
 pub use page_table::*;
+use raw_cpuid::CpuId;
 pub use uart::*;
 
 use x86::tlb;
-use x86_64::instructions::port::PortWriteOnly;
+use x86_64::{instructions::port::PortWriteOnly, registers::{control::{Cr4, Cr4Flags}, xcontrol::{XCr0, XCr0Flags}}};
 
 use crate::{x86_64::multiboot::use_multiboot, ArchInterface, VirtAddr};
 
@@ -45,6 +46,21 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     gdt::init();
     interrupt::init_syscall();
     time::init_early();
+    
+    // enable avx extend instruction set and sse if support avx
+    // TIPS: QEMU not support avx, so we can't enable avx here
+    // IF you want to use avx in the qemu, you can use -cpu IvyBridge-v2 to 
+    // select a cpu with avx support
+    CpuId::new().get_feature_info().map(|features| {
+        info!("is there a avx feature: {}", features.has_avx());
+        info!("is there a xsave feature: {}", features.has_xsave());
+        info!("cr4 has OSXSAVE feature: {:?}", Cr4::read());
+        if features.has_avx() && features.has_xsave() && Cr4::read().contains(Cr4Flags::OSXSAVE) {
+            unsafe {
+                XCr0::write(XCr0::read() | XCr0Flags::AVX | XCr0Flags::SSE | XCr0Flags::X87);
+            }
+        }
+    });
 
     info!(
         "TEST CPU ID: {}  ptr: {:#x}",

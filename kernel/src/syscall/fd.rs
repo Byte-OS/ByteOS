@@ -25,9 +25,10 @@ use super::consts::{LinuxError, UserRef};
 use super::SysResult;
 
 pub fn to_node(task: &Arc<UserTask>, fd: usize) -> Result<Arc<FileItem>, LinuxError> {
-    match fd {
-        AT_CWD => Ok(task.pcb.lock().curr_dir.clone()),
-        x => task.get_fd(x).ok_or(LinuxError::EBADF),
+    const NEW_AT_CWD: u32 = AT_CWD as u32;
+    match fd as u32 {
+        NEW_AT_CWD => Ok(task.pcb.lock().curr_dir.clone()),
+        x => task.get_fd(x as _).ok_or(LinuxError::EBADF),
     }
 }
 
@@ -141,6 +142,11 @@ impl UserTaskContainer {
         //     }
         // }
         Ok(0)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_mkdir(&self, path: UserRef<i8>, mode: usize) -> SysResult {
+        self.sys_mkdir_at(AT_CWD, path, mode).await
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -560,6 +566,16 @@ impl UserTaskContainer {
         Ok(rlen)
     }
 
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_readlink(
+        &self,
+        path: UserRef<i8>,
+        buffer: UserRef<u8>,
+        buffer_size: usize,
+    ) -> SysResult {
+        self.sys_readlinkat(AT_CWD, path, buffer, buffer_size).await
+    }
+
     pub async fn sys_sendfile(
         &self,
         out_fd: usize,
@@ -802,6 +818,18 @@ impl UserTaskContainer {
                 return Ok(0);
             }
         }
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_select(
+        &self,
+        max_fdp1: usize,
+        readfds: UserRef<usize>,
+        writefds: UserRef<usize>,
+        exceptfds: UserRef<usize>,
+        timeout_ptr: UserRef<TimeSpec>,
+    ) -> SysResult {
+        self.sys_pselect(max_fdp1, readfds, writefds, exceptfds, timeout_ptr, 0).await
     }
 
     pub async fn sys_ftruncate(&self, fields: usize, len: usize) -> SysResult {

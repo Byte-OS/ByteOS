@@ -303,6 +303,7 @@ cfg_if::cfg_if! {
         pub const SYS_DUP3: usize = 292;
         pub const SYS_FCNTL: usize = 72;
         pub const SYS_IOCTL: usize = 16;
+        pub const SYS_MKDIR: usize = 83;
         pub const SYS_MKDIRAT: usize = 258;
         pub const SYS_UNLINK: usize = 87;
         pub const SYS_STAT: usize = 4;
@@ -328,8 +329,10 @@ cfg_if::cfg_if! {
         pub const SYS_PREAD: usize = 17;
         pub const SYS_PWRITE: usize = 18;
         pub const SYS_SENDFILE: usize = 40;
+        pub const SYS_SELECT: usize = 23;
         pub const SYS_PSELECT: usize = 270;
         pub const SYS_PPOLL: usize = 271;
+        pub const SYS_READLINK: usize = 89;
         pub const SYS_READLINKAT: usize = 267;
         pub const SYS_FSTATAT: usize = 262;
         pub const SYS_FSTAT: usize = 5;

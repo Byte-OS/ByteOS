@@ -27,6 +27,7 @@ const CR0: u64 = Cr0Flags::PROTECTED_MODE_ENABLE.bits()
 const CR4: u64 = Cr4Flags::PHYSICAL_ADDRESS_EXTENSION.bits()
     | Cr4Flags::PAGE_GLOBAL.bits()
     | Cr4Flags::OSFXSR.bits()
+    | Cr4Flags::OSXSAVE.bits()
     | Cr4Flags::OSXMMEXCPT_ENABLE.bits();
 const EFER: u64 = EferFlags::LONG_MODE_ENABLE.bits() | EferFlags::NO_EXECUTE_ENABLE.bits();
 
