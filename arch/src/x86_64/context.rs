@@ -1,8 +1,8 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, ops::{Index, IndexMut}};
 
 use x86_64::registers::rflags::RFlags;
 
-use crate::ContextOps;
+use crate::ContextArgs;
 
 use super::gdt::GdtStruct;
 
@@ -108,81 +108,134 @@ impl Context {
     }
 }
 
-impl ContextOps for Context {
+impl Context {
     #[inline]
-    fn set_sp(&mut self, sp: usize) {
-        self.rsp = sp;
-    }
-
-    #[inline]
-    fn sp(&self) -> usize {
-        self.rsp
-    }
-    #[inline]
-    fn set_ra(&mut self, ra: usize) {
-        warn!("set_ra in x86_64 is push return address to rsp, shoule be execute at end");
-        self.rsp -= 8;
-        unsafe {
-            *(self.rsp as *mut usize) = ra;
-        }
-        // unimplemented!("set ra in x86_64 is not implemented")
-    }
-
-    #[inline]
-    fn ra(&self) -> usize {
-        unimplemented!("get ra in x86_64 is not implemented")
-    }
-
-    #[inline]
-    fn set_sepc(&mut self, sepc: usize) {
-        self.rip = sepc;
-    }
-
-    #[inline]
-    fn sepc(&self) -> usize {
-        self.rip
-    }
-
-    #[inline]
-    fn syscall_number(&self) -> usize {
-        self.rax
-    }
-
-    #[inline]
-    fn args(&self) -> [usize; 6] {
+    pub fn args(&self) -> [usize; 6] {
         [self.rdi, self.rsi, self.rdx, self.r10, self.r8, self.r9]
     }
 
     #[inline]
-    fn syscall_ok(&mut self) {
+    pub fn syscall_ok(&mut self) {
         // self.sepc += 4;
     }
-
-    fn set_ret(&mut self, ret: usize) {
-        self.rax = ret;
-    }
-
-    fn set_arg0(&mut self, ret: usize) {
-        self.rdi = ret;
-    }
-
-    fn set_arg1(&mut self, ret: usize) {
-        self.rsi = ret;
-    }
-
-    fn set_arg2(&mut self, ret: usize) {
-        self.rdx = ret;
-    }
-
-    #[inline]
-    fn set_tls(&mut self, tls: usize) {
-        self.fs_base = tls;
-    }
 }
+
+// impl ContextOps for Context {
+//     #[inline]
+//     fn set_sp(&mut self, sp: usize) {
+//         self.rsp = sp;
+//     }
+
+//     #[inline]
+//     fn sp(&self) -> usize {
+//         self.rsp
+//     }
+//     #[inline]
+//     fn set_ra(&mut self, ra: usize) {
+//         warn!("set_ra in x86_64 is push return address to rsp, shoule be execute at end");
+//         self.rsp -= 8;
+//         unsafe {
+//             *(self.rsp as *mut usize) = ra;
+//         }
+//         // unimplemented!("set ra in x86_64 is not implemented")
+//     }
+
+//     #[inline]
+//     fn ra(&self) -> usize {
+//         unimplemented!("get ra in x86_64 is not implemented")
+//     }
+
+//     #[inline]
+//     fn set_sepc(&mut self, sepc: usize) {
+//         self.rip = sepc;
+//     }
+
+//     #[inline]
+//     fn sepc(&self) -> usize {
+//         self.rip
+//     }
+
+//     #[inline]
+//     fn syscall_number(&self) -> usize {
+//         self.rax
+//     }
+
+//     #[inline]
+//     fn args(&self) -> [usize; 6] {
+//         [self.rdi, self.rsi, self.rdx, self.r10, self.r8, self.r9]
+//     }
+
+//     #[inline]
+//     fn syscall_ok(&mut self) {
+//         // self.sepc += 4;
+//     }
+
+//     fn set_ret(&mut self, ret: usize) {
+//         self.rax = ret;
+//     }
+
+//     fn set_arg0(&mut self, ret: usize) {
+//         self.rdi = ret;
+//     }
+
+//     fn set_arg1(&mut self, ret: usize) {
+//         self.rsi = ret;
+//     }
+
+//     fn set_arg2(&mut self, ret: usize) {
+//         self.rdx = ret;
+//     }
+
+//     #[inline]
+//     fn set_tls(&mut self, tls: usize) {
+//         self.fs_base = tls;
+//     }
+// }
 
 impl Context {
     #[inline]
     pub fn is_user(&self) -> bool {
         self.cs == GdtStruct::UCODE64_SELECTOR.0 as _
+    }
+}
+
+impl Index<ContextArgs> for Context {
+    type Output = usize;
+
+    fn index(&self, index: ContextArgs) -> &Self::Output {
+        match index {
+            ContextArgs::SEPC => &self.rip,
+            ContextArgs::RA => unimplemented!("Can't get return address in x86_64"),
+            ContextArgs::ARG0 => &self.rdi,
+            ContextArgs::ARG1 => &self.rsi,
+            ContextArgs::ARG2 => &self.rdx,
+            ContextArgs::TLS  => &self.fs_base,
+            ContextArgs::SP => &self.rsp,
+            ContextArgs::RET => &self.rax,
+            ContextArgs::SYSCALL => &self.rax,
+        }
+    }
+}
+
+impl IndexMut<ContextArgs> for Context {
+    fn index_mut(&mut self, index: ContextArgs) -> &mut Self::Output {
+        match index {
+            ContextArgs::SEPC => &mut self.rip,
+            ContextArgs::RA => {
+                // set return address, at x86_64 is push return address to rsp, shoule be execute at end.
+                warn!("set_ra in x86_64 is push return address to rsp, shoule be execute at end");
+                self.rsp -= 8;
+                unsafe {
+                    (self.rsp as *mut usize).as_mut().unwrap()
+                }
+            },
+            ContextArgs::ARG0 => &mut self.rdi,
+            ContextArgs::ARG1 => &mut self.rsi,
+            ContextArgs::ARG2 => &mut self.rdx,
+            ContextArgs::TLS  => &mut self.fs_base,
+            ContextArgs::SP => &mut self.rsp,
+            ContextArgs::RET => &mut self.rax,
+            ContextArgs::SYSCALL => unreachable!("can't set syscall number")
+        }
     }
 }

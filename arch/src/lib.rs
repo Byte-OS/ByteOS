@@ -47,24 +47,37 @@ pub use loongarch64::*;
 pub use addr::*;
 pub use api::*;
 
-pub trait ContextOps {
-    fn set_sp(&mut self, sp: usize);
-    fn sp(&self) -> usize;
-    fn set_ra(&mut self, ra: usize);
-    fn ra(&self) -> usize;
-    fn set_sepc(&mut self, sepc: usize);
-    fn sepc(&self) -> usize;
+// pub trait ContextOps {
+//     fn set_sp(&mut self, sp: usize);
+//     fn sp(&self) -> usize;
+//     fn set_ra(&mut self, ra: usize);
+//     fn ra(&self) -> usize;
+//     fn set_sepc(&mut self, sepc: usize);
+//     fn sepc(&self) -> usize;
 
-    fn args(&self) -> [usize; 6];
-    fn set_arg0(&mut self, ret: usize);
-    fn set_arg1(&mut self, ret: usize);
-    fn set_arg2(&mut self, ret: usize);
+//     fn args(&self) -> [usize; 6];
+//     fn set_arg0(&mut self, ret: usize);
+//     fn set_arg1(&mut self, ret: usize);
+//     fn set_arg2(&mut self, ret: usize);
 
-    fn syscall_number(&self) -> usize;
-    fn syscall_ok(&mut self);
+//     fn syscall_number(&self) -> usize;
+//     fn syscall_ok(&mut self);
 
-    fn set_ret(&mut self, ret: usize);
-    fn set_tls(&mut self, tls: usize);
+//     fn set_ret(&mut self, ret: usize);
+//     fn set_tls(&mut self, tls: usize);
+// }
+
+#[derive(Debug)]
+pub enum ContextArgs {
+    SEPC,
+    RA,
+    SP,
+    RET,
+    ARG0,
+    ARG1,
+    ARG2,
+    TLS,
+    SYSCALL,
 }
 
 #[derive(Debug, Clone, Copy)]

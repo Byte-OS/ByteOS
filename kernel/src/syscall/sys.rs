@@ -149,7 +149,7 @@ impl UserTaskContainer {
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
         use crate::syscall::consts::{ArchPrctlCode, LinuxError};
-        use arch::ContextOps;
+        use arch::ContextArgs;
         use num_traits::FromPrimitive;
 
         let arch_prctl_code = FromPrimitive::from_usize(code).ok_or(LinuxError::EINVAL)?;
@@ -159,7 +159,7 @@ impl UserTaskContainer {
         );
         let cx_ref = self.task.force_cx_ref();
         match arch_prctl_code {
-            ArchPrctlCode::ARCH_SET_FS => cx_ref.set_tls(addr),
+            ArchPrctlCode::ARCH_SET_FS => cx_ref[ContextArgs::TLS] = addr,
             _ => {
                 error!("arch prctl: {:#x?}", arch_prctl_code);
                 return Err(LinuxError::EPERM);

@@ -147,9 +147,14 @@ impl PageTable {
 
     #[inline]
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
-        Some(PhysAddr::new(
-            self.get_entry(vaddr.into()).address().as_usize() + vaddr.0 % PAGE_SIZE,
-        ))
+        let pte = self.get_entry(vaddr.into());
+        if !pte.is_present() {
+            None
+        } else {
+            Some(PhysAddr::new(
+                pte.address().as_usize() + vaddr.0 % PAGE_SIZE,
+            ))
+        }
     }
 }
 

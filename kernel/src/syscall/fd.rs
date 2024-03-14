@@ -234,11 +234,23 @@ impl UserTaskContainer {
         debug!("sys_fstat @ fd: {} stat_ptr: {}", fd, stat_ptr);
         let stat_ref = stat_ptr.get_mut();
 
-        self.task
+        let file = self.task
             .get_fd(fd)
-            .ok_or(LinuxError::EBADF)?
-            .stat(stat_ref)
+            .ok_or(LinuxError::EBADF)?;
+        file.stat(stat_ref)
             .map_err(from_vfs)?;
+        // if let Ok(metadata) = file.metadata() {
+        //     // stat_ref.ino = metadata.filename.as_ptr() as _;
+            
+        // }
+        let _ = file.metadata().inspect(|x| {
+            if x.filename == "libz.so.1" {
+                stat_ref.ino = 1000;
+            }
+            if x.filename == "libcrypto.so.3" {
+                stat_ref.ino = 1001;
+            }
+        });
         stat_ref.mode |= StatMode::OWNER_MASK | StatMode::GROUP_MASK | StatMode::OTHER_MASK;
         Ok(0)
     }

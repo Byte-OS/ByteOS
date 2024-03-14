@@ -1,4 +1,4 @@
-use arch::{switch_to_kernel_page_table, Context, ContextOps};
+use arch::{switch_to_kernel_page_table, Context, ContextArgs};
 use executor::{current_user_task, yield_now, AsyncTask};
 use futures_lite::future;
 use hal::TimeVal;
@@ -82,7 +82,7 @@ impl UserTaskContainer {
             debug!(
                 "[task {}] user_entry sepc: {:#X}",
                 self.task.task_id,
-                cx_ref.sepc()
+                cx_ref[ContextArgs::SEPC]
             );
 
             let res = future::or(self.handle_syscall(cx_ref), async {

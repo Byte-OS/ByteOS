@@ -1,8 +1,8 @@
-use core::fmt::Debug;
+use core::{fmt::Debug, ops::{Index, IndexMut}};
 
 use riscv::register::sstatus::{self, Sstatus};
 
-use crate::ContextOps;
+use crate::ContextArgs;
 
 #[repr(C)]
 #[derive(Clone)]
@@ -68,69 +68,115 @@ impl Context {
     }
 }
 
-impl ContextOps for Context {
-    #[inline]
-    fn set_sp(&mut self, sp: usize) {
-        self.x[2] = sp;
-    }
+// impl ContextOps for Context {
+//     #[inline]
+//     fn set_sp(&mut self, sp: usize) {
+//         self.x[2] = sp;
+//     }
 
-    #[inline]
-    fn sp(&self) -> usize {
-        self.x[2]
-    }
-    #[inline]
-    fn set_ra(&mut self, ra: usize) {
-        self.x[1] = ra;
-    }
+//     #[inline]
+//     fn sp(&self) -> usize {
+//         self.x[2]
+//     }
+//     #[inline]
+//     fn set_ra(&mut self, ra: usize) {
+//         self.x[1] = ra;
+//     }
 
-    #[inline]
-    fn ra(&self) -> usize {
-        self.x[1]
-    }
+//     #[inline]
+//     fn ra(&self) -> usize {
+//         self.x[1]
+//     }
 
-    #[inline]
-    fn set_sepc(&mut self, sepc: usize) {
-        self.sepc = sepc;
-    }
+//     #[inline]
+//     fn set_sepc(&mut self, sepc: usize) {
+//         self.sepc = sepc;
+//     }
 
-    #[inline]
-    fn sepc(&self) -> usize {
-        self.sepc
-    }
+//     #[inline]
+//     fn sepc(&self) -> usize {
+//         self.sepc
+//     }
 
-    #[inline]
-    fn syscall_number(&self) -> usize {
-        self.x[17]
-    }
+//     #[inline]
+//     fn syscall_number(&self) -> usize {
+//         self.x[17]
+//     }
 
+//     #[inline]
+//     fn args(&self) -> [usize; 6] {
+//         self.x[10..16].try_into().expect("args slice force convert")
+//     }
+
+//     #[inline]
+//     fn syscall_ok(&mut self) {
+//         self.sepc += 4;
+//     }
+
+//     fn set_ret(&mut self, ret: usize) {
+//         self.x[10] = ret;
+//     }
+
+//     fn set_arg0(&mut self, ret: usize) {
+//         self.x[10] = ret;
+//     }
+
+//     fn set_arg1(&mut self, ret: usize) {
+//         self.x[11] = ret;
+//     }
+
+//     fn set_arg2(&mut self, ret: usize) {
+//         self.x[12] = ret;
+//     }
+
+//     #[inline]
+//     fn set_tls(&mut self, tls: usize) {
+//         self.x[4] = tls;
+//     }
+// }
+
+impl Context {
     #[inline]
-    fn args(&self) -> [usize; 6] {
+    pub fn args(&self) -> [usize; 6] {
         self.x[10..16].try_into().expect("args slice force convert")
     }
 
     #[inline]
-    fn syscall_ok(&mut self) {
+    pub fn syscall_ok(&mut self) {
         self.sepc += 4;
     }
+}
 
-    fn set_ret(&mut self, ret: usize) {
-        self.x[10] = ret;
+impl Index<ContextArgs> for Context {
+    type Output = usize;
+
+    fn index(&self, index: ContextArgs) -> &Self::Output {
+        match index {
+            ContextArgs::SEPC       => &self.sepc,
+            ContextArgs::RA         => &self.x[1],
+            ContextArgs::SP         => &self.x[2],
+            ContextArgs::RET        => &self.x[10],
+            ContextArgs::ARG0       => &self.x[10],
+            ContextArgs::ARG1       => &self.x[11],
+            ContextArgs::ARG2       => &self.x[12],
+            ContextArgs::TLS        => &self.x[4],
+            ContextArgs::SYSCALL    => &self.x[17],
+        }
     }
+}
 
-    fn set_arg0(&mut self, ret: usize) {
-        self.x[10] = ret;
-    }
-
-    fn set_arg1(&mut self, ret: usize) {
-        self.x[11] = ret;
-    }
-
-    fn set_arg2(&mut self, ret: usize) {
-        self.x[12] = ret;
-    }
-
-    #[inline]
-    fn set_tls(&mut self, tls: usize) {
-        self.x[4] = tls;
+impl IndexMut<ContextArgs> for Context {
+    fn index_mut(&mut self, index: ContextArgs) -> &mut Self::Output {
+        match index {
+            ContextArgs::SEPC       => &mut self.sepc,
+            ContextArgs::RA         => &mut self.x[1],
+            ContextArgs::SP         => &mut self.x[2],
+            ContextArgs::RET        => &mut self.x[10],
+            ContextArgs::ARG0       => &mut self.x[10],
+            ContextArgs::ARG1       => &mut self.x[11],
+            ContextArgs::ARG2       => &mut self.x[12],
+            ContextArgs::TLS        => &mut self.x[4],
+            ContextArgs::SYSCALL    => &mut self.x[17],
+        }
     }
 }

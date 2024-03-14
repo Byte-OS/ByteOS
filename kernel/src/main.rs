@@ -29,7 +29,7 @@ mod tasks;
 mod user;
 
 use arch::{
-    enable_irq, ArchInterface, Context, ContextOps, PhysPage, TrapType, VirtPage, VIRT_ADDR_START,
+    enable_irq, ArchInterface, Context, ContextArgs, PhysPage, TrapType, VirtPage, VIRT_ADDR_START
 };
 use devices::{self, get_int_device};
 use executor::{current_user_task, get_current_task, FileItem};
@@ -88,14 +88,14 @@ impl ArchInterface for ArchInterfaceImpl {
                     vpn,
                     task.page_table.virt_to_phys(addr.into()),
                 );
-                warn!("the fault occurs @ {:#x}", cx_ref.sepc());
+                warn!("the fault occurs @ {:#x}", cx_ref[ContextArgs::SEPC]);
                 // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
                 warn!(
                     "mapped ppn addr: {:#x} @ {:?}",
-                    cx_ref.sepc(),
-                    task.page_table.virt_to_phys(cx_ref.sepc().into())
+                    cx_ref[ContextArgs::SEPC],
+                    task.page_table.virt_to_phys(cx_ref[ContextArgs::SEPC].into())
                 );
-                task_ilegal(&task, cx_ref.sepc(), cx_ref);
+                task_ilegal(&task, cx_ref[ContextArgs::SEPC], cx_ref);
                 // panic!("illegal Instruction")
                 // let signal = task.tcb.read().signal.clone();
                 // if signal.has_sig(SignalFlags::SIGSEGV) {

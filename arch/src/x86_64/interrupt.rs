@@ -188,7 +188,7 @@ pub unsafe extern "C" fn uservec() {
 
             mov     rdi, rsp
             mov    rsp, gs:[offset __PERCPU_KERNEL_RSP]  // kernel rsp
-            call kernel_callback
+
             pop r15
             pop r14
             pop r13

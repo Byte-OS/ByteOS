@@ -273,7 +273,7 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
 
     // command("test-fscanf").await;
-    // command("./runtest.exe -w entry-static.exe fscanf").await;
+    // command("./runtest.exe -w entry-static.exe argv").await;
     // command("entry-static.exe fscanf").await;
     // command(" busybox sh").await;
     // command("./a.out").await;
