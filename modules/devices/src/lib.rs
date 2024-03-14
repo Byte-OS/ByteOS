@@ -63,7 +63,7 @@ pub fn get_net_device(id: usize) -> Arc<dyn NetDriver> {
         .lock()
         .net
         .get(id)
-        .expect("can't find int device")
+        .expect("can't find net device")
         .clone()
 }
 

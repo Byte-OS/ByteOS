@@ -66,7 +66,7 @@ fn virtio_device(transport: MmioTransport, node: &FdtNode) -> Arc<dyn Driver> {
     match transport.device_type() {
         DeviceType::Block => virtio_blk::init(transport, irqs),
         DeviceType::Input => virtio_input::init(transport, irqs),
-        DeviceType::Network => virtio_net::init(transport),
+        DeviceType::Network => virtio_net::init(transport, irqs),
         device_type => {
             warn!("Unrecognized virtio device: {:?}", device_type);
             Arc::new(UnsupportedDriver)
@@ -112,7 +112,7 @@ fn virtio_device_probe(transport: impl Transport + 'static) {
     let device = match transport.device_type() {
         DeviceType::Block => Some(virtio_blk::init(transport, Vec::new())),
         // DeviceType::Input => virtio_input::init(transport, Vec::new()),
-        // DeviceType::Network => virtio_net(transport),
+        DeviceType::Network => Some(virtio_net::init(transport, Vec::new())),
         t => {
             warn!("Unrecognized virtio device: {:?}", t);
             None
