@@ -1,7 +1,5 @@
 use core::{
-    ffi::CStr,
-    fmt::{Debug, Display},
-    ops::Add,
+    ffi::CStr, fmt::{Debug, Display}, mem::size_of, ops::Add
 };
 
 use crate::{PAGE_SIZE, VIRT_ADDR_START};
@@ -205,7 +203,10 @@ impl PhysPage {
 
     #[inline]
     pub fn drop_clear(&self) {
-        self.get_buffer().fill(0);
+        // self.get_buffer().fill(0);
+        unsafe {
+            core::slice::from_raw_parts_mut((self.0 << 12 | VIRT_ADDR_START) as *mut usize, PAGE_SIZE / size_of::<usize>()).fill(0);
+        }
         #[cfg(c906)]
         unsafe {
             asm!(".long 0x0010000b"); // dcache.all
