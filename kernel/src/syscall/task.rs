@@ -8,7 +8,7 @@ use alloc::string::{String, ToString};
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{time_to_usec, ContextOps, MappingFlags, VirtPage, PAGE_SIZE};
+use arch::{time_to_usec, ContextArgs, MappingFlags, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{
@@ -460,11 +460,11 @@ impl UserTaskContainer {
         new_tcb.clear_child_tid = clear_child_tid.addr();
 
         if stack != 0 {
-            new_tcb.cx.set_sp(stack);
+            new_tcb.cx[ContextArgs::SP] = stack;
         }
         // set tls.
         if flags.contains(CloneFlags::CLONE_SETTLS) {
-            new_tcb.cx.set_tls(tls);
+            new_tcb.cx[ContextArgs::TLS] = tls;
         }
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
             *ptid.get_mut() = new_task.get_task_id() as _;

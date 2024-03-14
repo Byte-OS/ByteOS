@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use arch::{ContextOps, SIG_RETURN_ADDR};
+use arch::{ContextArgs, SIG_RETURN_ADDR};
 use executor::{current_user_task, AsyncTask};
 use log::debug;
 use signal::SignalFlags;
@@ -58,23 +58,23 @@ impl UserTaskContainer {
         self.task.tcb.write().sigmask = sigaction.mask;
 
         // alloc space for SignalUserContext at stack and align with 16 bytes.
-        let sp = (cx_ref.sp() - 128 - size_of::<SignalUserContext>()) / 16 * 16;
+        let sp = (cx_ref[ContextArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
         let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
-        cx.set_pc(tcb.cx.sepc());
+        cx.set_pc(tcb.cx[ContextArgs::SEPC]);
         cx.sig_mask = sigaction.mask;
-        tcb.cx.set_sp(sp);
-        tcb.cx.set_sepc(sigaction.handler);
-        if sigaction.restorer == 0 {
-            tcb.cx.set_ra(SIG_RETURN_ADDR);
+        tcb.cx[ContextArgs::SP] = sp;
+        tcb.cx[ContextArgs::SEPC] = sigaction.handler;
+        tcb.cx[ContextArgs::RA] = if sigaction.restorer == 0 {
+             SIG_RETURN_ADDR
         } else {
-            tcb.cx.set_ra(sigaction.restorer);
-        }
-        tcb.cx.set_arg0(signal.num());
-        tcb.cx.set_arg1(0);
-        tcb.cx.set_arg2(cx as *mut SignalUserContext as usize);
+            sigaction.restorer
+        };
+        tcb.cx[ContextArgs::ARG0] = signal.num();
+        tcb.cx[ContextArgs::ARG1] = 0;
+        tcb.cx[ContextArgs::ARG2] = cx as *mut SignalUserContext as usize;
         // info!("context: {:#X?}", tcb.cx);
         drop(tcb);
 
@@ -96,7 +96,7 @@ impl UserTaskContainer {
             debug!(
                 "[task {}]task sepc: {:#x}",
                 self.task.get_task_id(),
-                cx_ref.sepc()
+                cx_ref[ContextArgs::SEPC]
             );
 
             if let UserTaskControlFlow::Break = self.handle_syscall(cx_ref).await {
@@ -113,7 +113,7 @@ impl UserTaskContainer {
         // store_cx.set_ret(cx_ref.args()[0]);
         *cx_ref = store_cx;
         // copy pc from new_pc
-        cx_ref.set_sepc(cx.pc());
+        cx_ref[ContextArgs::SEPC] = cx.pc();
         cx.restore_ctx(cx_ref);
     }
 }

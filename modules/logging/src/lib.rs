@@ -18,6 +18,9 @@ impl Log for Logger {
             return;
         }
 
+        let file = record.file();
+        let line = record.line();
+
         let color_code = match record.level() {
             Level::Error => 31u8, // Red
             Level::Warn => 93,    // BrightYellow
@@ -28,10 +31,12 @@ impl Log for Logger {
         write!(
             Logger,
             "\u{1B}[{}m\
-            [{}] {}\
+            [{}] {}:{} {}\
             \u{1B}[0m\n",
             color_code,
             record.level(),
+            file.unwrap(),
+            line.unwrap(),
             record.args()
         )
         .expect("can't write color string in logging module.");

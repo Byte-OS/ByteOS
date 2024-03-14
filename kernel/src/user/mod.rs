@@ -2,7 +2,7 @@ use core::pin::Pin;
 
 use ::signal::SignalFlags;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use arch::{get_time, run_user_task, Context, ContextOps, MappingFlags, VirtPage};
+use arch::{get_time, run_user_task, Context, ContextArgs, MappingFlags, VirtPage};
 use executor::{AsyncTask, MapTrack, TaskId, UserTask};
 use frame_allocator::frame_alloc;
 use futures_lite::Future;
@@ -28,9 +28,9 @@ pub struct UserTaskContainer {
 pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut Context, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
-        "store/instruction page fault @ {:#x} vpn: {} ppn: {:?} task_id: {}",
+        "store/instruction page fault @ {:#x} vaddr: {:#x} paddr: {:?} task_id: {}",
         addr,
-        vpn,
+        addr,
         task.page_table.virt_to_phys(addr.into()),
         task.get_task_id()
     );
@@ -88,15 +88,15 @@ impl UserTaskContainer {
                 .inner_map(|inner| inner.tms.utime += (get_time() - ustart) as u64);
 
             let sstart = get_time();
-            if cx_ref.syscall_number() == SYS_SIGRETURN {
+            if cx_ref[ContextArgs::SYSCALL] == SYS_SIGRETURN {
                 return UserTaskControlFlow::Break;
             }
 
-            debug!("syscall num: {}", cx_ref.syscall_number());
+            debug!("syscall num: {}", cx_ref[ContextArgs::SYSCALL]);
             // sepc += 4, let it can go to next command.
             cx_ref.syscall_ok();
             let result = self
-                .syscall(cx_ref.syscall_number(), cx_ref.args())
+                .syscall(cx_ref[ContextArgs::SYSCALL], cx_ref.args())
                 .await
                 .map_or_else(|e| -e.code(), |x| x as isize) as usize;
 
@@ -106,7 +106,7 @@ impl UserTaskContainer {
                 result as isize
             );
 
-            cx_ref.set_ret(result);
+            cx_ref[ContextArgs::RET] = result;
             self.task
                 .inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
         }
@@ -136,7 +136,7 @@ pub fn task_ilegal(task: &Arc<UserTask>, addr: usize, cx_ref: &mut Context) {
         let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
         match finded {
             Some(_) => {
-                cx_ref.set_sepc(cx_ref.sepc() + 2);
+                cx_ref[ContextArgs::SEPC] += 2;
             }
             None => {
                 task.tcb.write().signal.add_signal(SignalFlags::SIGILL);

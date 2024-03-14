@@ -6,7 +6,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::{Context, ContextOps, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE};
+use arch::{Context, ContextArgs, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
@@ -394,7 +394,7 @@ impl UserTask {
         new_pcb.heap = pcb.heap;
 
         new_tcb_writer.cx = self.tcb.read().cx.clone();
-        new_tcb_writer.cx.set_ret(0);
+        new_tcb_writer.cx[ContextArgs::RET] = 0;
         new_pcb.curr_dir = pcb.curr_dir.clone();
 
         pcb.children.push(new_task.clone());
@@ -438,7 +438,7 @@ impl UserTask {
         new_pcb.fd_table.0 = pcb.fd_table.0.clone();
         new_pcb.heap = pcb.heap;
         new_tcb_writer.cx = self.tcb.read().cx.clone();
-        new_tcb_writer.cx.set_ret(0);
+        new_tcb_writer.cx[ContextArgs::RET] = 0;
         new_pcb.curr_dir = pcb.curr_dir.clone();
         pcb.children.push(new_task.clone());
         new_pcb.shms = pcb.shms.clone();
@@ -488,7 +488,7 @@ impl UserTask {
             thread_exit_code: Option::None,
         });
 
-        tcb.write().cx.set_ret(0);
+        tcb.write().cx[ContextArgs::RET] = 0;
         drop(parent_tcb);
 
         let new_task = Arc::new(Self {
@@ -519,12 +519,12 @@ impl UserTask {
 
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
-        let sp = tcb.cx.sp() - ceil_div(len + 1, ULEN) * ULEN;
+        let sp = tcb.cx[ContextArgs::SP] - ceil_div(len + 1, ULEN) * ULEN;
 
         VirtAddr::from(sp)
             .slice_mut_with_len(len)
             .copy_from_slice(buffer);
-        tcb.cx.set_sp(sp);
+        tcb.cx[ContextArgs::SP] = sp;
         sp
     }
 
@@ -532,10 +532,10 @@ impl UserTask {
         let mut tcb = self.tcb.write();
 
         const ULEN: usize = size_of::<usize>();
-        let sp = tcb.cx.sp() - ULEN;
+        let sp = tcb.cx[ContextArgs::SP] - ULEN;
 
         *VirtAddr::from(sp).get_mut_ref() = num;
-        tcb.cx.set_sp(sp);
+        tcb.cx[ContextArgs::SP] = sp;
         sp
     }
 
