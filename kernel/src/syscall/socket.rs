@@ -14,6 +14,7 @@ use sync::Lazy;
 use vfscore::OpenFlags;
 
 use crate::socket::{self, NetType};
+use crate::user::socket_pair::create_socket_pair;
 use crate::user::UserTaskContainer;
 
 use super::consts::{LinuxError, UserRef};
@@ -81,13 +82,23 @@ impl UserTaskContainer {
         domain: usize,
         net_type: usize,
         protocol: usize,
-        socket_vector: *mut u32,
+        socket_vector: UserRef<u32>,
     ) -> SysResult {
         debug!(
             "sys_socket_pair @ domain: {} net_type: {:#x} protocol: {} socket_vector: {:?}",
             domain, net_type, protocol, socket_vector
         );
-        self.sys_pipe2((socket_vector as usize).into(), 0).await?;
+        let fds = socket_vector.slice_mut_with_len(2);
+
+        let socket = create_socket_pair();
+        let rx_fd = self.task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+        self.task.set_fd(rx_fd, FileItem::new_dev(socket.clone()));
+        fds[0] = rx_fd as u32;
+
+        let tx_fd = self.task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+        self.task.set_fd(tx_fd, FileItem::new_dev(socket.clone()));
+        fds[1] = tx_fd as u32;
+
         Ok(0)
     }
 
@@ -378,6 +389,8 @@ impl UserTaskContainer {
                 // recv buffer
                 0x8 => *optval = 32000,
                 0x2 => *optval = 2000,
+                // getsockopt
+                0x4 => return Err(LinuxError::EPERM), 
                 _ => {
                     // *optval = 2000;
                 }

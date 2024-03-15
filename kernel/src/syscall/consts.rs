@@ -251,6 +251,7 @@ cfg_if::cfg_if! {
         pub const SYS_SETPGID: usize = 154;
         pub const SYS_GETPGID: usize = 155;
         pub const SYS_SETSID: usize = 157;
+        pub const SYS_SETGROUPS: usize = 159;
         pub const SYS_UNAME: usize = 160;
         pub const SYS_GETRUSAGE: usize = 165;
         pub const SYS_GETTIMEOFDAY: usize = 169;
@@ -330,6 +331,7 @@ cfg_if::cfg_if! {
         pub const SYS_PWRITE: usize = 18;
         pub const SYS_SENDFILE: usize = 40;
         pub const SYS_SELECT: usize = 23;
+        pub const SYS_SETGROUPS: usize = 116;
         pub const SYS_PSELECT: usize = 270;
         pub const SYS_PPOLL: usize = 271;
         pub const SYS_READLINK: usize = 89;
