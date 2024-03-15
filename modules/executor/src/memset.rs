@@ -145,9 +145,9 @@ impl MemArea {
 
     /// Check the memory is overlapping.
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
-        let range = self.start..self.start + self.len;
-        let jrange = start..end;
-        range.contains(&start) || jrange.contains(&self.start)
+        let self_end = self.start + self.len;
+        let res = !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end));
+        res
     }
 
     /// write page to file
@@ -163,6 +163,9 @@ impl MemArea {
     /// Sub the memory from this memory area.
     /// the return value indicates whether the memory is splited.
     pub fn sub(&mut self, start: usize, end: usize, pt: &PageTable) -> Option<MemArea> {
+        if !self.overlapping(start, end) {
+            return None;
+        }
         let range = self.start..self.start + self.len;
         let jrange = start..end;
 

@@ -214,7 +214,7 @@ impl UserTaskContainer {
                     .await
             }
             SYS_SOCKETPAIR => {
-                self.sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3] as _)
+                self.sys_socket_pair(args[0] as _, args[1] as _, args[2] as _, args[3].into())
                     .await
             }
             SYS_BIND => {
@@ -359,6 +359,7 @@ impl UserTaskContainer {
                 Ok(0)
             }
             SYS_SCHED_GETAFFINITY => self.sys_sched_getaffinity(args[0], args[1], args[2].into()).await,
+            SYS_SETGROUPS => Ok(0),
             #[cfg(not(target_arch = "x86_64"))]
             SYS_CLONE => {
                 self.sys_clone(

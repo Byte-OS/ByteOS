@@ -15,6 +15,7 @@ use crate::{
 
 pub mod entry;
 pub mod signal;
+pub mod socket_pair;
 
 pub struct UserTaskContainer {
     pub task: Arc<UserTask>,
