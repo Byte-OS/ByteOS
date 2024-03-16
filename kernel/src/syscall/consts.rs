@@ -757,6 +757,7 @@ cfg_if! {
             pub link: usize,           // 1
             pub stack: SignalStack,    // 2
             pub sig_mask: SigProcMask, // 5
+            pub _pad: [u64; 16],       // mask
             pub fault_address: usize,
             pub regs: [usize; 31],
             pub sp: usize,
