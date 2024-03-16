@@ -150,14 +150,29 @@ impl PageTable {
 
     #[inline]
     pub fn restore(&self) {
-        warn!("doing nothing")
+        let drop_l3 = |l3: PhysAddr| {
+            l3.slice_mut_with_len::<PTE>(0x200).iter_mut().for_each(|x| *x = PTE(0));
+        };
+        let drop_l2 = |l2: PhysAddr| {
+            l2.slice_mut_with_len::<PTE>(0x200).iter().for_each(|x| {
+                if x.0 & 0b11 == 0b11 {
+                    drop_l3(x.to_ppn().into())
+                }
+            })
+        };
+        self.0.slice_mut_with_len::<PTE>(0x200).iter().for_each(|x| {
+            if x.0 & 0b11 == 0b11 {
+                drop_l2(x.to_ppn().into())
+            }
+        });
+        flush_tlb(None)
     }
 
     #[inline]
     pub fn change(&self) {
         debug!("change ttbr0 to :{:#x}", self.0.addr());
         TTBR0_EL1.set((self.0.addr() & 0xFFFF_FFFF_F000) as _);
-        unsafe { asm!("dsb ish;tlbi vmalle1is;") }
+        flush_tlb(None)
     }
 
     pub fn get_mut_entry(&self, vpn: VirtPage) -> &mut PTE {
@@ -186,16 +201,12 @@ impl PageTable {
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
         *self.get_mut_entry(vpn) = PTE::from_ppn(ppn.0, flags.into());
         flush_tlb(Some(vpn.into()))
-        // flush_tlb(None)
     }
 
     #[inline]
     pub fn unmap(&self, vpn: VirtPage) {
-        let entry = self.get_mut_entry(vpn);
-        ArchInterface::frame_unalloc(entry.to_ppn());
-        *entry = PTE::new();
-        // flush_tlb(Some(vpn.into()))
-        flush_tlb(None)
+        *self.get_mut_entry(vpn) = PTE(0);
+        flush_tlb(Some(vpn.into()));
     }
 
     #[inline]

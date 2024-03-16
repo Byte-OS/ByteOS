@@ -134,7 +134,8 @@ unsafe extern "C" fn _start() -> ! {
 pub fn flush_tlb(vaddr: Option<VirtAddr>) {
     unsafe {
         if let Some(vaddr) = vaddr {
-            asm!("tlbi vaae1is, {}; dsb sy; isb", in(reg) vaddr.0)
+            // TIPS: flush tlb, tlb addr: 0-47: ppn, otherwise tlb asid
+            asm!("tlbi vaale1is, {}; dsb sy; isb", in(reg) ((vaddr.0 >> 12) & 0xFFFF_FFFF_FFFF))
         } else {
             // flush the entire TLB
             asm!("tlbi vmalle1; dsb sy; isb")
