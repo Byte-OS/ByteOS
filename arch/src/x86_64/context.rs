@@ -1,4 +1,7 @@
-use core::{fmt::Debug, ops::{Index, IndexMut}};
+use core::{
+    fmt::Debug,
+    ops::{Index, IndexMut},
+};
 
 use x86_64::registers::rflags::RFlags;
 
@@ -209,7 +212,7 @@ impl Index<ContextArgs> for Context {
             ContextArgs::ARG0 => &self.rdi,
             ContextArgs::ARG1 => &self.rsi,
             ContextArgs::ARG2 => &self.rdx,
-            ContextArgs::TLS  => &self.fs_base,
+            ContextArgs::TLS => &self.fs_base,
             ContextArgs::SP => &self.rsp,
             ContextArgs::RET => &self.rax,
             ContextArgs::SYSCALL => &self.rax,
@@ -225,17 +228,15 @@ impl IndexMut<ContextArgs> for Context {
                 // set return address, at x86_64 is push return address to rsp, shoule be execute at end.
                 warn!("set_ra in x86_64 is push return address to rsp, shoule be execute at end");
                 self.rsp -= 8;
-                unsafe {
-                    (self.rsp as *mut usize).as_mut().unwrap()
-                }
-            },
+                unsafe { (self.rsp as *mut usize).as_mut().unwrap() }
+            }
             ContextArgs::ARG0 => &mut self.rdi,
             ContextArgs::ARG1 => &mut self.rsi,
             ContextArgs::ARG2 => &mut self.rdx,
-            ContextArgs::TLS  => &mut self.fs_base,
+            ContextArgs::TLS => &mut self.fs_base,
             ContextArgs::SP => &mut self.rsp,
             ContextArgs::RET => &mut self.rax,
-            ContextArgs::SYSCALL => unreachable!("can't set syscall number")
+            ContextArgs::SYSCALL => unreachable!("can't set syscall number"),
         }
     }
 }

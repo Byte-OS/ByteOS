@@ -1,4 +1,7 @@
-use core::{fmt::Debug, ops::{Index, IndexMut}};
+use core::{
+    fmt::Debug,
+    ops::{Index, IndexMut},
+};
 
 use riscv::register::sstatus::{self, Sstatus};
 
@@ -152,15 +155,15 @@ impl Index<ContextArgs> for Context {
 
     fn index(&self, index: ContextArgs) -> &Self::Output {
         match index {
-            ContextArgs::SEPC       => &self.sepc,
-            ContextArgs::RA         => &self.x[1],
-            ContextArgs::SP         => &self.x[2],
-            ContextArgs::RET        => &self.x[10],
-            ContextArgs::ARG0       => &self.x[10],
-            ContextArgs::ARG1       => &self.x[11],
-            ContextArgs::ARG2       => &self.x[12],
-            ContextArgs::TLS        => &self.x[4],
-            ContextArgs::SYSCALL    => &self.x[17],
+            ContextArgs::SEPC => &self.sepc,
+            ContextArgs::RA => &self.x[1],
+            ContextArgs::SP => &self.x[2],
+            ContextArgs::RET => &self.x[10],
+            ContextArgs::ARG0 => &self.x[10],
+            ContextArgs::ARG1 => &self.x[11],
+            ContextArgs::ARG2 => &self.x[12],
+            ContextArgs::TLS => &self.x[4],
+            ContextArgs::SYSCALL => &self.x[17],
         }
     }
 }
@@ -168,15 +171,15 @@ impl Index<ContextArgs> for Context {
 impl IndexMut<ContextArgs> for Context {
     fn index_mut(&mut self, index: ContextArgs) -> &mut Self::Output {
         match index {
-            ContextArgs::SEPC       => &mut self.sepc,
-            ContextArgs::RA         => &mut self.x[1],
-            ContextArgs::SP         => &mut self.x[2],
-            ContextArgs::RET        => &mut self.x[10],
-            ContextArgs::ARG0       => &mut self.x[10],
-            ContextArgs::ARG1       => &mut self.x[11],
-            ContextArgs::ARG2       => &mut self.x[12],
-            ContextArgs::TLS        => &mut self.x[4],
-            ContextArgs::SYSCALL    => &mut self.x[17],
+            ContextArgs::SEPC => &mut self.sepc,
+            ContextArgs::RA => &mut self.x[1],
+            ContextArgs::SP => &mut self.x[2],
+            ContextArgs::RET => &mut self.x[10],
+            ContextArgs::ARG0 => &mut self.x[10],
+            ContextArgs::ARG1 => &mut self.x[11],
+            ContextArgs::ARG2 => &mut self.x[12],
+            ContextArgs::TLS => &mut self.x[4],
+            ContextArgs::SYSCALL => &mut self.x[17],
         }
     }
 }

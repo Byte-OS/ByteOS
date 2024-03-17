@@ -68,7 +68,7 @@ impl UserTaskContainer {
         tcb.cx[ContextArgs::SP] = sp;
         tcb.cx[ContextArgs::SEPC] = sigaction.handler;
         tcb.cx[ContextArgs::RA] = if sigaction.restorer == 0 {
-             SIG_RETURN_ADDR
+            SIG_RETURN_ADDR
         } else {
             sigaction.restorer
         };

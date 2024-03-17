@@ -20,7 +20,13 @@ use raw_cpuid::CpuId;
 pub use uart::*;
 
 use x86::tlb;
-use x86_64::{instructions::port::PortWriteOnly, registers::{control::{Cr4, Cr4Flags}, xcontrol::{XCr0, XCr0Flags}}};
+use x86_64::{
+    instructions::port::PortWriteOnly,
+    registers::{
+        control::{Cr4, Cr4Flags},
+        xcontrol::{XCr0, XCr0Flags},
+    },
+};
 
 use crate::{x86_64::multiboot::use_multiboot, ArchInterface, VirtAddr};
 
@@ -46,10 +52,10 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     gdt::init();
     interrupt::init_syscall();
     time::init_early();
-    
+
     // enable avx extend instruction set and sse if support avx
     // TIPS: QEMU not support avx, so we can't enable avx here
-    // IF you want to use avx in the qemu, you can use -cpu IvyBridge-v2 to 
+    // IF you want to use avx in the qemu, you can use -cpu IvyBridge-v2 to
     // select a cpu with avx support
     CpuId::new().get_feature_info().map(|features| {
         info!("is there a avx feature: {}", features.has_avx());

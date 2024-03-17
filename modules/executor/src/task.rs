@@ -6,7 +6,9 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::{Context, ContextArgs, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE};
+use arch::{
+    Context, ContextArgs, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
+};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
@@ -115,7 +117,7 @@ impl UserTask {
     pub fn new(
         future: impl Future<Output = ()> + 'static,
         parent: Weak<dyn AsyncTask>,
-        work_dir: &str
+        work_dir: &str,
     ) -> Arc<Self> {
         let task_id = task_id_alloc();
         // initialize memset
@@ -383,7 +385,15 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<dyn AsyncTask> = self.clone();
-        let work_dir = parent_task.clone().as_user_task().unwrap().pcb.lock().curr_dir.path().expect("can't get parent work dir in the cow_fork");
+        let work_dir = parent_task
+            .clone()
+            .as_user_task()
+            .unwrap()
+            .pcb
+            .lock()
+            .curr_dir
+            .path()
+            .expect("can't get parent work dir in the cow_fork");
         let new_task = Self::new(future, Arc::downgrade(&parent_task), &work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
@@ -429,7 +439,15 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<dyn AsyncTask> = self.clone();
-        let work_dir = parent_task.clone().as_user_task().unwrap().pcb.lock().curr_dir.path().expect("can't get parent work dir in the cow_fork");
+        let work_dir = parent_task
+            .clone()
+            .as_user_task()
+            .unwrap()
+            .pcb
+            .lock()
+            .curr_dir
+            .path()
+            .expect("can't get parent work dir in the cow_fork");
         let new_task = Self::new(future, Arc::downgrade(&parent_task), &work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap

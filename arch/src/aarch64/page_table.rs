@@ -151,7 +151,9 @@ impl PageTable {
     #[inline]
     pub fn restore(&self) {
         let drop_l3 = |l3: PhysAddr| {
-            l3.slice_mut_with_len::<PTE>(0x200).iter_mut().for_each(|x| *x = PTE(0));
+            l3.slice_mut_with_len::<PTE>(0x200)
+                .iter_mut()
+                .for_each(|x| *x = PTE(0));
         };
         let drop_l2 = |l2: PhysAddr| {
             l2.slice_mut_with_len::<PTE>(0x200).iter().for_each(|x| {
@@ -160,11 +162,14 @@ impl PageTable {
                 }
             })
         };
-        self.0.slice_mut_with_len::<PTE>(0x200).iter().for_each(|x| {
-            if x.0 & 0b11 == 0b11 {
-                drop_l2(x.to_ppn().into())
-            }
-        });
+        self.0
+            .slice_mut_with_len::<PTE>(0x200)
+            .iter()
+            .for_each(|x| {
+                if x.0 & 0b11 == 0b11 {
+                    drop_l2(x.to_ppn().into())
+                }
+            });
         flush_tlb(None)
     }
 

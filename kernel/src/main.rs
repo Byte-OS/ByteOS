@@ -29,7 +29,7 @@ mod tasks;
 mod user;
 
 use arch::{
-    enable_irq, ArchInterface, Context, ContextArgs, PhysPage, TrapType, VirtPage, VIRT_ADDR_START
+    enable_irq, ArchInterface, Context, ContextArgs, PhysPage, TrapType, VirtPage, VIRT_ADDR_START,
 };
 use devices::{self, get_int_device};
 use executor::{current_user_task, get_current_task, FileItem};
@@ -93,7 +93,8 @@ impl ArchInterface for ArchInterfaceImpl {
                 warn!(
                     "mapped ppn addr: {:#x} @ {:?}",
                     cx_ref[ContextArgs::SEPC],
-                    task.page_table.virt_to_phys(cx_ref[ContextArgs::SEPC].into())
+                    task.page_table
+                        .virt_to_phys(cx_ref[ContextArgs::SEPC].into())
                 );
                 task_ilegal(&task, cx_ref[ContextArgs::SEPC], cx_ref);
                 // panic!("illegal Instruction")

@@ -390,7 +390,7 @@ impl UserTaskContainer {
                 0x8 => *optval = 32000,
                 0x2 => *optval = 2000,
                 // getsockopt
-                0x4 => return Err(LinuxError::EPERM), 
+                0x4 => return Err(LinuxError::EPERM),
                 _ => {
                     // *optval = 2000;
                 }

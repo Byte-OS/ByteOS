@@ -117,15 +117,15 @@ impl Index<ContextArgs> for Context {
 
     fn index(&self, index: ContextArgs) -> &Self::Output {
         match index {
-            ContextArgs::SEPC       => &self.elr,
-            ContextArgs::RA         => &self.regs[30],
-            ContextArgs::SP         => &self.sp,
-            ContextArgs::RET        => &self.regs[0],
-            ContextArgs::ARG0       => &self.regs[0],
-            ContextArgs::ARG1       => &self.regs[1],
-            ContextArgs::ARG2       => &self.regs[2],
-            ContextArgs::TLS        => &self.tpidr,
-            ContextArgs::SYSCALL    => &self.regs[8],
+            ContextArgs::SEPC => &self.elr,
+            ContextArgs::RA => &self.regs[30],
+            ContextArgs::SP => &self.sp,
+            ContextArgs::RET => &self.regs[0],
+            ContextArgs::ARG0 => &self.regs[0],
+            ContextArgs::ARG1 => &self.regs[1],
+            ContextArgs::ARG2 => &self.regs[2],
+            ContextArgs::TLS => &self.tpidr,
+            ContextArgs::SYSCALL => &self.regs[8],
         }
     }
 }
@@ -133,15 +133,15 @@ impl Index<ContextArgs> for Context {
 impl IndexMut<ContextArgs> for Context {
     fn index_mut(&mut self, index: ContextArgs) -> &mut Self::Output {
         match index {
-            ContextArgs::SEPC       => &mut self.elr,
-            ContextArgs::RA         => &mut self.regs[30],
-            ContextArgs::SP         => &mut self.sp,
-            ContextArgs::RET        => &mut self.regs[0],
-            ContextArgs::ARG0       => &mut self.regs[0],
-            ContextArgs::ARG1       => &mut self.regs[1],
-            ContextArgs::ARG2       => &mut self.regs[2],
-            ContextArgs::TLS        => &mut self.tpidr,
-            ContextArgs::SYSCALL    => &mut self.regs[8],
+            ContextArgs::SEPC => &mut self.elr,
+            ContextArgs::RA => &mut self.regs[30],
+            ContextArgs::SP => &mut self.sp,
+            ContextArgs::RET => &mut self.regs[0],
+            ContextArgs::ARG0 => &mut self.regs[0],
+            ContextArgs::ARG1 => &mut self.regs[1],
+            ContextArgs::ARG2 => &mut self.regs[2],
+            ContextArgs::TLS => &mut self.tpidr,
+            ContextArgs::SYSCALL => &mut self.regs[8],
         }
     }
 }
