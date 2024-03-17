@@ -83,7 +83,11 @@ pub fn init() {
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> TaskId {
     let curr_task = current_task();
-    let task = UserTask::new(user_entry(), Arc::downgrade(&current_task()), initproc::USER_WORK_DIR);
+    let task = UserTask::new(
+        user_entry(),
+        Arc::downgrade(&current_task()),
+        initproc::USER_WORK_DIR,
+    );
 
     task.before_run();
     exec_with_process(task.clone(), filename, args, envp)

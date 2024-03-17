@@ -146,7 +146,8 @@ impl MemArea {
     /// Check the memory is overlapping.
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
         let self_end = self.start + self.len;
-        let res = !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end));
+        let res =
+            !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end));
         res
     }
 

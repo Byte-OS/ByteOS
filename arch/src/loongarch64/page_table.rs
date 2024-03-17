@@ -1,13 +1,8 @@
-use core::arch::asm;
-
 use alloc::sync::Arc;
-use bitflags::bitflags;
 
 use crate::{
     ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
 };
-
-use super::boot::flush_tlb;
 
 #[derive(Copy, Clone, Debug)]
 pub struct PTE(usize);
@@ -177,20 +172,8 @@ impl PageTable {
     }
 
     #[inline]
-    pub fn unmap(&self, vpn: VirtPage) {
+    pub fn unmap(&self, _vpn: VirtPage) {
         todo!("unmap pages");
-        // TODO: Add huge page support.
-        let mut pte_list = get_pte_list(self.0);
-        for i in (1..3).rev() {
-            let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut pte_list[value];
-            if !pte.is_valid() {
-                return;
-            }
-            pte_list = get_pte_list(pte.to_ppn().into());
-        }
-
-        pte_list[vpn.0 & 0x1ff] = PTE::new();
     }
 
     #[inline]
@@ -222,3 +205,8 @@ impl PageTable {
 //         ArchInterface::frame_unalloc(self.0.into());
 //     }
 // }
+
+#[inline]
+pub fn flush_tlb(_vaddr: Option<VirtAddr>) {
+    todo!("flush_tlb")
+}

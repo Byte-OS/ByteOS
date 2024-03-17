@@ -234,11 +234,8 @@ impl UserTaskContainer {
         debug!("sys_fstat @ fd: {} stat_ptr: {}", fd, stat_ptr);
         let stat_ref = stat_ptr.get_mut();
 
-        let file = self.task
-            .get_fd(fd)
-            .ok_or(LinuxError::EBADF)?;
-        file.stat(stat_ref)
-            .map_err(from_vfs)?;
+        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        file.stat(stat_ref).map_err(from_vfs)?;
         stat_ref.mode |= StatMode::OWNER_MASK;
         if let Ok(metadata) = file.metadata() {
             stat_ref.ino = metadata.filename.as_ptr() as _;
@@ -832,7 +829,8 @@ impl UserTaskContainer {
         exceptfds: UserRef<usize>,
         timeout_ptr: UserRef<TimeSpec>,
     ) -> SysResult {
-        self.sys_pselect(max_fdp1, readfds, writefds, exceptfds, timeout_ptr, 0).await
+        self.sys_pselect(max_fdp1, readfds, writefds, exceptfds, timeout_ptr, 0)
+            .await
     }
 
     pub async fn sys_ftruncate(&self, fields: usize, len: usize) -> SysResult {

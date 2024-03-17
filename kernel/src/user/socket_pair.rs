@@ -1,14 +1,11 @@
 use core::cmp;
 
-use alloc::{
-    collections::VecDeque,
-    sync::Arc,
-};
+use alloc::{collections::VecDeque, sync::Arc};
 use sync::Mutex;
 use vfscore::{INodeInterface, PollEvent, VfsResult};
 
 pub struct SocketPair {
-    inner: Arc<Mutex<VecDeque<u8>>>
+    inner: Arc<Mutex<VecDeque<u8>>>,
 }
 
 impl INodeInterface for SocketPair {
@@ -58,6 +55,6 @@ impl INodeInterface for SocketPair {
 
 pub fn create_socket_pair() -> Arc<SocketPair> {
     Arc::new(SocketPair {
-        inner: Arc::new(Mutex::new(VecDeque::new()))
+        inner: Arc::new(Mutex::new(VecDeque::new())),
     })
 }

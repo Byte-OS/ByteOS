@@ -57,7 +57,7 @@ pub fn init<T: Transport + 'static>(transport: T, irqs: Vec<u32>) -> Arc<dyn Dri
             net::VirtIONet::<HalImpl, T, 32>::new(transport, 2048)
                 .expect("failed to create blk driver"),
         ),
-        irqs
+        irqs,
     });
     register_device_irqs(net_device.clone());
     net_device

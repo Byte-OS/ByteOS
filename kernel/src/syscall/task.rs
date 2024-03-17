@@ -812,9 +812,17 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_sched_getaffinity(&self, pid: usize, cpu_set_size: usize, mask: UserRef<u8>) -> SysResult {
-        debug!("[task {}] sys_sched_getaffinity @ pid: {}  cpu_set_size: {}, mask: {:#x?}", self.tid, pid, cpu_set_size, mask);
-        // TODO: 
+    pub async fn sys_sched_getaffinity(
+        &self,
+        pid: usize,
+        cpu_set_size: usize,
+        mask: UserRef<u8>,
+    ) -> SysResult {
+        debug!(
+            "[task {}] sys_sched_getaffinity @ pid: {}  cpu_set_size: {}, mask: {:#x?}",
+            self.tid, pid, cpu_set_size, mask
+        );
+        // TODO:
         Ok(0)
     }
 }

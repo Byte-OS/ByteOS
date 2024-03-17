@@ -60,11 +60,10 @@ pub fn console_putchar(c: u8) {
 }
 
 pub fn write_fmt(args: core::fmt::Arguments) {
-    use core::fmt::Write;
     COM1.lock().write_fmt(args).unwrap();
 }
 
 /// read a byte, return -1 if nothing exists.
-pub fn console_getchar() -> u8 {
-    COM1.lock().getchar().unwrap_or(u8::MAX)
+pub fn console_getchar() -> Option<u8> {
+    COM1.lock().getchar()
 }

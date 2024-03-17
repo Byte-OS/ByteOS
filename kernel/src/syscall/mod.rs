@@ -358,7 +358,10 @@ impl UserTaskContainer {
                 log::debug!("sys_sched_getscheduler");
                 Ok(0)
             }
-            SYS_SCHED_GETAFFINITY => self.sys_sched_getaffinity(args[0], args[1], args[2].into()).await,
+            SYS_SCHED_GETAFFINITY => {
+                self.sys_sched_getaffinity(args[0], args[1], args[2].into())
+                    .await
+            }
             SYS_SETGROUPS => Ok(0),
             #[cfg(not(target_arch = "x86_64"))]
             SYS_CLONE => {
@@ -389,14 +392,17 @@ impl UserTaskContainer {
                     args[1].into(),
                     args[2].into(),
                     args[3].into(),
-                    args[4].into()
+                    args[4].into(),
                 )
                 .await
             }
             #[cfg(target_arch = "x86_64")]
             SYS_MKDIR => self.sys_mkdir(args[0].into(), args[1]).await,
             #[cfg(target_arch = "x86_64")]
-            SYS_READLINK => self.sys_readlink(args[0].into(), args[1].into(), args[2]).await,
+            SYS_READLINK => {
+                self.sys_readlink(args[0].into(), args[1].into(), args[2])
+                    .await
+            }
             #[cfg(target_arch = "x86_64")]
             SYS_ARCH_PRCTL => self.sys_arch_prctl(args[0], args[1]).await,
             #[cfg(target_arch = "x86_64")]
