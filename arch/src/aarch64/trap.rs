@@ -1,7 +1,6 @@
 use core::arch::{asm, global_asm};
 
 use aarch64_cpu::registers::{Writeable, ESR_EL1, FAR_EL1, VBAR_EL1};
-use irq_safety::disable_interrupts;
 use tock_registers::interfaces::Readable;
 
 use crate::{
@@ -108,7 +107,7 @@ pub fn init_interrupt() {
 }
 
 #[naked]
-extern "C" fn user_restore(context: *mut Context) {
+extern "C" fn user_restore(context: *mut Context) -> TrapKind {
     unsafe {
         asm!(
             r"
@@ -154,10 +153,8 @@ extern "C" fn user_restore(context: *mut Context) {
 }
 
 pub fn run_user_task(cx: &mut Context) -> Option<()> {
-    debug!("user task");
-    disable_interrupts();
-    user_restore(cx);
-    match handle_exception(cx, TrapKind::Synchronous, TrapSource::LowerAArch64) {
+    let trap_kind = user_restore(cx);
+    match handle_exception(cx, trap_kind, TrapSource::LowerAArch64) {
         TrapType::UserEnvCall => Some(()),
         _ => None,
     }
