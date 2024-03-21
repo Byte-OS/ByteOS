@@ -226,9 +226,10 @@ impl Default for SigInfo {
 #[derive(Debug, Clone, Copy)]
 pub struct SigAction {
     pub handler: usize,    // void     (*sa_handler)(int);
+    pub mask: SigProcMask, // sigset_t   sa_mask;
+    pub _pad: [usize; 2],   // extend mask
     pub flags: usize,      // int        sa_flags;
     pub restorer: usize,   // void     (*sa_restorer)(void);
-    pub mask: SigProcMask, // sigset_t   sa_mask;
 }
 
 impl SigAction {
@@ -236,6 +237,7 @@ impl SigAction {
         Self {
             handler: 0,
             mask: SigProcMask::new(),
+            _pad: [0; 2],
             flags: 0,
             restorer: 0,
         }
