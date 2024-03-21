@@ -1,0 +1,1 @@
+/home/yufeng/Downloads/oscomp-testsuits-loongarch/lmbench/bin/loongarch64/lmbench_all hello "$@"

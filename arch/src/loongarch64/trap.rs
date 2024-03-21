@@ -1,12 +1,104 @@
-use core::arch::asm;
+use core::arch::{asm, global_asm};
 
 use loongarch64::register::{
     badv, crmd, ecfg, eentry,
-    estat::{self, Exception, Trap},
-    pgdh, pgdl, pwch, pwcl, stlbps, tlbidx, tlbrehi, tlbrentry,
+    estat::{self, Exception, Trap}, pwch, pwcl, stlbps, tlbidx, tlbrehi, tlbrentry,
 };
 
+use crate::{ArchInterface, TrapType};
+
 use super::Context;
+
+global_asm!(
+    r"
+        .altmacro
+        .equ KSAVE_KSP,  0x30
+        .equ KSAVE_CTX,  0x31
+        .equ KSAVE_USP,  0x32
+        .macro SAVE_REGS
+            st.d    $ra, $sp,  1*8
+            st.d    $tp, $sp,  2*8
+            st.d    $a0, $sp,  4*8
+            st.d    $a1, $sp,  5*8
+            st.d    $a2, $sp,  6*8
+            st.d    $a3, $sp,  7*8
+            st.d    $a4, $sp,  8*8
+            st.d    $a5, $sp,  9*8
+            st.d    $a6, $sp, 10*8
+            st.d    $a7, $sp, 11*8
+            st.d    $t0, $sp, 12*8
+            st.d    $t1, $sp, 13*8
+            st.d    $t2, $sp, 14*8
+            st.d    $t3, $sp, 15*8
+            st.d    $t4, $sp, 16*8
+            st.d    $t5, $sp, 17*8
+            st.d    $t6, $sp, 18*8
+            st.d    $t7, $sp, 19*8
+            st.d    $t8, $sp, 20*8
+            st.d    $r21,$sp, 21*8
+            st.d    $fp, $sp, 22*8
+            st.d    $s0, $sp, 23*8
+            st.d    $s1, $sp, 24*8
+            st.d    $s2, $sp, 25*8
+            st.d    $s3, $sp, 26*8
+            st.d    $s4, $sp, 27*8
+            st.d    $s5, $sp, 28*8
+            st.d    $s6, $sp, 29*8
+            st.d    $s7, $sp, 30*8
+            st.d    $s8, $sp, 31*8
+            csrrd   $t0, KSAVE_USP
+            st.d    $t0, $sp,  3*8
+
+            csrrd	$t0, 0x1
+            st.d	$t0, $sp, 8*32  // prmd
+
+            csrrd   $t0, 0x6        
+            st.d    $t0, $sp, 8*33  // era
+        .endm
+
+        .macro LOAD_REGS
+            ld.d    $t0, $sp, 32*8
+            csrwr   $t0, 0x1        // Write PRMD(PLV PIE PWE) to prmd
+
+            ld.d    $t0, $sp, 33*8
+            csrwr   $t0, 0x6        // Write Exception Address to ERA
+
+            ld.d    $ra, $sp, 1*8
+            ld.d    $tp, $sp, 2*8
+            ld.d    $a0, $sp, 4*8
+            ld.d    $a1, $sp, 5*8
+            ld.d    $a2, $sp, 6*8
+            ld.d    $a3, $sp, 7*8
+            ld.d    $a4, $sp, 8*8
+            ld.d    $a5, $sp, 9*8
+            ld.d    $a6, $sp, 10*8
+            ld.d    $a7, $sp, 11*8
+            ld.d    $t0, $sp, 12*8
+            ld.d    $t1, $sp, 13*8
+            ld.d    $t2, $sp, 14*8
+            ld.d    $t3, $sp, 15*8
+            ld.d    $t4, $sp, 16*8
+            ld.d    $t5, $sp, 17*8
+            ld.d    $t6, $sp, 18*8
+            ld.d    $t7, $sp, 19*8
+            ld.d    $t8, $sp, 20*8
+            ld.d    $r21,$sp, 21*8
+            ld.d    $fp, $sp, 22*8
+            ld.d    $s0, $sp, 23*8
+            ld.d    $s1, $sp, 24*8
+            ld.d    $s2, $sp, 25*8
+            ld.d    $s3, $sp, 26*8
+            ld.d    $s4, $sp, 27*8
+            ld.d    $s5, $sp, 28*8
+            ld.d    $s6, $sp, 29*8
+            ld.d    $s7, $sp, 30*8
+            ld.d    $s8, $sp, 31*8
+            
+            // restore sp
+            ld.d    $sp, $sp, 3*8
+        .endm
+    "
+);
 
 // 设置中断
 pub fn init_interrupt() {
@@ -48,66 +140,61 @@ pub fn init_interrupt() {
 }
 
 #[naked]
+pub unsafe extern "C" fn user_vec() {
+    core::arch::asm!(
+        "
+            csrrd   $sp,  KSAVE_CTX
+            SAVE_REGS
+
+            csrrd   $sp,  KSAVE_KSP
+            ld.d    $ra,  $sp, 0*8
+            ld.d    $tp,  $sp, 1*8
+            ld.d    $r21, $sp, 2*8
+            ld.d    $s9,  $sp, 3*8
+            ld.d    $s0,  $sp, 4*8
+            ld.d    $s1,  $sp, 5*8
+            ld.d    $s2,  $sp, 6*8
+            ld.d    $s3,  $sp, 7*8
+            ld.d    $s4,  $sp, 8*8
+            ld.d    $s5,  $sp, 9*8
+            ld.d    $s6,  $sp, 10*8
+            ld.d    $s7,  $sp, 11*8
+            ld.d    $s8,  $sp, 12*8
+            addi.d  $sp,  $sp, 13*8
+            ret
+
+        ",
+        options(noreturn)
+    );
+}
+
+#[naked]
 #[no_mangle]
 pub extern "C" fn user_restore(context: *mut Context) {
     unsafe {
         asm!(
             r"
-                addi.d  $sp, $sp, -14*8
-                st.d    $r1,  $sp, 0*8
-                st.d    $r2,  $sp, 1*8
-                st.d    $r3,  $sp, 2*8
-                st.d    $r21, $sp, 3*8
-                st.d    $r22, $sp, 4*8
-                st.d    $r23, $sp, 5*8
-                st.d    $r24, $sp, 6*8
-                st.d    $r25, $sp, 7*8
-                st.d    $r26, $sp, 8*8
-                st.d    $r27, $sp, 9*8
-                st.d    $r28, $sp, 10*8
-                st.d    $r29, $sp, 11*8
-                st.d    $r30, $sp, 12*8
-                st.d    $r31, $sp, 13*8
-                csrwr    $sp, 0x30      // SAVE kernel_sp to SAVEn(0)
-                move     $a1, $a0       // TIPS: csrwr will write the old value to rd
-                csrwr    $a1, 0x31      // SAVE user context addr to SAVEn(1)
+                addi.d  $sp,  $sp, -13*8
+                st.d    $ra,  $sp, 0*8
+                st.d    $tp,  $sp, 1*8
+                st.d    $r21, $sp, 2*8
+                st.d    $s9,  $sp, 3*8
+                st.d    $s0,  $sp, 4*8
+                st.d    $s1,  $sp, 5*8
+                st.d    $s2,  $sp, 6*8
+                st.d    $s3,  $sp, 7*8
+                st.d    $s4,  $sp, 8*8
+                st.d    $s5,  $sp, 9*8
+                st.d    $s6,  $sp, 10*8
+                st.d    $s7,  $sp, 11*8
+                st.d    $s8,  $sp, 12*8
 
-                ld.d    $t0, $a0, 33*8
-                csrwr   $t0, 0x6        // Write Exception Address to ERA
+                csrwr    $sp, KSAVE_KSP   // SAVE kernel_sp to SAVEn(0)
+                move     $sp, $a0         // TIPS: csrwr will write the old value to rd
+                csrwr    $a0, KSAVE_CTX   // SAVE user context addr to SAVEn(1)
 
-                ld.d    $ra, $a0, 1*8
-                ld.d    $tp, $a0, 2*8
-                ld.d    $sp, $a0, 3*8
-                ld.d    $a1, $a0, 5*8
-                ld.d    $a2, $a0, 6*8
-                ld.d    $a3, $a0, 7*8
-                ld.d    $a4, $a0, 8*8
-                ld.d    $a5, $a0, 9*8
-                ld.d    $a6, $a0, 10*8
-                ld.d    $a7, $a0, 11*8
-                ld.d    $t0, $a0, 12*8
-                ld.d    $t1, $a0, 13*8
-                ld.d    $t2, $a0, 14*8
-                ld.d    $t3, $a0, 15*8
-                ld.d    $t4, $a0, 16*8
-                ld.d    $t5, $a0, 17*8
-                ld.d    $t6, $a0, 18*8
-                ld.d    $t7, $a0, 19*8
-                ld.d    $t8, $a0, 20*8
-                ld.d    $r21,$a0, 21*8
-                ld.d    $fp, $a0, 22*8
-                ld.d    $s0, $a0, 23*8
-                ld.d    $s1, $a0, 24*8
-                ld.d    $s2, $a0, 25*8
-                ld.d    $s3, $a0, 26*8
-                ld.d    $s4, $a0, 27*8
-                ld.d    $s5, $a0, 28*8
-                ld.d    $s6, $a0, 29*8
-                ld.d    $s7, $a0, 30*8
-                ld.d    $s8, $a0, 31*8
-            
-                // restore sp
-                ld.d    $a0, $a0, 4*8
+                LOAD_REGS
+
                 ertn
             ",
             options(noreturn)
@@ -129,9 +216,11 @@ pub fn enable_external_irq() {
 }
 
 pub fn run_user_task(cx: &mut Context) -> Option<()> {
-    info!("run user task: {:#x?}", cx);
     user_restore(cx);
-    todo!("run_user_task");
+    match loongarch64_trap_handler(cx) {
+        TrapType::UserEnvCall => Some(()),
+        _ => None,
+    }
 }
 
 #[naked]
@@ -139,111 +228,28 @@ pub unsafe extern "C" fn trap_vector_base() {
     core::arch::asm!(
         "
             .balign 4096
-            .equ KSAVE_KSP, 0x30
-            .equ KSAVE_T0,  0x31
-            .equ KSAVE_USP, 0x32
-                // csrwr   $t0, KSAVE_T0
-                // csrrd   $t0, 0x1
-                // andi    $t0, $t0, 0x3
-                // bnez    $t0, .Lfrom_userspace 
+                // Check whether it was from user privilege.
+                csrwr   $sp, KSAVE_USP
+                csrrd   $sp, 0x1
+                andi    $sp, $sp, 0x3
+                bnez    $sp, {user_vec} 
             
-                move    $t0, $sp  
+                csrrd   $sp, KSAVE_USP
                 addi.d  $sp, $sp, -{trapframe_size} // allocate space
-                // save kernel sp
-                st.d    $t0, $sp, 3*8
             
                 // save the registers.
-                st.d    $ra, $sp, 8
-                csrrd   $t0, KSAVE_T0
-                st.d    $t0, $sp, 12*8
 
-                st.d    $a0, $sp, 4*8
-                st.d    $a1, $sp, 5*8
-                st.d    $a2, $sp, 6*8
-                st.d    $a3, $sp, 7*8
-                st.d    $a4, $sp, 8*8
-                st.d    $a5, $sp, 9*8
-                st.d    $a6, $sp, 10*8
-                st.d    $a7, $sp, 11*8
-                st.d    $t1, $sp, 13*8
-                st.d    $t2, $sp, 14*8
-                st.d    $t3, $sp, 15*8
-                st.d    $t4, $sp, 16*8
-                st.d    $t5, $sp, 17*8
-                st.d    $t6, $sp, 18*8
-                st.d    $t7, $sp, 19*8
-                st.d    $t8, $sp, 20*8
-
-                st.d    $fp, $sp, 22*8
-                st.d    $s0, $sp, 23*8
-                st.d    $s1, $sp, 24*8
-                st.d    $s2, $sp, 25*8
-                st.d    $s3, $sp, 26*8
-                st.d    $s4, $sp, 27*8
-                st.d    $s5, $sp, 28*8
-                st.d    $s6, $sp, 29*8
-                st.d    $s7, $sp, 30*8
-                st.d    $s8, $sp, 31*8
-            
-                csrrd	$t2, 0x1
-                st.d	$t2, $sp, 8*32  // prmd
-                csrrd   $t1, 0x6        
-                st.d    $t1, $sp, 8*33  // era
-                csrrd   $t1, 0x7   
-                st.d    $t1, $sp, 8*34  // badv  
-                csrrd   $t1, 0x0   
-                st.d    $t1, $sp, 8*35  // crmd    
+                SAVE_REGS
             
                 move    $a0, $sp
-                csrrd   $t0, 0x1
-                andi    $a1, $t0, 0x3   // if user or kernel
                 bl      {trap_handler}
             
-                // restore the registers.
-                ld.d    $t1, $sp, 8*33  // era
-                csrwr   $t1, 0x6
-                ld.d    $t2, $sp, 8*32  // prmd
-                csrwr   $t2, 0x1
-            
-                // Save kernel sp when exit kernel mode
-                addi.d  $t1, $sp, {trapframe_size}
-                csrwr   $t1, KSAVE_KSP 
-
-                ld.d    $ra, $sp, 1*8
-                ld.d    $a0, $sp, 4*8
-                ld.d    $a1, $sp, 5*8
-                ld.d    $a2, $sp, 6*8
-                ld.d    $a3, $sp, 7*8
-                ld.d    $a4, $sp, 8*8
-                ld.d    $a5, $sp, 9*8
-                ld.d    $a6, $sp, 10*8
-                ld.d    $a7, $sp, 11*8
-                ld.d    $t0, $sp, 12*8
-                ld.d    $t1, $sp, 13*8
-                ld.d    $t2, $sp, 14*8
-                ld.d    $t3, $sp, 15*8
-                ld.d    $t4, $sp, 16*8
-                ld.d    $t5, $sp, 17*8
-                ld.d    $t6, $sp, 18*8
-                ld.d    $t7, $sp, 19*8
-                ld.d    $t8, $sp, 20*8
-
-                ld.d    $fp, $sp, 22*8
-                ld.d    $s0, $sp, 23*8
-                ld.d    $s1, $sp, 24*8
-                ld.d    $s2, $sp, 25*8
-                ld.d    $s3, $sp, 26*8
-                ld.d    $s4, $sp, 27*8
-                ld.d    $s5, $sp, 28*8
-                ld.d    $s6, $sp, 29*8
-                ld.d    $s7, $sp, 30*8
-                ld.d    $s8, $sp, 31*8
-            
-                // restore sp
-                ld.d    $sp, $sp, 3*8
-                ertn        
+                // Load registers from sp, include new sp
+                LOAD_REGS
+                ertn
         ",
         trapframe_size = const crate::CONTEXT_SIZE,
+        user_vec = sym user_vec,
         trap_handler = sym loongarch64_trap_handler,
         options(noreturn)
     );
@@ -284,9 +290,9 @@ pub fn set_tlb_refill(tlbrentry: usize) {
 }
 
 pub const PS_4K: usize = 0x0c;
-pub const PS_16K: usize = 0x0e;
-pub const PS_2M: usize = 0x15;
-pub const PS_1G: usize = 0x1e;
+pub const _PS_16K: usize = 0x0e;
+pub const _PS_2M: usize = 0x15;
+pub const _PS_1G: usize = 0x1e;
 
 pub const PAGE_SIZE_SHIFT: usize = 12;
 
@@ -327,26 +333,29 @@ pub fn set_trap_vector_base() {
     eentry::set_eentry(trap_vector_base as usize);
 }
 
-fn handle_unaligned(tf: &mut Context) {
-    // unsafe { emulate_load_store_insn(tf) }
-    error!("address not aligned: {:#x?}", tf);
-}
-
-fn handle_breakpoint(era: &mut usize) {
-    debug!("Exception(Breakpoint) @ {:#x} ", era);
-    *era += 4;
-}
-
-fn loongarch64_trap_handler(tf: &mut Context) {
+fn loongarch64_trap_handler(tf: &mut Context) -> TrapType {
     let estat = estat::read();
-
-    match estat.cause() {
-        Trap::Exception(Exception::Breakpoint) => handle_breakpoint(&mut tf.era),
-        Trap::Exception(Exception::AddressNotAligned) => handle_unaligned(tf),
+    let trap_type = match estat.cause() {
+        Trap::Exception(Exception::Breakpoint) => {
+            debug!("Exception(Breakpoint) @ {:#x} ", tf.era);
+            tf.era += 4;
+            TrapType::Breakpoint
+        }
+        Trap::Exception(Exception::AddressNotAligned) => {
+            error!("address not aligned: {:#x?}", tf);
+            TrapType::Unknown
+        }
         Trap::Interrupt(_) => {
             let irq_num: usize = estat.is().trailing_zeros() as usize;
             info!("irq: {}", irq_num);
+            TrapType::Time
         }
+        Trap::Exception(Exception::Syscall) => TrapType::UserEnvCall,
+        Trap::Exception(Exception::StorePageFault)
+        | Trap::Exception(Exception::PageModifyFault) => {
+            TrapType::StorePageFault(badv::read().raw())
+        }
+        Trap::Exception(Exception::LoadPageFault) => TrapType::LoadPageFault(badv::read().raw()),
         _ => {
             panic!(
                 "Unhandled trap {:?} @ {:#x} BADV: {:#x}:\n{:#x?}",
@@ -356,5 +365,7 @@ fn loongarch64_trap_handler(tf: &mut Context) {
                 tf
             );
         }
-    }
+    };
+    ArchInterface::kernel_interrupt(tf, trap_type);
+    trap_type
 }

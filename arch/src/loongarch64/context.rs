@@ -23,20 +23,27 @@ impl Context {
             // bit 1:0 PLV
             // bit 2 PIE
             // bit 3 PWE
-            prmd: (0b1111),
+            prmd: (0b0111),
             ..Default::default()
         }
     }
 }
 
 impl Context {
-    pub fn syscall_ok(&self) {
-        todo!("syscall ok");
+    pub fn syscall_ok(&mut self) {
+        self.era += 4;
     }
 
     #[inline]
     pub fn args(&self) -> [usize; 6] {
-        todo!("get args");
+        [
+            self.regs[4],
+            self.regs[5],
+            self.regs[6],
+            self.regs[7],
+            self.regs[8],
+            self.regs[9],
+        ]
     }
 }
 
@@ -53,7 +60,7 @@ impl Index<ContextArgs> for Context {
             ContextArgs::ARG1 => &self.regs[5],
             ContextArgs::ARG2 => &self.regs[6],
             ContextArgs::TLS => &self.regs[2],
-            ContextArgs::SYSCALL => &self.regs[7],
+            ContextArgs::SYSCALL => &self.regs[11],
         }
     }
 }
@@ -69,7 +76,7 @@ impl IndexMut<ContextArgs> for Context {
             ContextArgs::ARG1 => &mut self.regs[5],
             ContextArgs::ARG2 => &mut self.regs[6],
             ContextArgs::TLS => &mut self.regs[2],
-            ContextArgs::SYSCALL => &mut self.regs[7],
+            ContextArgs::SYSCALL => &mut self.regs[11],
         }
     }
 }

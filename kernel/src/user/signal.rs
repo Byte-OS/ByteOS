@@ -3,7 +3,7 @@ use core::mem::size_of;
 use arch::{ContextArgs, SIG_RETURN_ADDR};
 use executor::{current_user_task, AsyncTask};
 use log::debug;
-use signal::SignalFlags;
+use signal::{SigInfo, SignalFlags};
 
 use crate::syscall::consts::{SignalUserContext, UserRef};
 use crate::tasks::UserTaskControlFlow;
@@ -60,9 +60,13 @@ impl UserTaskContainer {
         // alloc space for SignalUserContext at stack and align with 16 bytes.
         let sp = (cx_ref[ContextArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
         let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
+        let sp = (cx_ref[ContextArgs::SP] - size_of::<SigInfo>()) / 16 * 16;
+        let info = UserRef::<SigInfo>::from(sp).get_mut();
+        info.si_signo = signal.num() as _;
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
+        tcb.cx[ContextArgs::ARG0] = signal.num();
         cx.set_pc(tcb.cx[ContextArgs::SEPC]);
         cx.sig_mask = sigaction.mask;
         tcb.cx[ContextArgs::SP] = sp;
@@ -73,7 +77,7 @@ impl UserTaskContainer {
             sigaction.restorer
         };
         tcb.cx[ContextArgs::ARG0] = signal.num();
-        tcb.cx[ContextArgs::ARG1] = 0;
+        tcb.cx[ContextArgs::ARG1] = info as *mut _ as usize;
         tcb.cx[ContextArgs::ARG2] = cx as *mut SignalUserContext as usize;
         // info!("context: {:#X?}", tcb.cx);
         drop(tcb);

@@ -19,7 +19,7 @@ use super::consts::LinuxError;
 use super::SysResult;
 
 // The high 25bits in sv39 should be the same as bit 38.
-const MAP_AREA_START: usize = 0x1_0000_0000;
+const MAP_AREA_START: usize = 0x2_0000_0000;
 
 impl UserTaskContainer {
     pub async fn sys_brk(&self, addr: isize) -> SysResult {
