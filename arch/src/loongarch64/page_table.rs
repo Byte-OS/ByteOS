@@ -1,4 +1,5 @@
 use alloc::sync::Arc;
+use loongarch64::register::pgdl;
 
 use crate::{
     ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
@@ -14,23 +15,13 @@ impl PTE {
     }
 
     #[inline]
-    pub const fn from_ppn(ppn: usize, flags: PTEFlags) -> Self {
-        PTE((ppn << 12) | flags.bits())
+    pub const fn from_addr(ppn: PhysAddr, flags: PTEFlags) -> Self {
+        PTE(ppn.0 | flags.bits())
     }
 
     #[inline]
-    pub const fn from_addr(addr: usize, flags: PTEFlags) -> Self {
-        Self::from_ppn(addr >> 12, flags)
-    }
-
-    #[inline]
-    pub const fn to_ppn(&self) -> PhysPage {
-        PhysPage((self.0 & 0xffff_ffff_ffff_f000) >> 12)
-    }
-
-    #[inline]
-    pub fn set(&mut self, ppn: usize, flags: PTEFlags) {
-        self.0 = (ppn << 10) | flags.bits() as usize;
+    pub const fn addr(&self) -> PhysAddr {
+        PhysAddr(self.0 & 0xffff_ffff_ffff_f000)
     }
 
     #[inline]
@@ -40,12 +31,7 @@ impl PTE {
 
     #[inline]
     pub const fn is_valid(&self) -> bool {
-        self.flags().contains(PTEFlags::VALID)
-    }
-
-    #[inline]
-    pub fn is_block(&self) -> bool {
-        self.flags().contains(PTEFlags::NON_BLOCK)
+        self.0 != 0
     }
 
     #[inline]
@@ -56,17 +42,17 @@ impl PTE {
 
 impl From<MappingFlags> for PTEFlags {
     fn from(value: MappingFlags) -> Self {
-        let mut flags = PTEFlags::VALID | PTEFlags::NON_BLOCK | PTEFlags::AF | PTEFlags::NG;
+        let mut flags = PTEFlags::V | PTEFlags::D;
         if !value.contains(MappingFlags::W) {
-            flags |= PTEFlags::AP_RO;
+            flags |= PTEFlags::W;
         }
 
         if !value.contains(MappingFlags::X) {
-            flags |= PTEFlags::UXN | PTEFlags::PXN;
+            flags |= PTEFlags::NX;
         }
 
         if value.contains(MappingFlags::U) {
-            flags |= PTEFlags::AP_EL0;
+            flags |= PTEFlags::PLV_USER;
         }
         flags
     }
@@ -75,50 +61,31 @@ impl From<MappingFlags> for PTEFlags {
 bitflags::bitflags! {
     /// Possible flags for a page table entry.
     pub struct PTEFlags: usize {
-        // Attribute fields in stage 1 VMSAv8-64 Block and Page descriptors:
-        /// Whether the descriptor is valid.
-        const VALID =       1 << 0;
-        /// The descriptor gives the address of the next level of translation table or 4KB page.
-        /// (not a 2M, 1G block)
-        const NON_BLOCK =   1 << 1;
-        /// Memory attributes index field.
-        const ATTR_INDX =   0b111 << 2;
-        const NORMAL_NONCACHE = 0b010 << 2;
-        /// Non-secure bit. For memory accesses from Secure state, specifies whether the output
-        /// address is in Secure or Non-secure memory.
-        const NS =          1 << 5;
-        /// Access permission: accessable at EL0.
-        const AP_EL0 =      1 << 6;
-        /// Access permission: read-only.
-        const AP_RO =       1 << 7;
-        /// Shareability: Inner Shareable (otherwise Outer Shareable).
-        const INNER =       1 << 8;
-        /// Shareability: Inner or Outer Shareable (otherwise Non-shareable).
-        const SHAREABLE =   1 << 9;
-        /// The Access flag.
-        const AF =          1 << 10;
-        /// The not global bit.
-        const NG =          1 << 11;
-        /// Indicates that 16 adjacent translation table entries point to contiguous memory regions.
-        const CONTIGUOUS =  1 <<  52;
-        /// The Privileged execute-never field.
-        const PXN =         1 <<  53;
-        /// The Execute-never or Unprivileged execute-never field.
-        const UXN =         1 <<  54;
+        /// Page Valid
+        const V = 1 << 0;
+        /// Dirty, The page has been writed.
+        const D = 1 << 1;
 
-        // Next-level attributes in stage 1 VMSAv8-64 Table descriptors:
+        const PLV_USER = 0b11 << 2;
 
-        /// PXN limit for subsequent levels of lookup.
-        const PXN_TABLE =           1 << 59;
-        /// XN limit for subsequent levels of lookup.
-        const XN_TABLE =            1 << 60;
-        /// Access permissions limit for subsequent levels of lookup: access at EL0 not permitted.
-        const AP_NO_EL0_TABLE =     1 << 61;
-        /// Access permissions limit for subsequent levels of lookup: write access not permitted.
-        const AP_NO_WRITE_TABLE =   1 << 62;
-        /// For memory accesses from Secure state, specifies the Security state for subsequent
-        /// levels of lookup.
-        const NS_TABLE =            1 << 63;
+        const MAT_NOCACHE = 0b01 << 4;
+
+        /// Designates a global mapping OR Whether the page is huge page.
+        const GH = 1 << 6;
+
+        /// Page is existing.
+        const P = 1 << 7;
+        /// Page is writeable.
+        const W = 1 << 8;
+        /// Is a Global Page if using huge page(GH bit).
+        const G = 1 << 10;
+        /// Page is not readable.
+        const NR = 1 << 11;
+        /// Page is not executable.
+        const NX = 1 << 12;
+        /// Whether the privilege Level is restricted. When RPLV is 0, the PTE
+        /// can be accessed by any program with privilege Level highter than PLV.
+        const RPLV = 1 << 63;
     }
 }
 
@@ -145,7 +112,7 @@ impl PageTable {
 
     #[inline]
     pub fn change(&self) {
-        todo!("change pagetable")
+        pgdl::set_base(self.0.addr());
     }
 
     #[inline]
@@ -156,7 +123,7 @@ impl PageTable {
         // l2 pte
         let l2_pte = &mut l1_list[l1_index];
         if !l2_pte.is_valid() {
-            *l2_pte = PTE(ArchInterface::frame_alloc_persist().to_addr() | 0b11);
+            *l2_pte = PTE(ArchInterface::frame_alloc_persist().to_addr());
         }
         let l2_list = l2_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
         let l2_index = (vpn.0 >> 9) & 0x1ff;
@@ -164,11 +131,11 @@ impl PageTable {
         // l3 pte
         let l3_pte = &mut l2_list[l2_index];
         if !l3_pte.is_valid() {
-            *l3_pte = PTE(ArchInterface::frame_alloc_persist().to_addr() | 0b11);
+            *l3_pte = PTE(ArchInterface::frame_alloc_persist().to_addr());
         }
         let l3_list = l3_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
         let l3_index = vpn.0 & 0x1ff;
-        l3_list[l3_index] = PTE::from_ppn(ppn.0, flags.into());
+        l3_list[l3_index] = PTE::from_addr(ppn.into(), flags.into());
     }
 
     #[inline]
@@ -187,7 +154,7 @@ impl PageTable {
             if !pte.is_valid() {
                 return None;
             }
-            paddr = pte.to_ppn().into()
+            paddr = pte.addr()
         }
         Some(PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE))
     }

@@ -532,6 +532,7 @@ dependencies = [
  "kgoldfish-rtc",
  "kheader",
  "knvme",
+ "kramdisk",
  "kvirtio",
  "log",
  "logging",
@@ -582,6 +583,18 @@ dependencies = [
  "log",
  "nvme_driver",
  "sync",
+]
+
+[[package]]
+name = "kramdisk"
+version = "0.1.0"
+dependencies = [
+ "devices",
+ "frame_allocator",
+ "kheader",
+ "log",
+ "sync",
+ "virtio-drivers 0.7.1",
 ]
 
 [[package]]

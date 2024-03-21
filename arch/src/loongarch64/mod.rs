@@ -10,7 +10,7 @@ pub use console::{console_getchar, console_putchar};
 pub use consts::*;
 pub use context::Context;
 pub use page_table::*;
-pub use timer::get_time;
+pub use timer::{get_time, time_to_usec};
 pub use trap::{enable_external_irq, enable_irq, init_interrupt, run_user_task};
 
 use crate::{clear_bss, ArchInterface};
@@ -26,16 +26,12 @@ pub fn rust_tmp_main(hart_id: usize) {
         VIRT_ADDR_START | (0x9000_0000 + 0x2000_0000),
     );
     info!("hart_id: {}", hart_id);
-    unsafe {
-        core::arch::asm!("break 2");
-    }
+
     ArchInterface::prepare_drivers();
 
-    shutdown();
-}
+    ArchInterface::main(0);
 
-pub fn time_to_usec(_t: usize) -> usize {
-    todo!("time to usec")
+    shutdown();
 }
 
 pub fn switch_to_kernel_page_table() {

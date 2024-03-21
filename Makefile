@@ -30,7 +30,7 @@ else ifeq ($(ARCH), aarch64)
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), loongarch64)
   TARGET := loongarch64-unknown-none
-  QEMU_EXEC += qemu-system-$(ARCH) -bios tools/qemu_8.2_uefi_bios.bin -kernel $(KERNEL_ELF)
+  QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
   BUS := pci
 else
   $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
@@ -48,7 +48,7 @@ K210-BURNER	= tools/k210/kflash.py
 QEMU_EXEC += -m 1G\
 			-nographic \
 			-smp 1 \
-			-D qemu.log -d in_asm,int,mmu,pcall,cpu_reset,guest_errors
+			-D qemu.log -d in_asm,mmu,pcall,cpu_reset,guest_errors
 
 BUILD_ARGS :=
 ifeq ($(RELEASE), release)
@@ -84,7 +84,7 @@ offline:
 
 fs-img:
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=2000
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=64
 	mkfs.vfat -F 32 $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
@@ -126,7 +126,7 @@ flash: k210-build
 	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 
 debug: fs-img build
-	@tmux new-session -d \tools/qemu_8.2_uefi_bios.bin
+	@tmux new-session -d \
 	"$(QEMU_EXEC) -s -S && echo '按任意键继续' && read -n 1" && \
 	tmux split-window -h "$(GDB) $(KERNEL_ELF) -ex 'target remote localhost:1234' -ex 'disp /16i $pc' " && \
 	tmux -2 attach-session -d

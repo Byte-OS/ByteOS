@@ -20,6 +20,10 @@ impl Context {
     #[inline]
     pub fn new() -> Self {
         Self {
+            // bit 1:0 PLV
+            // bit 2 PIE
+            // bit 3 PWE
+            prmd: (0b1111),
             ..Default::default()
         }
     }

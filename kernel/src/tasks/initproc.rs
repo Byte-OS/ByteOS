@@ -8,7 +8,8 @@ use arch::{console_getchar, console_putchar, switch_to_kernel_page_table};
 use executor::{current_task, yield_now, FileItem, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{
-    dentry::{dentry_open, dentry_root, DentryNode}, get_filesystem, File, FileType, OpenFlags
+    dentry::{dentry_open, dentry_root, DentryNode},
+    get_filesystem, File, FileType, OpenFlags,
 };
 use log::debug;
 use logging::get_char;
@@ -216,23 +217,23 @@ pub async fn simple_shell() {
     }
 }
 
-pub const USER_WORK_DIR: &'static str = "/";
+pub const USER_WORK_DIR: &'static str = "/home";
 
 pub async fn initproc() {
     // link files.
-    // let rootfs = get_filesystem(0).root_dir();
-    // let tmpfs = FileItem::fs_open("/home", OpenFlags::O_DIRECTORY)
-    //     .expect("can't open /home");
-    // for file in rootfs.read_dir().expect("can't read files") {
-    //     tmpfs
-    //         .link(
-    //             &file.filename,
-    //             rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
-    //         )
-    //         .expect("can't link file to tmpfs");
-    // }
+    let rootfs = get_filesystem(0).root_dir();
+    let tmpfs = FileItem::fs_open("/home", OpenFlags::O_DIRECTORY).expect("can't open /home");
+    for file in rootfs.read_dir().expect("can't read files") {
+        tmpfs
+            .link(
+                &file.filename,
+                rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
+            )
+            .expect("can't link file to tmpfs");
+    }
 
     println!("start kernel tasks");
+    command("ls").await;
     // command("entry-static.exe crypt").await;
     // command("./runtest.exe -w entry-dynamic.exe dlopen").await;
 
@@ -268,7 +269,7 @@ pub async fn initproc() {
     //     info!("No.{} finished!", i);
     // }
 
-    // command("./runtest.exe -w entry-static.exe pthread_cond").await;
+    // command("./runtest.exe -w entry-static.exe pthread_cancel").await;
     // command("./entry-static.exe pthread_cond_smasher").await;
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
 
@@ -290,12 +291,14 @@ pub async fn initproc() {
     // command("busybox echo run libctest_testcode.sh").await;
     // command("busybox sh libctest_testcode.sh").await;
 
+    command("busybox sh").await;
+
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 
-    command("busybox echo run cyclic_testcode.sh").await;
-    command("busybox sh cyclictest_testcode.sh").await;
-    kill_all_tasks().await;
+    // command("busybox echo run cyclic_testcode.sh").await;
+    // command("busybox sh cyclictest_testcode.sh").await;
+    // kill_all_tasks().await;
 
     // command("libc-bench").await;
 

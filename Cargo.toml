@@ -32,13 +32,7 @@ members = [
     "modules/signal",
 
     #drivers
-    "drivers/kgoldfish-rtc",
-    "drivers/knvme",
-    "drivers/kvirtio",
-    "drivers/kcvitek-sd",
-    "drivers/k210-sdcard",
-    "drivers/general-plic",
-    "drivers/ns16550a",
+    "drivers/*",
 
     # kernel
     "kernel"
