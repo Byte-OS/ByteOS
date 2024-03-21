@@ -5,8 +5,10 @@ use crate::{
     ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
 };
 
+use super::sigtrx::get_trx_mapping;
+
 #[derive(Copy, Clone, Debug)]
-pub struct PTE(usize);
+pub struct PTE(pub usize);
 
 impl PTE {
     #[inline]
@@ -42,9 +44,9 @@ impl PTE {
 
 impl From<MappingFlags> for PTEFlags {
     fn from(value: MappingFlags) -> Self {
-        let mut flags = PTEFlags::V | PTEFlags::D;
-        if !value.contains(MappingFlags::W) {
-            flags |= PTEFlags::W;
+        let mut flags = PTEFlags::V;
+        if value.contains(MappingFlags::W) {
+            flags |= PTEFlags::W | PTEFlags::D;
         }
 
         if !value.contains(MappingFlags::X) {
@@ -107,16 +109,41 @@ impl PageTable {
 
     #[inline]
     pub fn restore(&self) {
-        warn!("doing nothing")
+        let clear_l3 = |l3_ptr: &PTE| {
+            if !l3_ptr.is_valid() {
+                return;
+            }
+            l3_ptr
+                .get_next_ptr()
+                .slice_mut_with_len::<PTE>(0x200)
+                .fill_with(|| PTE(0));
+        };
+        self.0
+            .slice_mut_with_len::<PTE>(0x100)
+            .iter()
+            .for_each(|l1_pte| {
+                if l1_pte.is_valid() {
+                    return;
+                }
+                l1_pte
+                    .get_next_ptr()
+                    .slice_mut_with_len::<PTE>(0x200)
+                    .iter()
+                    .for_each(clear_l3);
+            });
+        self.0.slice_mut_with_len::<PTE>(0x200)[0x100] = PTE(get_trx_mapping());
+
+        flush_tlb(None);
     }
 
     #[inline]
     pub fn change(&self) {
         pgdl::set_base(self.0.addr());
+        flush_tlb(None);
     }
 
     #[inline]
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
+    pub fn get_mut_entry(&self, vpn: VirtPage) -> &mut PTE {
         let l1_list = self.0.slice_mut_with_len::<PTE>(512);
         let l1_index = (vpn.0 >> (9 * 2)) & 0x1ff;
 
@@ -135,12 +162,19 @@ impl PageTable {
         }
         let l3_list = l3_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
         let l3_index = vpn.0 & 0x1ff;
-        l3_list[l3_index] = PTE::from_addr(ppn.into(), flags.into());
+        &mut l3_list[l3_index]
     }
 
     #[inline]
-    pub fn unmap(&self, _vpn: VirtPage) {
-        todo!("unmap pages");
+    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags, _level: usize) {
+        *self.get_mut_entry(vpn) = PTE::from_addr(ppn.into(), flags.into());
+        flush_tlb(Some(vpn.into()))
+    }
+
+    #[inline]
+    pub fn unmap(&self, vpn: VirtPage) {
+        *self.get_mut_entry(vpn) = PTE(0);
+        flush_tlb(Some(vpn.into()))
     }
 
     #[inline]
@@ -160,20 +194,37 @@ impl PageTable {
     }
 }
 
-// impl Drop for PageTable {
-//     fn drop(&mut self) {
-//         for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
-//             get_pte_list(root_pte.to_ppn().into())
-//                 .iter()
-//                 .filter(|x| x.is_leaf())
-//                 .for_each(|x| ArchInterface::frame_unalloc(x.to_ppn()));
-//             ArchInterface::frame_unalloc(root_pte.to_ppn());
-//         }
-//         ArchInterface::frame_unalloc(self.0.into());
-//     }
-// }
+impl Drop for PageTable {
+    fn drop(&mut self) {
+        for root_pte in get_pte_list(self.0)[..0x100]
+            .iter()
+            .filter(|x| x.is_valid())
+        {
+            get_pte_list(root_pte.addr())
+                .iter()
+                .filter(|x| x.is_valid())
+                .for_each(|x| ArchInterface::frame_unalloc(x.addr().into()));
+            ArchInterface::frame_unalloc(root_pte.addr().into());
+        }
+        ArchInterface::frame_unalloc(self.0.into());
+    }
+}
 
 #[inline]
-pub fn flush_tlb(_vaddr: Option<VirtAddr>) {
-    todo!("flush_tlb")
+pub fn flush_tlb(vaddr: Option<VirtAddr>) {
+    if let Some(vaddr) = vaddr {
+        unsafe {
+            core::arch::asm!("dbar 0; invtlb 0x05, $r0, {reg}", reg = in(reg) vaddr.0);
+        }
+    } else {
+        unsafe {
+            core::arch::asm!("dbar 0; invtlb 0x00, $r0, $r0");
+        }
+    }
+}
+
+pub fn switch_to_kernel_page_table() {
+    // todo!("switch to kernel page table")
+    pgdl::set_base(0);
+    flush_tlb(None);
 }

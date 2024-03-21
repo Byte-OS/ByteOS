@@ -195,6 +195,34 @@ impl SigProcMask {
 // }
 
 #[repr(C)]
+#[cfg(not(target_arch = "loongarch64"))]
+#[derive(Debug, Clone, Copy)]
+pub struct SigAction {
+    pub handler: usize,    // void     (*sa_handler)(int);
+    pub flags: usize,      // int        sa_flags;
+    pub restorer: usize,   // void     (*sa_restorer)(void);
+    pub mask: SigProcMask, // sigset_t   sa_mask;
+}
+
+#[repr(C)]
+pub struct SigInfo {
+    pub si_signo: i32,
+    pub si_errno: i32,
+    pub si_code: i32,
+}
+
+impl Default for SigInfo {
+    fn default() -> Self {
+        Self {
+            si_signo: 0,
+            si_errno: 0,
+            si_code: -6, // SI_TKILL
+        }
+    }
+}
+
+#[repr(C)]
+#[cfg(target_arch = "loongarch64")]
 #[derive(Debug, Clone, Copy)]
 pub struct SigAction {
     pub handler: usize,    // void     (*sa_handler)(int);

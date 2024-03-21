@@ -393,7 +393,6 @@ impl UserTaskContainer {
         );
         // TODO: use map_err insteads of unwrap and unsafe code.
         let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
-        debug!("test0");
         let args = args
             .slice_until_valid(|x| x.is_valid())
             .into_iter()
