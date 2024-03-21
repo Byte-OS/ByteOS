@@ -46,5 +46,6 @@ kvirtio = { version = "0.1.0", path = "../drivers/kvirtio" }
 kgoldfish-rtc = { version = "0.1.0", path = "../drivers/kgoldfish-rtc" }
 kcvitek-sd = { version = "0.1.0", path = "../drivers/kcvitek-sd" }
 k210-sdcard = { version = "0.1.0", path = "../drivers/k210-sdcard" }
+kramdisk = { version = "0.1.0", path = "../drivers/kramdisk" }
 general-plic = { version = "0.1.0", path = "../drivers/general-plic" }
 ns16550a = { version = "0.1.0", path = "../drivers/ns16550a" }

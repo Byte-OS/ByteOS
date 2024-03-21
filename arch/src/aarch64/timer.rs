@@ -8,6 +8,7 @@ use tock_registers::interfaces::{Readable, Writeable};
 pub fn get_time() -> usize {
     CNTPCT_EL0.get() as _
 }
+
 #[inline]
 pub fn time_to_usec(ts: usize) -> usize {
     ts * 1000_000 / CNTFRQ_EL0.get() as usize
