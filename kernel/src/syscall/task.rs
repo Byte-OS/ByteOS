@@ -468,7 +468,7 @@ impl UserTaskContainer {
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
             *ptid.get_mut() = new_task.get_task_id() as _;
         }
-        if flags.contains(CloneFlags::CLONE_CHILD_SETTID) {
+        if flags.contains(CloneFlags::CLONE_CHILD_SETTID) && ctid.is_valid() {
             *ctid.get_mut() = new_task.get_task_id() as _;
         }
         new_tcb.exit_signal = sig as u8;

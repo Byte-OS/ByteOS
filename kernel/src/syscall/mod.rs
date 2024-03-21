@@ -363,7 +363,7 @@ impl UserTaskContainer {
                     .await
             }
             SYS_SETGROUPS => Ok(0),
-            #[cfg(not(any(target_arch = "x86_64", target_arch = "loongarch64")))]
+            #[cfg(not(any(target_arch = "x86_64")))]
             SYS_CLONE => {
                 self.sys_clone(
                     args[0] as _,
@@ -374,7 +374,7 @@ impl UserTaskContainer {
                 )
                 .await
             }
-            #[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
+            #[cfg(any(target_arch = "x86_64"))]
             SYS_CLONE => {
                 self.sys_clone(
                     args[0] as _,
