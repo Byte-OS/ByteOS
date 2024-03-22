@@ -34,6 +34,7 @@ pub fn rust_tmp_main(hart_id: usize) {
 
     // Enable floating point
     euen::set_fpe(true);
+    timer::init_timer();
 
     ArchInterface::main(0);
 

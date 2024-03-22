@@ -1,9 +1,9 @@
 use core::arch::{asm, global_asm};
 
 use loongarch64::register::{
-    badv, crmd, ecfg, eentry,
-    estat::{self, Exception, Trap}, pwch, pwcl, stlbps, tlbidx, tlbrehi, tlbrentry,
+    badv, crmd, ecfg, eentry, pwch, pwcl, stlbps, ticlr, tlbidx, tlbrehi, tlbrentry
 };
+use loongarch64::register::estat::{self, Exception, Trap};
 
 use crate::{ArchInterface, TrapType};
 
@@ -347,8 +347,14 @@ fn loongarch64_trap_handler(tf: &mut Context) -> TrapType {
         }
         Trap::Interrupt(_) => {
             let irq_num: usize = estat.is().trailing_zeros() as usize;
-            info!("irq: {}", irq_num);
-            TrapType::Time
+            match irq_num {
+                // TIMER_IRQ
+                11 => {
+                    ticlr::clear_timer_interrupt();
+                    TrapType::Time
+                },
+                _ => panic!("unknown interrupt: {}", irq_num),
+            }
         }
         Trap::Exception(Exception::Syscall) => TrapType::UserEnvCall,
         Trap::Exception(Exception::StorePageFault)
