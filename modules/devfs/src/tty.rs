@@ -145,7 +145,7 @@ pub struct Termios {
     pub lflag: u32,
     pub line: u8,
     /// terminal special characters.
-    pub cc: [u8; 32],
+    pub cc: [u8; 21],
     pub ispeed: u32,
     pub ospeed: u32,
 }
@@ -180,7 +180,7 @@ impl Default for Termios {
                 23,  // VWERASE
                 22,  // VLNEXT
                 255, // VEOL2
-                0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 
             ],
             ispeed: 0,
             ospeed: 0,
