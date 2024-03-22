@@ -195,24 +195,12 @@ impl SigProcMask {
 // }
 
 #[repr(C)]
-#[cfg(not(target_arch = "loongarch64"))]
 #[derive(Debug, Clone, Copy)]
 pub struct SigAction {
     pub handler: usize,    // void     (*sa_handler)(int);
     pub flags: usize,      // int        sa_flags;
     pub restorer: usize,   // void     (*sa_restorer)(void);
     pub mask: SigProcMask, // sigset_t   sa_mask;
-}
-
-#[repr(C)]
-#[cfg(target_arch = "loongarch64")]
-#[derive(Debug, Clone, Copy)]
-pub struct SigAction {
-    pub handler: usize,    // void     (*sa_handler)(int);
-    pub mask: SigProcMask, // sigset_t   sa_mask;
-    pub _pad: [usize; 2],   // extend mask
-    pub flags: usize,      // int        sa_flags;
-    pub restorer: usize,   // void     (*sa_restorer)(void);
 }
 
 impl SigAction {
@@ -220,12 +208,12 @@ impl SigAction {
         Self {
             handler: 0,
             mask: SigProcMask::new(),
-            _pad: [0; 2],
             flags: 0,
             restorer: 0,
         }
     }
 }
+
 
 // sigset_t sa_mask 是一个信号集，在调用该信号捕捉函数之前，将需要block的信号加入这个sa_mask，
 // 仅当信号捕捉函数正在执行时，才阻塞sa_mask中的信号，当从信号捕捉函数返回时进程的信号屏蔽字复位为原先值。

@@ -63,7 +63,6 @@ impl UserTaskContainer {
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
-        tcb.cx[ContextArgs::ARG0] = signal.num();
         cx.set_pc(tcb.cx[ContextArgs::SEPC]);
         cx.sig_mask = sigaction.mask;
         tcb.cx[ContextArgs::SP] = sp;

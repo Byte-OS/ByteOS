@@ -791,11 +791,14 @@ cfg_if! {
             pub link: usize,           // 1
             pub stack: SignalStack,    // 2
             pub sig_mask: SigProcMask, // 5
-            pub _pad: [u64; 16],       // mask
+            pub _pad: [u64; 2],       // mask
             pub pc: usize,
             pub gregs: [usize; 32],
-            pub gflags: usize,
-            pub __reserved: [usize; 32],        // _extcontext
+            pub gflags: u32,
+            pub fcsr: u32,
+            pub scr: [usize; 4],
+            pub fregs: [usize; 32],        // _extcontext
+            pub _reserved: [usize; 512],
         }
 
         impl SignalUserContext {
