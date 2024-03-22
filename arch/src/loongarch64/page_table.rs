@@ -119,10 +119,10 @@ impl PageTable {
                 .fill_with(|| PTE(0));
         };
         self.0
-            .slice_mut_with_len::<PTE>(0x100)
+            .slice_mut_with_len::<PTE>(0x199)
             .iter()
             .for_each(|l1_pte| {
-                if l1_pte.is_valid() {
+                if !l1_pte.is_valid() {
                     return;
                 }
                 l1_pte
@@ -196,7 +196,7 @@ impl PageTable {
 
 impl Drop for PageTable {
     fn drop(&mut self) {
-        for root_pte in get_pte_list(self.0)[..0x100]
+        for root_pte in get_pte_list(self.0)[..0x199]
             .iter()
             .filter(|x| x.is_valid())
         {
