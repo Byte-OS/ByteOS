@@ -19,7 +19,7 @@ pub fn time_to_usec(ts: usize) -> usize {
 }
 
 pub fn init_timer() {
-    let ticks = ((*FREQ/1000_000) + 3) & !3;
+    let ticks = ((*FREQ/1000) + 3) & !3;
     tcfg::set_periodic(true); // set timer to one-shot mode
     tcfg::set_init_val(ticks); // set timer initial value
     tcfg::set_en(true); // enable timer

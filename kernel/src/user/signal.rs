@@ -60,9 +60,6 @@ impl UserTaskContainer {
         // alloc space for SignalUserContext at stack and align with 16 bytes.
         let sp = (cx_ref[ContextArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
         let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
-        // let sp = (cx_ref[ContextArgs::SP] - size_of::<SigInfo>()) / 16 * 16;
-        // let info = UserRef::<SigInfo>::from(sp).get_mut();
-        // info.si_signo = signal.num() as _;
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
@@ -79,7 +76,6 @@ impl UserTaskContainer {
         tcb.cx[ContextArgs::ARG0] = signal.num();
         tcb.cx[ContextArgs::ARG1] = 0;
         tcb.cx[ContextArgs::ARG2] = cx as *mut SignalUserContext as usize;
-        // info!("context: {:#X?}", tcb.cx);
         drop(tcb);
 
         loop {
@@ -92,9 +88,6 @@ impl UserTaskContainer {
                 break;
             }
 
-            // let cx_ref = unsafe {
-            //     task.get_cx_ptr().as_mut().unwrap()
-            // };
             let cx_ref = self.task.force_cx_ref();
 
             debug!(
@@ -114,7 +107,6 @@ impl UserTaskContainer {
         );
         // restore sigmask to the mask before doing the signal.
         self.task.tcb.write().sigmask = task_mask;
-        // store_cx.set_ret(cx_ref.args()[0]);
         *cx_ref = store_cx;
         // copy pc from new_pc
         cx_ref[ContextArgs::SEPC] = cx.pc();
