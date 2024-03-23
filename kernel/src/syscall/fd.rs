@@ -164,15 +164,14 @@ impl UserTaskContainer {
                 OpenFlags::empty(),
             )
             .map_err(from_vfs)?;
-        
+
         let old_file_type = old_file.metadata().map_err(from_vfs)?.file_type;
         let new_dir = to_node(&self.task, newdir_fd)?;
         let new_path = newpath.get_cstr().map_err(|_| LinuxError::EINVAL)?;
         if old_file_type == FileType::File {
-            let new_file = new_dir.dentry_open(
-                new_path,
-                OpenFlags::empty(),
-            ).expect("can't find new file");
+            let new_file = new_dir
+                .dentry_open(new_path, OpenFlags::empty())
+                .expect("can't find new file");
             // TODO: Check the file exists
             let file_size = old_file.metadata().map_err(from_vfs)?.size;
             let mut buffer = vec![0u8; file_size];
@@ -181,7 +180,6 @@ impl UserTaskContainer {
             new_file.truncate(buffer.len()).map_err(from_vfs)?;
         } else if old_file_type == FileType::Directory {
             new_dir.mkdir(new_path).map_err(from_vfs)?;
-
         } else {
             panic!("can't handle the file: {:?} now", old_file_type);
         }

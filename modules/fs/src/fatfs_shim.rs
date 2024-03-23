@@ -1,17 +1,15 @@
 use core::cmp::{self, min};
-use core::mem::size_of;
 
 use alloc::string::String;
 use alloc::sync::Arc;
 use devices::get_blk_device;
 use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
-use frame_allocator::ceil_div;
 use log::debug;
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, Stat, StatFS, StatMode,
-    VfsError, VfsResult,
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, Stat, StatFS, StatMode, VfsError,
+    VfsResult,
 };
 
 pub trait DiskOperation {
@@ -35,7 +33,6 @@ impl FileSystem for Fat32FileSystem {
     fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
         Arc::new(FatDir {
             filename: String::from(""),
-            dents_off: Mutex::new(0),
             inner: self.inner.root_dir(),
         })
     }
@@ -74,7 +71,6 @@ unsafe impl Send for FatFile {}
 
 pub struct FatDir {
     filename: String,
-    dents_off: Mutex<usize>,
     inner: Dir<'static, DiskCursor, NullTimeProvider, LossyOemCpConverter>,
 }
 
@@ -185,7 +181,6 @@ impl INodeInterface for FatDir {
             .create_dir(name)
             .map(|dir| -> Arc<dyn INodeInterface> {
                 Arc::new(FatDir {
-                    dents_off: Mutex::new(0),
                     filename: String::from(name),
                     inner: dir,
                 })
@@ -220,7 +215,6 @@ impl INodeInterface for FatDir {
         let file = file.map(|x| x.unwrap()).ok_or(VfsError::FileNotFound)?;
         if file.is_dir() {
             Ok(Arc::new(FatDir {
-                dents_off: Mutex::new(0),
                 filename: String::from(name),
                 inner: file.to_dir(),
             }))
@@ -312,54 +306,6 @@ impl INodeInterface for FatDir {
         statfs.fsid = 32;
         statfs.namelen = 20;
         Ok(())
-    }
-
-    fn getdents(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-        let buf_ptr = buffer.as_mut_ptr() as usize;
-        let len = buffer.len();
-        let mut ptr: usize = buf_ptr;
-        let mut finished = 0;
-        for (i, x) in self.inner.iter().enumerate().skip(*self.dents_off.lock()) {
-            let x = x.unwrap();
-            let filename = x.file_name();
-            if filename == "." || filename == ".." {
-                finished = i + 1;
-                continue;
-            }
-            let filename = filename;
-            let file_bytes = filename.as_bytes();
-            let current_len = ceil_div(size_of::<Dirent64>() + file_bytes.len() + 1, 8) * 8;
-            if len - (ptr - buf_ptr) < current_len {
-                break;
-            }
-
-            let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
-
-            dirent.ino = 1;
-            dirent.off = 0;
-            // dirent.off = (ptr - buf_ptr) as i64;
-            dirent.reclen = current_len as u16;
-
-            if x.is_dir() {
-                dirent.ftype = 4; // DT_DIR
-            } else {
-                dirent.ftype = 8; // DT_REF is 8
-            }
-
-            let buffer = unsafe {
-                core::slice::from_raw_parts_mut(
-                    dirent.name.as_mut_ptr(),
-                    current_len - size_of::<Dirent64>(),
-                )
-            };
-            buffer[..file_bytes.len()].copy_from_slice(file_bytes);
-            buffer[file_bytes.len()..].fill(0);
-
-            ptr = ptr + current_len;
-            finished = i + 1;
-        }
-        *self.dents_off.lock() = finished;
-        Ok(ptr - buf_ptr)
     }
 
     fn link(&self, _name: &str, _src: Arc<dyn INodeInterface>) -> VfsResult<()> {
