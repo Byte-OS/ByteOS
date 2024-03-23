@@ -363,6 +363,10 @@ impl UserTaskContainer {
                     .await
             }
             SYS_SETGROUPS => Ok(0),
+            SYS_RENAMEAT2 => {
+                self.sys_renameat2(args[0], args[1].into(), args[2], args[3].into(), args[4])
+                    .await
+            }
             #[cfg(not(any(target_arch = "x86_64")))]
             SYS_CLONE => {
                 self.sys_clone(

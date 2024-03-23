@@ -144,6 +144,51 @@ impl UserTaskContainer {
         Ok(0)
     }
 
+    pub async fn sys_renameat2(
+        &self,
+        olddir_fd: usize,
+        oldpath: UserRef<i8>,
+        newdir_fd: usize,
+        newpath: UserRef<i8>,
+        flags: usize,
+    ) -> SysResult {
+        debug!(
+            "sys_renameat2 @ olddir_fd: {}, oldpath: {}, newdir_fd: {}, newpath: {}, flags: {}",
+            olddir_fd, oldpath, newdir_fd, newpath, flags
+        );
+
+        let old_dir = to_node(&self.task, olddir_fd)?;
+        let old_file = old_dir
+            .dentry_open(
+                oldpath.get_cstr().map_err(|_| LinuxError::EINVAL)?,
+                OpenFlags::empty(),
+            )
+            .map_err(from_vfs)?;
+        
+        let old_file_type = old_file.metadata().map_err(from_vfs)?.file_type;
+        let new_dir = to_node(&self.task, newdir_fd)?;
+        let new_path = newpath.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        if old_file_type == FileType::File {
+            let new_file = new_dir.dentry_open(
+                new_path,
+                OpenFlags::empty(),
+            ).expect("can't find new file");
+            // TODO: Check the file exists
+            let file_size = old_file.metadata().map_err(from_vfs)?.size;
+            let mut buffer = vec![0u8; file_size];
+            old_file.read(&mut buffer).map_err(from_vfs)?;
+            new_file.write(&buffer).map_err(from_vfs)?;
+            new_file.truncate(buffer.len()).map_err(from_vfs)?;
+        } else if old_file_type == FileType::Directory {
+            new_dir.mkdir(new_path).map_err(from_vfs)?;
+
+        } else {
+            panic!("can't handle the file: {:?} now", old_file_type);
+        }
+
+        Ok(0)
+    }
+
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_mkdir(&self, path: UserRef<i8>, mode: usize) -> SysResult {
         self.sys_mkdir_at(AT_CWD, path, mode).await

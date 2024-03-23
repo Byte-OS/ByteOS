@@ -12,7 +12,7 @@ du
 expr 1 + 1
 false
 true
-which ls
+which busybox
 uname
 uptime
 printf "abc\n"
@@ -20,7 +20,7 @@ ps
 pwd
 free
 hwclock
-kill 10
+kill 4
 ls
 sleep 1
 echo "#### file opration test"
