@@ -180,7 +180,7 @@ impl Default for Termios {
                 23,  // VWERASE
                 22,  // VLNEXT
                 255, // VEOL2
-                0, 0, 0, 0, 
+                0, 0, 0, 0,
             ],
             ispeed: 0,
             ospeed: 0,
