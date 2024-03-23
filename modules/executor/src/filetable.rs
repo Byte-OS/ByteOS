@@ -1,4 +1,7 @@
-use core::ops::{Deref, DerefMut};
+use core::{
+    mem::size_of,
+    ops::{Deref, DerefMut},
+};
 
 use alloc::{string::String, sync::Arc, vec::Vec};
 use fs::{
@@ -7,7 +10,7 @@ use fs::{
 };
 use sync::Mutex;
 use vfscore::{
-    DirEntry, MMapFlags, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
+    DirEntry, Dirent64, MMapFlags, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
 };
 
 const FILE_MAX: usize = 255;
@@ -161,6 +164,45 @@ impl<'a> FileItem {
             None => Err(VfsError::NotFile),
         }
     }
+
+    pub fn getdents(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
+        let buf_ptr = buffer.as_mut_ptr() as usize;
+        let len = buffer.len();
+        let mut ptr: usize = buf_ptr;
+        let mut finished = 0;
+        for (i, x) in self
+            .read_dir()?
+            .iter()
+            .enumerate()
+            .skip(*self.offset.lock())
+        {
+            let filename = &x.filename;
+            let file_bytes = filename.as_bytes();
+            let current_len = size_of::<Dirent64>() + file_bytes.len() + 1;
+            if len - (ptr - buf_ptr) < current_len {
+                break;
+            }
+
+            // let dirent = c2rust_ref(ptr as *mut Dirent);
+            let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
+
+            dirent.ino = 0;
+            dirent.off = current_len as i64;
+            dirent.reclen = current_len as u16;
+
+            dirent.ftype = 0; // 0 ftype is file
+
+            let buffer = unsafe {
+                core::slice::from_raw_parts_mut(dirent.name.as_mut_ptr(), file_bytes.len() + 1)
+            };
+            buffer[..file_bytes.len()].copy_from_slice(file_bytes);
+            buffer[file_bytes.len()] = b'\0';
+            ptr = ptr + current_len;
+            finished = i + 1;
+        }
+        *self.offset.lock() = finished;
+        Ok(ptr - buf_ptr)
+    }
 }
 
 impl INodeInterface for FileItem {
@@ -257,10 +299,6 @@ impl INodeInterface for FileItem {
 
     fn statfs(&self, statfs: &mut StatFS) -> Result<(), VfsError> {
         self.inner.statfs(statfs)
-    }
-
-    fn getdents(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
-        self.inner.getdents(buffer)
     }
 
     fn utimes(&self, times: &mut [TimeSpec]) -> Result<(), VfsError> {

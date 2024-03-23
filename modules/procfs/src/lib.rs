@@ -6,16 +6,11 @@ mod interrupts;
 mod meminfo;
 mod mounts;
 
-use core::mem::size_of;
-
 use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
 use interrupts::Interrupts;
 use meminfo::MemInfo;
 use mounts::Mounts;
-use sync::Mutex;
-use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, StatMode, VfsError, VfsResult,
-};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, StatMode, VfsError, VfsResult};
 
 pub struct ProcFS {
     root: Arc<ProcDir>,
@@ -33,7 +28,6 @@ impl FileSystem for ProcFS {
     fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
         Arc::new(DevDirContainer {
             inner: self.root.clone(),
-            dents_off: Mutex::new(0),
         })
     }
 
@@ -58,7 +52,6 @@ impl ProcDir {
 
 pub struct DevDirContainer {
     inner: Arc<ProcDir>,
-    dents_off: Mutex<usize>,
 }
 
 impl INodeInterface for DevDirContainer {
@@ -105,45 +98,5 @@ impl INodeInterface for DevDirContainer {
             size: 0,
             childrens: self.inner.map.len(),
         })
-    }
-
-    fn getdents(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-        let buf_ptr = buffer.as_mut_ptr() as usize;
-        let len = buffer.len();
-        let mut ptr: usize = buf_ptr;
-        let mut finished = 0;
-        for (i, x) in self
-            .inner
-            .map
-            .iter()
-            .enumerate()
-            .skip(*self.dents_off.lock())
-        {
-            let filename = x.0;
-            let file_bytes = filename.as_bytes();
-            let current_len = size_of::<Dirent64>() + file_bytes.len() + 1;
-            if len - (ptr - buf_ptr) < current_len {
-                break;
-            }
-
-            // let dirent = c2rust_ref(ptr as *mut Dirent);
-            let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
-
-            dirent.ino = 0;
-            dirent.off = current_len as i64;
-            dirent.reclen = current_len as u16;
-
-            dirent.ftype = 0; // 0 ftype is file
-
-            let buffer = unsafe {
-                core::slice::from_raw_parts_mut(dirent.name.as_mut_ptr(), file_bytes.len() + 1)
-            };
-            buffer[..file_bytes.len()].copy_from_slice(file_bytes);
-            buffer[file_bytes.len()] = b'\0';
-            ptr = ptr + current_len;
-            finished = i + 1;
-        }
-        *self.dents_off.lock() = finished;
-        Ok(ptr - buf_ptr)
     }
 }

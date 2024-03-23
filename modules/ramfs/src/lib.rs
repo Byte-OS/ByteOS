@@ -3,18 +3,15 @@
 #[macro_use]
 extern crate alloc;
 
-use core::{
-    cmp::{self, min},
-    mem::size_of,
-};
+use core::cmp::{self, min};
 
 use alloc::{string::String, sync::Arc, vec::Vec};
 use arch::PAGE_SIZE;
 use frame_allocator::{ceil_div, frame_alloc, FrameTracker};
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, FileSystem, FileType, INodeInterface, Metadata, Stat, StatMode, TimeSpec,
-    VfsError, VfsResult, UTIME_OMIT,
+    DirEntry, FileSystem, FileType, INodeInterface, Metadata, Stat, StatMode, TimeSpec, VfsError,
+    VfsResult, UTIME_OMIT,
 };
 
 pub struct RamFs {
@@ -35,7 +32,6 @@ impl FileSystem for RamFs {
     fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
         Arc::new(RamDir {
             inner: self.root.clone(),
-            dents_off: Mutex::new(0),
         })
     }
 
@@ -77,10 +73,7 @@ impl FileContainer {
             FileContainer::File(file) => Ok(Arc::new(RamFile {
                 inner: file.clone(),
             })),
-            FileContainer::Dir(dir) => Ok(Arc::new(RamDir {
-                inner: dir.clone(),
-                dents_off: Mutex::new(0),
-            })),
+            FileContainer::Dir(dir) => Ok(Arc::new(RamDir { inner: dir.clone() })),
             FileContainer::Link(link) => Ok(Arc::new(RamLink {
                 inner: link.clone(),
                 link_file: link.link_file.clone(),
@@ -106,7 +99,6 @@ pub struct RamLink {
 
 pub struct RamDir {
     inner: Arc<RamDirInner>,
-    dents_off: Mutex<usize>,
 }
 
 impl INodeInterface for RamDir {
@@ -165,7 +157,6 @@ impl INodeInterface for RamDir {
 
         let new_dir = Arc::new(RamDir {
             inner: new_inner.clone(),
-            dents_off: Mutex::new(0),
         });
 
         self.inner
@@ -266,47 +257,6 @@ impl INodeInterface for RamDir {
         stat.atime = Default::default();
         stat.ctime = Default::default();
         Ok(())
-    }
-
-    fn getdents(&self, buffer: &mut [u8]) -> VfsResult<usize> {
-        let buf_ptr = buffer.as_mut_ptr() as usize;
-        let len = buffer.len();
-        let mut ptr: usize = buf_ptr;
-        let mut finished = 0;
-        for (i, x) in self
-            .inner
-            .children
-            .lock()
-            .iter()
-            .enumerate()
-            .skip(*self.dents_off.lock())
-        {
-            let filename = x.filename();
-            let file_bytes = filename.as_bytes();
-            let current_len = size_of::<Dirent64>() + file_bytes.len() + 1;
-            if len - (ptr - buf_ptr) < current_len {
-                break;
-            }
-
-            // let dirent = c2rust_ref(ptr as *mut Dirent);
-            let dirent: &mut Dirent64 = unsafe { (ptr as *mut Dirent64).as_mut() }.unwrap();
-
-            dirent.ino = 0;
-            dirent.off = current_len as i64;
-            dirent.reclen = current_len as u16;
-
-            dirent.ftype = 0; // 0 ftype is file
-
-            let buffer = unsafe {
-                core::slice::from_raw_parts_mut(dirent.name.as_mut_ptr(), file_bytes.len() + 1)
-            };
-            buffer[..file_bytes.len()].copy_from_slice(file_bytes);
-            buffer[file_bytes.len()] = b'\0';
-            ptr = ptr + current_len;
-            finished = i + 1;
-        }
-        *self.dents_off.lock() = finished;
-        Ok(ptr - buf_ptr)
     }
 
     fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> VfsResult<()> {

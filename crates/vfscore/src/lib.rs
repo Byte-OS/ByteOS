@@ -353,10 +353,6 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn getdents(&self, _buffer: &mut [u8]) -> VfsResult<usize> {
-        Err(VfsError::NotSupported)
-    }
-
     fn utimes(&self, _times: &mut [TimeSpec]) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
