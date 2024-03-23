@@ -13,7 +13,8 @@ run_cyclictest NO_STRESS_P1 "-a -i 1000 -t1 -n -p99 -D 1s -q"
 run_cyclictest NO_STRESS_P8 "-a -i 1000 -t8 -n -p99 -D 1s -q"
 
 echo "====== start hackbench ======"
-./hackbench -l 100000000 &
+# Change 100000000 to 10000, because loongarch64 simulator is too slow.
+./hackbench -l 1000 &
 hackbench_pid=$!
 
 sleep 1
