@@ -1,9 +1,9 @@
 use core::arch::{asm, global_asm};
 
-use loongarch64::register::{
-    badv, crmd, ecfg, eentry, pwch, pwcl, stlbps, ticlr, tlbidx, tlbrehi, tlbrentry
-};
 use loongarch64::register::estat::{self, Exception, Trap};
+use loongarch64::register::{
+    badv, crmd, ecfg, eentry, pwch, pwcl, stlbps, ticlr, tlbidx, tlbrehi, tlbrentry,
+};
 
 use crate::{ArchInterface, TrapType};
 
@@ -352,7 +352,7 @@ fn loongarch64_trap_handler(tf: &mut Context) -> TrapType {
                 11 => {
                     ticlr::clear_timer_interrupt();
                     TrapType::Time
-                },
+                }
                 _ => panic!("unknown interrupt: {}", irq_num),
             }
         }
