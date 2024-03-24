@@ -13,4 +13,4 @@ kheader = { path = "../../modules/kheader" }
 devices = { path = "../../modules/devices" }
 frame_allocator = { path = "../../modules/frame_allocator" }
 log = "0.4"
-cv1811-sd = { path = "../../crates/cv1811-sd" }
+cv1811-sd = { git = "https://github.com/Byte-OS/cv1811-sd.git" }

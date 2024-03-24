@@ -17,6 +17,6 @@ devfs = { path = "../devfs" }
 futures = { version = "0.3", default-features = false }
 signal = { path = "../signal" }
 bitflags = "2.0.2"
-vfscore = { path = "../../crates/vfscore" }
+vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 hal = { path = "../hal" }
-crate_interface = { path = "../../crates/crate_interface" }
+crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }

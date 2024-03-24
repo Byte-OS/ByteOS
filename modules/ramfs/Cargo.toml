@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-vfscore = { path = "../../crates/vfscore" }
+vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 log = "0.4"
 sync = { path = "../sync" }
 frame_allocator = { path = "../frame_allocator" }

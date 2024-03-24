@@ -74,6 +74,7 @@ dependencies = [
 [[package]]
 name = "arm_gic"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/arm_gic#7a0693ebe4113cfeb2f5ee93920e6e7ea3afe99a"
 dependencies = [
  "tock-registers 0.8.1",
 ]
@@ -81,6 +82,7 @@ dependencies = [
 [[package]]
 name = "arm_pl011"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/arm_pl011.git#8a66e24c7e6ac2a01841cd29c5e1690323aa1d8d"
 dependencies = [
  "tock-registers 0.8.1",
 ]
@@ -184,6 +186,7 @@ dependencies = [
 [[package]]
 name = "crate_interface"
 version = "0.1.1"
+source = "git+https://github.com/Byte-OS/crate_interface.git#d4580bd225c6d1f9a3760428d65e553cd4a25ee7"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -212,6 +215,7 @@ dependencies = [
 [[package]]
 name = "cv1811-sd"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/cv1811-sd.git#09bcc018a7d0faf3b4d918b7918f4ce48247f8f6"
 dependencies = [
  "bit-struct",
  "log",
@@ -841,6 +845,7 @@ checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 [[package]]
 name = "percpu"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/percpu.git#a71e60e376ac28cdf1a46312e2705b864c07732e"
 dependencies = [
  "cfg-if",
  "percpu_macros",
@@ -851,6 +856,7 @@ dependencies = [
 [[package]]
 name = "percpu_macros"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/percpu.git#a71e60e376ac28cdf1a46312e2705b864c07732e"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1105,6 +1111,7 @@ dependencies = [
 [[package]]
 name = "timestamp"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/timestamp.git#0394ccfa14db1912047a0a3e7e1c38b027856165"
 
 [[package]]
 name = "tock-registers"
@@ -1148,6 +1155,7 @@ checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
 [[package]]
 name = "vfscore"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/vfscore.git#63092dfae0c3a865ca5dc9292d628e10c6b82392"
 dependencies = [
  "bitflags 2.4.2",
  "downcast-rs",

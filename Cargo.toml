@@ -6,16 +6,7 @@ members = [
 
     # crates
     # "crates/backtrace",
-    "crates/allocator",
-    "crates/timestamp",
-    "crates/vfscore",
-    "crates/cv1811-sd",
-    "crates/memory_addr",
-    "crates/crate_interface",
-    "crates/arm_pl011",
-    "crates/arm_gic",
-    "crates/percpu",
-    "crates/percpu_macros",
+    "crates/*",
 
     # modules
     "modules/logging",

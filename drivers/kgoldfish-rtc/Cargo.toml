@@ -13,4 +13,4 @@ kheader = { path = "../../modules/kheader" }
 devices = { path = "../../modules/devices" }
 frame_allocator = { path = "../../modules/frame_allocator" }
 log = "0.4"
-timestamp = { path = "../../crates/timestamp" }
+timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }

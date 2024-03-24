@@ -409,6 +409,7 @@ cfg_if::cfg_if! {
         pub const SYS_ACCEPT4: usize = 288;
         pub const SYS_WAIT4: usize = 61;
         pub const SYS_PRLIMIT64: usize = 302;
+        pub const SYS_RENAMEAT2: usize = 316;
         pub const SYS_GETRANDOM: usize = 318;
         pub const SYS_COPY_FILE_RANGE: usize = 326;
         pub const SYS_FACCESSAT2: usize = 439;
