@@ -12,9 +12,9 @@ log = "0.4"
 fdt = "0.1.5"
 bitflags = "2.0.2"
 cfg-if = "1.0.0"
-crate_interface = { path = "../crates/crate_interface" }
+crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
 allocator = { path = "../crates/allocator" }
-percpu = { path = "../crates/percpu" }
+percpu = { git = "https://github.com/Byte-OS/percpu.git"}
 
 [target.'cfg(target_arch = "riscv64")'.dependencies]
 riscv = { git = "https://github.com/rcore-os/riscv", features = ["inline-asm"] }
@@ -30,10 +30,10 @@ raw-cpuid = "11.0"
 
 [target.'cfg(target_arch = "aarch64")'.dependencies]
 aarch64-cpu = "9.3"
-arm_pl011 = { path = "../crates/arm_pl011" }
+arm_pl011 = { git = "https://github.com/Byte-OS/arm_pl011.git" }
 tock-registers = "0.8"
 irq_safety = { git = "https://github.com/theseus-os/irq_safety.git"}
-arm_gic = { path = "../crates/arm_gic" }
+arm_gic = { git = "https://github.com/Byte-OS/arm_gic" }
 
 [target.'cfg(target_arch = "loongarch64")'.dependencies]
 spin = { version = "0.9.8", features = ["mutex"] }

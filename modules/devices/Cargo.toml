@@ -15,4 +15,4 @@ sync = { path = "../sync" }
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1d1cbb"}
 kheader = { path = "../kheader" }
 frame_allocator = { path = "../frame_allocator" }
-timestamp = { path = "../../crates/timestamp" }
+timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }

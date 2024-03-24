@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
-vfscore = { path = "../../crates/vfscore" }
+vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 sync = { path = "../sync" }
 devices = { path = "../devices" }
 logging = { path = "../logging" }

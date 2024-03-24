@@ -13,7 +13,7 @@ serde = "1.0.136"
 serde_derive = "1.0.136"
 
 [dependencies]
-crate_interface = { path = "../crates/crate_interface" }
+crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
 frame_allocator = { path = "../modules/frame_allocator" }
 logging = { path = "../modules/logging" }
 log = "0.4"
@@ -30,7 +30,7 @@ signal = { path = "../modules/signal" }
 bit_field = "0.10.1"
 lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "b06d136", features = ["log"]}
 # lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
-vfscore = { path = "../crates/vfscore" }
+vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 async-recursion = "1.0.4"
 futures-lite = { version = "1.13.0", default-features = false, features=["alloc"] }
 kheader = { path = "../modules/kheader" }
