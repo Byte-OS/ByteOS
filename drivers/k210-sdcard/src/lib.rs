@@ -777,38 +777,59 @@ impl Driver for SDCardWrapper {
 }
 
 impl BlkDriver for SDCardWrapper {
-    fn read_block(&self, block_id: usize, buf: &mut [u8]) {
+    fn read_blocks(&self, block_id: usize, buf: &mut [u8]) {
+        assert!(
+            buf.len() % 0x200 == 0,
+            "can't read buffer notaligned 0x200 from k210-sdcard"
+        );
         // self.0.borrow()
         //     .read_sector(buf, block_id as u32)
         //     .unwrap();
         let sd_card = self.0.lock();
-        let mut result = sd_card.read_sector(buf, block_id as u32);
-        let mut cont_cnt = 0;
-        while result.is_err() {
-            if cont_cnt >= 0 {
-                info!("[sdcard] read_sector(buf, {}) error. Retrying...", block_id);
-                result = sd_card.read_sector(buf, block_id as u32);
-            }
-            cont_cnt += 1;
-            if cont_cnt >= 5 {
-                info!(
-                    "[sdcard] read_sector(buf[{}], {}) error exceeded contineous retry count, waiting...",
-                    buf.len(),
-                    block_id
-                );
-                Self::wait_for_one_sec();
-                if sd_card.read_sector(buf, block_id as u32).is_err() {
-                    sd_card.init();
-                    Self::wait_for_one_sec();
-                } else {
-                    break;
+        for i in 0..buf.len() / 0x200 {
+            let start = 0x200 * i;
+            let mut result =
+                sd_card.read_sector(&mut buf[start..start + 0x200], (block_id + i) as u32);
+            let mut cont_cnt = 0;
+            while result.is_err() {
+                if cont_cnt >= 0 {
+                    info!("[sdcard] read_sector(buf, {}) error. Retrying...", block_id);
+                    result = sd_card.read_sector(buf, block_id as u32);
                 }
-                cont_cnt = 0;
+                cont_cnt += 1;
+                if cont_cnt >= 5 {
+                    info!(
+                        "[sdcard] read_sector(buf[{}], {}) error exceeded contineous retry count, waiting...",
+                        buf.len(),
+                        block_id
+                    );
+                    Self::wait_for_one_sec();
+                    if sd_card
+                        .read_sector(&mut buf[start..start + 0x200], (block_id + i) as u32)
+                        .is_err()
+                    {
+                        sd_card.init();
+                        Self::wait_for_one_sec();
+                    } else {
+                        break;
+                    }
+                    cont_cnt = 0;
+                }
             }
         }
     }
-    fn write_block(&self, block_id: usize, buf: &[u8]) {
-        self.0.lock().write_sector(buf, block_id as u32).unwrap();
+    fn write_blocks(&self, block_id: usize, buf: &[u8]) {
+        assert!(
+            buf.len() % 0x200 == 0,
+            "can't write buffer notaligned 0x200 to k210-sdcard"
+        );
+        for i in 0..buf.len() / 0x200 {
+            let start = i * 0x200;
+            self.0
+                .lock()
+                .write_sector(&buf[start..start + 0x200], (block_id + i) as u32)
+                .unwrap();
+        }
     }
 }
 

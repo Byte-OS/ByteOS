@@ -31,14 +31,14 @@ impl<T: Transport + 'static> Driver for VirtIOBlock<T> {
 }
 
 impl<T: Transport + 'static> BlkDriver for VirtIOBlock<T> {
-    fn read_block(&self, block_id: usize, buf: &mut [u8]) {
+    fn read_blocks(&self, block_id: usize, buf: &mut [u8]) {
         self.inner
             .lock()
             .read_blocks(block_id, buf)
             .expect("can't read block by virtio block");
     }
 
-    fn write_block(&self, block_id: usize, buf: &[u8]) {
+    fn write_blocks(&self, block_id: usize, buf: &[u8]) {
         self.inner
             .lock()
             .write_blocks(block_id, buf)

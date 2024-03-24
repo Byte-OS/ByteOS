@@ -5,7 +5,6 @@ use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::MemArea;
 use frame_allocator::ceil_div;
 use log::debug;
-use vfscore::INodeInterface;
 
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MSyncFlags;

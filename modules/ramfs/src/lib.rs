@@ -441,7 +441,15 @@ impl INodeInterface for RamLink {
     }
 
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
-        self.link_file.stat(stat)
+        // self.link_file.stat(stat)
+        stat.ino = self as *const RamLink as u64;
+        stat.blksize = 4096;
+        stat.blocks = 8;
+        stat.size = 3;
+        stat.uid = 0;
+        stat.gid = 0;
+        stat.mode = StatMode::LINK;
+        Ok(())
     }
 
     fn readat(&self, offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {

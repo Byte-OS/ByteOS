@@ -329,11 +329,11 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(VfsError::NotSupported)
     }
 
-    fn unlink(&self, _name: &str) -> VfsResult<()> {
+    fn sym_link(&self, _name: &str, _src: &str) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 
-    fn mmap(&self, _offset: usize, _size: usize, _flags: MMapFlags) -> VfsResult<usize> {
+    fn unlink(&self, _name: &str) -> VfsResult<()> {
         Err(VfsError::NotSupported)
     }
 

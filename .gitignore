@@ -9,3 +9,4 @@ packets.pcap
 .gdb_history
 kernel/*.lds
 qemu.log
+kernel/src/drivers.rs
