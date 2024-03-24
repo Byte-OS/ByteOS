@@ -9,7 +9,7 @@
 #![feature(stdsimd)]
 
 // include modules drivers
-include!(concat!(env!("OUT_DIR"), "/drivers.rs"));
+mod drivers;
 
 #[macro_use]
 extern crate logging;
@@ -37,7 +37,7 @@ use fdt::node::FdtNode;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use hal;
 use user::user_cow_int;
-use vfscore::{INodeInterface, OpenFlags};
+use vfscore::OpenFlags;
 
 use crate::user::task_ilegal;
 

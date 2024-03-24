@@ -72,13 +72,30 @@ impl Driver for VirtIOBlock {
 }
 
 impl BlkDriver for VirtIOBlock {
-    fn read_block(&self, sector_offset: usize, buf: &mut [u8]) {
+    fn read_blocks(&self, sector_offset: usize, buf: &mut [u8]) {
+        assert!(
+            buf.len() % 0x200 == 0,
+            "can't write block not aligned 0x200 in knvme"
+        );
         // 读取文件
-        self.0.read_block(sector_offset, buf)
+        for i in 0..(buf.len() / 0x200) {
+            let start = i * 0x200;
+            self.0
+                .read_block(sector_offset + i, &mut buf[start..start + 0x200]);
+        }
     }
 
-    fn write_block(&self, sector_offset: usize, buf: &[u8]) {
-        self.0.write_block(sector_offset, buf)
+    fn write_blocks(&self, sector_offset: usize, buf: &[u8]) {
+        assert!(
+            buf.len() % 0x200 == 0,
+            "can't write block not aligned 0x200 in knvme"
+        );
+        // Write file data to disk.
+        for i in 0..(buf.len() / 0x200) {
+            let start = i * 0x200;
+            self.0
+                .write_block(sector_offset + i, &buf[start..start + 0x200])
+        }
     }
 }
 
@@ -116,7 +133,7 @@ driver_define!({
         VIRT_ADDR_START | 0x40000000,
     ));
     let mut buffer = vec![0u8; 512];
-    device.read_block(0, &mut buffer);
+    device.read_blocks(0, &mut buffer);
     log::info!("detected the nvme device");
     // 加入设备表
     // BLK_DEVICES.lock().push(Arc::new(device));

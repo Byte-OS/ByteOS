@@ -54,7 +54,7 @@ pub fn build_devfs(filesystems: &Vec<(Arc<dyn FileSystem>, &str)>) -> Arc<DevFS>
                 |fs_id, path| {
                     DentryNode::mount(String::from(path), get_filesystem(fs_id).root_dir())
                 },
-                |_fs_id, path| DentryNode::unmount(String::from(path)),
+                |_fs_id: usize, path| DentryNode::unmount(String::from(path)),
             ))
         })
         .collect();

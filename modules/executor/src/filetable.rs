@@ -10,7 +10,7 @@ use fs::{
 };
 use sync::Mutex;
 use vfscore::{
-    DirEntry, Dirent64, MMapFlags, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
+    DirEntry, Dirent64, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
 };
 
 const FILE_MAX: usize = 255;
@@ -88,6 +88,16 @@ impl<'a> FileItem {
             offset: Mutex::new(0),
             flags: Mutex::new(OpenFlags::NONE),
         })
+    }
+
+    /// Get root directory FileItem.
+    pub fn root() -> Arc<Self> {
+        let dentry = dentry_root();
+        Self::new(
+            dentry.node.clone(),
+            Some(dentry),
+            FileOptions::R | FileOptions::W,
+        )
     }
 
     pub fn new_dev(inner: Arc<dyn INodeInterface>) -> Arc<Self> {
@@ -205,56 +215,62 @@ impl<'a> FileItem {
     }
 }
 
-impl INodeInterface for FileItem {
-    fn readat(&self, offset: usize, buffer: &mut [u8]) -> Result<usize, VfsError> {
-        self.inner.readat(offset, buffer)
-    }
-
-    fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, VfsError> {
-        self.check_writeable()?;
-        if buffer.len() == 0 {
-            return Ok(0);
-        }
-        self.inner.writeat(offset, buffer)
-    }
-
-    fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
+impl FileItem {
+    pub fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
         self.inner.mkdir(name)
     }
 
-    fn rmdir(&self, name: &str) -> Result<(), VfsError> {
+    pub fn rmdir(&self, name: &str) -> Result<(), VfsError> {
         self.inner.rmdir(name)
     }
 
-    fn remove(&self, name: &str) -> Result<(), VfsError> {
+    pub fn remove(&self, name: &str) -> Result<(), VfsError> {
         self.inner.remove(name)
     }
 
-    fn touch(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
+    pub fn moveto(&self, _path: &str) -> Result<Self, VfsError> {
+        todo!("Move the file? to other location")
+    }
+
+    pub fn remove_self(&self) -> Result<(), VfsError> {
+        match &self.dentry {
+            Some(dentry) => {
+                let filename = &dentry.filename;
+                if let Some(parent) = dentry.parent.upgrade() {
+                    parent.node.remove(filename)?;
+                    parent.children.lock().retain(|x| &x.filename != filename);
+                }
+                Ok(())
+            }
+            None => Err(VfsError::FileNotFound),
+        }
+    }
+
+    pub fn touch(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
         self.inner.touch(name)
     }
 
-    fn read_dir(&self) -> Result<Vec<DirEntry>, VfsError> {
+    pub fn read_dir(&self) -> Result<Vec<DirEntry>, VfsError> {
         self.inner.read_dir()
     }
 
-    fn metadata(&self) -> Result<Metadata, VfsError> {
+    pub fn metadata(&self) -> Result<Metadata, VfsError> {
         self.inner.metadata()
     }
 
-    fn lookup(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
+    pub fn lookup(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
         self.inner.lookup(name)
     }
 
-    fn open(&self, name: &str, flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
+    pub fn open(&self, name: &str, flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
         self.inner.open(name, flags)
     }
 
-    fn ioctl(&self, command: usize, arg: usize) -> Result<usize, VfsError> {
+    pub fn ioctl(&self, command: usize, arg: usize) -> Result<usize, VfsError> {
         self.inner.ioctl(command, arg)
     }
 
-    fn truncate(&self, size: usize) -> Result<(), VfsError> {
+    pub fn truncate(&self, size: usize) -> Result<(), VfsError> {
         // self.check_writeable()?;
         // let mut offset = self.offset.lock();
         // if *offset > size {
@@ -263,54 +279,62 @@ impl INodeInterface for FileItem {
         self.inner.truncate(size)
     }
 
-    fn flush(&self) -> Result<(), VfsError> {
+    pub fn flush(&self) -> Result<(), VfsError> {
         self.inner.flush()
     }
 
-    fn resolve_link(&self) -> Result<String, VfsError> {
+    pub fn resolve_link(&self) -> Result<String, VfsError> {
         self.inner.resolve_link()
     }
 
-    fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> Result<(), VfsError> {
+    pub fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> Result<(), VfsError> {
         self.inner.link(name, src)
     }
 
-    fn unlink(&self, name: &str) -> Result<(), VfsError> {
+    pub fn unlink(&self, name: &str) -> Result<(), VfsError> {
         self.inner.unlink(name)
     }
 
-    fn mmap(&self, offset: usize, size: usize, flags: MMapFlags) -> Result<usize, VfsError> {
-        self.inner.mmap(offset, size, flags)
-    }
-
-    fn stat(&self, stat: &mut Stat) -> Result<(), VfsError> {
+    pub fn stat(&self, stat: &mut Stat) -> Result<(), VfsError> {
         self.inner.stat(stat)?;
         stat.dev = 0;
         Ok(())
     }
 
-    fn mount(&self, path: &str) -> Result<(), VfsError> {
+    pub fn mount(&self, path: &str) -> Result<(), VfsError> {
         self.inner.mount(path)
     }
 
-    fn umount(&self) -> Result<(), VfsError> {
+    pub fn umount(&self) -> Result<(), VfsError> {
         self.inner.umount()
     }
 
-    fn statfs(&self, statfs: &mut StatFS) -> Result<(), VfsError> {
+    pub fn statfs(&self, statfs: &mut StatFS) -> Result<(), VfsError> {
         self.inner.statfs(statfs)
     }
 
-    fn utimes(&self, times: &mut [TimeSpec]) -> Result<(), VfsError> {
+    pub fn utimes(&self, times: &mut [TimeSpec]) -> Result<(), VfsError> {
         self.inner.utimes(times)
     }
 
-    fn poll(&self, events: PollEvent) -> Result<PollEvent, VfsError> {
+    pub fn poll(&self, events: PollEvent) -> Result<PollEvent, VfsError> {
         self.inner.poll(events)
     }
 }
 
 impl FileItem {
+    pub fn readat(&self, offset: usize, buffer: &mut [u8]) -> Result<usize, VfsError> {
+        self.inner.readat(offset, buffer)
+    }
+
+    pub fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, VfsError> {
+        self.check_writeable()?;
+        if buffer.len() == 0 {
+            return Ok(0);
+        }
+        self.inner.writeat(offset, buffer)
+    }
+
     pub fn read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
         let offset = *self.offset.lock();
         self.inner.readat(offset, buffer).map(|x| {

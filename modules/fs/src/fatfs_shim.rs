@@ -391,7 +391,7 @@ impl fatfs::Read for DiskCursor {
         let device = get_blk_device(self.device_id).unwrap();
         let read_size = if self.offset != 0 || buf.len() < 512 {
             let mut data = vec![0u8; 512];
-            device.read_block(self.sector as usize, &mut data);
+            device.read_blocks(self.sector as usize, &mut data);
 
             let start = self.offset;
             let end = (self.offset + buf.len()).min(512);
@@ -399,12 +399,14 @@ impl fatfs::Read for DiskCursor {
             buf[..end - start].copy_from_slice(&data[start..end]);
             end - start
         } else {
+            // floor the buf len
+            let rlen = (buf.len() / 512) * 512;
+            assert!(rlen % 0x200 == 0);
             // 如果不用同一个数组 会导致读取数据的时候出现问题
-            let mut data = vec![0u8; 512];
-
-            device.read_block(self.sector as usize, &mut data);
-            buf[..512].copy_from_slice(&data);
-            512
+            let mut data = vec![0u8; rlen];
+            device.read_blocks(self.sector as usize, &mut data);
+            buf[..rlen].copy_from_slice(&data);
+            rlen
         };
 
         self.move_cursor(read_size);
@@ -423,20 +425,20 @@ impl fatfs::Write for DiskCursor {
         let device = get_blk_device(self.device_id).unwrap();
         let write_size = if self.offset != 0 || buf.len() < 512 {
             let mut data = vec![0u8; 512];
-            device.read_block(self.sector as usize, &mut data);
+            device.read_blocks(self.sector as usize, &mut data);
 
             let start = self.offset;
             let end = (self.offset + buf.len()).min(512);
 
             data[start..end].clone_from_slice(&buf[..end - start]);
-            device.write_block(self.sector as usize, &mut data);
+            device.write_blocks(self.sector as usize, &mut data);
 
             end - start
         } else {
             // should copy data from buffer
             let mut data = vec![0u8; 512];
             data.copy_from_slice(&buf[..512]);
-            device.write_block(self.sector as usize, &data);
+            device.write_blocks(self.sector as usize, &data);
             512
         };
 

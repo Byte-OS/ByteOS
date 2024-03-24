@@ -14,7 +14,8 @@ macro_rules! display {
 
 // write module config to file.
 fn write_module_config(driver_list: Vec<String>) {
-    let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let manifest_path =
+        PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("can't find manifest dir"));
     let mut module_file_content = String::new();
     driver_list.into_iter().for_each(|module| {
         // check driver if it exists.
@@ -23,8 +24,8 @@ fn write_module_config(driver_list: Vec<String>) {
         }
         module_file_content.push_str(&format!("extern crate {};\n", module.replace("-", "_")))
     });
-    fs::write(out_path.join("drivers.rs"), module_file_content)
-        .expect("can't write file to OUT_DIR");
+    fs::write(manifest_path.join("src/drivers.rs"), module_file_content)
+        .expect("can't write file to manifest dir");
 }
 
 fn main() {

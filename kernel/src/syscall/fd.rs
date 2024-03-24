@@ -9,10 +9,7 @@ use arch::VirtAddr;
 use bit_field::BitArray;
 use executor::{yield_now, AsyncTask, FileItem, UserTask};
 use fs::pipe::create_pipe;
-use fs::{
-    INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
-    UTIME_NOW,
-};
+use fs::{OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW};
 use log::debug;
 
 use crate::epoll::{EpollEvent, EpollFile};
@@ -24,7 +21,10 @@ use crate::user::UserTaskContainer;
 use super::consts::{LinuxError, UserRef};
 use super::SysResult;
 
-pub fn to_node(task: &Arc<UserTask>, fd: usize) -> Result<Arc<FileItem>, LinuxError> {
+pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<FileItem>, LinuxError> {
+    if path.len() > 0 && path.starts_with("/") {
+        return Ok(FileItem::root());
+    }
     const NEW_AT_CWD: u32 = AT_CWD as u32;
     match fd as u32 {
         NEW_AT_CWD => Ok(task.pcb.lock().curr_dir.clone()),
@@ -123,7 +123,7 @@ impl UserTaskContainer {
             "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
             dir_fd as isize, path, mode
         );
-        let dir = to_node(&self.task, dir_fd)?;
+        let dir = to_node(&self.task, dir_fd, path)?;
         if path == "/" {
             return Err(LinuxError::EEXIST);
         }
@@ -157,17 +157,15 @@ impl UserTaskContainer {
             olddir_fd, oldpath, newdir_fd, newpath, flags
         );
 
-        let old_dir = to_node(&self.task, olddir_fd)?;
+        let old_path = oldpath.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let old_dir = to_node(&self.task, olddir_fd, old_path)?;
         let old_file = old_dir
-            .dentry_open(
-                oldpath.get_cstr().map_err(|_| LinuxError::EINVAL)?,
-                OpenFlags::empty(),
-            )
+            .dentry_open(old_path, OpenFlags::empty())
             .map_err(from_vfs)?;
 
         let old_file_type = old_file.metadata().map_err(from_vfs)?.file_type;
-        let new_dir = to_node(&self.task, newdir_fd)?;
         let new_path = newpath.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let new_dir = to_node(&self.task, newdir_fd, new_path)?;
         if old_file_type == FileType::File {
             let new_file = new_dir
                 .dentry_open(new_path, OpenFlags::empty())
@@ -204,18 +202,10 @@ impl UserTaskContainer {
             dir_fd as isize, path, flags
         );
         let flags = OpenFlags::from_bits_truncate(flags);
-        let dir = to_node(&self.task, dir_fd)?;
+        let dir = to_node(&self.task, dir_fd, path)?;
         let file = dir.dentry_open(path, flags).map_err(from_vfs)?;
-        let dentry = file.dentry.clone().unwrap();
-        let parent = dentry
-            .parent
-            .upgrade()
-            .expect("can't upgrade to parent node");
-        parent.node.remove(&dentry.filename).map_err(from_vfs)?;
-        parent
-            .children
-            .lock()
-            .retain(|x| x.filename != dentry.filename);
+
+        file.remove_self().map_err(from_vfs)?;
         Ok(0)
     }
 
@@ -236,7 +226,7 @@ impl UserTaskContainer {
             "sys_openat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
             fd as isize, filename, flags, mode
         );
-        let dir = to_node(&self.task, fd)?;
+        let dir = to_node(&self.task, fd, filename)?;
         let file = dir.dentry_open(filename, flags).map_err(from_vfs)?;
         let fd = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
         self.task.set_fd(fd, file);
@@ -267,7 +257,7 @@ impl UserTaskContainer {
             "sys_accessat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
             fd as isize, filename, open_flags, mode
         );
-        let dir = to_node(&self.task, fd)?;
+        let dir = to_node(&self.task, fd, filename)?;
         let _node =
             dentry_open(dir.dentry.clone().unwrap(), filename, open_flags).map_err(from_vfs)?;
         Ok(0)
@@ -303,7 +293,7 @@ impl UserTaskContainer {
         );
         let stat = stat_ptr.get_mut();
 
-        let dir = to_node(&self.task, dir_fd)?;
+        let dir = to_node(&self.task, dir_fd, path)?;
         dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)
             .map_err(from_vfs)?
             .node
@@ -546,12 +536,13 @@ impl UserTaskContainer {
             }
         };
 
-        let dir = to_node(&self.task, dir_fd)?;
         let path = if !path.is_valid() {
             ""
         } else {
             path.get_cstr().map_err(|_| LinuxError::EINVAL)?
         };
+
+        let dir = to_node(&self.task, dir_fd, path)?;
 
         debug!("times: {:?} path: {}", times, path);
 
@@ -582,7 +573,7 @@ impl UserTaskContainer {
         let buffer = buffer.slice_mut_with_len(buffer_size);
         debug!("readlinkat @ filename: {}", filename);
 
-        let dir = to_node(&self.task, dir_fd)?;
+        let dir = to_node(&self.task, dir_fd, filename)?;
 
         let ftype = dir
             .open(filename, OpenFlags::NONE)

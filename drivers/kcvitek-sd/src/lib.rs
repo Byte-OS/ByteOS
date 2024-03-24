@@ -30,15 +30,31 @@ impl Driver for CvSd {
 }
 
 impl BlkDriver for CvSd {
-    fn read_block(&self, block_id: usize, buf: &mut [u8]) {
+    fn read_blocks(&self, block_id: usize, buf: &mut [u8]) {
+        assert!(
+            buf.len() % 0x200 == 0,
+            "can't read data notaligned 0x200 in the kcvitek-sd"
+        );
         clk_en(true);
-        cv1811_sd::read_block(block_id as _, buf).expect("can't read block by using CvSd");
+        for i in 0..buf.len() / 0x200 {
+            let start = i * 0x200;
+            cv1811_sd::read_block((block_id + i) as _, &mut buf[start..start + 0x200])
+                .expect("can't read block by using CvSd");
+        }
         clk_en(false);
     }
 
-    fn write_block(&self, block_id: usize, buf: &[u8]) {
+    fn write_blocks(&self, block_id: usize, buf: &[u8]) {
+        assert!(
+            buf.len() % 0x200 == 0,
+            "can't write data notaligned 0x200 in the kcvitek-sd"
+        );
         clk_en(true);
-        cv1811_sd::write_block(block_id as _, buf).expect("can't write block by using CvSd");
+        for i in 0..buf.len() / 0x200 {
+            let start = i * 0x200;
+            cv1811_sd::write_block((block_id + i) as _, &buf[start..start + 0x200])
+                .expect("can't write block by using CvSd");
+        }
         clk_en(false);
     }
 }
