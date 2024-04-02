@@ -31,3 +31,6 @@ members = [
 
 [profile.release]
 debug = true
+
+[workspace.dependencies]
+arch = { path = "arch" }

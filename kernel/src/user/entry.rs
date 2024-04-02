@@ -1,4 +1,4 @@
-use arch::{switch_to_kernel_page_table, Context, ContextArgs};
+use arch::{switch_to_kernel_page_table, TrapFrame, TrapFrameArgs};
 use executor::{current_user_task, yield_now, AsyncTask};
 use futures_lite::future;
 use hal::TimeVal;
@@ -32,7 +32,7 @@ impl UserTaskContainer {
         }
     }
 
-    pub async fn entry_point(&mut self, cx_ref: &mut Context) {
+    pub async fn entry_point(&mut self, cx_ref: &mut TrapFrame) {
         let mut times = 0;
 
         let check_signal = async || {
@@ -82,7 +82,7 @@ impl UserTaskContainer {
             debug!(
                 "[task {}] user_entry sepc: {:#X}",
                 self.task.task_id,
-                cx_ref[ContextArgs::SEPC]
+                cx_ref[TrapFrameArgs::SEPC]
             );
 
             let res = future::or(self.handle_syscall(cx_ref), async {

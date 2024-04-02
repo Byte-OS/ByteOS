@@ -1,6 +1,10 @@
 #![no_std]
 
+#[macro_use]
+extern crate alloc;
+
 use arch::{console_getchar, console_putchar};
+use irq_safety::MutexIrqSafe;
 use core::fmt::{self, Write};
 use devices::MAIN_UART;
 
@@ -17,6 +21,9 @@ impl Log for Logger {
         if !self.enabled(record.metadata()) {
             return;
         }
+
+        static LOG_LOCK: MutexIrqSafe<()> = MutexIrqSafe::new(());
+        LOG_LOCK.lock();
 
         let file = record.file();
         let line = record.line();
@@ -88,25 +95,50 @@ pub fn print(args: fmt::Arguments) {
         .expect("can't write string in logging module.");
 }
 
-#[inline]
+// #[inline]
+// pub fn puts(buffer: &[u8]) {
+//     console_putchar(b'2');
+//     static LOG_BUFFER: MutexIrqSafe<Vec<Vec<u8>>> = MutexIrqSafe::new(Vec::new());
+//     console_putchar(b'4');
+//     let mut log_buffer = LOG_BUFFER.lock();
+//     loop {
+//         if hart_id() < log_buffer.len() {
+//             break;
+//         }
+//         log_buffer.push(Vec::new());
+//     }
+//     let current_buffer = &mut log_buffer[hart_id()];
+//     let r_pos = buffer.into_iter().rposition(|&x| x == b'\n');
+//     if let Some(r_pos) = r_pos {
+//         real_puts(current_buffer);
+//         current_buffer.clear();
+//         real_puts(&buffer[..r_pos + 1]);
+//         current_buffer.extend_from_slice(&buffer[r_pos + 1..]);
+//     } else {
+//         current_buffer.extend_from_slice(buffer);
+//     }
+//     console_putchar(b'1');
+//     drop(log_buffer);
+//     console_putchar(b'5');
+// }
+
 pub fn puts(buffer: &[u8]) {
-    // use the main uart if it exists.
-    if MAIN_UART.is_init() {
-        for i in buffer {
-            // console_putchar(*i);
-            MAIN_UART.put(*i);
-        }
-    } else {
-        for i in buffer {
-            console_putchar(*i);
+    // Use the main uart as much as possible.
+    let main_uart_inited = MAIN_UART.is_init();
+    for i in buffer {
+        match main_uart_inited {
+            true => MAIN_UART.put(*i),
+            false => console_putchar(*i),
         }
     }
 }
 
+/// Get a character from the uart.
+/// 
+/// If the uart device was initialized, then use it.
 pub fn get_char() -> Option<u8> {
-    if let Some(uart) = MAIN_UART.try_get() {
-        uart.get()
-    } else {
-        console_getchar()
+    match MAIN_UART.try_get() {
+        Some(uart) => uart.get(),
+        None => console_getchar(),
     }
 }

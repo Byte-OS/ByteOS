@@ -4,6 +4,8 @@
 
 use core::arch::asm;
 
+use sbi_rt::{NoReason, Shutdown};
+
 const SBI_SET_TIMER: usize = 0;
 const SBI_CONSOLE_PUT_CHAR: usize = 1;
 const SBI_CONSOLE_GET_CHAR: usize = 2;
@@ -30,29 +32,31 @@ fn sbi_call(which: usize, arg0: usize, arg1: usize, arg2: usize) -> usize {
 /// 设置定时器
 #[inline]
 pub fn set_timer(time: usize) {
-    sbi_call(SBI_SET_TIMER, time, 0, 0);
+    sbi_rt::set_timer(time as _);
 }
 
 /// 输出一个字符到屏幕
 #[inline]
+#[allow(deprecated)]
 pub fn console_putchar(ch: u8) {
-    sbi_call(SBI_CONSOLE_PUT_CHAR, ch as usize, 0, 0);
+    sbi_rt::legacy::console_putchar(ch as _);
 }
 
 /// 获取输入
 #[inline]
+#[allow(deprecated)]
 pub fn console_getchar() -> Option<u8> {
-    let c = sbi_call(SBI_CONSOLE_GET_CHAR, 0, 0, 0) as u8;
-    if c == u8::MAX {
-        None
-    } else {
-        Some(c)
+    let c = sbi_rt::legacy::console_getchar() as u8;
+    match c == u8::MAX {
+        true => None,
+        _ => Some(c),
     }
 }
 
 /// 调用 SBI_SHUTDOWN 来关闭操作系统（直接退出 QEMU）
 #[inline]
 pub fn shutdown() -> ! {
-    sbi_call(SBI_SHUTDOWN, 0, 0, 0);
+    // sbi_rt::legacy::shutdown();
+    sbi_rt::system_reset(Shutdown, NoReason);
     unreachable!()
 }

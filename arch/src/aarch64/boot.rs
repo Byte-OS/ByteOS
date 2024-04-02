@@ -1,6 +1,5 @@
-use crate::{PTEFlags, VirtAddr};
+use crate::PTEFlags;
 use aarch64_cpu::{asm, asm::barrier, registers::*};
-use core::arch::asm;
 
 // use page_table_entry::aarch64::{MemAttr, A64PTE};
 use tock_registers::interfaces::{ReadWriteable, Readable, Writeable};
@@ -77,7 +76,7 @@ unsafe fn init_mmu() {
     TTBR1_EL1.set(root_paddr);
 
     // Flush the entire TLB
-    flush_tlb(None);
+    super::page_table::flush_tlb(None);
 
     // Enable the MMU and turn on I-cache and D-cache
     SCTLR_EL1.modify(SCTLR_EL1::M::Enable + SCTLR_EL1::C::Cacheable + SCTLR_EL1::I::Cacheable);
@@ -128,17 +127,4 @@ unsafe extern "C" fn _start() -> ! {
         entry = sym super::rust_tmp_main,
         options(noreturn),
     )
-}
-
-#[inline]
-pub fn flush_tlb(vaddr: Option<VirtAddr>) {
-    unsafe {
-        if let Some(vaddr) = vaddr {
-            // TIPS: flush tlb, tlb addr: 0-47: ppn, otherwise tlb asid
-            asm!("tlbi vaale1is, {}; dsb sy; isb", in(reg) ((vaddr.0 >> 12) & 0xFFFF_FFFF_FFFF))
-        } else {
-            // flush the entire TLB
-            asm!("tlbi vmalle1; dsb sy; isb")
-        }
-    }
 }

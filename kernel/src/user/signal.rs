@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use arch::{ContextArgs, SIG_RETURN_ADDR};
+use arch::{TrapFrameArgs, SIG_RETURN_ADDR};
 use executor::{current_user_task, AsyncTask};
 use log::debug;
 use signal::SignalFlags;
@@ -58,23 +58,23 @@ impl UserTaskContainer {
         self.task.tcb.write().sigmask = sigaction.mask;
 
         // alloc space for SignalUserContext at stack and align with 16 bytes.
-        let sp = (cx_ref[ContextArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
+        let sp = (cx_ref[TrapFrameArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
         let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
-        cx.set_pc(tcb.cx[ContextArgs::SEPC]);
+        cx.set_pc(tcb.cx[TrapFrameArgs::SEPC]);
         cx.sig_mask = sigaction.mask;
-        tcb.cx[ContextArgs::SP] = sp;
-        tcb.cx[ContextArgs::SEPC] = sigaction.handler;
-        tcb.cx[ContextArgs::RA] = if sigaction.restorer == 0 {
+        tcb.cx[TrapFrameArgs::SP] = sp;
+        tcb.cx[TrapFrameArgs::SEPC] = sigaction.handler;
+        tcb.cx[TrapFrameArgs::RA] = if sigaction.restorer == 0 {
             SIG_RETURN_ADDR
         } else {
             sigaction.restorer
         };
-        tcb.cx[ContextArgs::ARG0] = signal.num();
-        tcb.cx[ContextArgs::ARG1] = 0;
-        tcb.cx[ContextArgs::ARG2] = cx as *mut SignalUserContext as usize;
+        tcb.cx[TrapFrameArgs::ARG0] = signal.num();
+        tcb.cx[TrapFrameArgs::ARG1] = 0;
+        tcb.cx[TrapFrameArgs::ARG2] = cx as *mut SignalUserContext as usize;
         drop(tcb);
 
         loop {
@@ -92,7 +92,7 @@ impl UserTaskContainer {
             debug!(
                 "[task {}]task sepc: {:#x}",
                 self.task.get_task_id(),
-                cx_ref[ContextArgs::SEPC]
+                cx_ref[TrapFrameArgs::SEPC]
             );
 
             if let UserTaskControlFlow::Break = self.handle_syscall(cx_ref).await {
@@ -108,7 +108,7 @@ impl UserTaskContainer {
         self.task.tcb.write().sigmask = task_mask;
         *cx_ref = store_cx;
         // copy pc from new_pc
-        cx_ref[ContextArgs::SEPC] = cx.pc();
+        cx_ref[TrapFrameArgs::SEPC] = cx.pc();
         cx.restore_ctx(cx_ref);
     }
 }

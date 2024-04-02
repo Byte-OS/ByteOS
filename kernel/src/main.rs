@@ -29,7 +29,7 @@ mod tasks;
 mod user;
 
 use arch::{
-    enable_irq, ArchInterface, Context, ContextArgs, PhysPage, TrapType, VirtPage, VIRT_ADDR_START,
+    disable_irq, enable_irq, ArchInterface, PhysPage, TrapFrame, TrapFrameArgs, TrapType, VirtPage, VIRT_ADDR_START
 };
 use devices::{self, get_int_device};
 use executor::{current_user_task, get_current_task, FileItem};
@@ -53,8 +53,12 @@ impl ArchInterface for ArchInterfaceImpl {
         logging::init(option_env!("LOG"));
     }
 
+    fn init_allocator() {
+        allocator::init();
+    }
+
     /// Handle kernel interrupt
-    fn kernel_interrupt(cx_ref: &mut Context, trap_type: TrapType) {
+    fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
         match trap_type {
             TrapType::StorePageFault(addr)
             | TrapType::InstructionPageFault(addr)
@@ -86,17 +90,17 @@ impl ArchInterface for ArchInterfaceImpl {
                     "store/instruction page fault @ {:#x} vpn: {} ppn: {:?}",
                     addr,
                     vpn,
-                    task.page_table.virt_to_phys(addr.into()),
+                    task.page_table.translate(addr.into()),
                 );
-                warn!("the fault occurs @ {:#x}", cx_ref[ContextArgs::SEPC]);
+                warn!("the fault occurs @ {:#x}", cx_ref[TrapFrameArgs::SEPC]);
                 // warn!("user_task map: {:#x?}", task.pcb.lock().memset);
                 warn!(
                     "mapped ppn addr: {:#x} @ {:?}",
-                    cx_ref[ContextArgs::SEPC],
+                    cx_ref[TrapFrameArgs::SEPC],
                     task.page_table
-                        .virt_to_phys(cx_ref[ContextArgs::SEPC].into())
+                        .translate(cx_ref[TrapFrameArgs::SEPC].into())
                 );
-                task_ilegal(&task, cx_ref[ContextArgs::SEPC], cx_ref);
+                task_ilegal(&task, cx_ref[TrapFrameArgs::SEPC], cx_ref);
                 // panic!("illegal Instruction")
                 // let signal = task.tcb.read().signal.clone();
                 // if signal.has_sig(SignalFlags::SIGSEGV) {
@@ -149,62 +153,80 @@ impl ArchInterface for ArchInterfaceImpl {
 
     /// The kernel entry
     fn main(hart_id: usize) {
-        // if hart_id != 0 {
-        //     loop {}
-        // }
+        disable_irq();
+        if hart_id == 0 {
+            // if hart_id != 0 {
+            //     loop {}
+            // }
 
-        extern "C" {
-            fn start();
-            fn end();
+            extern "C" {
+                fn start();
+                fn end();
+            }
+
+            println!("run kernel @ hart {}", hart_id);
+
+            info!("program size: {}KB", (end as usize - start as usize) / 1024);
+
+            // initialize interrupt
+            hal::interrupt::init();
+
+            // get devices and init
+            devices::regist_devices_irq();
+
+            // initialize filesystem
+            fs::init();
+            {
+                FileItem::fs_open("/var", OpenFlags::O_DIRECTORY)
+                    .expect("can't open /var")
+                    .mkdir("tmp")
+                    .expect("can't create tmp dir");
+
+                // Initialize the Dentry node.
+                // dentry::dentry_init(rootfs);
+                // FileItem::fs_open("/bin", OpenFlags::O_DIRECTORY)
+                //     .expect("can't open /bin")
+                //     .link(
+                //         "sleep",
+                //         FileItem::fs_open("busybox", OpenFlags::NONE)
+                //             .expect("not hava busybox file")
+                //             .inner
+                //             .clone(),
+                //     )
+                //     .expect("can't link busybox to /bin/sleep");
+            }
+
+            // enable interrupts
+            enable_irq();
+
+            // cache task with task templates
+            // crate::syscall::cache_task_template("/bin/busybox").expect("can't cache task");
+            // crate::syscall::cache_task_template("./busybox").expect("can't cache task");
+            // crate::syscall::cache_task_template("busybox").expect("can't cache task");
+            // crate::syscall::cache_task_template("./runtest.exe").expect("can't cache task");
+            // crate::syscall::cache_task_template("entry-static.exe").expect("can't cache task");
+            // crate::syscall::cache_task_template("libc.so").expect("can't cache task");
+            // crate::syscall::cache_task_template("lmbench_all").expect("can't cache task");
+
+            // loop {
+            //     info!("3");
+            // }
+
+            // init kernel threads and async executor
+            tasks::init();
+
+            println!("Task All Finished!");
+        } else {
+            println!("run kernel @ hart {}", hart_id);
+
+            // initialize interrupt
+            hal::interrupt::init();
+
+            // enable_irq();
+
+            loop {
+                // info!("aux core");
+            }
         }
-
-        println!("run kernel @ hart {}", hart_id);
-
-        info!("program size: {}KB", (end as usize - start as usize) / 1024);
-
-        // initialize interrupt
-        hal::interrupt::init();
-
-        // get devices and init
-        devices::regist_devices_irq();
-
-        // initialize filesystem
-        fs::init();
-        {
-            FileItem::fs_open("/var", OpenFlags::O_DIRECTORY)
-                .expect("can't open /var")
-                .mkdir("tmp")
-                .expect("can't create tmp dir");
-
-            // Initialize the Dentry node.
-            // dentry::dentry_init(rootfs);
-            // FileItem::fs_open("/bin", OpenFlags::O_DIRECTORY)
-            //     .expect("can't open /bin")
-            //     .link(
-            //         "sleep",
-            //         FileItem::fs_open("busybox", OpenFlags::NONE)
-            //             .expect("not hava busybox file")
-            //             .inner
-            //             .clone(),
-            //     )
-            //     .expect("can't link busybox to /bin/sleep");
-        }
-
-        // enable interrupts
-        enable_irq();
-
-        // cache task with task templates
-        // crate::syscall::cache_task_template("/bin/busybox").expect("can't cache task");
-        // crate::syscall::cache_task_template("./busybox").expect("can't cache task");
-        // crate::syscall::cache_task_template("busybox").expect("can't cache task");
-        // crate::syscall::cache_task_template("./runtest.exe").expect("can't cache task");
-        // crate::syscall::cache_task_template("entry-static.exe").expect("can't cache task");
-        // crate::syscall::cache_task_template("libc.so").expect("can't cache task");
-        // crate::syscall::cache_task_template("lmbench_all").expect("can't cache task");
-
-        // init kernel threads and async executor
-        tasks::init();
-
-        println!("Task All Finished!");
     }
 }

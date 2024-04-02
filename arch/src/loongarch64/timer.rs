@@ -1,4 +1,3 @@
-use loongarch64::register::ecfg::{self, LineBasedInterrupt};
 use loongarch64::register::tcfg;
 /// Returns the current clock time in hardware ticks.
 use loongarch64::time::{get_timer_freq, Time};
@@ -24,9 +23,9 @@ pub fn init_timer() {
     tcfg::set_init_val(ticks); // set timer initial value
     tcfg::set_en(true); // enable timer
 
-    let inter = LineBasedInterrupt::TIMER
-        | LineBasedInterrupt::SWI0
-        | LineBasedInterrupt::SWI1
-        | LineBasedInterrupt::HWI0;
-    ecfg::set_lie(inter);
+    // let inter = LineBasedInterrupt::TIMER
+    //     | LineBasedInterrupt::SWI0
+    //     | LineBasedInterrupt::SWI1
+    //     | LineBasedInterrupt::HWI0;
+    // ecfg::set_lie(inter);
 }

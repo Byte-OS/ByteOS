@@ -7,7 +7,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::{
-    Context, ContextArgs, MappingFlags, PageTable, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
+    pagetable::{MappingFlags, PageTableWrapper}, PageTable, PhysPage, TrapFrame, TrapFrameArgs, VirtAddr, VirtPage, PAGE_SIZE
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -30,7 +30,7 @@ pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
 #[allow(dead_code)]
 pub struct KernelTask {
-    page_table: Arc<PageTable>,
+    page_table: Arc<PageTableWrapper>,
     task_id: TaskId,
     memset: Vec<Arc<FrameTracker>>,
 }
@@ -51,7 +51,7 @@ impl KernelTask {
             .insert(task_id, TaskFutureItem(Box::pin(kernel_entry(future))));
 
         Arc::new(Self {
-            page_table: PageTable::alloc(),
+            page_table: Arc::new(PageTableWrapper::alloc()),
             task_id,
             memset,
         })
@@ -86,7 +86,7 @@ pub struct ProcessControlBlock {
 }
 
 pub struct ThreadControlBlock {
-    pub cx: Context,
+    pub cx: TrapFrame,
     pub sigmask: SigProcMask,
     pub clear_child_tid: usize,
     pub set_child_tid: usize,
@@ -100,7 +100,7 @@ pub struct ThreadControlBlock {
 pub struct UserTask {
     pub task_id: TaskId,
     pub process_id: TaskId,
-    pub page_table: Arc<PageTable>,
+    pub page_table: Arc<PageTableWrapper>,
     pub pcb: Arc<Mutex<ProcessControlBlock>>,
     pub parent: RwLock<Weak<dyn AsyncTask>>,
     pub tcb: RwLock<ThreadControlBlock>,
@@ -146,7 +146,7 @@ impl UserTask {
         };
 
         let tcb = RwLock::new(ThreadControlBlock {
-            cx: Context::new(),
+            cx: TrapFrame::new(),
             sigmask: SigProcMask::new(),
             clear_child_tid: 0,
             set_child_tid: 0,
@@ -157,7 +157,7 @@ impl UserTask {
         });
 
         let task = Arc::new(Self {
-            page_table: PageTable::alloc(),
+            page_table: Arc::new(PageTableWrapper::alloc()),
             task_id,
             process_id: task_id,
             parent: RwLock::new(parent),
@@ -258,7 +258,7 @@ impl UserTask {
     //     unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx as _ }
     // }
 
-    pub fn force_cx_ref(&self) -> &'static mut Context {
+    pub fn force_cx_ref(&self) -> &'static mut TrapFrame {
         unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx }
     }
 
@@ -294,8 +294,8 @@ impl UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self
                 .page_table
-                .virt_to_phys(VirtAddr::from(uaddr))
-                .expect("can't find a valid addr");
+                .translate(VirtAddr::from(uaddr))
+                .expect("can't find a valid addr").0;
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
             }
@@ -337,8 +337,8 @@ impl UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self
                 .page_table
-                .virt_to_phys(VirtAddr::from(uaddr))
-                .expect("can't find a valid addr");
+                .translate(VirtAddr::from(uaddr))
+                .expect("can't find a valid addr").0;
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
             }
@@ -404,7 +404,7 @@ impl UserTask {
         new_pcb.heap = pcb.heap;
 
         new_tcb_writer.cx = self.tcb.read().cx.clone();
-        new_tcb_writer.cx[ContextArgs::RET] = 0;
+        new_tcb_writer.cx[TrapFrameArgs::RET] = 0;
         new_pcb.curr_dir = pcb.curr_dir.clone();
 
         pcb.children.push(new_task.clone());
@@ -456,7 +456,7 @@ impl UserTask {
         new_pcb.fd_table.0 = pcb.fd_table.0.clone();
         new_pcb.heap = pcb.heap;
         new_tcb_writer.cx = self.tcb.read().cx.clone();
-        new_tcb_writer.cx[ContextArgs::RET] = 0;
+        new_tcb_writer.cx[TrapFrameArgs::RET] = 0;
         new_pcb.curr_dir = pcb.curr_dir.clone();
         pcb.children.push(new_task.clone());
         new_pcb.shms = pcb.shms.clone();
@@ -506,7 +506,7 @@ impl UserTask {
             thread_exit_code: Option::None,
         });
 
-        tcb.write().cx[ContextArgs::RET] = 0;
+        tcb.write().cx[TrapFrameArgs::RET] = 0;
         drop(parent_tcb);
 
         let new_task = Arc::new(Self {
@@ -537,12 +537,12 @@ impl UserTask {
 
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
-        let sp = tcb.cx[ContextArgs::SP] - ceil_div(len + 1, ULEN) * ULEN;
+        let sp = tcb.cx[TrapFrameArgs::SP] - ceil_div(len + 1, ULEN) * ULEN;
 
         VirtAddr::from(sp)
             .slice_mut_with_len(len)
             .copy_from_slice(buffer);
-        tcb.cx[ContextArgs::SP] = sp;
+        tcb.cx[TrapFrameArgs::SP] = sp;
         sp
     }
 
@@ -550,10 +550,10 @@ impl UserTask {
         let mut tcb = self.tcb.write();
 
         const ULEN: usize = size_of::<usize>();
-        let sp = tcb.cx[ContextArgs::SP] - ULEN;
+        let sp = tcb.cx[TrapFrameArgs::SP] - ULEN;
 
         *VirtAddr::from(sp).get_mut_ref() = num;
-        tcb.cx[ContextArgs::SP] = sp;
+        tcb.cx[TrapFrameArgs::SP] = sp;
         sp
     }
 

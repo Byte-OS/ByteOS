@@ -45,10 +45,10 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC += -m 1G\
+QEMU_EXEC += -m 128M\
 			-nographic \
-			-smp 1 \
-			-D qemu.log -d in_asm,mmu,pcall,cpu_reset,guest_errors
+			-smp 2 \
+			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
 
 BUILD_ARGS :=
 ifeq ($(RELEASE), release)

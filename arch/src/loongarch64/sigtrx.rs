@@ -1,4 +1,4 @@
-use crate::{MappingFlags, PAGE_ITEM_COUNT, PAGE_SIZE, PTE, VIRT_ADDR_START};
+use crate::{pagetable::MappingFlags, PAGE_ITEM_COUNT, PAGE_SIZE, PTE, VIRT_ADDR_START};
 
 /// 汇编入口函数
 ///
@@ -26,7 +26,6 @@ pub fn init() {
             MappingFlags::URX.into(),
         );
         TRX_STEP[1][0] = PTE(TRX_STEP.as_ptr() as usize & !VIRT_ADDR_START);
-        // TRX_STEP[1][0] = PTE::from_addr(PhysAddr::((TRX_STEP[0][0]) as usize & !VIRT_ADDR_START), PTEFlags::V);
     }
 }
 

@@ -5,8 +5,8 @@ use x86::bits64::paging::{
 };
 
 use crate::{
-    flush_tlb, ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_SIZE,
-    VIRT_ADDR_START,
+    flush_tlb, pagetable::MappingFlags, ArchInterface, PhysAddr, PhysPage, VirtAddr, VirtPage,
+    PAGE_SIZE, VIRT_ADDR_START,
 };
 
 impl From<MappingFlags> for PTFlags {
@@ -31,7 +31,30 @@ impl From<MappingFlags> for PTFlags {
     }
 }
 
-#[derive(Debug)]
+impl Into<MappingFlags> for PTFlags {
+    fn into(self) -> MappingFlags {
+        let mut res = MappingFlags::empty();
+        if self.contains(Self::RW) {
+            res |= MappingFlags::W
+        };
+        if self.contains(Self::US) {
+            res |= MappingFlags::U
+        };
+        if self.contains(Self::A) {
+            res |= MappingFlags::A;
+        }
+        if self.contains(Self::D) {
+            res |= MappingFlags::D;
+        }
+        if !self.contains(Self::XD) {
+            res |= MappingFlags::X
+        }
+        res
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {
@@ -79,10 +102,10 @@ impl PageTable {
             .for_each(map_pml4);
 
         extern "C" {
-            fn kernel_mapping_pdpt();
+            fn _kernel_mapping_pdpt();
         }
         let pml4 = self.0.slice_mut_with_len::<PML4Entry>(PAGE_SIZE_ENTRIES);
-        pml4[0x1ff] = PML4Entry((kernel_mapping_pdpt as u64 - VIRT_ADDR_START as u64) | 0x3);
+        pml4[0x1ff] = PML4Entry((_kernel_mapping_pdpt as u64 - VIRT_ADDR_START as u64) | 0x3);
         // mfence();
         flush_tlb(None);
     }
@@ -156,10 +179,22 @@ impl PageTable {
             ))
         }
     }
-}
 
-impl Drop for PageTable {
-    fn drop(&mut self) {
+    #[inline]
+    pub fn translate(&self, vaddr: VirtAddr) -> Option<(PhysAddr, MappingFlags)> {
+        let pte = self.get_entry(vaddr.into());
+        if !pte.is_present() {
+            None
+        } else {
+            Some((
+                PhysAddr::new(pte.address().as_usize() + vaddr.0 % PAGE_SIZE),
+                pte.flags().into(),
+            ))
+        }
+    }
+
+    #[inline]
+    pub(crate) fn release(&self) {
         self.restore();
         ArchInterface::frame_unalloc(self.0.into());
     }

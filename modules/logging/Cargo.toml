@@ -9,3 +9,5 @@ edition = "2021"
 log = "0.4"
 arch = { path = "../../arch" }
 devices = { path = "../devices" }
+sync = { path = "../sync" }
+irq_safety = { path = "../../crates/irq_safety" }

@@ -7,6 +7,7 @@ use core::{
 
 use crate::{PAGE_SIZE, VIRT_ADDR_START};
 
+#[repr(C)]
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub(crate) usize);
 impl From<PhysPage> for PhysAddr {
@@ -119,6 +120,16 @@ impl VirtAddr {
     pub fn get_cstr(&self) -> &CStr {
         unsafe { CStr::from_ptr(self.get_ptr::<i8>()) }
     }
+
+    #[inline]
+    pub fn floor(&self) -> Self {
+        Self(self.0 / PAGE_SIZE * PAGE_SIZE)
+    }
+
+    #[inline]
+    pub fn ceil(&self) -> Self {
+        Self((self.0 + PAGE_SIZE - 1) / PAGE_SIZE * PAGE_SIZE)
+    }
 }
 
 #[derive(Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
@@ -219,6 +230,11 @@ impl PhysPage {
             asm!(".long 0x0010000b"); // dcache.all
             asm!(".long 0x01b0000b"); // sync.is
         }
+    }
+
+    #[inline]
+    pub fn as_num(&self) -> usize {
+        self.0
     }
 }
 

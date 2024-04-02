@@ -1,7 +1,5 @@
-extern crate core;
-
-use crate::x86_64::rust_tmp_main;
-use crate::{BOOT_STACK, STACK_SIZE};
+use crate::currrent_arch::rust_tmp_main;
+use crate::{PageTable, BOOT_STACK, STACK_SIZE};
 use core::arch::global_asm;
 use core::{mem, slice};
 use multiboot::information::{MemoryManagement, Multiboot, PAddr};
@@ -75,15 +73,11 @@ global_asm!(
     efer = const EFER,
 );
 
-#[no_mangle]
-pub fn switch_to_kernel_page_table() {
-    unsafe {
-        core::arch::asm!(
-            "
-                lea     rax, [kernel_page_table - {offset}]
-                mov     cr3, rax
-            ", 
-            offset = const VIRT_ADDR_START
-        );
+pub fn kernel_page_table() -> PageTable {
+    extern "C" {
+        fn _kernel_page_table();
     }
+    PageTable(crate::PhysAddr(
+        _kernel_page_table as usize - VIRT_ADDR_START,
+    ))
 }

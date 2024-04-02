@@ -8,9 +8,7 @@ edition = "2021"
 [dependencies]
 arch = { path = "../../arch" }
 fdt = "0.1.5"
-sync = { path = "../../modules/sync" }
 kheader = { path = "../../modules/kheader" }
 devices = { path = "../../modules/devices" }
-frame_allocator = { path = "../../modules/frame_allocator" }
 log = "0.4"
 timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }

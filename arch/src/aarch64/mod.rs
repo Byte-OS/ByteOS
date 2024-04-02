@@ -2,6 +2,9 @@ mod boot;
 mod consts;
 mod context;
 mod gic;
+
+#[cfg(feature = "kcontext")]
+mod kcontext;
 mod page_table;
 mod pl011;
 mod psci;
@@ -12,8 +15,12 @@ use aarch64_cpu::registers::{Writeable, TTBR0_EL1};
 use aarch64_cpu::{asm::barrier, registers::CPACR_EL1};
 use alloc::vec::Vec;
 pub use consts::*;
-pub use context::Context;
+pub use context::TrapFrame;
 use fdt::Fdt;
+
+#[cfg(feature = "kcontext")]
+pub use kcontext::{context_switch, context_switch_pt, read_current_tp, KContext};
+
 pub use page_table::*;
 pub use pl011::{console_getchar, console_putchar};
 pub use psci::system_off as shutdown;
@@ -27,7 +34,7 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
     pl011::init_early();
     ArchInterface::init_logging();
     trap::init();
-    allocator::init();
+    ArchInterface::init_allocator();
     gic::init();
 
     timer::init();
@@ -59,6 +66,7 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
             });
     }
 
+    // Prepare the drivers. This operation just inject the driver to registry.
     ArchInterface::prepare_drivers();
 
     if let Ok(fdt) = Fdt::new(&dt_buf) {
@@ -67,17 +75,19 @@ pub fn rust_tmp_main(hart_id: usize, device_tree: usize) {
         }
     }
 
+    // Release the memory was allocated above.
     drop(dt_buf);
 
-    // enable fp
+    // Enable Floating Point Feature.
     CPACR_EL1.write(CPACR_EL1::FPEN::TrapNothing);
     barrier::isb(barrier::SY);
 
+    // Enter to kernel entry point(`main` function).
     ArchInterface::main(hart_id);
 
     shutdown();
 }
 
-pub fn switch_to_kernel_page_table() {
-    TTBR0_EL1.set_baddr(TTBR0_EL1.get_baddr())
+pub fn kernel_page_table() -> PageTable {
+    PageTable(crate::PhysAddr(TTBR0_EL1.get_baddr() as _))
 }

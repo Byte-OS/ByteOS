@@ -217,23 +217,23 @@ pub async fn simple_shell() {
     }
 }
 
-pub const USER_WORK_DIR: &'static str = "/home";
+pub const USER_WORK_DIR: &'static str = "/";
 
 pub async fn initproc() {
     // link files.
-    let rootfs = get_filesystem(0).root_dir();
-    let tmpfs = FileItem::fs_open("/home", OpenFlags::O_DIRECTORY).expect("can't open /home");
-    for file in rootfs.read_dir().expect("can't read files") {
-        tmpfs
-            .link(
-                &file.filename,
-                rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
-            )
-            .expect("can't link file to tmpfs");
-    }
+    // let rootfs = get_filesystem(0).root_dir();
+    // let tmpfs = FileItem::fs_open("/home", OpenFlags::O_DIRECTORY).expect("can't open /home");
+    // for file in rootfs.read_dir().expect("can't read files") {
+    //     tmpfs
+    //         .link(
+    //             &file.filename,
+    //             rootfs.open(&file.filename, OpenFlags::NONE).unwrap(),
+    //         )
+    //         .expect("can't link file to tmpfs");
+    // }
 
     println!("start kernel tasks");
-    command("ls").await;
+    // command("ls").await;
     // command("entry-static.exe crypt").await;
     // command("./runtest.exe -w entry-dynamic.exe dlopen").await;
 
@@ -291,8 +291,10 @@ pub async fn initproc() {
     // command("busybox echo run libctest_testcode.sh").await;
     // command("busybox sh libctest_testcode.sh").await;
 
+    // command("busybox echo 123").await;
+    command("qjs.static test.js").await;
+    // command("qjs.static").await;
     command("busybox sh").await;
-
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 

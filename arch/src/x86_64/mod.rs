@@ -4,6 +4,8 @@ mod context;
 mod gdt;
 mod idt;
 mod interrupt;
+#[cfg(feature = "kcontext")]
+mod kcontext;
 mod multiboot;
 mod page_table;
 mod sigtrx;
@@ -12,9 +14,11 @@ mod uart;
 
 use ::multiboot::information::MemoryType;
 pub use consts::*;
-pub use context::Context;
+pub use context::TrapFrame;
 pub use interrupt::*;
-pub use multiboot::switch_to_kernel_page_table;
+#[cfg(feature = "kcontext")]
+pub use kcontext::{context_switch, context_switch_pt, read_current_tp, KContext};
+pub use multiboot::kernel_page_table;
 pub use page_table::*;
 use raw_cpuid::CpuId;
 pub use uart::*;
@@ -28,7 +32,7 @@ use x86_64::{
     },
 };
 
-use crate::{x86_64::multiboot::use_multiboot, ArchInterface, VirtAddr};
+use crate::{currrent_arch::multiboot::use_multiboot, ArchInterface, VirtAddr};
 
 #[percpu::def_percpu]
 static CPU_ID: usize = 1;
@@ -46,7 +50,7 @@ fn rust_tmp_main(magic: usize, mboot_ptr: usize) {
     sigtrx::init();
     ArchInterface::init_logging();
     // Init allocator
-    allocator::init();
+    ArchInterface::init_allocator();
     percpu::init(1);
     percpu::set_local_thread_pointer(0);
     gdt::init();

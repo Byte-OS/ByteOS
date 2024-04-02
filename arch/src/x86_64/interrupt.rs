@@ -8,9 +8,10 @@ use x86_64::VirtAddr;
 
 use x86::{controlregs::cr2, irq::*};
 
-use crate::x86_64::gdt::set_tss_kernel_sp;
-use crate::{x86_64::gdt::GdtStruct, Context, TrapType};
-use crate::{ArchInterface, CONTEXT_SIZE, SYSCALL_VECTOR};
+use crate::consts::TRAPFRAME_SIZE;
+use crate::currrent_arch::gdt::set_tss_kernel_sp;
+use crate::{currrent_arch::gdt::GdtStruct, TrapFrame, TrapType};
+use crate::{ArchInterface, SYSCALL_VECTOR};
 
 use super::apic::vectors::APIC_TIMER_VECTOR;
 use super::context::FxsaveArea;
@@ -72,7 +73,7 @@ bitflags! {
 
 // 内核中断回调
 #[no_mangle]
-fn kernel_callback(context: &mut Context) {
+fn kernel_callback(context: &mut TrapFrame) {
     let trap_type = match context.vector as u8 {
         PAGE_FAULT_VECTOR => {
             let pflags = PageFaultFlags::from_bits_truncate(context.rflags as _);
@@ -210,7 +211,7 @@ pub unsafe extern "C" fn uservec() {
 
 #[naked]
 #[no_mangle]
-pub extern "C" fn user_restore(context: *mut Context) {
+pub extern "C" fn user_restore(context: *mut TrapFrame) {
     unsafe {
         asm!(
             // Save callee saved registers and cs and others.
@@ -377,9 +378,10 @@ unsafe extern "C" fn syscall_entry() {
 }
 
 /// Return Some(()) if it was interrupt by syscall, otherwise None.
-pub fn run_user_task(context: &mut Context) -> Option<()> {
+pub fn run_user_task(context: &mut TrapFrame) -> Option<()> {
     // TODO: set tss kernel sp just once, before task run.
-    let cx_general_top = context as *mut Context as usize + CONTEXT_SIZE - size_of::<FxsaveArea>();
+    let cx_general_top =
+        context as *mut TrapFrame as usize + TRAPFRAME_SIZE - size_of::<FxsaveArea>();
     set_tss_kernel_sp(cx_general_top);
     USER_CONTEXT.write_current(cx_general_top);
     context.fx_area.restore();
@@ -387,7 +389,10 @@ pub fn run_user_task(context: &mut Context) -> Option<()> {
     context.fx_area.save();
 
     match context.vector {
-        SYSCALL_VECTOR => Some(()),
+        SYSCALL_VECTOR => {
+            ArchInterface::kernel_interrupt(context, TrapType::UserEnvCall);
+            Some(())
+        },
         _ => {
             kernel_callback(context);
             None
@@ -415,7 +420,6 @@ pub fn enable_external_irq() {
 pub fn init_interrupt() {
     // Test break point.
     unsafe { core::arch::asm!("int 3") }
-    enable_irq()
 }
 
 pub fn time_to_usec(ticks: usize) -> usize {

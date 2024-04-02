@@ -1,12 +1,12 @@
 use core::ops::{Index, IndexMut};
 
-use crate::ContextArgs;
+use crate::TrapFrameArgs;
 
 /// Saved registers when a trap (interrupt or exception) occurs.
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(Debug, Default, Clone, Copy)]
-pub struct Context {
+pub struct TrapFrame {
     /// General Registers
     pub regs: [usize; 32],
     /// Pre-exception Mode information
@@ -15,7 +15,7 @@ pub struct Context {
     pub era: usize,
 }
 
-impl Context {
+impl TrapFrame {
     // 创建上下文信息
     #[inline]
     pub fn new() -> Self {
@@ -29,7 +29,7 @@ impl Context {
     }
 }
 
-impl Context {
+impl TrapFrame {
     pub fn syscall_ok(&mut self) {
         self.era += 4;
     }
@@ -47,36 +47,36 @@ impl Context {
     }
 }
 
-impl Index<ContextArgs> for Context {
+impl Index<TrapFrameArgs> for TrapFrame {
     type Output = usize;
 
-    fn index(&self, index: ContextArgs) -> &Self::Output {
+    fn index(&self, index: TrapFrameArgs) -> &Self::Output {
         match index {
-            ContextArgs::SEPC => &self.era,
-            ContextArgs::RA => &self.regs[1],
-            ContextArgs::SP => &self.regs[3],
-            ContextArgs::RET => &self.regs[4],
-            ContextArgs::ARG0 => &self.regs[4],
-            ContextArgs::ARG1 => &self.regs[5],
-            ContextArgs::ARG2 => &self.regs[6],
-            ContextArgs::TLS => &self.regs[2],
-            ContextArgs::SYSCALL => &self.regs[11],
+            TrapFrameArgs::SEPC => &self.era,
+            TrapFrameArgs::RA => &self.regs[1],
+            TrapFrameArgs::SP => &self.regs[3],
+            TrapFrameArgs::RET => &self.regs[4],
+            TrapFrameArgs::ARG0 => &self.regs[4],
+            TrapFrameArgs::ARG1 => &self.regs[5],
+            TrapFrameArgs::ARG2 => &self.regs[6],
+            TrapFrameArgs::TLS => &self.regs[2],
+            TrapFrameArgs::SYSCALL => &self.regs[11],
         }
     }
 }
 
-impl IndexMut<ContextArgs> for Context {
-    fn index_mut(&mut self, index: ContextArgs) -> &mut Self::Output {
+impl IndexMut<TrapFrameArgs> for TrapFrame {
+    fn index_mut(&mut self, index: TrapFrameArgs) -> &mut Self::Output {
         match index {
-            ContextArgs::SEPC => &mut self.era,
-            ContextArgs::RA => &mut self.regs[1],
-            ContextArgs::SP => &mut self.regs[3],
-            ContextArgs::RET => &mut self.regs[4],
-            ContextArgs::ARG0 => &mut self.regs[4],
-            ContextArgs::ARG1 => &mut self.regs[5],
-            ContextArgs::ARG2 => &mut self.regs[6],
-            ContextArgs::TLS => &mut self.regs[2],
-            ContextArgs::SYSCALL => &mut self.regs[11],
+            TrapFrameArgs::SEPC => &mut self.era,
+            TrapFrameArgs::RA => &mut self.regs[1],
+            TrapFrameArgs::SP => &mut self.regs[3],
+            TrapFrameArgs::RET => &mut self.regs[4],
+            TrapFrameArgs::ARG0 => &mut self.regs[4],
+            TrapFrameArgs::ARG1 => &mut self.regs[5],
+            TrapFrameArgs::ARG2 => &mut self.regs[6],
+            TrapFrameArgs::TLS => &mut self.regs[2],
+            TrapFrameArgs::SYSCALL => &mut self.regs[11],
         }
     }
 }
