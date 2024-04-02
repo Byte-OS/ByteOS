@@ -4,7 +4,8 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
-use arch::{Context, MappingFlags, VirtAddr};
+use arch::pagetable::MappingFlags;
+use arch::{TrapFrame, VirtAddr};
 use bitflags::bitflags;
 use cfg_if::cfg_if;
 use fs::VfsError;
@@ -506,7 +507,7 @@ bitflags! {
 
 impl Into<MappingFlags> for MmapProt {
     fn into(self) -> MappingFlags {
-        let mut res = MappingFlags::None;
+        let mut res = MappingFlags::empty();
         if self.contains(Self::PROT_READ) {
             res |= MappingFlags::R;
         }
@@ -743,11 +744,11 @@ cfg_if! {
                 self.gregs[0] = v;
             }
 
-            pub fn store_ctx(&mut self, ctx: &Context) {
+            pub fn store_ctx(&mut self, ctx: &TrapFrame) {
                 self.gregs = ctx.x;
             }
 
-            pub fn restore_ctx(&self, ctx: &mut Context) {
+            pub fn restore_ctx(&self, ctx: &mut TrapFrame) {
                 ctx.x = self.gregs;
             }
         }

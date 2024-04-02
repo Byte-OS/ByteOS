@@ -2,9 +2,8 @@ use riscv::register::{sie, time};
 
 use crate::set_timer;
 
-pub use crate::riscv64::boards::CLOCK_FREQ;
+pub use crate::currrent_arch::boards::CLOCK_FREQ;
 const TICKS_PER_SEC: usize = 100;
-const MSEC_PER_SEC: usize = 1000;
 const USEC_PER_SEC: usize = 1000_000;
 const NSEC_PER_SEC: usize = 1000_000_000;
 

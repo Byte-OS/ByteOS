@@ -7,7 +7,7 @@ use loongarch64::register::{
 
 use crate::{ArchInterface, TrapType};
 
-use super::Context;
+use super::TrapFrame;
 
 global_asm!(
     r"
@@ -106,37 +106,6 @@ pub fn init_interrupt() {
         core::arch::asm!("break 2");
     }
     tlb_init(tlb_fill as _);
-    info!("tlb_fill addr: {:#x}", tlb_fill as usize);
-    let pwcl = pwcl::read().raw();
-    info!("PTEWitdth: {}", pwcl >> 30);
-    info!(
-        "PTBase: {}, witdh: {}",
-        (pwcl >> 0) & 0x1f,
-        (pwcl >> 5) & 0x1f
-    );
-    info!(
-        "Dir1Base: {}, witdh: {}",
-        (pwcl >> 10) & 0x1f,
-        (pwcl >> 15) & 0x1f
-    );
-    info!(
-        "Dir2Base: {}, witdh: {}",
-        (pwcl >> 20) & 0x1f,
-        (pwcl >> 25) & 0x1f
-    );
-    let pwch = pwch::read().raw();
-    info!(
-        "Dir3Base: {}, witdh: {}",
-        (pwch >> 0) & 0x3f,
-        (pwch >> 6) & 0x3f
-    );
-    info!(
-        "Dir4Base: {}, witdh: {}",
-        (pwch >> 12) & 0x3f,
-        (pwch >> 18) & 0x3f
-    );
-
-    enable_irq();
 }
 
 #[naked]
@@ -170,7 +139,7 @@ pub unsafe extern "C" fn user_vec() {
 
 #[naked]
 #[no_mangle]
-pub extern "C" fn user_restore(context: *mut Context) {
+pub extern "C" fn user_restore(context: *mut TrapFrame) {
     unsafe {
         asm!(
             r"
@@ -215,7 +184,7 @@ pub fn enable_external_irq() {
     // }
 }
 
-pub fn run_user_task(cx: &mut Context) -> Option<()> {
+pub fn run_user_task(cx: &mut TrapFrame) -> Option<()> {
     user_restore(cx);
     match loongarch64_trap_handler(cx) {
         TrapType::UserEnvCall => Some(()),
@@ -248,7 +217,7 @@ pub unsafe extern "C" fn trap_vector_base() {
                 LOAD_REGS
                 ertn
         ",
-        trapframe_size = const crate::CONTEXT_SIZE,
+        trapframe_size = const crate::consts::TRAPFRAME_SIZE,
         user_vec = sym user_vec,
         trap_handler = sym loongarch64_trap_handler,
         options(noreturn)
@@ -333,7 +302,7 @@ pub fn set_trap_vector_base() {
     eentry::set_eentry(trap_vector_base as usize);
 }
 
-fn loongarch64_trap_handler(tf: &mut Context) -> TrapType {
+fn loongarch64_trap_handler(tf: &mut TrapFrame) -> TrapType {
     let estat = estat::read();
     let trap_type = match estat.cause() {
         Trap::Exception(Exception::Breakpoint) => {

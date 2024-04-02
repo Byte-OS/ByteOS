@@ -59,10 +59,6 @@ pub fn console_putchar(c: u8) {
     COM1.lock().putchar(c)
 }
 
-pub fn write_fmt(args: core::fmt::Arguments) {
-    COM1.lock().write_fmt(args).unwrap();
-}
-
 /// read a byte, return -1 if nothing exists.
 pub fn console_getchar() -> Option<u8> {
     COM1.lock().getchar()

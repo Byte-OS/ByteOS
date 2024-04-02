@@ -1,13 +1,9 @@
-use core::arch::asm;
-
 use aarch64_cpu::registers::{Writeable, TTBR0_EL1};
-use alloc::sync::Arc;
 
 use crate::{
-    ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
+    pagetable::{pn_index, pn_offest, MappingFlags},
+    ArchInterface, PhysAddr, PhysPage, VirtAddr, VirtPage, PAGE_ITEM_COUNT, PAGE_SIZE,
 };
-
-use super::boot::flush_tlb;
 
 #[derive(Copy, Clone, Debug)]
 pub struct PTE(usize);
@@ -66,7 +62,7 @@ impl PTE {
 
 impl From<MappingFlags> for PTEFlags {
     fn from(value: MappingFlags) -> Self {
-        let mut flags = PTEFlags::VALID | PTEFlags::NON_BLOCK | PTEFlags::AF | PTEFlags::NG;
+        let mut flags = PTEFlags::VALID | PTEFlags::NON_BLOCK | PTEFlags::AF;
         if !value.contains(MappingFlags::W) {
             flags |= PTEFlags::AP_RO;
         }
@@ -77,6 +73,35 @@ impl From<MappingFlags> for PTEFlags {
 
         if value.contains(MappingFlags::U) {
             flags |= PTEFlags::AP_EL0;
+        }
+        if !value.contains(MappingFlags::G) {
+            flags |= PTEFlags::NG
+        }
+        flags
+    }
+}
+
+impl Into<MappingFlags> for PTEFlags {
+    fn into(self) -> MappingFlags {
+        if self.is_empty() {
+            return MappingFlags::empty();
+        };
+        let mut flags = MappingFlags::R;
+
+        if !self.contains(PTEFlags::AP_RO) {
+            flags |= MappingFlags::W;
+        }
+        if !self.contains(PTEFlags::UXN) || !self.contains(PTEFlags::PXN) {
+            flags |= MappingFlags::X;
+        }
+        if self.contains(PTEFlags::AP_EL0) {
+            flags |= MappingFlags::U;
+        }
+        if self.contains(PTEFlags::AF) {
+            flags |= MappingFlags::A;
+        }
+        if !self.contains(PTEFlags::NG) {
+            flags |= MappingFlags::G;
         }
         flags
     }
@@ -137,17 +162,11 @@ pub fn get_pte_list(paddr: PhysAddr) -> &'static mut [PTE] {
     unsafe { core::slice::from_raw_parts_mut(paddr.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
+#[repr(C)]
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {
-    pub fn alloc() -> Arc<Self> {
-        let addr = ArchInterface::frame_alloc_persist().into();
-        let page_table = Self(addr);
-        page_table.restore();
-        Arc::new(page_table)
-    }
-
     #[inline]
     pub fn restore(&self) {
         let drop_l3 = |l3: PhysAddr| {
@@ -182,7 +201,7 @@ impl PageTable {
 
     pub fn get_mut_entry(&self, vpn: VirtPage) -> &mut PTE {
         let l1_list = self.0.slice_mut_with_len::<PTE>(512);
-        let l1_index = (vpn.0 >> (9 * 2)) & 0x1ff;
+        let l1_index = pn_index(vpn, 2);
 
         // l2 pte
         let l2_pte = &mut l1_list[l1_index];
@@ -190,7 +209,7 @@ impl PageTable {
             *l2_pte = PTE(ArchInterface::frame_alloc_persist().to_addr() | 0b11);
         }
         let l2_list = l2_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
-        let l2_index = (vpn.0 >> 9) & 0x1ff;
+        let l2_index = pn_index(vpn, 1);
 
         // l3 pte
         let l3_pte = &mut l2_list[l2_index];
@@ -198,7 +217,7 @@ impl PageTable {
             *l3_pte = PTE(ArchInterface::frame_alloc_persist().to_addr() | 0b11);
         }
         let l3_list = l3_pte.get_next_ptr().slice_mut_with_len::<PTE>(512);
-        let l3_index = vpn.0 & 0x1ff;
+        let l3_index = pn_index(vpn, 0);
         &mut l3_list[l3_index]
     }
 
@@ -218,21 +237,55 @@ impl PageTable {
     pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
         let mut paddr = self.0;
         for i in (0..3).rev() {
-            let value = (vaddr.0 >> (12 + 9 * i)) & 0x1ff;
+            let value = pn_index(vaddr.into(), i);
             let pte = &get_pte_list(paddr)[value];
             // 如果当前页是大页 返回相关的位置
             // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
             if !pte.is_valid() {
                 return None;
-            }
+            };
             paddr = pte.to_ppn().into()
         }
         Some(PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE))
     }
+
+    #[inline]
+    pub fn translate(&self, vaddr: VirtAddr) -> Option<(PhysAddr, MappingFlags)> {
+        let l3_pte = &get_pte_list(self.0)[pn_index(vaddr.into(), 2)];
+        if !l3_pte.flags().contains(PTEFlags::VALID) {
+            return None;
+        };
+        if !l3_pte.flags().contains(PTEFlags::NON_BLOCK) {
+            return Some((
+                PhysAddr(l3_pte.to_ppn().to_addr() | pn_offest(vaddr, 2)),
+                l3_pte.flags().into(),
+            ));
+        }
+
+        let l2_pte = get_pte_list(l3_pte.to_ppn().into())[pn_index(vaddr.into(), 1)];
+        if !l2_pte.flags().contains(PTEFlags::VALID) {
+            return None;
+        };
+        if !l2_pte.flags().contains(PTEFlags::NON_BLOCK) {
+            return Some((
+                PhysAddr(l2_pte.to_ppn().to_addr() | pn_offest(vaddr, 1)),
+                l2_pte.flags().into(),
+            ));
+        }
+
+        let l1_pte = get_pte_list(l2_pte.to_ppn().into())[pn_index(vaddr.into(), 0)];
+        if !l1_pte.flags().contains(PTEFlags::VALID) {
+            return None;
+        };
+        Some((
+            PhysAddr(l1_pte.to_ppn().to_addr() | pn_offest(vaddr, 0)),
+            l1_pte.flags().into(),
+        ))
+    }
 }
 
-impl Drop for PageTable {
-    fn drop(&mut self) {
+impl PageTable {
+    pub fn release(&self) {
         for root_pte in get_pte_list(self.0).iter().filter(|x| x.is_leaf()) {
             get_pte_list(root_pte.to_ppn().into())
                 .iter()
@@ -241,5 +294,18 @@ impl Drop for PageTable {
             ArchInterface::frame_unalloc(root_pte.to_ppn());
         }
         ArchInterface::frame_unalloc(self.0.into());
+    }
+}
+
+#[inline]
+pub fn flush_tlb(vaddr: Option<VirtAddr>) {
+    unsafe {
+        if let Some(vaddr) = vaddr {
+            // TIPS: flush tlb, tlb addr: 0-47: ppn, otherwise tlb asid
+            core::arch::asm!("tlbi vaale1is, {}; dsb sy; isb", in(reg) ((vaddr.0 >> 12) & 0xFFFF_FFFF_FFFF))
+        } else {
+            // flush the entire TLB
+            core::arch::asm!("tlbi vmalle1; dsb sy; isb")
+        }
     }
 }

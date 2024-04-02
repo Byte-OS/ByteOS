@@ -50,20 +50,20 @@ name = "arch"
 version = "0.1.0"
 dependencies = [
  "aarch64-cpu",
- "allocator",
  "arm_gic",
  "arm_pl011",
  "bitflags 2.4.2",
  "cfg-if",
  "crate_interface",
  "fdt",
- "irq_safety",
+ "irq_safety 0.1.1 (git+https://github.com/theseus-os/irq_safety.git)",
  "log",
  "loongarch64",
  "multiboot",
  "percpu",
  "raw-cpuid 11.0.1",
  "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
+ "sbi-rt",
  "spin 0.9.8",
  "tock-registers 0.8.1",
  "x2apic",
@@ -446,6 +446,13 @@ dependencies = [
 [[package]]
 name = "irq_safety"
 version = "0.1.1"
+dependencies = [
+ "spin 0.9.8",
+]
+
+[[package]]
+name = "irq_safety"
+version = "0.1.1"
 source = "git+https://github.com/theseus-os/irq_safety.git#11bfab9f410a898df1e42ad6213488612e20c926"
 dependencies = [
  "spin 0.9.8",
@@ -516,6 +523,7 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
+ "allocator",
  "arch",
  "async-recursion",
  "bit_field",
@@ -560,10 +568,8 @@ dependencies = [
  "arch",
  "devices",
  "fdt",
- "frame_allocator",
  "kheader",
  "log",
- "sync",
  "timestamp",
 ]
 
@@ -683,7 +689,9 @@ version = "0.1.0"
 dependencies = [
  "arch",
  "devices",
+ "irq_safety 0.1.1",
  "log",
+ "sync",
 ]
 
 [[package]]
@@ -711,10 +719,6 @@ name = "memchr"
 version = "2.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2dffe52ecf27772e601905b7522cb4ef790d2cc203488bbd0e2fe85fcb74566d"
-
-[[package]]
-name = "memory_addr"
-version = "0.1.0"
 
 [[package]]
 name = "modular-bitfield"
@@ -1007,6 +1011,24 @@ name = "rustversion"
 version = "1.0.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f3208ce4d8448b3f3e7d168a73f5e0c43a61e32930de3bceeccedb388b6bf06"
+
+[[package]]
+name = "sbi-rt"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8c113c53291db8ac141e01f43224ed488b8d6001ab66737b82e04695a43a42b7"
+dependencies = [
+ "sbi-spec",
+]
+
+[[package]]
+name = "sbi-spec"
+version = "0.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6d4027cf9bb591a9fd0fc0e283be6165c5abe96cb73e9f0e24738c227f425377"
+dependencies = [
+ "static_assertions",
+]
 
 [[package]]
 name = "scopeguard"

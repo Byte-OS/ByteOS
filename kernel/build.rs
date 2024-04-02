@@ -70,7 +70,7 @@ fn gen_linker_script(platform: &str) -> Result<()> {
     //     &env::var("CARGO_CFG_KERNEL_BASE").expect("can't find KERNEL_BASE cfg"),
     // );
     let ld_content = ld_content.replace("%KERNEL_BASE%", kernel_base);
-    let ld_content = ld_content.replace("%SMP%", "1");
+    let ld_content = ld_content.replace("%SMP%", "4");
 
     std::fs::write(&fname, ld_content)?;
     println!("cargo:rustc-link-arg=-Tkernel/{}", fname);

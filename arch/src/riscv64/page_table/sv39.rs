@@ -1,12 +1,18 @@
-use core::arch::{asm, riscv64::sfence_vma};
-
-use alloc::sync::Arc;
 use bitflags::bitflags;
+use riscv::register::satp;
 
+use crate::currrent_arch::entry::PAGE_TABLE;
+use crate::pagetable::{pn_index, pn_offest};
 use crate::{
-    sigtrx::get_trx_mapping, ArchInterface, MappingFlags, PhysAddr, PhysPage, VirtAddr, VirtPage,
-    PAGE_ITEM_COUNT, PAGE_SIZE,
+    flush_tlb, pagetable::MappingFlags, sigtrx::get_trx_mapping, ArchInterface, PhysAddr, PhysPage,
+    VirtAddr, VirtPage, PAGE_ITEM_COUNT, VIRT_ADDR_START,
 };
+
+pub fn map_kernel(vpn: VirtPage, flags: MappingFlags) {
+    let ppn = ArchInterface::frame_alloc_persist();
+    let page_table = PageTable(crate::PhysAddr(satp::read().ppn() << 12));
+    page_table.map(ppn, vpn, flags, 3);
+}
 
 #[derive(Copy, Clone, Debug)]
 pub struct PTE(usize);
@@ -97,7 +103,6 @@ impl PTE {
 bitflags! {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct PTEFlags: u64 {
-        const NONE = 0;
         const V = 1 << 0;
         const R = 1 << 1;
         const W = 1 << 2;
@@ -127,8 +132,8 @@ bitflags! {
 
 impl From<MappingFlags> for PTEFlags {
     fn from(flags: MappingFlags) -> Self {
-        if flags == MappingFlags::None {
-            Self::NONE
+        if flags.is_empty() {
+            Self::empty()
         } else {
             let mut res = Self::V;
             if flags.contains(MappingFlags::R) {
@@ -154,20 +159,48 @@ impl From<MappingFlags> for PTEFlags {
     }
 }
 
+impl From<PTEFlags> for MappingFlags {
+    fn from(value: PTEFlags) -> Self {
+        let mut mapping_flags = MappingFlags::empty();
+        if value.contains(PTEFlags::R) {
+            mapping_flags |= MappingFlags::R;
+        }
+        if value.contains(PTEFlags::W) {
+            mapping_flags |= MappingFlags::W;
+        }
+        if value.contains(PTEFlags::X) {
+            mapping_flags |= MappingFlags::X;
+        }
+        if value.contains(PTEFlags::U) {
+            mapping_flags |= MappingFlags::U;
+        }
+        if value.contains(PTEFlags::A) {
+            mapping_flags |= MappingFlags::A;
+        }
+        if value.contains(PTEFlags::D) {
+            mapping_flags |= MappingFlags::D;
+        }
+
+        mapping_flags
+    }
+}
+
 #[inline]
 pub fn get_pte_list(paddr: PhysAddr) -> &'static mut [PTE] {
     unsafe { core::slice::from_raw_parts_mut(paddr.get_mut_ptr::<PTE>(), PAGE_ITEM_COUNT) }
 }
 
-#[derive(Debug)]
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
 pub struct PageTable(pub(crate) PhysAddr);
 
 impl PageTable {
-    pub fn alloc() -> Arc<Self> {
-        let addr = ArchInterface::frame_alloc_persist().into();
-        let page_table = Self(addr);
-        page_table.restore();
-        Arc::new(page_table)
+    pub fn current() -> Self {
+        Self(PhysAddr(satp::read().ppn() << 12))
+    }
+
+    pub fn token(&self) -> usize {
+        (8 << 60) | (self.0 .0 >> 12)
     }
 
     #[inline]
@@ -178,20 +211,15 @@ impl PageTable {
         arr[0x102] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
         arr[0x104] = PTE::from_addr(get_trx_mapping(), PTEFlags::V);
         arr[0x106] = PTE::from_addr(0x8000_0000, PTEFlags::ADGVRWX);
-        arr[0..0x100].fill(PTE::from_addr(0, PTEFlags::NONE));
-    }
-
-    #[inline]
-    pub const fn get_satp(&self) -> usize {
-        (8 << 60) | (self.0 .0 >> 12)
+        // arr[0..0x100].fill(PTE::from_addr(0, PTEFlags::empty()));
+        arr[0..0x100].fill(PTE(0));
     }
 
     #[inline]
     pub fn change(&self) {
-        unsafe {
-            asm!("csrw satp, {0}",  in(reg) self.get_satp());
-            riscv::asm::sfence_vma_all();
-        }
+        // Write page table entry for
+        satp::write((8 << 60) | (self.0 .0 >> 12));
+        flush_tlb(None);
     }
 
     #[inline]
@@ -199,8 +227,7 @@ impl PageTable {
         // TODO: Add huge page support.
         let mut pte_list = get_pte_list(self.0);
         for i in (1..level).rev() {
-            let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut pte_list[value];
+            let pte = &mut pte_list[pn_index(vpn, i)];
             if i == 0 {
                 break;
             }
@@ -212,10 +239,8 @@ impl PageTable {
             pte_list = get_pte_list(pte.to_ppn().into());
         }
 
-        pte_list[vpn.0 & 0x1ff] = PTE::from_ppn(ppn.0, flags.into());
-        unsafe {
-            sfence_vma(vpn.to_addr(), 0);
-        }
+        pte_list[pn_index(vpn, 0)] = PTE::from_ppn(ppn.0, flags.into());
+        flush_tlb(Some(vpn.into()))
     }
 
     #[inline]
@@ -223,44 +248,59 @@ impl PageTable {
         // TODO: Add huge page support.
         let mut pte_list = get_pte_list(self.0);
         for i in (1..3).rev() {
-            let value = (vpn.0 >> 9 * i) & 0x1ff;
-            let pte = &mut pte_list[value];
+            let pte = &mut pte_list[pn_index(vpn, i)];
             if !pte.is_valid() {
                 return;
             }
             pte_list = get_pte_list(pte.to_ppn().into());
         }
 
-        pte_list[vpn.0 & 0x1ff] = PTE::new();
-        unsafe {
-            sfence_vma(vpn.to_addr(), 0);
-        }
+        pte_list[pn_index(vpn, 0)] = PTE::new();
+        flush_tlb(Some(vpn.into()))
     }
 
     #[inline]
-    pub fn virt_to_phys(&self, vaddr: VirtAddr) -> Option<PhysAddr> {
-        let mut paddr = self.0;
-        for i in (0..3).rev() {
-            let value = (vaddr.0 >> 12 + 9 * i) & 0x1ff;
-            let pte = &get_pte_list(paddr)[value];
-            // 如果当前页是大页 返回相关的位置
-            // vaddr.0 % (1 << (12 + 9 * i)) 是大页内偏移
-            if !pte.flags().contains(PTEFlags::V) {
-                return None;
-            }
-            if pte.is_huge() {
-                return Some(PhysAddr(
-                    pte.to_ppn().0 << 12 | vaddr.0 % (1 << (12 + 9 * i)),
-                ));
-            }
-            paddr = pte.to_ppn().into()
+    pub fn translate(&self, vaddr: VirtAddr) -> Option<(PhysAddr, MappingFlags)> {
+        let l3_pte = &get_pte_list(self.0)[pn_index(vaddr.into(), 2)];
+        if !l3_pte.flags().contains(PTEFlags::V) {
+            return None;
+        };
+        if l3_pte.is_huge() {
+            return Some((
+                PhysAddr(l3_pte.to_ppn().to_addr() | pn_offest(vaddr, 2)),
+                l3_pte.flags().into(),
+            ));
         }
-        Some(PhysAddr(paddr.0 | vaddr.0 % PAGE_SIZE))
+
+        let l2_pte = get_pte_list(l3_pte.to_ppn().into())[pn_index(vaddr.into(), 1)];
+        if !l2_pte.flags().contains(PTEFlags::V) {
+            return None;
+        };
+        if l2_pte.is_huge() {
+            return Some((
+                PhysAddr(l2_pte.to_ppn().to_addr() | pn_offest(vaddr, 1)),
+                l2_pte.flags().into(),
+            ));
+        }
+
+        let l1_pte = get_pte_list(l2_pte.to_ppn().into())[pn_index(vaddr.into(), 0)];
+        if !l1_pte.flags().contains(PTEFlags::V) {
+            return None;
+        };
+        Some((
+            PhysAddr(l1_pte.to_ppn().to_addr() | pn_offest(vaddr, 0)),
+            l1_pte.flags().into(),
+        ))
     }
 }
 
-impl Drop for PageTable {
-    fn drop(&mut self) {
+impl PageTable {
+    pub(crate) fn release(&self) {
+        unsafe {
+            if self.0.addr() == (PAGE_TABLE.as_ptr() as usize & !VIRT_ADDR_START) {
+                return;
+            }
+        }
         for root_pte in get_pte_list(self.0)[..0x100].iter().filter(|x| x.is_leaf()) {
             get_pte_list(root_pte.to_ppn().into())
                 .iter()

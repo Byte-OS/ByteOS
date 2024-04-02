@@ -1,5 +1,5 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use arch::{Context, ContextArgs, VirtPage, PAGE_SIZE};
+use arch::{TrapFrame, TrapFrameArgs, VirtPage, PAGE_SIZE};
 use executor::{AsyncTask, MemType, UserTask};
 use log::warn;
 use xmas_elf::{
@@ -127,10 +127,10 @@ pub fn init_task_stack(
 
     let mut tcb = user_task.tcb.write();
 
-    tcb.cx = Context::new();
-    tcb.cx[ContextArgs::SP] = 0x8000_0000; // stack top;
-    tcb.cx[ContextArgs::SEPC] = base + entry_point;
-    tcb.cx[ContextArgs::TLS] = tls;
+    tcb.cx = TrapFrame::new();
+    tcb.cx[TrapFrameArgs::SP] = 0x8000_0000; // stack top;
+    tcb.cx[TrapFrameArgs::SEPC] = base + entry_point;
+    tcb.cx[TrapFrameArgs::TLS] = tls;
 
     drop(tcb);
 

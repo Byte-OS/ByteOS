@@ -5,12 +5,14 @@ use irq_safety::MutexIrqSafe;
 use crate::PhysAddr;
 
 /// The maximum number of IRQs.
+#[allow(dead_code)]
 pub const MAX_IRQ_COUNT: usize = 1024;
 
 /// The timer IRQ number.
 pub const TIMER_IRQ_NUM: usize = translate_irq(14, InterruptType::PPI).unwrap();
 
 /// The UART IRQ number.
+#[allow(dead_code)]
 pub const UART_IRQ_NUM: usize = translate_irq(1, InterruptType::SPI).unwrap();
 
 const GICD_BASE: PhysAddr = PhysAddr::new(0x0800_0000);

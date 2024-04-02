@@ -19,13 +19,14 @@ static HEAP_ALLOCATOR: LockedHeap<30> = LockedHeap::empty();
 /// 初始化堆内存分配器
 pub fn init() {
     unsafe {
+        HEAP_ALLOCATOR
+            .lock()
+            .init(HEAP.as_mut_ptr() as usize, HEAP_SIZE);
+
         info!(
             "kernel HEAP init: {:#x} - {:#x}",
             HEAP.as_ptr() as usize,
             HEAP.as_ptr() as usize + HEAP_SIZE
         );
-        HEAP_ALLOCATOR
-            .lock()
-            .init(HEAP.as_mut_ptr() as usize, HEAP_SIZE);
     }
 }

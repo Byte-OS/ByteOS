@@ -8,7 +8,8 @@ use alloc::string::{String, ToString};
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
-use arch::{time_to_usec, ContextArgs, MappingFlags, VirtPage, PAGE_SIZE};
+use arch::pagetable::MappingFlags;
+use arch::{time_to_usec, TrapFrameArgs, VirtPage, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{
@@ -22,7 +23,7 @@ use log::{debug, warn};
 use num_traits::FromPrimitive;
 use signal::SignalFlags;
 use sync::Mutex;
-use vfscore::{INodeInterface, OpenFlags};
+use vfscore::OpenFlags;
 use xmas_elf::program::{SegmentData, Type};
 
 use super::consts::{FutexFlags, LinuxError, UserRef};
@@ -459,11 +460,11 @@ impl UserTaskContainer {
         new_tcb.clear_child_tid = clear_child_tid.addr();
 
         if stack != 0 {
-            new_tcb.cx[ContextArgs::SP] = stack;
+            new_tcb.cx[TrapFrameArgs::SP] = stack;
         }
         // set tls.
         if flags.contains(CloneFlags::CLONE_SETTLS) {
-            new_tcb.cx[ContextArgs::TLS] = tls;
+            new_tcb.cx[TrapFrameArgs::TLS] = tls;
         }
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
             *ptid.get_mut() = new_task.get_task_id() as _;

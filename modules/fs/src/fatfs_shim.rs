@@ -3,7 +3,7 @@ use core::cmp::{self, min};
 use alloc::string::String;
 use alloc::sync::Arc;
 use devices::get_blk_device;
-use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
+use fatfs::{warn, Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
 use log::debug;
 use sync::Mutex;
@@ -50,6 +50,7 @@ impl Fat32FileSystem {
             device_id,
         };
         let inner = fatfs::FileSystem::new(cursor, fatfs::FsOptions::new()).expect("open fs wrong");
+        log::warn!("init fs");
         Arc::new(Self { inner })
     }
 }

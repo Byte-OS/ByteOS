@@ -4,11 +4,11 @@ use aarch64_cpu::registers::{Writeable, ESR_EL1, FAR_EL1, VBAR_EL1};
 use tock_registers::interfaces::Readable;
 
 use crate::{
-    aarch64::{gic::handle_irq, timer::set_next_timer},
+    currrent_arch::{gic::handle_irq, timer::set_next_timer},
     ArchInterface, TrapType,
 };
 
-use super::Context;
+use super::TrapFrame;
 
 global_asm!(include_str!("trap.S"));
 
@@ -33,7 +33,7 @@ enum TrapSource {
 }
 
 #[no_mangle]
-fn handle_exception(tf: &mut Context, kind: TrapKind, source: TrapSource) -> TrapType {
+fn handle_exception(tf: &mut TrapFrame, kind: TrapKind, source: TrapSource) -> TrapType {
     if kind == TrapKind::Irq {
         set_next_timer();
         handle_irq(|_irq| {});
@@ -107,7 +107,7 @@ pub fn init_interrupt() {
 }
 
 #[naked]
-extern "C" fn user_restore(context: *mut Context) -> TrapKind {
+extern "C" fn user_restore(context: *mut TrapFrame) -> TrapKind {
     unsafe {
         asm!(
             r"
@@ -152,7 +152,7 @@ extern "C" fn user_restore(context: *mut Context) -> TrapKind {
     }
 }
 
-pub fn run_user_task(cx: &mut Context) -> Option<()> {
+pub fn run_user_task(cx: &mut TrapFrame) -> Option<()> {
     let trap_kind = user_restore(cx);
     match handle_exception(cx, trap_kind, TrapSource::LowerAArch64) {
         TrapType::UserEnvCall => Some(()),

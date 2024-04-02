@@ -38,7 +38,7 @@ bsp_entry32:
     mov     cr4, eax
 
     # load the temporary page table
-    lea     eax, [kernel_page_table - {offset}]
+    lea     eax, [_kernel_page_table - {offset}]
     mov     cr3, eax
 
     # set LME, NXE bit in IA32_EFER
@@ -91,17 +91,17 @@ bsp_entry64:
 .Ltmp_gdt_end:
 
 .balign 4096
-.global kernel_page_table
-kernel_page_table:
+.global _kernel_page_table
+_kernel_page_table:
     # 0x0000_0000 ~ 0xffff_ffff
-    .quad kernel_mapping_pdpt - {offset} + 0x3   # PRESENT | WRITABLE | paddr(tmp_pdpt)
+    .quad _kernel_mapping_pdpt - {offset} + 0x3   # PRESENT | WRITABLE | paddr(tmp_pdpt)
     .zero 8 * 510
     # 0xffff_ff80_0000_0000 ~ 0xffff_ff80_ffff_ffff
-    .quad kernel_mapping_pdpt - {offset} + 0x3  # PRESENT | WRITABLE | paddr(tmp_pdpt)
+    .quad _kernel_mapping_pdpt - {offset} + 0x3  # PRESENT | WRITABLE | paddr(tmp_pdpt)
 
-.global kernel_mapping_pdpt
+.global _kernel_mapping_pdpt
 # FIXME: may not work on macOS using hvf as the CPU does not support 1GB page (pdpe1gb)
-kernel_mapping_pdpt:
+_kernel_mapping_pdpt:
     .quad 0x0000 | 0x83         # PRESENT | WRITABLE | HUGE_PAGE | paddr(0x0)
     .quad 0x40000000 | 0x83     # PRESENT | WRITABLE | HUGE_PAGE | paddr(0x4000_0000)
     .quad 0x80000000 | 0x83     # PRESENT | WRITABLE | HUGE_PAGE | paddr(0x8000_0000)
