@@ -4,9 +4,9 @@
 extern crate alloc;
 
 use arch::{console_getchar, console_putchar};
-use irq_safety::MutexIrqSafe;
 use core::fmt::{self, Write};
 use devices::MAIN_UART;
+use irq_safety::MutexIrqSafe;
 
 use log::{self, info, Level, LevelFilter, Log, Metadata, Record};
 
@@ -134,7 +134,7 @@ pub fn puts(buffer: &[u8]) {
 }
 
 /// Get a character from the uart.
-/// 
+///
 /// If the uart device was initialized, then use it.
 pub fn get_char() -> Option<u8> {
     match MAIN_UART.try_get() {

@@ -10,7 +10,7 @@ rustflags = [
     '-Cforce-frame-pointers=yes',
     '-Clink-arg=-no-pie',
     '--cfg=board="qemu"',
-    '--cfg=driver="kgoldfish-rtc,ns16550a,kramdisk"',
+    '--cfg=driver="kvirtio,kgoldfish-rtc,ns16550a"',
     # '-Zunstable-options',
     # '--check-cfg=values(board, "qemu","k210","cv1811h", "knvme", "")',
     # '--cfg=kernel_base="0xffffffc080200000"',  # riscv64imac-unknown-none-elf

@@ -20,7 +20,10 @@ pub mod socket_pair;
 pub struct UserTaskContainer {
     pub task: Arc<UserTask>,
     pub tid: TaskId,
-    pub store_frames: Vec<(TrapFrame, Pin<Box<dyn Future<Output = UserTaskControlFlow>>>)>,
+    pub store_frames: Vec<(
+        TrapFrame,
+        Pin<Box<dyn Future<Output = UserTaskControlFlow>>>,
+    )>,
 }
 
 /// Copy on write.
