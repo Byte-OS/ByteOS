@@ -29,7 +29,8 @@ mod tasks;
 mod user;
 
 use arch::{
-    disable_irq, enable_irq, ArchInterface, PhysPage, TrapFrame, TrapFrameArgs, TrapType, VirtPage, VIRT_ADDR_START
+    disable_irq, enable_irq, ArchInterface, PhysPage, TrapFrame, TrapFrameArgs, TrapType, VirtPage,
+    VIRT_ADDR_START,
 };
 use devices::{self, get_int_device};
 use executor::{current_user_task, get_current_task, FileItem};

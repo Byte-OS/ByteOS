@@ -681,7 +681,7 @@ cfg_if! {
                 self.gregs[16] = v;
             }
 
-            pub fn store_ctx(&mut self, ctx: &Context) {
+            pub fn store_ctx(&mut self, ctx: &TrapFrame) {
                 self.gregs[0] = ctx.r8;
                 self.gregs[1] = ctx.r9;
                 self.gregs[2] = ctx.r10;
@@ -701,7 +701,7 @@ cfg_if! {
                 self.gregs[16] = ctx.rip;
             }
 
-            pub fn restore_ctx(&self, ctx: &mut Context) {
+            pub fn restore_ctx(&self, ctx: &mut TrapFrame) {
                 ctx.r8  = self.gregs[0];
                 ctx.r9  = self.gregs[1];
                 ctx.r10 = self.gregs[2];
@@ -778,11 +778,11 @@ cfg_if! {
                 self.pc = v;
             }
 
-            pub fn store_ctx(&mut self, ctx: &Context) {
+            pub fn store_ctx(&mut self, ctx: &TrapFrame) {
                 self.regs = ctx.regs;
             }
 
-            pub fn restore_ctx(&self, ctx: &mut Context) {
+            pub fn restore_ctx(&self, ctx: &mut TrapFrame) {
                 ctx.regs = self.regs;
             }
         }
@@ -813,11 +813,11 @@ cfg_if! {
                 self.pc = v;
             }
 
-            pub fn store_ctx(&mut self, ctx: &Context) {
+            pub fn store_ctx(&mut self, ctx: &TrapFrame) {
                 self.gregs = ctx.regs;
             }
 
-            pub fn restore_ctx(&self, ctx: &mut Context) {
+            pub fn restore_ctx(&self, ctx: &mut TrapFrame) {
                 ctx.regs = self.gregs;
             }
         }

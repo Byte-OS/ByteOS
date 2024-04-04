@@ -4,7 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use arch::{console_getchar, console_putchar, switch_to_kernel_page_table};
+use arch::{console_getchar, console_putchar};
 use executor::{current_task, yield_now, FileItem, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{

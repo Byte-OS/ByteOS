@@ -1,4 +1,4 @@
-use arch::{switch_to_kernel_page_table, TrapFrame, TrapFrameArgs};
+use arch::{kernel_page_table, TrapFrame, TrapFrameArgs};
 use executor::{current_user_task, yield_now, AsyncTask};
 use futures_lite::future;
 use hal::TimeVal;
@@ -118,7 +118,7 @@ impl UserTaskContainer {
         }
 
         debug!("exit_task: {}", self.task.get_task_id());
-        switch_to_kernel_page_table();
+        kernel_page_table().change();
     }
 }
 

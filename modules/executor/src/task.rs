@@ -6,9 +6,8 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::{
-    pagetable::{MappingFlags, PageTableWrapper}, PageTable, PhysPage, TrapFrame, TrapFrameArgs, VirtAddr, VirtPage, PAGE_SIZE
-};
+use arch::pagetable::{MappingFlags, PageTableWrapper};
+use arch::{PhysPage, TrapFrame, TrapFrameArgs, VirtAddr, VirtPage, PAGE_SIZE};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
@@ -295,7 +294,8 @@ impl UserTask {
             let addr = self
                 .page_table
                 .translate(VirtAddr::from(uaddr))
-                .expect("can't find a valid addr").0;
+                .expect("can't find a valid addr")
+                .0;
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
             }
@@ -338,7 +338,8 @@ impl UserTask {
             let addr = self
                 .page_table
                 .translate(VirtAddr::from(uaddr))
-                .expect("can't find a valid addr").0;
+                .expect("can't find a valid addr")
+                .0;
             unsafe {
                 addr.get_mut_ptr::<u32>().write(0);
             }
