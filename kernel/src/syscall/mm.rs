@@ -1,6 +1,6 @@
 use core::ops::Add;
 
-use arch::USER_ADDR_MAX;
+use arch::USER_VADDR_END;
 use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::MemArea;
 use frame_allocator::ceil_div;
@@ -47,7 +47,7 @@ impl UserTaskContainer {
             "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
             self.tid, start, len, prot, flags, fd as isize, off
         );
-        if start > USER_ADDR_MAX {
+        if start > USER_VADDR_END {
             return Err(LinuxError::EINVAL);
         }
         let file = self.task.get_fd(fd);
