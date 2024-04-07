@@ -1,5 +1,5 @@
 use alloc::{sync::Arc, vec::Vec};
-use arch::{PageTable, VirtPage, PAGE_SIZE};
+use arch::{pagetable::PageTable, VirtPage, PAGE_SIZE};
 use core::{
     cmp::min,
     fmt::Debug,
@@ -211,7 +211,7 @@ impl MemArea {
                     });
             };
             self.mtrackers.retain(|x| {
-                pt.unmap(x.vpn);
+                pt.unmap_page(x.vpn);
                 false
             });
             return None;
@@ -237,7 +237,7 @@ impl MemArea {
         self.mtrackers
             .extract_if(|x| !new_self_rang.contains(&x.vpn.to_addr()))
             .for_each(|x| {
-                pt.unmap(x.vpn);
+                pt.unmap_page(x.vpn);
             });
         None
     }

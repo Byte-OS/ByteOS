@@ -6,7 +6,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::pagetable::{MappingFlags, PageTableWrapper};
+use arch::pagetable::{MappingFlags, MappingSize, PageTableWrapper};
 use arch::{PhysPage, TrapFrame, TrapFrameArgs, VirtAddr, VirtPage, PAGE_SIZE};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -172,7 +172,9 @@ impl UserTask {
     }
 
     pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags) {
-        self.page_table.map(ppn, vpn, flags, 3);
+        // self.page_table.map(ppn, vpn, flags, 3);
+        self.page_table
+            .map_page(vpn, ppn, flags, MappingSize::Page4KB);
     }
 
     pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> Option<PhysPage> {
