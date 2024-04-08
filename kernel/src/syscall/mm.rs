@@ -1,7 +1,8 @@
 use core::ops::Add;
 
+use arch::addr::{VirtAddr, VirtPage};
+use arch::PAGE_SIZE;
 use arch::USER_VADDR_END;
-use arch::{VirtAddr, VirtPage, PAGE_SIZE};
 use executor::MemArea;
 use frame_allocator::ceil_div;
 use log::debug;

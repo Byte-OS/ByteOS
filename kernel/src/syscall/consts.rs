@@ -4,8 +4,9 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
+use arch::addr::VirtAddr;
 use arch::pagetable::MappingFlags;
-use arch::{TrapFrame, VirtAddr};
+use arch::TrapFrame;
 use bitflags::bitflags;
 use cfg_if::cfg_if;
 use fs::VfsError;

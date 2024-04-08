@@ -8,8 +8,9 @@ use alloc::string::{String, ToString};
 use alloc::sync::Weak;
 use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
+use arch::addr::VirtPage;
 use arch::pagetable::MappingFlags;
-use arch::{time_to_usec, TrapFrameArgs, VirtPage, PAGE_SIZE};
+use arch::{time_to_usec, TrapFrameArgs, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{

@@ -6,7 +6,8 @@ extern crate alloc;
 use core::mem::size_of;
 
 use alloc::vec::Vec;
-use arch::{PhysPage, PAGE_SIZE, VIRT_ADDR_START};
+use arch::addr::PhysPage;
+use arch::{PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
 use kheader::mm::get_memorys;
 use log::info;

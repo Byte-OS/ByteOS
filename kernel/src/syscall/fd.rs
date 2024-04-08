@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 use vfscore::FileType;
 
 use alloc::sync::Arc;
-use arch::VirtAddr;
+use arch::addr::VirtAddr;
 use bit_field::BitArray;
 use executor::{yield_now, AsyncTask, FileItem, UserTask};
 use fs::pipe::create_pipe;
