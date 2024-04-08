@@ -1,5 +1,6 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use arch::{TrapFrame, TrapFrameArgs, VirtPage, PAGE_SIZE};
+use arch::addr::VirtPage;
+use arch::{TrapFrame, TrapFrameArgs, PAGE_SIZE};
 use executor::{AsyncTask, MemType, UserTask};
 use log::warn;
 use xmas_elf::{

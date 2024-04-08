@@ -2,7 +2,8 @@ use core::pin::Pin;
 
 use ::signal::SignalFlags;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
-use arch::{get_time, pagetable::MappingFlags, run_user_task, TrapFrame, TrapFrameArgs, VirtPage};
+use arch::addr::VirtPage;
+use arch::{get_time, pagetable::MappingFlags, run_user_task, TrapFrame, TrapFrameArgs};
 use executor::{AsyncTask, MapTrack, TaskId, UserTask};
 use frame_allocator::frame_alloc;
 use futures_lite::Future;

@@ -1,5 +1,6 @@
 use alloc::{sync::Arc, vec::Vec};
-use arch::{pagetable::PageTable, VirtPage, PAGE_SIZE};
+use arch::addr::VirtPage;
+use arch::{pagetable::PageTable, PAGE_SIZE};
 use core::{
     cmp::min,
     fmt::Debug,
