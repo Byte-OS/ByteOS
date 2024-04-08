@@ -5,7 +5,7 @@ use core::{
     task::{Context, Poll},
 };
 
-use arch::{get_time, time_to_usec};
+use arch::time::Time;
 use executor::{select, TMS};
 use fs::TimeSpec;
 pub use hal::current_nsec;
@@ -63,7 +63,7 @@ impl UserTaskContainer {
     pub async fn sys_times(&self, tms_ptr: UserRef<TMS>) -> SysResult {
         debug!("sys_times @ tms: {}", tms_ptr);
         self.task.inner_map(|x| *tms_ptr.get_mut() = x.tms);
-        Ok(get_time())
+        Ok(Time::now().raw())
     }
 
     pub async fn sys_clock_gettime(
@@ -77,8 +77,8 @@ impl UserTaskContainer {
         );
 
         let ns = match clock_id {
-            0 => current_nsec(),                  // CLOCK_REALTIME
-            1 => time_to_usec(get_time()) * 1000, // CLOCK_MONOTONIC
+            0 => current_nsec(),        // CLOCK_REALTIME
+            1 => Time::now().to_nsec(), // CLOCK_MONOTONIC
             2 => {
                 warn!("CLOCK_PROCESS_CPUTIME_ID not implemented");
                 0
