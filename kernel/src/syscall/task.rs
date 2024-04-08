@@ -10,7 +10,8 @@ use alloc::vec::Vec;
 use alloc::{boxed::Box, sync::Arc};
 use arch::addr::VirtPage;
 use arch::pagetable::MappingFlags;
-use arch::{time_to_usec, TrapFrameArgs, PAGE_SIZE};
+use arch::time::Time;
+use arch::{TrapFrameArgs, PAGE_SIZE};
 use async_recursion::async_recursion;
 use core::cmp;
 use executor::{
@@ -742,15 +743,15 @@ impl UserTaskContainer {
         let rusage = usage_ptr.get_mut();
 
         let tms = self.task.inner_map(|inner| inner.tms);
-        let stime = time_to_usec(tms.stime as _);
-        let utime = time_to_usec(tms.utime as _);
+        let stime = Time::from_raw(tms.stime as _);
+        let utime = Time::from_raw(tms.utime as _);
         rusage.ru_stime = TimeVal {
-            sec: stime / 1000_000,
-            usec: stime % 1000_000,
+            sec: stime.to_usec() / 1000_000,
+            usec: stime.to_usec() % 1000_000,
         };
         rusage.ru_utime = TimeVal {
-            sec: utime / 1000_000,
-            usec: utime % 1000_000,
+            sec: utime.to_usec() / 1000_000,
+            usec: utime.to_usec() % 1000_000,
         };
         Ok(0)
     }

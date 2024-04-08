@@ -3,7 +3,7 @@ use core::pin::Pin;
 use ::signal::SignalFlags;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::addr::VirtPage;
-use arch::{get_time, pagetable::MappingFlags, run_user_task, TrapFrame, TrapFrameArgs};
+use arch::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
 use executor::{AsyncTask, MapTrack, TaskId, UserTask};
 use frame_allocator::frame_alloc;
 use futures_lite::Future;
@@ -87,12 +87,12 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut TrapFrame, addr: usize) {
 impl UserTaskContainer {
     /// Handle user interrupt.
     pub async fn handle_syscall(&self, cx_ref: &mut TrapFrame) -> UserTaskControlFlow {
-        let ustart = get_time();
+        let ustart = Time::now().raw();
         if let Some(()) = run_user_task(cx_ref) {
             self.task
-                .inner_map(|inner| inner.tms.utime += (get_time() - ustart) as u64);
+                .inner_map(|inner| inner.tms.utime += (Time::now().raw() - ustart) as u64);
 
-            let sstart = get_time();
+            let sstart = Time::now().raw();
             if cx_ref[TrapFrameArgs::SYSCALL] == SYS_SIGRETURN {
                 return UserTaskControlFlow::Break;
             }
@@ -113,7 +113,7 @@ impl UserTaskContainer {
 
             cx_ref[TrapFrameArgs::RET] = result;
             self.task
-                .inner_map(|inner| inner.tms.stime += (get_time() - sstart) as u64);
+                .inner_map(|inner| inner.tms.stime += (Time::now().raw() - sstart) as u64);
         }
 
         // let trap_type = trap_pre_handle(cx_ref);

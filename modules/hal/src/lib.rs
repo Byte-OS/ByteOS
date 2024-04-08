@@ -3,6 +3,7 @@
 #![feature(const_mut_refs)]
 #![feature(const_option)]
 
+use arch::time::Time;
 use core::{cmp::Ordering, ops::Add};
 
 extern crate alloc;
@@ -10,7 +11,8 @@ pub mod interrupt;
 
 pub fn current_nsec() -> usize {
     // devices::RTC_DEVICES.lock()[0].read() as usize
-    arch::time_to_usec(arch::get_time()) * 1000
+    // arch::time_to_usec(arch::get_time()) * 1000
+    Time::now().to_nsec()
 }
 
 #[repr(C)]
