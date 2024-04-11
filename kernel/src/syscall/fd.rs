@@ -468,7 +468,7 @@ impl UserTaskContainer {
             .get_fd(fd)
             .ok_or(LinuxError::EINVAL)?
             .ioctl(request, arg1)
-            .map_err(from_vfs)
+            .map_err(|_| LinuxError::ENOTTY)
     }
 
     pub async fn sys_fcntl(&self, fd: usize, cmd: usize, arg: usize) -> SysResult {
