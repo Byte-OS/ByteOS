@@ -106,7 +106,8 @@ fdt:
 	@qemu-system-riscv64 -M 128m -machine virt,dumpdtb=virt.out
 	fdtdump virt.out
 
-justrun: build
+justrun: fs-img
+	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 	$(QEMU_EXEC)
 
 cv1811h-build: build

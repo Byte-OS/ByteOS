@@ -155,10 +155,6 @@ impl ArchInterface for ArchInterfaceImpl {
     fn main(hart_id: usize) {
         disable_irq();
         if hart_id == 0 {
-            // if hart_id != 0 {
-            //     loop {}
-            // }
-
             extern "C" {
                 fn start();
                 fn end();
@@ -225,7 +221,7 @@ impl ArchInterface for ArchInterfaceImpl {
             // enable_irq();
 
             loop {
-                // info!("aux core");
+                info!("aux core");
             }
         }
     }
