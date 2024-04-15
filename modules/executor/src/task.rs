@@ -6,14 +6,15 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::addr::{PhysPage, VirtAddr, VirtPage};
-use arch::pagetable::{MappingFlags, MappingSize, PageTableWrapper};
-use arch::{TrapFrame, TrapFrameArgs, PAGE_SIZE};
+use arch::{
+    addr::{PhysPage, VirtAddr, VirtPage},
+    pagetable::{MappingFlags, MappingSize, PageTableWrapper},
+    {TrapFrame, TrapFrameArgs, PAGE_SIZE}
+};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
-use signal::REAL_TIME_SIGNAL_NUM;
-pub use signal::{SigAction, SigProcMask, SignalFlags};
+use signal::{REAL_TIME_SIGNAL_NUM, SigAction, SigProcMask, SignalFlags};
 use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
 

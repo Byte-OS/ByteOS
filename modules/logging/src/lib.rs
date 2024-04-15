@@ -1,13 +1,10 @@
 #![no_std]
 
-#[macro_use]
 extern crate alloc;
 
 use arch::{console_getchar, console_putchar};
 use core::fmt::{self, Write};
 use devices::MAIN_UART;
-use irq_safety::MutexIrqSafe;
-
 use log::{self, info, Level, LevelFilter, Log, Metadata, Record};
 
 pub struct Logger;
@@ -21,9 +18,6 @@ impl Log for Logger {
         if !self.enabled(record.metadata()) {
             return;
         }
-
-        static LOG_LOCK: MutexIrqSafe<()> = MutexIrqSafe::new(());
-        LOG_LOCK.lock();
 
         let file = record.file();
         let line = record.line();
