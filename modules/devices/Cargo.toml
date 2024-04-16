@@ -8,7 +8,7 @@ edition = "2021"
 [features]
 
 [dependencies]
-arch = { path = "../../arch" }
+arch = { git = "https://github.com/Byte-OS/arch.git" }
 fdt = "0.1.5"
 linkme = { version = "0.3.22", features = ["used_linker"] }
 log = "0.4"
