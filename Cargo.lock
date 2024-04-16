@@ -243,7 +243,6 @@ dependencies = [
  "arch",
  "fdt",
  "frame_allocator",
- "kheader",
  "linkme",
  "log",
  "sync",
@@ -547,14 +546,6 @@ dependencies = [
  "devices",
  "log",
  "timestamp",
-]
-
-[[package]]
-name = "kheader"
-version = "0.1.0"
-dependencies = [
- "linkme",
- "sync",
 ]
 
 [[package]]

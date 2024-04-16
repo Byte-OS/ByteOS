@@ -14,7 +14,6 @@ members = [
     "modules/frame_allocator",
     "modules/sync",
     "modules/hal",
-    "modules/kheader",
     "modules/fs",
     "modules/devfs",
     "modules/ramfs",
