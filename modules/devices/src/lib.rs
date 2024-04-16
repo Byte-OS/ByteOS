@@ -21,7 +21,6 @@ pub use sync::{LazyInit, Mutex, MutexGuard};
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use device::{BlkDriver, DeviceSet, Driver, IntDriver, NetDriver, UartDriver};
 use fdt::{node::FdtNode, Fdt};
-use kheader::macros::link_define;
 
 // pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
 pub static DEVICE_TREE: LazyInit<Vec<u8>> = LazyInit::new();
@@ -32,9 +31,8 @@ pub static INT_DEVICE: LazyInit<Arc<dyn IntDriver>> = LazyInit::new();
 pub static MAIN_UART: LazyInit<Arc<dyn UartDriver>> = LazyInit::new();
 pub static ALL_DEVICES: Mutex<DeviceSet> = Mutex::new(DeviceSet::new());
 
-link_define! {
-    pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
-}
+#[linkme::distributed_slice]
+pub static DRIVERS_INIT: [fn() -> Option<Arc<dyn Driver>>] = [..];
 
 #[inline]
 pub fn get_blk_device(id: usize) -> Option<Arc<dyn BlkDriver>> {

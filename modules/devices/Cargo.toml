@@ -14,6 +14,5 @@ linkme = { version = "0.3.22", features = ["used_linker"] }
 log = "0.4"
 sync = { path = "../sync" }
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1d1cbb"}
-kheader = { path = "../kheader" }
 frame_allocator = { path = "../frame_allocator" }
 timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }
