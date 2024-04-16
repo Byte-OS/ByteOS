@@ -10,7 +10,8 @@ use alloc::sync::Arc;
 use cv1811_sd::clk_en;
 use devices::{
     device::{BlkDriver, DeviceType, Driver},
-    driver_define, fdt::node::FdtNode,
+    driver_define,
+    fdt::node::FdtNode,
 };
 
 pub struct CvSd;

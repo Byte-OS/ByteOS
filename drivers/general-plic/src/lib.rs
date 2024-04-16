@@ -7,7 +7,10 @@ mod plic;
 
 use alloc::sync::Arc;
 use devices::{
-    device::{DeviceType, Driver, IntDriver}, driver_define, fdt::node::FdtNode, VIRT_ADDR_START
+    device::{DeviceType, Driver, IntDriver},
+    driver_define,
+    fdt::node::FdtNode,
+    VIRT_ADDR_START,
 };
 
 pub struct PLIC {

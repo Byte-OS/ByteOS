@@ -9,7 +9,8 @@ extern crate log;
 
 use alloc::{sync::Arc, vec::Vec};
 use devices::{
-    device::{BlkDriver, DeviceType, Driver}, driver_define, frame_alloc_much, FrameTracker, Mutex, PAGE_SIZE, VIRT_ADDR_START
+    device::{BlkDriver, DeviceType, Driver},
+    driver_define, frame_alloc_much, FrameTracker, Mutex, PAGE_SIZE, VIRT_ADDR_START,
 };
 use nvme_driver::{DmaAllocator, IrqController, NvmeInterface};
 

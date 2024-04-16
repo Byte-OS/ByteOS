@@ -5,7 +5,10 @@ extern crate alloc;
 
 use alloc::{sync::Arc, vec::Vec};
 use devices::{
-    device::{DeviceType, Driver, UartDriver}, driver_define, fdt::node::FdtNode, node_to_interrupts, register_device_irqs, VIRT_ADDR_START
+    device::{DeviceType, Driver, UartDriver},
+    driver_define,
+    fdt::node::FdtNode,
+    node_to_interrupts, register_device_irqs, VIRT_ADDR_START,
 };
 use log::info;
 use ns16550a::{

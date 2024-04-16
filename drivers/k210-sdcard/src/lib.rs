@@ -10,7 +10,8 @@ extern crate alloc;
 use alloc::sync::Arc;
 use core::{cell::RefCell, convert::TryInto};
 use devices::{
-    device::{BlkDriver, DeviceType, Driver}, driver_define, Mutex, DRIVERS_INIT
+    device::{BlkDriver, DeviceType, Driver},
+    driver_define, Mutex, DRIVERS_INIT,
 };
 use k210_hal::prelude::*;
 use k210_pac::{Peripherals, SPI0};

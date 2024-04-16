@@ -1,6 +1,6 @@
 use alloc::vec::Vec;
-use devices::{frame_alloc_much, FrameTracker, Mutex, VIRT_ADDR_START};
 use core::ptr::NonNull;
+use devices::{frame_alloc_much, FrameTracker, Mutex, VIRT_ADDR_START};
 use log::trace;
 use virtio_drivers::{BufferDirection, Hal, PhysAddr};
 
