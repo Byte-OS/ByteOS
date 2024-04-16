@@ -13,7 +13,7 @@ pub mod device;
 
 pub use arch::{PAGE_SIZE, VIRT_ADDR_START};
 pub use fdt;
-pub use frame_allocator::{frame_alloc, FrameTracker, frame_alloc_much};
+pub use frame_allocator::{frame_alloc, frame_alloc_much, FrameTracker};
 pub use linkme::{self, distributed_slice as linker_use};
 pub use sync::{LazyInit, Mutex, MutexGuard};
 // pub mod virtio;

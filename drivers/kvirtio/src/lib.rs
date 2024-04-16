@@ -14,7 +14,10 @@ use core::ptr::NonNull;
 
 use alloc::{sync::Arc, vec::Vec};
 use devices::{
-    device::{Driver, UnsupportedDriver}, driver_define, fdt::node::FdtNode, node_to_interrupts, VIRT_ADDR_START
+    device::{Driver, UnsupportedDriver},
+    driver_define,
+    fdt::node::FdtNode,
+    node_to_interrupts, VIRT_ADDR_START,
 };
 use virtio_drivers::transport::{
     mmio::{MmioTransport, VirtIOHeader},

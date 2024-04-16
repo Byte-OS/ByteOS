@@ -9,12 +9,12 @@ use alloc::{
 use arch::{
     addr::{PhysPage, VirtAddr, VirtPage},
     pagetable::{MappingFlags, MappingSize, PageTableWrapper},
-    {TrapFrame, TrapFrameArgs, PAGE_SIZE}
+    {TrapFrame, TrapFrameArgs, PAGE_SIZE},
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
 use log::{debug, warn};
-use signal::{REAL_TIME_SIGNAL_NUM, SigAction, SigProcMask, SignalFlags};
+use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
 
