@@ -20,7 +20,7 @@ logging = { path = "../modules/logging" }
 log = "0.4"
 devices = { path = "../modules/devices" }
 hal = { path = "../modules/hal" }
-arch = { path = "../arch" }
+arch = { git = "https://github.com/Byte-OS/arch.git" }
 fs = { path = "../modules/fs" }
 fdt = "0.1.5"
 executor = { path = "../modules/executor" }

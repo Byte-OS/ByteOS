@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arch = { path = "../../arch" }
+arch = { git = "https://github.com/Byte-OS/arch.git" }
 log = "0.4"
 frame_allocator = { path = "../frame_allocator" }
 devices = { path = "../devices" }

@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 sync = { path = "../sync" }
-arch = { path = "../../arch" }
+arch = { git = "https://github.com/Byte-OS/arch.git" }
 log = "0.4"

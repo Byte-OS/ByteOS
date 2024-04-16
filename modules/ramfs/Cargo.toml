@@ -10,4 +10,4 @@ vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 log = "0.4"
 sync = { path = "../sync" }
 frame_allocator = { path = "../frame_allocator" }
-arch = { path = "../../arch" }
+arch = { git = "https://github.com/Byte-OS/arch.git" }

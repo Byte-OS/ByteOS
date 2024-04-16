@@ -15,7 +15,7 @@ devfs = { path = "../devfs" }
 ramfs = { path = "../ramfs" }
 procfs = { path = "../procfs" }
 frame_allocator = { path = "../frame_allocator" }
-arch = { path = "../../arch" }
+arch = { git = "https://github.com/Byte-OS/arch.git" }
 
 [dependencies.fatfs]
 git = "https://github.com/byte-os/rust-fatfs.git"
