@@ -9,7 +9,6 @@ use alloc::vec::Vec;
 use arch::addr::PhysPage;
 use arch::{PAGE_SIZE, VIRT_ADDR_START};
 use bit_field::{BitArray, BitField};
-use kheader::mm::get_memorys;
 use log::info;
 use sync::Mutex;
 
@@ -248,11 +247,6 @@ pub fn add_frame_map(mm_start: usize, mm_end: usize) {
 /// 页帧分配器初始化
 pub fn init() {
     info!("initialize frame allocator");
-
-    // 在帧分配器中添加内存
-    get_memorys()
-        .iter()
-        .for_each(|mr| add_frame_map(mr.start | VIRT_ADDR_START, mr.end | VIRT_ADDR_START));
 
     // 确保帧分配器一定能工作
     assert!(

@@ -13,12 +13,9 @@ pub mod virtio_net;
 use core::ptr::NonNull;
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::VIRT_ADDR_START;
 use devices::{
-    device::{Driver, UnsupportedDriver},
-    driver_define, node_to_interrupts,
+    device::{Driver, UnsupportedDriver}, driver_define, fdt::node::FdtNode, node_to_interrupts, VIRT_ADDR_START
 };
-use fdt::node::FdtNode;
 use virtio_drivers::transport::{
     mmio::{MmioTransport, VirtIOHeader},
     DeviceType, Transport,

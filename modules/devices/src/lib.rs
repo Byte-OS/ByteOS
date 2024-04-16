@@ -10,14 +10,18 @@ extern crate log;
 extern crate alloc;
 
 pub mod device;
-pub mod memory;
+
+pub use arch::{PAGE_SIZE, VIRT_ADDR_START};
+pub use fdt;
+pub use frame_allocator::{frame_alloc, FrameTracker, frame_alloc_much};
+pub use linkme::{self, distributed_slice as linker_use};
+pub use sync::{LazyInit, Mutex, MutexGuard};
 // pub mod virtio;
 
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use device::{BlkDriver, DeviceSet, Driver, IntDriver, NetDriver, UartDriver};
-use fdt::{self, node::FdtNode, Fdt};
+use fdt::{node::FdtNode, Fdt};
 use kheader::macros::link_define;
-use sync::{LazyInit, Mutex};
 
 // pub static DEVICE_TREE_ADDR: AtomicUsize = AtomicUsize::new(0);
 pub static DEVICE_TREE: LazyInit<Vec<u8>> = LazyInit::new();
@@ -135,15 +139,15 @@ pub fn node_to_interrupts(node: &FdtNode) -> Vec<u32> {
 #[macro_export]
 macro_rules! driver_define {
     ($body: block) => {
-        #[kheader::macros::linker_use($crate::DRIVERS_INIT)]
-        #[linkme(crate = kheader::macros::linkme)]
+        #[devices::linker_use($crate::DRIVERS_INIT)]
+        #[linkme(crate = devices::linkme)]
         fn __driver_init() -> Option<alloc::sync::Arc<dyn devices::device::Driver>> {
             $body
         }
     };
     ($obj:expr, $func: expr) => {
-        #[kheader::macros::linker_use($crate::DRIVERS_INIT)]
-        #[linkme(crate = kheader::macros::linkme)]
+        #[devices::linker_use($crate::DRIVERS_INIT)]
+        #[linkme(crate = devices::linkme)]
         fn __driver_init() -> Option<alloc::sync::Arc<dyn devices::device::Driver>> {
             $crate::DRIVER_REGS.lock().insert($obj, $func);
             None
