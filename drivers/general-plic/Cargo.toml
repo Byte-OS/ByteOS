@@ -6,10 +6,5 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-arch = { path = "../../arch" }
-fdt = "0.1.5"
-sync = { path = "../../modules/sync" }
-kheader = { path = "../../modules/kheader" }
 devices = { path = "../../modules/devices" }
-frame_allocator = { path = "../../modules/frame_allocator" }
-log = "0.4"
+log = "0.4.11"

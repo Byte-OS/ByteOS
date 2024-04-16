@@ -7,13 +7,10 @@ extern crate alloc;
 extern crate log;
 
 use alloc::sync::Arc;
-use arch::VIRT_ADDR_START;
 use core::ptr::read_volatile;
 use devices::{
-    device::{DeviceType, Driver, RtcDriver},
-    driver_define,
+    device::{DeviceType, Driver, RtcDriver}, driver_define, fdt::node::FdtNode, VIRT_ADDR_START
 };
-use fdt::node::FdtNode;
 use timestamp::DateTime;
 
 const TIMER_TIME_LOW: usize = 0x00;

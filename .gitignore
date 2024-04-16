@@ -10,3 +10,4 @@ packets.pcap
 kernel/*.lds
 qemu.log
 kernel/src/drivers.rs
+graph.png

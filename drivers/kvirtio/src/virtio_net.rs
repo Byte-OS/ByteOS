@@ -3,8 +3,7 @@ use core::cmp;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use devices::device::{DeviceType, Driver, NetDriver, NetError};
-use devices::register_device_irqs;
-use sync::Mutex;
+use devices::{register_device_irqs, Mutex};
 use virtio_drivers::device::net::{self, TxBuffer};
 use virtio_drivers::transport::Transport;
 

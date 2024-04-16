@@ -56,7 +56,7 @@ dependencies = [
  "cfg-if",
  "crate_interface",
  "fdt",
- "irq_safety 0.1.1 (git+https://github.com/theseus-os/irq_safety.git)",
+ "irq_safety",
  "log",
  "loongarch64",
  "multiboot",
@@ -244,6 +244,7 @@ dependencies = [
  "fdt",
  "frame_allocator",
  "kheader",
+ "linkme",
  "log",
  "sync",
  "timestamp",
@@ -316,7 +317,6 @@ version = "0.1.0"
 dependencies = [
  "arch",
  "bit_field",
- "kheader",
  "log",
  "sync",
 ]
@@ -413,13 +413,8 @@ dependencies = [
 name = "general-plic"
 version = "0.1.0"
 dependencies = [
- "arch",
  "devices",
- "fdt",
- "frame_allocator",
- "kheader",
  "log",
- "sync",
 ]
 
 [[package]]
@@ -441,13 +436,6 @@ checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
 dependencies = [
  "ahash",
  "allocator-api2",
-]
-
-[[package]]
-name = "irq_safety"
-version = "0.1.1"
-dependencies = [
- "spin 0.9.8",
 ]
 
 [[package]]
@@ -487,10 +475,7 @@ dependencies = [
  "k210-hal",
  "k210-pac",
  "k210-soc",
- "kheader",
  "log",
- "logging",
- "sync",
 ]
 
 [[package]]
@@ -509,14 +494,9 @@ dependencies = [
 name = "kcvitek-sd"
 version = "0.1.0"
 dependencies = [
- "arch",
  "cv1811-sd",
  "devices",
- "fdt",
- "frame_allocator",
- "kheader",
  "log",
- "sync",
 ]
 
 [[package]]
@@ -542,7 +522,6 @@ dependencies = [
  "k210-sdcard",
  "kcvitek-sd",
  "kgoldfish-rtc",
- "kheader",
  "knvme",
  "kramdisk",
  "kvirtio",
@@ -565,10 +544,7 @@ dependencies = [
 name = "kgoldfish-rtc"
 version = "0.1.0"
 dependencies = [
- "arch",
  "devices",
- "fdt",
- "kheader",
  "log",
  "timestamp",
 ]
@@ -585,14 +561,9 @@ dependencies = [
 name = "knvme"
 version = "0.1.0"
 dependencies = [
- "arch",
  "devices",
- "fdt",
- "frame_allocator",
- "kheader",
  "log",
  "nvme_driver",
- "sync",
 ]
 
 [[package]]
@@ -600,10 +571,7 @@ name = "kramdisk"
 version = "0.1.0"
 dependencies = [
  "devices",
- "frame_allocator",
- "kheader",
  "log",
- "sync",
  "virtio-drivers 0.7.1",
 ]
 
@@ -611,13 +579,8 @@ dependencies = [
 name = "kvirtio"
 version = "0.1.0"
 dependencies = [
- "arch",
  "devices",
- "fdt",
- "frame_allocator",
- "kheader",
  "log",
- "sync",
  "virtio-drivers 0.7.1",
 ]
 
@@ -768,14 +731,9 @@ checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 name = "ns16550a"
 version = "0.1.0"
 dependencies = [
- "arch",
  "devices",
- "fdt",
- "frame_allocator",
- "kheader",
  "log",
  "ns16550a 0.2.0",
- "sync",
 ]
 
 [[package]]

@@ -8,14 +8,10 @@ extern crate alloc;
 extern crate log;
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::{PAGE_SIZE, VIRT_ADDR_START};
 use devices::{
-    device::{BlkDriver, DeviceType, Driver},
-    driver_define,
+    device::{BlkDriver, DeviceType, Driver}, driver_define, frame_alloc_much, FrameTracker, Mutex, PAGE_SIZE, VIRT_ADDR_START
 };
-use frame_allocator::{frame_alloc_much, FrameTracker};
 use nvme_driver::{DmaAllocator, IrqController, NvmeInterface};
-use sync::Mutex;
 
 use core::ptr::write_volatile;
 

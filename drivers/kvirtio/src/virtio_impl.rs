@@ -1,9 +1,7 @@
 use alloc::vec::Vec;
-use arch::VIRT_ADDR_START;
+use devices::{frame_alloc_much, FrameTracker, Mutex, VIRT_ADDR_START};
 use core::ptr::NonNull;
-use frame_allocator::{frame_alloc_much, FrameTracker};
 use log::trace;
-use sync::Mutex;
 use virtio_drivers::{BufferDirection, Hal, PhysAddr};
 
 static VIRTIO_CONTAINER: Mutex<Vec<FrameTracker>> = Mutex::new(Vec::new());

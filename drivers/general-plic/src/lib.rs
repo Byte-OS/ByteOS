@@ -6,12 +6,9 @@ extern crate alloc;
 mod plic;
 
 use alloc::sync::Arc;
-use arch::VIRT_ADDR_START;
 use devices::{
-    device::{DeviceType, Driver, IntDriver},
-    driver_define,
+    device::{DeviceType, Driver, IntDriver}, driver_define, fdt::node::FdtNode, VIRT_ADDR_START
 };
-use fdt::node::FdtNode;
 
 pub struct PLIC {
     base: usize,

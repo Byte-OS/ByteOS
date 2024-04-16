@@ -6,6 +6,7 @@ LOG  := error
 BOARD:= qemu
 RELEASE := release
 QEMU_EXEC ?= 
+BUILD_ARGS := 
 GDB  ?= gdb-multiarch
 
 BUS  := device
@@ -31,6 +32,7 @@ else ifeq ($(ARCH), aarch64)
 else ifeq ($(ARCH), loongarch64)
   TARGET := loongarch64-unknown-none
   QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
+  BUILD_ARGS += -Z build-std
   BUS := pci
 else
   $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
@@ -50,7 +52,6 @@ QEMU_EXEC += -m 1G\
 			-smp 2 \
 			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
 
-BUILD_ARGS :=
 ifeq ($(RELEASE), release)
 	BUILD_ARGS += --release
 endif
@@ -77,7 +78,7 @@ endif
 all: build
 
 offline:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build -Z build-std $(BUILD_ARGS) --features "$(features)" --offline
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
 #	cp $(KERNEL_ELF) kernel-qemu
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
@@ -94,7 +95,7 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build -Z build-std --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
+	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 

@@ -6,11 +6,8 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-sync = { path = "../../modules/sync" }
 devices = { path = "../../modules/devices" }
 k210-pac = { git = "https://github.com/byte-os/k210-pac" }
 k210-hal = { git = "https://github.com/byte-os/k210-hal" }
 k210-soc = { git = "https://github.com/byte-os/k210-soc" }
 log = "0.4"
-logging = { path = "../../modules/logging" }
-kheader = { path = "../../modules/kheader" }

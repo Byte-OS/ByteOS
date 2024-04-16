@@ -4,12 +4,9 @@
 extern crate alloc;
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::VIRT_ADDR_START;
 use devices::{
-    device::{DeviceType, Driver, UartDriver},
-    driver_define, node_to_interrupts, register_device_irqs,
+    device::{DeviceType, Driver, UartDriver}, driver_define, fdt::node::FdtNode, node_to_interrupts, register_device_irqs, VIRT_ADDR_START
 };
-use fdt::node::FdtNode;
 use log::info;
 use ns16550a::{
     Break, DMAMode, Divisor, ParityBit, ParitySelect, StickParity, StopBits, Uart, WordLength,

@@ -34,7 +34,6 @@ lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "b06
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 async-recursion = "1.0.4"
 futures-lite = { version = "1.13.0", default-features = false, features=["alloc"] }
-kheader = { path = "../modules/kheader" }
 # backtrace = { path = "../crates/backtrace" }
 hashbrown = "0.14"
 cfg-if = "1.0.0"
