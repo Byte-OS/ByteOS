@@ -3,7 +3,7 @@ use core::cmp::{self, min};
 use alloc::string::String;
 use alloc::sync::Arc;
 use devices::get_blk_device;
-use fatfs::{warn, Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
+use fatfs::{Dir, Error, File, LossyOemCpConverter, NullTimeProvider};
 use fatfs::{Read, Seek, SeekFrom, Write};
 use log::debug;
 use sync::Mutex;
