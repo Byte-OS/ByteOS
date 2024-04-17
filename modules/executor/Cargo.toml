@@ -9,8 +9,8 @@ edition = "2021"
 crossbeam-queue = { version = "0.3.8", default-features = false, features = ["alloc"] }
 logging = { path = "../logging" }
 arch = { git = "https://github.com/Byte-OS/arch.git" }
-sync = { path = "../sync" }
-frame_allocator = { path = "../frame_allocator" }
+sync = { git = "https://github.com/Byte-OS/sync.git" }
+frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 log = "0.4"
 fs = { path = "../fs" }
 devfs = { path = "../devfs" }

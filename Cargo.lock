@@ -314,6 +314,7 @@ checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
 [[package]]
 name = "frame_allocator"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/bit_frame_allocator.git#7866e6f8ea3eb8677e089bb7c9c357caf3723873"
 dependencies = [
  "arch",
  "bit_field",
@@ -1076,6 +1077,7 @@ dependencies = [
 [[package]]
 name = "sync"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/sync.git#8c5f094d85cd7f4574bb6035c87d94dc5dee3998"
 dependencies = [
  "spin 0.9.8",
 ]

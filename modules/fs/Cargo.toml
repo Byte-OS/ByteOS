@@ -8,13 +8,13 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
-sync = { path = "../sync" }
+sync = { git = "https://github.com/Byte-OS/sync.git" }
 devices = { path = "../devices" }
 logging = { path = "../logging" }
 devfs = { path = "../devfs" }
 ramfs = { path = "../ramfs" }
 procfs = { path = "../procfs" }
-frame_allocator = { path = "../frame_allocator" }
+frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 
 [dependencies.fatfs]

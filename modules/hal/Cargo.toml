@@ -8,6 +8,6 @@ edition = "2021"
 [dependencies]
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 log = "0.4"
-frame_allocator = { path = "../frame_allocator" }
+frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 devices = { path = "../devices" }
-sync = { path = "../sync" }
+sync = { git = "https://github.com/Byte-OS/sync.git" }
