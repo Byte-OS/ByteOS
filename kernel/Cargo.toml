@@ -16,7 +16,7 @@ serde_derive = "1.0.136"
 allocator = { path = "../crates/allocator" }
 crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
 frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
-logging = { path = "../modules/logging" }
+logging = { git = "https://github.com/Byte-OS/logging.git" }
 log = "0.4"
 devices = { git = "https://github.com/Byte-OS/devices.git" }
 hal = { git = "https://github.com/Byte-OS/hal.git" }
