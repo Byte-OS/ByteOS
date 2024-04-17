@@ -12,7 +12,7 @@ arch = { git = "https://github.com/Byte-OS/arch.git" }
 sync = { git = "https://github.com/Byte-OS/sync.git" }
 frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 log = "0.4"
-fs = { path = "../fs" }
+fs = { git = "https://github.com/Byte-OS/fs.git" }
 devfs = { git = "https://github.com/Byte-OS/devfs.git" }
 futures = { version = "0.3", default-features = false }
 signal = { git = "https://github.com/Byte-OS/signal.git" }

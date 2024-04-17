@@ -327,6 +327,7 @@ dependencies = [
 [[package]]
 name = "fs"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/fs.git#63f8350f119ea9a19e67eaaf8509d75c3971bb4f"
 dependencies = [
  "arch",
  "devfs",
