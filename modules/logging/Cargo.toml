@@ -9,4 +9,4 @@ edition = "2021"
 log = "0.4"
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 devices = { path = "../devices" }
-sync = { path = "../sync" }
+sync = { git = "https://github.com/Byte-OS/sync.git" }

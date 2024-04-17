@@ -12,7 +12,7 @@ arch = { git = "https://github.com/Byte-OS/arch.git" }
 fdt = "0.1.5"
 linkme = { version = "0.3.22", features = ["used_linker"] }
 log = "0.4"
-sync = { path = "../sync" }
+sync = { git = "https://github.com/Byte-OS/sync.git" }
 virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "f1d1cbb"}
-frame_allocator = { path = "../frame_allocator" }
+frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }
