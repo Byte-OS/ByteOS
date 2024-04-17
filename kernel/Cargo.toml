@@ -18,7 +18,7 @@ crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
 frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 logging = { path = "../modules/logging" }
 log = "0.4"
-devices = { path = "../modules/devices" }
+devices = { git = "https://github.com/Byte-OS/devices.git" }
 hal = { git = "https://github.com/Byte-OS/hal.git" }
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 fs = { path = "../modules/fs" }

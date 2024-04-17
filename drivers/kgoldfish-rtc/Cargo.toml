@@ -6,6 +6,6 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-devices = { path = "../../modules/devices" }
+devices = { git = "https://github.com/Byte-OS/devices.git" }
 log = "0.4"
 timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }

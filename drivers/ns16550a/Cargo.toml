@@ -8,4 +8,4 @@ edition = "2021"
 [dependencies]
 ns16550a = "0.2"
 log = "0.4"
-devices = { path = "../../modules/devices" }
+devices = { git = "https://github.com/Byte-OS/devices.git" }

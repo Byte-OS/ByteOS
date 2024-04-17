@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-devices = { path = "../../modules/devices" }
+devices = { git = "https://github.com/Byte-OS/devices.git" }
 k210-pac = { git = "https://github.com/byte-os/k210-pac" }
 k210-hal = { git = "https://github.com/byte-os/k210-hal" }
 k210-soc = { git = "https://github.com/byte-os/k210-soc" }

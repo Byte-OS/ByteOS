@@ -240,6 +240,7 @@ dependencies = [
 [[package]]
 name = "devices"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/devices.git#fbd06842b01ef645bd872611889ecd8a0c45e617"
 dependencies = [
  "arch",
  "fdt",
