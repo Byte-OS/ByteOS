@@ -416,6 +416,7 @@ dependencies = [
 [[package]]
 name = "general-plic"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-general-plic.git#d6196a18a523e297123aa5bca7249f112a732486"
 dependencies = [
  "devices",
  "log",
@@ -473,6 +474,7 @@ dependencies = [
 [[package]]
 name = "k210-sdcard"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-k210-sdcard.git#695ff4763fc44b2feb254f7ab05e70c07699985d"
 dependencies = [
  "devices",
  "k210-hal",
@@ -496,6 +498,7 @@ dependencies = [
 [[package]]
 name = "kcvitek-sd"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-kcvitek-sd.git#37cdb780d25c4a6c5823b528b412741f7979a272"
 dependencies = [
  "cv1811-sd",
  "devices",
@@ -546,6 +549,7 @@ dependencies = [
 [[package]]
 name = "kgoldfish-rtc"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-kgoldfish-rtc.git#66e0234f67f68072a634cf2c02afa341c8e8f7a2"
 dependencies = [
  "devices",
  "log",
@@ -555,6 +559,7 @@ dependencies = [
 [[package]]
 name = "knvme"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-knvme.git#df06e9bef9a7b07684568697c419176a5772d641"
 dependencies = [
  "devices",
  "log",
@@ -573,6 +578,7 @@ dependencies = [
 [[package]]
 name = "kvirtio"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-kvirtio.git#d50f39a04bdd39c27a3547c6ffb6b6568476648e"
 dependencies = [
  "devices",
  "log",
@@ -726,6 +732,7 @@ checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 [[package]]
 name = "ns16550a"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/driver-ns16550a.git#059e0f27aa0b37a7d3a4dfda16679eafb33a5da4"
 dependencies = [
  "devices",
  "log",

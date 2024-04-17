@@ -41,11 +41,11 @@ cfg-if = "1.0.0"
 num-traits = { version = "0.2", default-features = false}
 num-derive = "0.4"
 
-knvme = { version = "0.1.0", path = "../drivers/knvme" }
-kvirtio = { version = "0.1.0", path = "../drivers/kvirtio" }
-kgoldfish-rtc = { version = "0.1.0", path = "../drivers/kgoldfish-rtc" }
-kcvitek-sd = { version = "0.1.0", path = "../drivers/kcvitek-sd" }
-k210-sdcard = { version = "0.1.0", path = "../drivers/k210-sdcard" }
+knvme = { git = "https://github.com/Byte-OS/driver-knvme.git" }
+kvirtio = { git = "https://github.com/Byte-OS/driver-kvirtio.git" }
+kgoldfish-rtc = { git = "https://github.com/Byte-OS/driver-kgoldfish-rtc.git" }
+kcvitek-sd = { git = "https://github.com/Byte-OS/driver-kcvitek-sd.git" }
+k210-sdcard = { git = "https://github.com/Byte-OS/driver-k210-sdcard.git" }
 kramdisk = { version = "0.1.0", path = "../drivers/kramdisk" }
-general-plic = { version = "0.1.0", path = "../drivers/general-plic" }
-ns16550a = { version = "0.1.0", path = "../drivers/ns16550a" }
+general-plic = { git = "https://github.com/Byte-OS/driver-general-plic.git" }
+ns16550a = { git = "https://github.com/Byte-OS/driver-ns16550a.git" }
