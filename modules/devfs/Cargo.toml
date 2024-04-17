@@ -14,4 +14,4 @@ sync = { git = "https://github.com/Byte-OS/sync.git" }
 bitflags = "2.0.2"
 num-traits = { version = "0.2", default-features = false}
 num-derive = "0.4"
-hal = { path = "../hal" }
+hal = { git = "https://github.com/Byte-OS/hal.git" }
