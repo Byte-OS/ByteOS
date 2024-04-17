@@ -2,7 +2,7 @@
 resolver = "2"
 members = [
     # arch
-    "arch",
+    # "arch",
 
     # crates
     # "crates/backtrace",
