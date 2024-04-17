@@ -225,6 +225,7 @@ dependencies = [
 [[package]]
 name = "devfs"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/devfs.git#c5e510dfbedbe42866fa4ab23fecfd8d7f596dff"
 dependencies = [
  "bitflags 2.4.2",
  "devices",
@@ -842,6 +843,7 @@ dependencies = [
 [[package]]
 name = "procfs"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/procfs.git#dd010613f7c5fcfe222a8dc03628f8f69b4d36cd"
 dependencies = [
  "arch",
  "log",
@@ -861,6 +863,7 @@ dependencies = [
 [[package]]
 name = "ramfs"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/ramfs.git#69af7ab9dae6c986b22c862b1c69db94c647fc58"
 dependencies = [
  "arch",
  "frame_allocator",

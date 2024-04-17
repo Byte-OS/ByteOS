@@ -11,9 +11,9 @@ vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 sync = { git = "https://github.com/Byte-OS/sync.git" }
 devices = { git = "https://github.com/Byte-OS/devices.git" }
 logging = { git = "https://github.com/Byte-OS/logging.git" }
-devfs = { path = "../devfs" }
-ramfs = { path = "../ramfs" }
-procfs = { path = "../procfs" }
+devfs = { git = "https://github.com/Byte-OS/devfs.git" }
+ramfs = { git = "https://github.com/Byte-OS/ramfs.git" }
+procfs = { git = "https://github.com/Byte-OS/procfs.git" }
 frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 
