@@ -18,5 +18,5 @@ futures = { version = "0.3", default-features = false }
 signal = { git = "https://github.com/Byte-OS/signal.git" }
 bitflags = "2.0.2"
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
-hal = { path = "../hal" }
+hal = { git = "https://github.com/Byte-OS/hal.git" }
 crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }

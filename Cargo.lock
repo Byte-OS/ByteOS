@@ -421,6 +421,7 @@ dependencies = [
 [[package]]
 name = "hal"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/hal.git#bf12540b2a0fdfa86d85f1cbfa2d961318087948"
 dependencies = [
  "arch",
  "frame_allocator",
