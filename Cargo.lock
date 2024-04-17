@@ -72,6 +72,33 @@ dependencies = [
 ]
 
 [[package]]
+name = "arch"
+version = "0.1.0"
+source = "git+https://github.com/Byte-OS/arch.git#83ebdfb45c77ec7761801513cc87ce023185bf56"
+dependencies = [
+ "aarch64-cpu",
+ "arm_gic",
+ "arm_pl011",
+ "bitflags 2.4.2",
+ "cfg-if",
+ "crate_interface",
+ "fdt",
+ "irq_safety",
+ "log",
+ "loongarch64",
+ "multiboot",
+ "percpu",
+ "raw-cpuid 11.0.1",
+ "riscv 0.6.0 (git+https://github.com/rcore-os/riscv)",
+ "sbi-rt",
+ "spin 0.9.8",
+ "tock-registers 0.8.1",
+ "x2apic",
+ "x86",
+ "x86_64",
+]
+
+[[package]]
 name = "arm_gic"
 version = "0.1.0"
 source = "git+https://github.com/Byte-OS/arm_gic#7a0693ebe4113cfeb2f5ee93920e6e7ea3afe99a"
@@ -240,7 +267,7 @@ dependencies = [
 name = "devices"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "fdt",
  "frame_allocator",
  "linkme",
@@ -279,7 +306,7 @@ dependencies = [
 name = "executor"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "bitflags 2.4.2",
  "crate_interface",
  "crossbeam-queue",
@@ -314,7 +341,7 @@ checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
 name = "frame_allocator"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "bit_field",
  "log",
  "sync",
@@ -324,7 +351,7 @@ dependencies = [
 name = "fs"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "devfs",
  "devices",
  "fatfs",
@@ -420,7 +447,7 @@ dependencies = [
 name = "hal"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "devices",
  "frame_allocator",
  "log",
@@ -503,7 +530,7 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "allocator",
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "async-recursion",
  "bit_field",
  "bitflags 2.4.2",
@@ -641,7 +668,7 @@ dependencies = [
 name = "logging"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "devices",
  "log",
  "sync",
@@ -840,7 +867,7 @@ dependencies = [
 name = "procfs"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "log",
  "sync",
  "vfscore",
@@ -859,7 +886,7 @@ dependencies = [
 name = "ramfs"
 version = "0.1.0"
 dependencies = [
- "arch",
+ "arch 0.1.0 (git+https://github.com/Byte-OS/arch.git)",
  "frame_allocator",
  "log",
  "sync",

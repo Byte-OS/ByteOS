@@ -10,106 +10,112 @@ pub trait SignalOps {
     fn sigmask(&self) -> usize;
 }
 
+macro_rules! bit {
+    ($x:expr) => {
+        1 << $x
+    };
+}
+
 pub const REAL_TIME_SIGNAL_NUM: usize = 33;
 
 bitflags! {
     #[derive(Debug, PartialEq, Eq, Clone)]
     pub struct SignalFlags: u64 {
         /// Hangup.
-        const	SIGHUP		= 1 << ( 0);
+        const	SIGHUP		= bit!(0);
         /// Interactive attention signal.
-        const	SIGINT		= 1 << ( 1);
+        const	SIGINT		= bit!(1);
         /// Quit.
-        const	SIGQUIT		= 1 << ( 2);
+        const	SIGQUIT		= bit!(2);
         /// Illegal instruction.
-        const	SIGILL		= 1 << ( 3);
+        const	SIGILL		= bit!(3);
         /// Trace/breakpoint trap.
-        const	SIGTRAP		= 1 << ( 4);
+        const	SIGTRAP		= bit!(4);
         /// IOT instruction, abort() on a PDP-11.
-        const	SIGABRT		= 1 << ( 5);
+        const	SIGABRT		= bit!(5);
         /// Bus error.
-        const	SIGBUS		= 1 << ( 6);
+        const	SIGBUS		= bit!(6);
         /// Erroneous arithmetic operation.
-        const	SIGFPE		= 1 << ( 7);
+        const	SIGFPE		= bit!(7);
         /// Killed.
-        const	SIGKILL		= 1 << ( 8);
+        const	SIGKILL		= bit!(8);
         /// User-defined signal 1.
-        const	SIGUSR1		= 1 << ( 9);
+        const	SIGUSR1		= bit!( 9);
         /// Invalid access to storage.
-        const	SIGSEGV		= 1 << (10);
+        const	SIGSEGV		= bit!(10);
         /// User-defined signal 2.
-        const	SIGUSR2		= 1 << (11);
+        const	SIGUSR2		= bit!(11);
         /// Broken pipe.
-        const	SIGPIPE		= 1 << (12);
+        const	SIGPIPE		= bit!(12);
         /// Alarm clock.
-        const	SIGALRM		= 1 << (13);
+        const	SIGALRM		= bit!(13);
         /// Termination request.
-        const	SIGTERM		= 1 << (14);
-        const	SIGSTKFLT	= 1 << (15);
+        const	SIGTERM		= bit!(14);
+        const	SIGSTKFLT	= bit!(15);
         /// Child terminated or stopped.
-        const	SIGCHLD		= 1 << (16);
+        const	SIGCHLD		= bit!(16);
         /// Continue.
-        const	SIGCONT		= 1 << (17);
+        const	SIGCONT		= bit!(17);
         /// Stop, unblockable.
-        const	SIGSTOP		= 1 << (18);
+        const	SIGSTOP		= bit!(18);
         /// Keyboard stop.
-        const	SIGTSTP		= 1 << (19);
+        const	SIGTSTP		= bit!(19);
         /// Background read from control terminal.
-        const	SIGTTIN		= 1 << (20);
+        const	SIGTTIN		= bit!(20);
         /// Background write to control terminal.
-        const	SIGTTOU		= 1 << (21);
+        const	SIGTTOU		= bit!(21);
         /// Urgent data is available at a socket.
-        const	SIGURG		= 1 << (22);
+        const	SIGURG		= bit!(22);
         /// CPU time limit exceeded.
-        const	SIGXCPU		= 1 << (23);
+        const	SIGXCPU		= bit!(23);
         /// File size limit exceeded.
-        const	SIGXFSZ		= 1 << (24);
+        const	SIGXFSZ		= bit!(24);
         /// Virtual timer expired.
-        const	SIGVTALRM	= 1 << (25);
+        const	SIGVTALRM	= bit!(25);
         /// Profiling timer expired.
-        const	SIGPROF		= 1 << (26);
+        const	SIGPROF		= bit!(26);
         /// Window size change (4.3 BSD, Sun).
-        const	SIGWINCH	= 1 << (27);
+        const	SIGWINCH	= bit!(27);
         /// I/O now possible (4.2 BSD).
-        const	SIGIO		= 1 << (28);
-        const   SIGPWR      = 1 << (29);
+        const	SIGIO		= bit!(28);
+        const   SIGPWR      = bit!(29);
         /// Bad system call.
-        const   SIGSYS      = 1 << (30);
+        const   SIGSYS      = bit!(30);
         /* --- realtime signals for pthread --- */
-        const   SIGTIMER    = 1 << (31);
-        const   SIGCANCEL   = 1 << (32);
-        const   SIGSYNCCALL = 1 << (33);
+        const   SIGTIMER    = bit!(31);
+        const   SIGCANCEL   = bit!(32);
+        const   SIGSYNCCALL = bit!(33);
         /* --- other realtime signals --- */
-        const   SIGRT_3     = 1 << (34);
-        const   SIGRT_4     = 1 << (35);
-        const   SIGRT_5     = 1 << (36);
-        const   SIGRT_6     = 1 << (37);
-        const   SIGRT_7     = 1 << (38);
-        const   SIGRT_8     = 1 << (39);
-        const   SIGRT_9     = 1 << (40);
-        const   SIGRT_10    = 1 << (41);
-        const   SIGRT_11    = 1 << (42);
-        const   SIGRT_12    = 1 << (43);
-        const   SIGRT_13    = 1 << (44);
-        const   SIGRT_14    = 1 << (45);
-        const   SIGRT_15    = 1 << (46);
-        const   SIGRT_16    = 1 << (47);
-        const   SIGRT_17    = 1 << (48);
-        const   SIGRT_18    = 1 << (49);
-        const   SIGRT_19    = 1 << (50);
-        const   SIGRT_20    = 1 << (51);
-        const   SIGRT_21    = 1 << (52);
-        const   SIGRT_22    = 1 << (53);
-        const   SIGRT_23    = 1 << (54);
-        const   SIGRT_24    = 1 << (55);
-        const   SIGRT_25    = 1 << (56);
-        const   SIGRT_26    = 1 << (57);
-        const   SIGRT_27    = 1 << (58);
-        const   SIGRT_28    = 1 << (59);
-        const   SIGRT_29    = 1 << (60);
-        const   SIGRT_30    = 1 << (61);
-        const   SIGRT_31    = 1 << (62);
-        const   SIGRTMAX    = 1 << (63);
+        const   SIGRT_3     = bit!(34);
+        const   SIGRT_4     = bit!(35);
+        const   SIGRT_5     = bit!(36);
+        const   SIGRT_6     = bit!(37);
+        const   SIGRT_7     = bit!(38);
+        const   SIGRT_8     = bit!(39);
+        const   SIGRT_9     = bit!(40);
+        const   SIGRT_10    = bit!(41);
+        const   SIGRT_11    = bit!(42);
+        const   SIGRT_12    = bit!(43);
+        const   SIGRT_13    = bit!(44);
+        const   SIGRT_14    = bit!(45);
+        const   SIGRT_15    = bit!(46);
+        const   SIGRT_16    = bit!(47);
+        const   SIGRT_17    = bit!(48);
+        const   SIGRT_18    = bit!(49);
+        const   SIGRT_19    = bit!(50);
+        const   SIGRT_20    = bit!(51);
+        const   SIGRT_21    = bit!(52);
+        const   SIGRT_22    = bit!(53);
+        const   SIGRT_23    = bit!(54);
+        const   SIGRT_24    = bit!(55);
+        const   SIGRT_25    = bit!(56);
+        const   SIGRT_26    = bit!(57);
+        const   SIGRT_27    = bit!(58);
+        const   SIGRT_28    = bit!(59);
+        const   SIGRT_29    = bit!(60);
+        const   SIGRT_30    = bit!(61);
+        const   SIGRT_31    = bit!(62);
+        const   SIGRTMAX    = bit!(63);
 
     }
 }
