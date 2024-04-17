@@ -15,7 +15,7 @@ log = "0.4"
 fs = { path = "../fs" }
 devfs = { path = "../devfs" }
 futures = { version = "0.3", default-features = false }
-signal = { path = "../signal" }
+signal = { git = "https://github.com/Byte-OS/signal.git" }
 bitflags = "2.0.2"
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 hal = { path = "../hal" }
