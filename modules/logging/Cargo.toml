@@ -8,5 +8,5 @@ edition = "2021"
 [dependencies]
 log = "0.4"
 arch = { git = "https://github.com/Byte-OS/arch.git" }
-devices = { path = "../devices" }
+devices = { git = "https://github.com/Byte-OS/devices.git" }
 sync = { git = "https://github.com/Byte-OS/sync.git" }

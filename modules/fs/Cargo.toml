@@ -9,7 +9,7 @@ edition = "2021"
 log = "0.4"
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 sync = { git = "https://github.com/Byte-OS/sync.git" }
-devices = { path = "../devices" }
+devices = { git = "https://github.com/Byte-OS/devices.git" }
 logging = { path = "../logging" }
 devfs = { path = "../devfs" }
 ramfs = { path = "../ramfs" }
