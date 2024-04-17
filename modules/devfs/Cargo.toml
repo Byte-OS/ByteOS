@@ -7,7 +7,7 @@ edition = "2021"
 
 [dependencies]
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
-logging = { path = "../logging" }
+logging = { git = "https://github.com/Byte-OS/logging.git" }
 devices = { git = "https://github.com/Byte-OS/devices.git" }
 log = "0.4"
 sync = { git = "https://github.com/Byte-OS/sync.git" }

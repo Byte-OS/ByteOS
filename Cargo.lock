@@ -642,6 +642,7 @@ dependencies = [
 [[package]]
 name = "logging"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/logging.git#66ad80a157a04666892f44a6358ecfcf283db68d"
 dependencies = [
  "arch",
  "devices",
