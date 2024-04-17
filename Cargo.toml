@@ -9,17 +9,7 @@ members = [
     "crates/*",
 
     # modules
-    "modules/logging",
-    "modules/devices",
-    "modules/frame_allocator",
-    "modules/sync",
-    "modules/hal",
-    "modules/fs",
-    "modules/devfs",
-    "modules/ramfs",
-    "modules/procfs",
-    "modules/executor",
-    "modules/signal",
+    "modules/*",
 
     #drivers
     "drivers/*",
@@ -30,6 +20,3 @@ members = [
 
 [profile.release]
 debug = true
-
-[workspace.dependencies]
-arch = { path = "arch" }
