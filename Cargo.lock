@@ -423,10 +423,8 @@ name = "hal"
 version = "0.1.0"
 dependencies = [
  "arch",
- "devices",
  "frame_allocator",
  "log",
- "sync",
 ]
 
 [[package]]
