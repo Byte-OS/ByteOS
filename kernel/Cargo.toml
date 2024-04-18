@@ -23,7 +23,7 @@ hal = { git = "https://github.com/Byte-OS/hal.git" }
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 fs = { git = "https://github.com/Byte-OS/fs.git" }
 fdt = "0.1.5"
-executor = { path = "../modules/executor" }
+executor = { path = "../crates/executor" }
 xmas-elf = "0.9.0"
 sync = { git = "https://github.com/Byte-OS/sync.git" }
 bitflags = "2.0.2"
@@ -44,8 +44,6 @@ num-derive = "0.4"
 knvme = { git = "https://github.com/Byte-OS/driver-knvme.git" }
 kvirtio = { git = "https://github.com/Byte-OS/driver-kvirtio.git" }
 kgoldfish-rtc = { git = "https://github.com/Byte-OS/driver-kgoldfish-rtc.git" }
-kcvitek-sd = { git = "https://github.com/Byte-OS/driver-kcvitek-sd.git" }
-k210-sdcard = { git = "https://github.com/Byte-OS/driver-k210-sdcard.git" }
-kramdisk = { version = "0.1.0", path = "../drivers/kramdisk" }
+kramdisk = { version = "0.1.0", path = "../crates/kramdisk" }
 general-plic = { git = "https://github.com/Byte-OS/driver-general-plic.git" }
 ns16550a = { git = "https://github.com/Byte-OS/driver-ns16550a.git" }
