@@ -18,10 +18,6 @@ fn write_module_config(driver_list: Vec<String>) {
         PathBuf::from(env::var("CARGO_MANIFEST_DIR").expect("can't find manifest dir"));
     let mut module_file_content = String::new();
     driver_list.into_iter().for_each(|module| {
-        // check driver if it exists.
-        if !Path::new(&format!("../drivers/{module}/Cargo.toml")).exists() {
-            panic!("can't find module {}", module);
-        }
         module_file_content.push_str(&format!("extern crate {};\n", module.replace("-", "_")))
     });
     fs::write(manifest_path.join("src/drivers.rs"), module_file_content)
