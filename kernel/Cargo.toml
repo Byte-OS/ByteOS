@@ -29,7 +29,7 @@ sync = { git = "https://github.com/Byte-OS/sync.git" }
 bitflags = "2.0.2"
 signal = { git = "https://github.com/Byte-OS/signal.git" }
 bit_field = "0.10.1"
-lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "b06d136", features = ["log"]}
+lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "bb99460", features = ["log"]}
 # lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
 async-recursion = "1.0.4"
@@ -41,7 +41,6 @@ cfg-if = "1.0.0"
 num-traits = { version = "0.2", default-features = false}
 num-derive = "0.4"
 
-knvme = { git = "https://github.com/Byte-OS/driver-knvme.git" }
 kvirtio = { git = "https://github.com/Byte-OS/driver-kvirtio.git" }
 kgoldfish-rtc = { git = "https://github.com/Byte-OS/driver-kgoldfish-rtc.git" }
 kramdisk = { version = "0.1.0", path = "../crates/kramdisk" }

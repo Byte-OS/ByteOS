@@ -1,12 +1,8 @@
-[workspace]
-resolver = "2"
-members = [
-    # crates
-    "crates/*",
-
-    # kernel
-    "kernel"
-]
+[patch]
 
 [profile.release]
 debug = true
+
+[workspace]
+members = ["crates/*", "kernel"]
+resolver = "2"
