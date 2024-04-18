@@ -11,30 +11,30 @@ timestamp = ""
 [bin.riscv64-qemu]
 target = "riscv64imac-unknown-none-elf"
 run = "make ARCH=riscv64 justrun"
-[bin.riscv64-qemu.configs]
-board = "qemu"
-driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    [bin.riscv64-qemu.configs]
+    board = "qemu"
+    driver = "kvirtio,kgoldfish-rtc,ns16550a"
 
 # build for x86_64-qemu
 [bin.x86_64-qemu]
 target = "x86_64-unknown-none"
 run = "make ARCH=x86_64 justrun"
-[bin.x86_64-qemu.configs]
-board = "qemu"
-driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    [bin.x86_64-qemu.configs]
+    board = "qemu"
+    driver = "kvirtio,kgoldfish-rtc,ns16550a"
 
 # build for aarch64-qemu
 [bin.aarch64-qemu]
 target = "aarch64-unknown-none-softfloat"
 run = "make ARCH=aarch64 justrun"
-[bin.aarch64-qemu.configs]
-board = "qemu"
-driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    [bin.aarch64-qemu.configs]
+    board = "qemu"
+    driver = "kvirtio,kgoldfish-rtc,ns16550a"
 
 # build for loongarch64-qemu
 [bin.loongarch64-qemu]
 target = "loongarch64-unknown-none"
 run = "make ARCH=loongarch64 justrun"
-[bin.loongarch64-qemu.configs]
-board = "qemu"
-driver = "kramdisk,kgoldfish-rtc,ns16550a"
+    [bin.loongarch64-qemu.configs]
+    board = "qemu"
+    driver = "kramdisk,kgoldfish-rtc,ns16550a"
