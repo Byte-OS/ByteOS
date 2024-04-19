@@ -4,5 +4,5 @@
 debug = true
 
 [workspace]
-members = ["crates/*", "kernel"]
+members = ["kernel"]
 resolver = "2"
