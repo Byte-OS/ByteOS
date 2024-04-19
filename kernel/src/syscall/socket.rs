@@ -3,7 +3,7 @@ use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
 use devices::get_net_device;
-use executor::{yield_now, AsyncTask, FileItem};
+use executor::{yield_now, AsyncTask};
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
@@ -14,6 +14,7 @@ use sync::Lazy;
 use vfscore::OpenFlags;
 
 use crate::socket::{self, NetType};
+use crate::tasks::FileItem;
 use crate::user::socket_pair::create_socket_pair;
 use crate::user::UserTaskContainer;
 

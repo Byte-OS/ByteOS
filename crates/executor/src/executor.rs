@@ -5,6 +5,7 @@ use alloc::{
     task::Wake,
 };
 use core::{
+    any::Any,
     future::Future,
     pin::Pin,
     task::{Context, Poll},
@@ -12,14 +13,12 @@ use core::{
 use crossbeam_queue::SegQueue;
 use sync::Mutex;
 
-use crate::UserTask;
+pub type DowncastTask = dyn Any + Sync + Send + 'static;
 
-pub trait AsyncTask: Send + Sync {
+pub trait AsyncTask: Any + Send + Sync {
     fn get_task_id(&self) -> TaskId;
     fn before_run(&self);
-    fn as_user_task(self: Arc<Self>) -> Option<Arc<UserTask>> {
-        None
-    }
+    fn as_any(self: Arc<Self>) -> Arc<DowncastTask>;
 }
 
 pub struct TaskFutureItem(pub PinedFuture);
@@ -62,7 +61,12 @@ impl Executor {
             task.before_run();
 
             *CURRENT_TASK.lock() = Some(task.clone());
-            let waker = self.create_waker(task.as_ref()).into();
+            // let waker = self.create_waker(task.as_ref()).into();
+            // Create Waker
+            let waker = Arc::new(Waker {
+                task_id: task.get_task_id(),
+            })
+            .into();
             let mut context = Context::from_waker(&waker);
 
             let future = FUTURE_LIST.lock().remove(&task.get_task_id());
@@ -89,16 +93,6 @@ impl Executor {
         // log::error!("end");
         // log::error!("hlt if idle end: {}", TASK_QUEUE.lock().len());
     }
-
-    fn task_id(task: &dyn AsyncTask) -> TaskId {
-        task.get_task_id()
-    }
-
-    fn create_waker(&self, task: &dyn AsyncTask) -> Arc<Waker> {
-        Arc::new(Waker {
-            task_id: Self::task_id(task),
-        })
-    }
 }
 
 pub struct Waker {
@@ -123,21 +117,16 @@ pub fn task_id_alloc() -> TaskId {
     *task_id
 }
 
+#[inline]
 pub fn current_task() -> Arc<dyn AsyncTask> {
     CURRENT_TASK.lock().as_ref().map(|x| x.clone()).unwrap()
 }
 
-pub fn current_user_task() -> Arc<UserTask> {
+#[inline]
+pub fn current_downcast_task() -> Arc<DowncastTask> {
     CURRENT_TASK
         .lock()
         .as_ref()
-        .map(|x| x.clone().as_user_task().unwrap())
+        .map(|x| x.clone().as_any())
         .unwrap()
-}
-
-pub fn get_current_task() -> Option<Arc<UserTask>> {
-    CURRENT_TASK
-        .lock()
-        .as_ref()
-        .map(|x| x.clone().as_user_task().unwrap())
 }

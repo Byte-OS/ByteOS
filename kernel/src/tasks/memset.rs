@@ -6,7 +6,7 @@ use core::{
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use frame_allocator::{frame_alloc, FrameTracker};
+use frame_allocator::FrameTracker;
 use fs::File;
 
 /// Memory set for storing the memory and its map relation.
@@ -62,7 +62,6 @@ pub enum MemType {
     Mmap,
     Shared,
     ShareFile,
-    Clone,
 }
 
 #[derive(Clone)]
@@ -104,46 +103,6 @@ impl Debug for MemArea {
 }
 
 impl MemArea {
-    pub fn new(mtype: MemType, mtrackers: Vec<MapTrack>, start: usize, len: usize) -> Self {
-        MemArea {
-            mtype,
-            mtrackers,
-            file: None,
-            start,
-            offset: 0,
-            len,
-        }
-    }
-    pub fn map(&mut self, vpn: VirtPage, tracker: Arc<FrameTracker>) {
-        let finded_tracker = self
-            .mtrackers
-            .iter_mut()
-            .find(|x| x.vpn == vpn && x.vpn.to_addr() != 0);
-        if let Some(map_track) = finded_tracker {
-            map_track.tracker = tracker;
-        } else {
-            self.mtrackers.push(MapTrack {
-                vpn,
-                tracker,
-                rwx: 0,
-            })
-        }
-    }
-    pub fn fork(&self) -> Self {
-        match self.mtype {
-            MemType::ShareFile | MemType::Shared => self.clone(),
-            _ => {
-                let mut res = self.clone();
-                for map_track in res.mtrackers.iter_mut() {
-                    let tracker = frame_alloc().expect("can't alloc page in fork");
-                    tracker.0.copy_value_from_another(map_track.tracker.0);
-                    map_track.tracker = Arc::new(tracker);
-                }
-                res
-            }
-        }
-    }
-
     /// Check the memory is overlapping.
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
         let self_end = self.start + self.len;

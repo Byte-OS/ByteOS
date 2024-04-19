@@ -6,13 +6,16 @@ use core::{
 };
 
 use arch::time::Time;
-use executor::{select, TMS};
+use executor::select;
 use fs::TimeSpec;
 pub use hal::current_nsec;
 use hal::{ITimerVal, TimeVal};
 use log::{debug, warn};
 
-use crate::{tasks::WaitHandleAbleSignal, user::UserTaskContainer};
+use crate::{
+    tasks::{WaitHandleAbleSignal, TMS},
+    user::UserTaskContainer,
+};
 
 use super::{
     consts::{LinuxError, UserRef},

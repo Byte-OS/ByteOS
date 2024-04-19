@@ -18,16 +18,6 @@ impl SignalList {
         self.signal != 0
     }
 
-    pub fn handle_signal(&mut self) -> Option<SignalFlags> {
-        for i in 0..64 {
-            if self.signal & (1 << i) != 0 {
-                self.signal &= !(1 << i);
-                return Some(SignalFlags::from_bits_truncate(1 << i));
-            }
-        }
-        None
-    }
-
     pub fn try_get_signal(&self) -> Option<SignalFlags> {
         for i in 0..64 {
             if self.signal & (1 << i) != 0 {

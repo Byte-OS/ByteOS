@@ -1,12 +1,3 @@
-version = "0.1.0"
-arch = ""
-
-[crates]
-vfscore = "https://github.com/Byte-OS/vfscore.git"
-timestamp = ""
-
-[modules]
-
 # build for riscv64-qemu
 [bin.riscv64-qemu]
 target = "riscv64imac-unknown-none-elf"

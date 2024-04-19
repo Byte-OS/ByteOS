@@ -7,15 +7,7 @@ edition = "2021"
 
 [dependencies]
 crossbeam-queue = { version = "0.3.8", default-features = false, features = ["alloc"] }
-logging = { git = "https://github.com/Byte-OS/logging.git" }
 arch = { git = "https://github.com/Byte-OS/arch.git" }
 sync = { git = "https://github.com/Byte-OS/sync.git" }
-frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 log = "0.4"
-fs = { git = "https://github.com/Byte-OS/fs.git" }
-devfs = { git = "https://github.com/Byte-OS/devfs.git" }
-signal = { git = "https://github.com/Byte-OS/signal.git" }
-bitflags = "2.0.2"
-vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
-hal = { git = "https://github.com/Byte-OS/hal.git" }
-crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
+downcast-rs = { version = "1.2.0", default-features = false }

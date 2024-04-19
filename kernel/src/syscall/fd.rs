@@ -7,7 +7,7 @@ use vfscore::FileType;
 use alloc::sync::Arc;
 use arch::addr::VirtAddr;
 use bit_field::BitArray;
-use executor::{yield_now, AsyncTask, FileItem, UserTask};
+use executor::{yield_now, AsyncTask};
 use fs::pipe::create_pipe;
 use fs::{OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW};
 use log::debug;
@@ -16,6 +16,7 @@ use crate::epoll::{EpollEvent, EpollFile};
 use crate::syscall::consts::{from_vfs, FcntlCmd, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
 use crate::syscall::time::current_nsec;
+use crate::tasks::{FileItem, UserTask};
 use crate::user::UserTaskContainer;
 
 use super::consts::{LinuxError, UserRef};

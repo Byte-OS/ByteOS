@@ -215,6 +215,7 @@ impl<'a> FileItem {
     }
 }
 
+#[allow(dead_code)]
 impl FileItem {
     pub fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
         self.inner.mkdir(name)

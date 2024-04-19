@@ -1,7 +1,7 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use arch::addr::VirtPage;
 use arch::{TrapFrame, TrapFrameArgs, PAGE_SIZE};
-use executor::{AsyncTask, MemType, UserTask};
+use executor::AsyncTask;
 use log::warn;
 use xmas_elf::{
     program::Type,
@@ -11,6 +11,9 @@ use xmas_elf::{
 };
 
 use crate::syscall::consts::{elf, LinuxError};
+use crate::tasks::memset::MemType;
+
+use super::task::UserTask;
 
 pub trait ElfExtra {
     fn get_ph_addr(&self) -> Result<u64, LinuxError>;

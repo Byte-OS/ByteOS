@@ -1,10 +1,7 @@
 #![feature(lazy_cell)]
 
 use std::io::Result;
-use std::{
-    env, fs,
-    path::{Path, PathBuf},
-};
+use std::{env, fs, path::PathBuf};
 
 #[allow(unused_macros)]
 macro_rules! display {
