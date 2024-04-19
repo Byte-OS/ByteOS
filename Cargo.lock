@@ -225,6 +225,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "executor"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/executor.git#c845ad7faa5d1849f7bfb000cf77d6b820c54a19"
 dependencies = [
  "arch",
  "crossbeam-queue",
