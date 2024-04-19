@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::{console_getchar, console_putchar};
-use executor::{current_task, yield_now, FileItem, FUTURE_LIST, TASK_QUEUE};
+use executor::{current_task, yield_now, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{
     dentry::{dentry_open, dentry_root, DentryNode},
@@ -16,6 +16,8 @@ use logging::get_char;
 use vfscore::INodeInterface;
 
 use crate::tasks::add_user_task;
+
+use super::UserTask;
 
 const LF: u8 = b'\n';
 const CR: u8 = b'\r';
@@ -57,16 +59,16 @@ async fn kill_all_tasks() {
     TASK_QUEUE
         .lock()
         .iter()
-        .for_each(|x| match x.clone().as_user_task() {
-            Some(user_task) => {
+        .for_each(|x| match x.clone().as_any().downcast::<UserTask>() {
+            Ok(user_task) => {
                 user_task.exit(0);
                 FUTURE_LIST.lock().remove(&user_task.task_id);
             }
-            None => {}
+            Err(_) => {}
         });
     TASK_QUEUE
         .lock()
-        .retain(|x| x.clone().as_user_task().is_none());
+        .retain(|x| x.clone().as_any().downcast::<UserTask>().is_err());
 }
 
 async fn run_libc_test() -> bool {

@@ -1,12 +1,12 @@
 use core::mem::size_of;
 
 use arch::{TrapFrameArgs, SIG_RETURN_ADDR};
-use executor::{current_user_task, AsyncTask};
+use executor::AsyncTask;
 use log::debug;
 use signal::SignalFlags;
 
 use crate::syscall::consts::{SignalUserContext, UserRef};
-use crate::tasks::UserTaskControlFlow;
+use crate::tasks::{current_user_task, UserTaskControlFlow};
 
 use super::UserTaskContainer;
 

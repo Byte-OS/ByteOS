@@ -1,11 +1,11 @@
 use arch::{kernel_page_table, TrapFrame, TrapFrameArgs};
-use executor::{current_user_task, yield_now, AsyncTask};
+use executor::{yield_now, AsyncTask};
 use futures_lite::future;
 use hal::TimeVal;
 use log::debug;
 use signal::SignalFlags;
 
-use crate::tasks::UserTaskControlFlow;
+use crate::tasks::{current_user_task, UserTaskControlFlow};
 
 use super::UserTaskContainer;
 

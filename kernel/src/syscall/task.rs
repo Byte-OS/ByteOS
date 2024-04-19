@@ -1,10 +1,14 @@
 use crate::{
-    syscall::consts::{from_vfs, CloneFlags, Rusage},
-    syscall::time::WaitUntilsec,
-    tasks::elf::{init_task_stack, ElfExtra},
-    tasks::{futex_requeue, futex_wake, WaitFutex, WaitPid},
-    user::entry::user_entry,
-    user::UserTaskContainer,
+    syscall::{
+        consts::{from_vfs, CloneFlags, Rusage},
+        time::WaitUntilsec,
+    },
+    tasks::{
+        elf::{init_task_stack, ElfExtra},
+        futex_requeue, futex_wake, FileItem, MapTrack, MemArea, MemType, UserTask, WaitFutex,
+        WaitPid,
+    },
+    user::{entry::user_entry, UserTaskContainer},
 };
 use alloc::{
     string::{String, ToString},
@@ -20,9 +24,7 @@ use arch::{
 };
 use async_recursion::async_recursion;
 use core::cmp;
-use executor::{
-    select, yield_now, AsyncTask, FileItem, MapTrack, MemArea, MemType, UserTask, TASK_QUEUE,
-};
+use executor::{select, yield_now, AsyncTask, TASK_QUEUE};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::dentry::{dentry_open, dentry_root};
 use fs::TimeSpec;
@@ -186,7 +188,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
 
 #[async_recursion(?Send)]
 pub async fn exec_with_process<'a>(
-    task: Arc<dyn AsyncTask>,
+    task: Arc<UserTask>,
     path: &'a str,
     args: Vec<&'a str>,
     envp: Vec<&'a str>,
@@ -194,7 +196,7 @@ pub async fn exec_with_process<'a>(
     // copy args, avoid free before pushing.
     let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     let path = String::from(path);
-    let user_task = task.clone().as_user_task().unwrap();
+    let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
     user_task.page_table.restore();
     user_task.page_table.change();
@@ -259,7 +261,7 @@ pub async fn exec_with_process<'a>(
             "invalid elf!"
         );
         // WARRNING: this convert async task to user task.
-        let user_task = task.clone().as_user_task().unwrap();
+        let user_task = task.clone();
 
         // check if it is libc, dlopen, it needs recurit.
         let header = elf
@@ -781,14 +783,16 @@ impl UserTaskContainer {
         );
 
         let user_task = match pid == self.tid {
-            true => Some(self.task.clone().as_user_task().unwrap()),
+            true => Some(self.task.clone()),
             false => TASK_QUEUE
                 .lock()
                 .iter()
                 .find(|x| x.get_task_id() == pid)
                 .map(|x| x.clone())
                 .ok_or(LinuxError::ESRCH)?
-                .as_user_task(),
+                .as_any()
+                .downcast::<UserTask>()
+                .ok(),
         };
 
         let user_task = match user_task {
@@ -808,13 +812,11 @@ impl UserTaskContainer {
         let parent = self.task.parent.read().clone();
 
         if let Some(parent) = parent.upgrade() {
-            if let Some(parent) = parent.as_user_task() {
-                parent
-                    .pcb
-                    .lock()
-                    .children
-                    .retain(|x| x.get_task_id() != self.task.get_task_id());
-            }
+            parent
+                .pcb
+                .lock()
+                .children
+                .retain(|x| x.get_task_id() != self.task.get_task_id());
             *self.task.parent.write() = Weak::<UserTask>::new();
         }
         Ok(0)

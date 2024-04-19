@@ -1,9 +1,9 @@
 use core::ops::Add;
 
+use crate::tasks::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
 use alloc::{sync::Arc, vec::Vec};
 use arch::addr::{VirtAddr, VirtPage};
 use arch::{pagetable::MappingFlags, PAGE_SIZE};
-use executor::shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use log::debug;
 

@@ -3,7 +3,6 @@ use core::ops::Add;
 use arch::addr::{VirtAddr, VirtPage};
 use arch::PAGE_SIZE;
 use arch::USER_VADDR_END;
-use executor::MemArea;
 use frame_allocator::ceil_div;
 use log::debug;
 
@@ -13,6 +12,7 @@ use crate::syscall::consts::MapFlags;
 use crate::syscall::consts::MmapProt;
 use crate::syscall::consts::ProtFlags;
 use crate::syscall::consts::UserRef;
+use crate::tasks::{MemArea, MemType};
 use crate::user::UserTaskContainer;
 
 use super::consts::LinuxError;
@@ -99,7 +99,7 @@ impl UserTaskContainer {
                     .task
                     .map_frames(
                         VirtPage::from_addr(addr.into()),
-                        executor::MemType::ShareFile,
+                        MemType::ShareFile,
                         (len + PAGE_SIZE - 1) / PAGE_SIZE,
                         Some(file.get_bare_file()),
                         off,
@@ -112,7 +112,7 @@ impl UserTaskContainer {
                         .task
                         .frame_alloc(
                             VirtPage::from_addr(addr.into()),
-                            executor::MemType::Shared,
+                            MemType::Shared,
                             (len + PAGE_SIZE - 1) / PAGE_SIZE,
                         )
                         .ok_or(LinuxError::EFAULT)?;
@@ -131,7 +131,7 @@ impl UserTaskContainer {
             self.task
                 .frame_alloc(
                     VirtPage::from_addr(addr.into()),
-                    executor::MemType::Mmap,
+                    MemType::Mmap,
                     ceil_div(len, PAGE_SIZE),
                 )
                 .ok_or(LinuxError::EFAULT)?;
@@ -144,7 +144,7 @@ impl UserTaskContainer {
             // .ok_or(LinuxError::EFAULT)?;
 
             self.task.pcb.lock().memset.push(MemArea {
-                mtype: executor::MemType::Mmap,
+                mtype: MemType::Mmap,
                 mtrackers: vec![],
                 file: None,
                 offset: 0,

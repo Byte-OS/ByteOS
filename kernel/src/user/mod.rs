@@ -4,11 +4,12 @@ use ::signal::SignalFlags;
 use alloc::{boxed::Box, sync::Arc, vec::Vec};
 use arch::addr::VirtPage;
 use arch::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
-use executor::{AsyncTask, MapTrack, TaskId, UserTask};
+use executor::{AsyncTask, TaskId};
 use frame_allocator::frame_alloc;
 use futures_lite::Future;
 use log::{debug, warn};
 
+use crate::tasks::{MapTrack, MemType, UserTask};
 use crate::{
     syscall::consts::SYS_SIGRETURN,
     tasks::{hexdump, UserTaskControlFlow},
@@ -45,7 +46,7 @@ pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut TrapFrame, addr: usize) {
         let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
         let ppn = match finded {
             Some(map_track) => {
-                if area.mtype == executor::MemType::Shared {
+                if area.mtype == MemType::Shared {
                     task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
                     return;
                 }

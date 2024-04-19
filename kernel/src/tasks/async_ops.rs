@@ -2,10 +2,14 @@ use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
 use arch::time::Time;
-use executor::{current_user_task, FutexOps, FutexTable, UserTask};
 use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;
+
+use super::{
+    current_user_task,
+    task::{FutexTable, UserTask},
+};
 
 pub struct NextTick(usize);
 
@@ -102,15 +106,6 @@ impl Future for WaitHandleAbleSignal {
             true => Poll::Ready(()),
             false => Poll::Pending,
         }
-    }
-}
-
-struct FutexOpsImpl;
-
-#[crate_interface::impl_interface]
-impl FutexOps for FutexOpsImpl {
-    fn futex_wake(task: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count: usize) -> usize {
-        futex_wake(task, uaddr, wake_count)
     }
 }
 

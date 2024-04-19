@@ -32,13 +32,15 @@ use arch::addr::{PhysPage, VirtPage};
 use arch::api::ArchInterface;
 use arch::{disable_irq, enable_irq, TrapFrame, TrapFrameArgs, TrapType, VIRT_ADDR_START};
 use devices::{self, get_int_device};
-use executor::{current_user_task, get_current_task, FileItem};
+use executor::current_task;
 use fdt::node::FdtNode;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use hal;
+use tasks::UserTask;
 use user::user_cow_int;
 use vfscore::OpenFlags;
 
+use crate::tasks::{current_user_task, FileItem};
 use crate::user::task_ilegal;
 
 struct ArchInterfaceImpl;
@@ -67,7 +69,7 @@ impl ArchInterface for ArchInterfaceImpl {
                     panic!("kernel error: {:#x}", addr);
                 }
                 // judge whether it is trigger by a user_task handler.
-                if let Some(task) = get_current_task() {
+                if let Some(task) = current_task().as_any().downcast::<UserTask>().ok() {
                     let cx_ref = task.force_cx_ref();
                     if task.pcb.is_locked() {
                         // task.pcb.force_unlock();
