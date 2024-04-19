@@ -43,6 +43,6 @@ num-derive = "0.4"
 
 kvirtio = { git = "https://github.com/Byte-OS/driver-kvirtio.git" }
 kgoldfish-rtc = { git = "https://github.com/Byte-OS/driver-kgoldfish-rtc.git" }
-kramdisk = { version = "0.1.0", path = "../crates/kramdisk" }
+kramdisk = { git = "https://github.com/Byte-OS/kramdisk.git" }
 general-plic = { git = "https://github.com/Byte-OS/driver-general-plic.git" }
 ns16550a = { git = "https://github.com/Byte-OS/driver-ns16550a.git" }

@@ -381,6 +381,7 @@ dependencies = [
 [[package]]
 name = "kramdisk"
 version = "0.1.0"
+source = "git+https://github.com/Byte-OS/kramdisk.git#cccb30ddf105f783a3fc330eede9263e3e8e87c6"
 dependencies = [
  "devices",
  "log",
