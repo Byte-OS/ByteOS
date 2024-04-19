@@ -1,6 +1,51 @@
 # ByteOS
 
-**Due to time constraints, the project will be suspended until 2024**.
+## How to use this project.
+
+Install build package.
+```shell
+cargo install --git https://github.com/Byte-OS/cargo-byteos
+```
+
+Run with make file.
+
+```shell
+# riscv64
+make ARCH=riscv64 run
+# aarch64
+make ARCH=aarch64 run
+# x86_64
+make ARCH=x86_64 run
+# loongarch64
+make ARCH=loongarch64 run
+```
+
+Run with build tool.
+
+```shell
+# riscv64
+byteos build byteos.toml riscv64-qemu
+# aarch64
+byteos build byteos.toml aarch64-qemu
+# x86_64
+byteos build byteos.toml x86_64-qemu
+# loongarch64
+byteos build byteos.toml loongarch64-qemu
+```
+
+You can find available modules using the following command.
+
+```shell
+byteos patch list
+
+# Download and patch in Cargo.toml
+byteos patch add arch
+
+# remove patch and delete folder
+byteos patch remove arch
+```
+
+Additionally, you maybe need to careabout the workspace in the Cargo.toml(Improve it in the future).
 
 ## Kernel struct Design
 
