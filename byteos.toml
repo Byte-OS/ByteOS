@@ -37,11 +37,13 @@ run = "make ARCH=aarch64 justrun"
 # build for loongarch64-qemu
 [bin.loongarch64-qemu]
 target = "loongarch64-unknown-none"
+build_std = true
 run = "make ARCH=loongarch64 justrun"
     [bin.loongarch64-qemu.configs]
     board = "qemu"
-    driver = "kramdisk,kgoldfish-rtc,ns16550a"
+    driver = "kramdisk"
 
     [bin.loongarch64-qemu.env]
     HEAP_SIZE = "0x0200_0000"
+    CARGO_CFG_DRIVER = "kramdisk"
     MOUNT_IMG_PATH = "/home/yufeng/Code/ByteOS/mount.img"

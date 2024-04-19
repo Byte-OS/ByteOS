@@ -8,6 +8,7 @@ RELEASE := release
 QEMU_EXEC ?= 
 BUILD_ARGS := 
 GDB  ?= gdb-multiarch
+MOUNT_IMG_PATH ?= $(shell pwd)/mount.img
 
 BUS  := device
 ifeq ($(ARCH), x86_64)
@@ -49,7 +50,7 @@ K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
 QEMU_EXEC += -m 1G\
 			-nographic \
-			-smp 2 \
+			-smp 1 \
 			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
 
 ifeq ($(RELEASE), release)
@@ -95,7 +96,9 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
+	echo "============================"
+	echo $(MOUNT_IMG_PATH)
+	RUST_BACKTRACE=1 LOG=$(LOG) MOUNT_IMG_PATH=$(MOUNT_IMG_PATH) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
