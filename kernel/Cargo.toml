@@ -13,7 +13,7 @@ serde = "1.0.136"
 serde_derive = "1.0.136"
 
 [dependencies]
-allocator = { path = "../crates/allocator" }
+allocator = { git = "https://github.com/Byte-OS/allocator.git" }
 crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
 frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 logging = { git = "https://github.com/Byte-OS/logging.git" }

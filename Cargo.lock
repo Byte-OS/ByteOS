@@ -40,6 +40,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "allocator"
+version = "0.1.0"
+source = "git+https://github.com/Byte-OS/allocator.git#4d9bd26f82b99c75b73c560ef28c9df3279bd58a"
+dependencies = [
+ "buddy_system_allocator",
+ "log",
+]
+
+[[package]]
 name = "allocator-api2"
 version = "0.2.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -333,7 +342,7 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
- "allocator",
+ "allocator 0.1.0 (git+https://github.com/Byte-OS/allocator.git)",
  "arch",
  "async-recursion",
  "bit_field",
