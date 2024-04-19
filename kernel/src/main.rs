@@ -162,6 +162,8 @@ impl ArchInterface for ArchInterfaceImpl {
                 fn end();
             }
 
+            println!("HEAP_SIZE: {:#x}", allocator::HEAP_SIZE);
+
             println!("run kernel @ hart {}", hart_id);
 
             info!("program size: {}KB", (end as usize - start as usize) / 1024);

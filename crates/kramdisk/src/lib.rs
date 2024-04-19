@@ -64,17 +64,7 @@ impl BlkDriver for RamDiskBlock {
     }
 }
 
-global_asm!(
-    "
-    .section .data
-    .global ramdisk_start
-    .global ramdisk_end
-    .align 16
-    ramdisk_start:
-    .incbin \"./mount.img\"
-    ramdisk_end:
-"
-);
+global_asm!(include_str!(concat!(env!("OUT_DIR"), "/inc.S")));
 
 driver_define!({
     extern "C" {
