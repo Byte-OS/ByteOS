@@ -1,7 +1,7 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::console_putchar;
+use arch::debug::DebugConsole;
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
 use sync::Mutex;
@@ -172,7 +172,7 @@ impl INodeInterface for Socket {
         buffer[..rlen].copy_from_slice(&data[..rlen]);
         self.options.lock().rsize += rlen;
         if buffer.len() == 1 {
-            console_putchar(buffer[0]);
+            DebugConsole::putchar(buffer[0]);
         }
         if rlen < data.len() {
             *self.buf.lock() = data[rlen..].to_vec();

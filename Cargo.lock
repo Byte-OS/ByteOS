@@ -49,14 +49,14 @@ checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 [[package]]
 name = "arch"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arch.git#bea98c2c79bb8a4a193fe876f37fe7032fdcbe65"
+source = "git+https://github.com/Byte-OS/arch.git#d47365e56bad850efd2e51469ea60c630d6f2f2c"
 dependencies = [
  "aarch64-cpu",
+ "arch-macro",
  "arm_gic",
  "arm_pl011",
  "bitflags 2.4.2",
  "cfg-if",
- "crate_interface",
  "fdt",
  "irq_safety",
  "log",
@@ -71,6 +71,16 @@ dependencies = [
  "x2apic",
  "x86",
  "x86_64",
+]
+
+[[package]]
+name = "arch-macro"
+version = "0.1.0"
+source = "git+https://github.com/Byte-OS/arch.git#d47365e56bad850efd2e51469ea60c630d6f2f2c"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -382,7 +392,7 @@ dependencies = [
 [[package]]
 name = "kramdisk"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/kramdisk.git#cccb30ddf105f783a3fc330eede9263e3e8e87c6"
+source = "git+https://github.com/Byte-OS/kramdisk.git#9eb2394b52c5af15dcbadbf9bd1af2979df3c20c"
 dependencies = [
  "devices",
  "log",
@@ -447,7 +457,7 @@ dependencies = [
 [[package]]
 name = "logging"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/logging.git#66ad80a157a04666892f44a6358ecfcf283db68d"
+source = "git+https://github.com/Byte-OS/logging.git#f60613d5935e13aa40f810e69041c9244e3fd2fa"
 dependencies = [
  "arch",
  "devices",
@@ -548,9 +558,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.18.0"
+version = "1.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd8b5dd2ae5ed71462c540258bedcb51965123ad7e7ccf4b9a8cafaa4a63576d"
+checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
 
 [[package]]
 name = "paste"

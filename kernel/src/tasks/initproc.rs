@@ -4,7 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use arch::{console_getchar, console_putchar};
+use arch::debug::DebugConsole;
 use executor::{current_task, yield_now, FUTURE_LIST, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{
@@ -46,13 +46,13 @@ fn list_files(file: File, space: usize) {
 }
 
 fn clear() {
-    console_putchar(0x1b);
-    console_putchar(0x5b);
-    console_putchar(0x48);
-    console_putchar(0x1b);
-    console_putchar(0x5b);
-    console_putchar(0x32);
-    console_putchar(0x4a);
+    DebugConsole::putchar(0x1b);
+    DebugConsole::putchar(0x5b);
+    DebugConsole::putchar(0x48);
+    DebugConsole::putchar(0x1b);
+    DebugConsole::putchar(0x5b);
+    DebugConsole::putchar(0x32);
+    DebugConsole::putchar(0x4a);
 }
 
 async fn kill_all_tasks() {
@@ -203,15 +203,15 @@ pub async fn simple_shell() {
                 BS | DL => {
                     if buffer.len() > 0 {
                         buffer.pop();
-                        console_putchar(BS);
-                        console_putchar(SPACE);
-                        console_putchar(BS);
+                        DebugConsole::putchar(BS);
+                        DebugConsole::putchar(SPACE);
+                        DebugConsole::putchar(BS);
                     }
                 }
                 0..30 => {}
                 _ => {
                     buffer.push(c as u8);
-                    console_putchar(c as u8);
+                    DebugConsole::putchar(c as u8);
                 }
             }
         }
