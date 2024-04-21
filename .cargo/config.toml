@@ -1,28 +1,30 @@
 # 编译的目标平台
 [build]
-# target = 'riscv64imac-unknown-none-elf'
+target = 'riscv64imac-unknown-none-elf'
 # target = 'x86_64-unknown-none'
 # target = 'aarch64-unknown-none-softfloat'
-target = 'loongarch64-unknown-none'
+# target = 'loongarch64-unknown-none'
 
 # This flags also can be set from every target.
 rustflags = [
     '-Cforce-frame-pointers=yes',
     '-Clink-arg=-no-pie',
     '--cfg=board="qemu"',
-    '--cfg=driver="kvirtio,kgoldfish-rtc,ns16550a"',
+    '-Zunstable-options',
+    # '--cfg=driver="kvirtio,kgoldfish-rtc,ns16550a"',
+    # '--extern=force:kernel'
     # '-Zunstable-options',
     # '--check-cfg=values(board, "qemu","k210","cv1811h", "knvme", "")',
     # '--cfg=kernel_base="0xffffffc080200000"',  # riscv64imac-unknown-none-elf
     # '--cfg=kernel_base="0xffffff8000200000"',  # x86_64-unknown-none
 ]
 
+[env]
+ROOT_MANIFEST_DIR = "../"
+
 [target.riscv64imac-unknown-none-elf]
-
 [target.x86_64-unknown-none]
-
 [target.aarch64-unknown-none-softfloat]
-
 [target.loongarch64-unknown-none]
 
 [unstable]

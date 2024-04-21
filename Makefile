@@ -96,9 +96,8 @@ fs-img:
 	sudo umount $(FS_IMG)
 
 build:
-	echo "============================"
-	echo $(MOUNT_IMG_PATH)
-	RUST_BACKTRACE=1 LOG=$(LOG) MOUNT_IMG_PATH=$(MOUNT_IMG_PATH) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
+#	RUST_BACKTRACE=1 LOG=$(LOG) MOUNT_IMG_PATH=$(MOUNT_IMG_PATH) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
+	byteos build byteos.toml $(ARCH)-$(BOARD)
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
