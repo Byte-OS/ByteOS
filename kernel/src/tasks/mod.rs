@@ -1,3 +1,4 @@
+use alloc::string::String;
 use alloc::sync::Weak;
 use alloc::{sync::Arc, vec::Vec};
 use devices::get_net_device;
@@ -100,9 +101,14 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
     let task = UserTask::new(user_entry(), Weak::new(), initproc::USER_WORK_DIR);
 
     task.before_run();
-    exec_with_process(task.clone(), filename, args, envp)
-        .await
-        .expect("can't add task to excutor");
+    exec_with_process(
+        task.clone(),
+        String::from(filename),
+        args.into_iter().map(String::from).collect(),
+        envp.into_iter().map(String::from).collect(),
+    )
+    .await
+    .expect("can't add task to excutor");
     thread::spawn(task.clone());
     curr_task.before_run();
 

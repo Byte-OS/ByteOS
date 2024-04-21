@@ -186,15 +186,14 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
     Ok(())
 }
 
-#[async_recursion(?Send)]
-pub async fn exec_with_process<'a>(
+#[async_recursion(Sync)]
+pub async fn exec_with_process(
     task: Arc<UserTask>,
-    path: &'a str,
-    args: Vec<&'a str>,
-    envp: Vec<&'a str>,
+    path: String,
+    args: Vec<String>,
+    envp: Vec<String>,
 ) -> Result<Arc<UserTask>, LinuxError> {
     // copy args, avoid free before pushing.
-    let args: Vec<String> = args.into_iter().map(|x| String::from(x)).collect();
     let path = String::from(path);
     let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
@@ -247,9 +246,9 @@ pub async fn exec_with_process<'a>(
         let elf = if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
             elf
         } else {
-            let mut new_args = vec!["busybox", "sh"];
-            args.iter().for_each(|x| new_args.push(x));
-            return exec_with_process(task, "busybox", new_args, envp).await;
+            let mut new_args = vec!["busybox".to_string(), "sh".to_string()];
+            args.iter().for_each(|x| new_args.push(x.clone()));
+            return exec_with_process(task, String::from("busybox"), new_args, envp).await;
         };
         let elf_header = elf.header;
 
@@ -270,10 +269,9 @@ pub async fn exec_with_process<'a>(
         if let Some(header) = header {
             if let Ok(SegmentData::Undefined(_data)) = header.get_data(&elf) {
                 drop(frame_ppn);
-                let lib_path = "libc.so";
-                let mut new_args = vec![lib_path, &path];
-                args[1..].iter().for_each(|x| new_args.push(x));
-                return exec_with_process(task, lib_path, new_args, envp).await;
+                let mut new_args = vec![String::from("libc.so")];
+                new_args.extend(args);
+                return exec_with_process(task, new_args[0].clone(), new_args, envp).await;
             }
         }
 
@@ -346,6 +344,7 @@ pub async fn exec_with_process<'a>(
                 assert_eq!(&buffer[offset..offset + file_size], page_space);
             });
 
+        // relocate data
         if base > 0 {
             relocated_arr.into_iter().for_each(|(addr, value)| unsafe {
                 (addr as *mut usize).write_volatile(value);
@@ -407,13 +406,13 @@ impl UserTaskContainer {
         let args = args
             .slice_until_valid(|x| x.is_valid())
             .into_iter()
-            .map(|x| x.get_cstr().unwrap())
+            .map(|x| x.get_cstr().unwrap().to_string())
             .collect();
         debug!("test1: envp: {:?}", envp);
-        let envp: Vec<&str> = envp
+        let envp: Vec<String> = envp
             .slice_until_valid(|x| x.is_valid())
             .into_iter()
-            .map(|x| x.get_cstr().unwrap())
+            .map(|x| x.get_cstr().unwrap().to_string())
             .collect();
         debug!(
             "sys_execve @ filename: {} args: {:?}: envp: {:?}",
@@ -430,7 +429,7 @@ impl UserTaskContainer {
             return Ok(0);
         }
         let _exec_file = FileItem::fs_open(filename, OpenFlags::O_RDONLY).map_err(from_vfs)?;
-        exec_with_process(self.task.clone(), filename, args, envp).await?;
+        exec_with_process(self.task.clone(), filename.to_string(), args, envp).await?;
         self.task.before_run();
         Ok(0)
     }

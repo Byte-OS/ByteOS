@@ -375,29 +375,27 @@ impl UserTaskContainer {
         socket: usize,
         level: usize,
         optname: usize,
-        optval: *mut u32,
-        optlen: *mut u32,
+        optval: UserRef<u32>,
+        optlen: UserRef<u32>,
     ) -> SysResult {
         debug!("[task {}] sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x?}, optlen: {:#x?}", 
         self.tid, socket, level, optname, optval, optlen);
-        unsafe {
-            let optval = optval.as_mut().unwrap();
-            let _optlen = optlen.as_mut().unwrap();
+        let optval = optval.get_mut();
+        let _optlen = optlen.get_mut();
 
-            match optname {
-                // send buffer
-                0x7 => *optval = 32000,
-                // recv buffer
-                0x8 => *optval = 32000,
-                0x2 => *optval = 2000,
-                // getsockopt
-                0x4 => return Err(LinuxError::EPERM),
-                _ => {
-                    // *optval = 2000;
-                }
+        match optname {
+            // send buffer
+            0x7 => *optval = 32000,
+            // recv buffer
+            0x8 => *optval = 32000,
+            0x2 => *optval = 2000,
+            // getsockopt
+            0x4 => return Err(LinuxError::EPERM),
+            _ => {
+                // *optval = 2000;
             }
-            // debug!("ptr value: {:?}", optval);
         }
+        // debug!("ptr value: {:?}", optval);
         Ok(0)
     }
 

@@ -295,8 +295,8 @@ impl UserTaskContainer {
                     args[0] as _,
                     args[1] as _,
                     args[2] as _,
-                    args[3] as _,
-                    args[4] as _,
+                    args[3].into(),
+                    args[4].into(),
                 )
                 .await
             }

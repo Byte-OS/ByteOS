@@ -11,11 +11,12 @@ macro_rules! display {
 
 // write module config to file.
 fn write_module_config(driver_list: Vec<String>) {
-    let manifest_path =
-        PathBuf::from(env::var("OUT_DIR").expect("can't find manifest dir"));
+    let manifest_path = PathBuf::from(env::var("OUT_DIR").expect("can't find manifest dir"));
     let mut module_file_content = String::new();
     driver_list.into_iter().for_each(|module| {
-        if module == "" { return };
+        if module == "" {
+            return;
+        };
         module_file_content.push_str(&format!("extern crate {};\n", module.replace("-", "_")))
     });
     fs::write(manifest_path.join("drivers.rs"), module_file_content)
@@ -23,7 +24,8 @@ fn write_module_config(driver_list: Vec<String>) {
 }
 
 fn main() {
-    let drivers = std::env::var("CARGO_CFG_DRIVER").unwrap_or(String::from(""))
+    let drivers = std::env::var("CARGO_CFG_DRIVER")
+        .unwrap_or(String::from(""))
         .split(",")
         .map(|x| x.trim().to_owned())
         .collect();

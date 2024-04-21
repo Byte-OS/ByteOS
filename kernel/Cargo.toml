@@ -32,7 +32,7 @@ bit_field = "0.10.1"
 lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "bb99460", features = ["log"]}
 # lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
 vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
-async-recursion = "1.0.4"
+async-recursion = "1.1.0"
 futures-lite = { version = "1.13.0", default-features = false, features=["alloc"] }
 # backtrace = { path = "../crates/backtrace" }
 hashbrown = "0.14"
