@@ -1,12 +1,9 @@
-use core::pin::Pin;
-
 use ::signal::SignalFlags;
-use alloc::{boxed::Box, sync::Arc, vec::Vec};
+use alloc::sync::Arc;
 use arch::addr::VirtPage;
 use arch::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
 use executor::{AsyncTask, TaskId};
 use frame_allocator::frame_alloc;
-use futures_lite::Future;
 use log::{debug, warn};
 
 use crate::tasks::{MapTrack, MemType, UserTask};
@@ -22,10 +19,6 @@ pub mod socket_pair;
 pub struct UserTaskContainer {
     pub task: Arc<UserTask>,
     pub tid: TaskId,
-    pub store_frames: Vec<(
-        TrapFrame,
-        Pin<Box<dyn Future<Output = UserTaskControlFlow>>>,
-    )>,
 }
 
 /// Copy on write.

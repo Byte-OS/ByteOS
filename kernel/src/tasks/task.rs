@@ -12,7 +12,7 @@ use arch::{
     {TrapFrame, TrapFrameArgs, PAGE_SIZE},
 };
 use executor::{
-    task_id_alloc, thread, AsyncTask, DowncastTask, TaskFutureItem, TaskId, FUTURE_LIST,
+    task_id_alloc, thread, AsyncTask, DowncastTask, TaskId, FUTURE_LIST,
 };
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::File;
@@ -49,13 +49,13 @@ impl Drop for KernelTask {
 }
 
 impl KernelTask {
-    pub fn new(future: impl Future<Output = ()> + 'static) -> Arc<Self> {
+    pub fn new(future: impl Future<Output = ()> + Send + 'static) -> Arc<Self> {
         let task_id = task_id_alloc();
         let memset = vec![];
 
         FUTURE_LIST
             .lock()
-            .insert(task_id, TaskFutureItem(Box::pin(kernel_entry(future))));
+            .insert(task_id, Box::pin(kernel_entry(future)));
 
         Arc::new(Self {
             page_table: Arc::new(PageTableWrapper::alloc()),
@@ -126,7 +126,7 @@ impl Drop for UserTask {
 
 impl UserTask {
     pub fn new(
-        future: impl Future<Output = ()> + 'static,
+        future: impl Future<Output = ()> + Send + 'static,
         parent: Weak<UserTask>,
         work_dir: &str,
     ) -> Arc<Self> {
@@ -136,7 +136,7 @@ impl UserTask {
 
         FUTURE_LIST
             .lock()
-            .insert(task_id, TaskFutureItem(Box::pin(future)));
+            .insert(task_id, Box::pin(future));
 
         let inner = ProcessControlBlock {
             memset,
@@ -392,7 +392,10 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn cow_fork(self: Arc<Self>, future: impl Future<Output = ()> + 'static) -> Arc<Self> {
+    pub fn cow_fork(
+        self: Arc<Self>,
+        future: impl Future<Output = ()> + Send + 'static,
+    ) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -443,7 +446,10 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn thread_clone(self: Arc<Self>, future: impl Future<Output = ()> + 'static) -> Arc<Self> {
+    pub fn thread_clone(
+        self: Arc<Self>,
+        future: impl Future<Output = ()> + Send + 'static,
+    ) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -479,7 +485,7 @@ impl UserTask {
 
         FUTURE_LIST
             .lock()
-            .insert(task_id, TaskFutureItem(Box::pin(future)));
+            .insert(task_id, Box::pin(future));
 
         thread::spawn(new_task.clone());
         new_task
