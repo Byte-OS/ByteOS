@@ -1,17 +1,15 @@
 use alloc::string::String;
 use alloc::sync::Weak;
 use alloc::{sync::Arc, vec::Vec};
+use arch::get_cpu_num;
 use devices::get_net_device;
-use executor::{
-    current_downcast_task, current_task, thread, yield_now, AsyncTask, Executor, TaskId, TASK_QUEUE,
-};
+use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR, TASK_QUEUE};
 use hal::{ITimerVal, TimeVal};
 
 use crate::syscall::{exec_with_process, NET_SERVER};
 use crate::user::entry::user_entry;
 
 use self::initproc::initproc;
-use self::task::KernelTask;
 
 mod async_ops;
 pub mod elf;
@@ -88,12 +86,15 @@ pub async fn handle_net() {
 }
 
 pub fn init() {
-    let mut exec = Executor::new();
-    exec.spawn(KernelTask::new(initproc()));
+    thread::spawn_blank(initproc());
     #[cfg(feature = "net")]
-    exec.spawn(KernelTask::new(handle_net()));
-    // exec.spawn()
-    exec.run();
+    thread::spawn_blank(KernelTask::new(handle_net()));
+
+    DEFAULT_EXECUTOR.init(get_cpu_num());
+}
+
+pub fn run_tasks() {
+    DEFAULT_EXECUTOR.run()
 }
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> TaskId {
@@ -109,7 +110,6 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
     )
     .await
     .expect("can't add task to excutor");
-    thread::spawn(task.clone());
     curr_task.before_run();
 
     task.get_task_id()
@@ -117,7 +117,7 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
 
 #[inline]
 pub fn current_user_task() -> Arc<UserTask> {
-    current_downcast_task().downcast::<UserTask>().unwrap()
+    current_task().downcast_arc::<UserTask>().ok().unwrap()
 }
 
 // tms_utime记录的是进程执行用户代码的时间.

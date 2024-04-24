@@ -49,7 +49,7 @@ checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 [[package]]
 name = "arch"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arch.git#d47365e56bad850efd2e51469ea60c630d6f2f2c"
+source = "git+https://github.com/Byte-OS/arch.git#c62ec3bdbdb54f18c87eaf02b60c57546839e4bd"
 dependencies = [
  "aarch64-cpu",
  "arch-macro",
@@ -76,7 +76,7 @@ dependencies = [
 [[package]]
 name = "arch-macro"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arch.git#d47365e56bad850efd2e51469ea60c630d6f2f2c"
+source = "git+https://github.com/Byte-OS/arch.git#c62ec3bdbdb54f18c87eaf02b60c57546839e4bd"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -101,9 +101,9 @@ dependencies = [
 
 [[package]]
 name = "async-recursion"
-version = "1.0.4"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0e97ce7de6cf12de5d7226c73f5ba9811622f4db3a5b91b55c53e987e5f91cba"
+checksum = "30c5ef0ede93efbf733c1a727f3b6b5a1060bbedd5600183e66f6e4be4af0ec5"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -181,21 +181,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "crossbeam-queue"
-version = "0.3.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df0346b5d5e76ac2fe4e327c5fd1118d6be7c51dfb18f9b7922923f287471e35"
-dependencies = [
- "crossbeam-utils",
-]
-
-[[package]]
-name = "crossbeam-utils"
-version = "0.8.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "248e3bacc7dc6baa3b21e405ee045c3047101a49145e7e9eca583ab4c2ca5345"
-
-[[package]]
 name = "devfs"
 version = "0.1.0"
 source = "git+https://github.com/Byte-OS/devfs.git#c5e510dfbedbe42866fa4ab23fecfd8d7f596dff"
@@ -214,7 +199,7 @@ dependencies = [
 [[package]]
 name = "devices"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/devices.git#79fac5686f039f4e969de3dc4e832d36a0743122"
+source = "git+https://github.com/Byte-OS/devices.git#74fdf763a3add3dc87004429b222213715d99731"
 dependencies = [
  "arch",
  "fdt",
@@ -235,10 +220,9 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "executor"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/executor.git#c845ad7faa5d1849f7bfb000cf77d6b820c54a19"
+source = "git+https://github.com/Byte-OS/executor.git#33efc33ecb89b091c860b178d0b504868c46c25f"
 dependencies = [
  "arch",
- "crossbeam-queue",
  "downcast-rs",
  "log",
  "sync",
@@ -402,7 +386,7 @@ dependencies = [
 [[package]]
 name = "kvirtio"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/driver-kvirtio.git#d50f39a04bdd39c27a3547c6ffb6b6568476648e"
+source = "git+https://github.com/Byte-OS/driver-kvirtio.git#339fc0a33fcc4023ee44b24432f3adb483c6bae1"
 dependencies = [
  "devices",
  "log",
@@ -468,7 +452,7 @@ dependencies = [
 [[package]]
 name = "loongarch64"
 version = "0.2.3"
-source = "git+https://github.com/Godones/loongArch64#096b2c32cdd0209bfc33c901c4a65705e1158b1d"
+source = "git+https://github.com/Godones/loongArch64#c511846db489d1c44690f397a957cd00416fe080"
 dependencies = [
  "bit_field",
  "bitflags 1.3.2",

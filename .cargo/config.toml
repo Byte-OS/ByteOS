@@ -11,6 +11,7 @@ rustflags = [
     '-Clink-arg=-no-pie',
     '--cfg=board="qemu"',
     '-Zunstable-options',
+    '-Ztls-model=local-exec',
     # '--cfg=driver="kvirtio,kgoldfish-rtc,ns16550a"',
     # '--extern=force:kernel'
     # '-Zunstable-options',
