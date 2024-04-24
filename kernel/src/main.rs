@@ -30,9 +30,10 @@ mod tasks;
 mod user;
 
 use arch::addr::{PhysPage, VirtPage};
+use arch::multicore::MultiCore;
 use arch::{
-    arch_entry, arch_interrupt, disable_irq, enable_irq, get_mem_areas, PageAlloc, TrapFrame,
-    TrapFrameArgs, TrapType, VIRT_ADDR_START,
+    disable_irq, enable_irq, get_mem_areas, PageAlloc, TrapFrame, TrapFrameArgs, TrapType,
+    VIRT_ADDR_START,
 };
 use devices::{self, get_int_device};
 use executor::current_task;
@@ -60,7 +61,7 @@ impl PageAlloc for PageAllocImpl {
     }
 }
 
-#[arch_interrupt]
+#[arch::arch_interrupt]
 /// Handle kernel interrupt
 fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
     match trap_type {
@@ -71,7 +72,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
                 panic!("kernel error: {:#x}", addr);
             }
             // judge whether it is trigger by a user_task handler.
-            if let Some(task) = current_task().as_any().downcast::<UserTask>().ok() {
+            if let Some(task) = current_task().downcast_arc::<UserTask>().ok() {
                 let cx_ref = task.force_cx_ref();
                 if task.pcb.is_locked() {
                     // task.pcb.force_unlock();
@@ -81,7 +82,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
                 }
                 user_cow_int(task, cx_ref, addr);
             } else {
-                panic!("page fault: {:?}", trap_type);
+                panic!("page fault: {:#x?}", trap_type);
             }
         }
         TrapType::IllegalInstruction(addr) => {
@@ -129,8 +130,8 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
     };
 }
 
-#[arch_entry]
 /// The kernel entry
+#[arch::arch_entry]
 fn main(hart_id: usize) {
     disable_irq();
     if hart_id == 0 {
@@ -155,6 +156,9 @@ fn main(hart_id: usize) {
         println!("run kernel @ hart {}", hart_id);
 
         info!("program size: {}KB", (end as usize - start as usize) / 1024);
+
+        // Boot all application core.
+        MultiCore::boot_all();
 
         devices::prepare_drivers();
 
@@ -210,6 +214,10 @@ fn main(hart_id: usize) {
 
         // init kernel threads and async executor
         tasks::init();
+        loop {
+            arch::wfi()
+        }
+        tasks::run_tasks();
 
         println!("Task All Finished!");
     } else {
@@ -219,9 +227,9 @@ fn main(hart_id: usize) {
         hal::interrupt::init();
 
         // enable_irq();
-
-        loop {
-            info!("aux core");
-        }
+        enable_irq();
+        // loop { arch::wfi() }
+        tasks::run_tasks();
+        info!("shutdown ap core");
     }
 }

@@ -476,10 +476,10 @@ impl UserTaskContainer {
             new_tcb.cx[TrapFrameArgs::TLS] = tls;
         }
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
-            *ptid.get_mut() = new_task.get_task_id() as _;
+            *ptid.get_mut() = new_task.task_id as _;
         }
         if flags.contains(CloneFlags::CLONE_CHILD_SETTID) && ctid.is_valid() {
-            *ctid.get_mut() = new_task.get_task_id() as _;
+            *ctid.get_mut() = new_task.task_id as _;
         }
         new_tcb.exit_signal = sig as u8;
         drop(new_tcb);
@@ -529,14 +529,13 @@ impl UserTaskContainer {
 
             debug!(
                 "wait ok: {}  waiter: {}",
-                child_task.get_task_id(),
-                self.task.get_task_id()
+                child_task.task_id, self.task.task_id
             );
             self.task
                 .pcb
                 .lock()
                 .children
-                .retain(|x| x.task_id != child_task.get_task_id());
+                .retain(|x| x.task_id != child_task.task_id);
             debug!("wait pid: {}", child_task.exit_code().unwrap());
 
             if status.is_valid() {
@@ -565,7 +564,7 @@ impl UserTaskContainer {
                         *status.get_mut() = (t1 as i32) << 8;
                     }
                     // TIPS: This is a small change.
-                    Ok(child_task.get_task_id())
+                    Ok(child_task.task_id)
                     // Ok(0)
                 }
                 None => Ok(0),
@@ -616,7 +615,7 @@ impl UserTaskContainer {
             .parent
             .read()
             .upgrade()
-            .map(|x| x.get_task_id())
+            .map(|x| x.task_id)
             .ok_or(LinuxError::EPERM)
     }
 
@@ -786,11 +785,11 @@ impl UserTaskContainer {
             false => TASK_QUEUE
                 .lock()
                 .iter()
-                .find(|x| x.get_task_id() == pid)
-                .map(|x| x.clone())
+                .find(|x| x.task.get_task_id() == pid)
                 .ok_or(LinuxError::ESRCH)?
-                .as_any()
-                .downcast::<UserTask>()
+                .task
+                .clone()
+                .downcast_arc::<UserTask>()
                 .ok(),
         };
 
@@ -811,11 +810,7 @@ impl UserTaskContainer {
         let parent = self.task.parent.read().clone();
 
         if let Some(parent) = parent.upgrade() {
-            parent
-                .pcb
-                .lock()
-                .children
-                .retain(|x| x.get_task_id() != self.task.get_task_id());
+            parent.pcb.lock().children.retain(|x| x.task_id != self.tid);
             *self.task.parent.write() = Weak::<UserTask>::new();
         }
         Ok(0)

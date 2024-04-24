@@ -7,7 +7,7 @@ use vfscore::FileType;
 use alloc::sync::Arc;
 use arch::addr::VirtAddr;
 use bit_field::BitArray;
-use executor::{yield_now, AsyncTask};
+use executor::yield_now;
 use fs::pipe::create_pipe;
 use fs::{OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW};
 use log::debug;
@@ -479,7 +479,7 @@ impl UserTaskContainer {
         );
         let cmd = FromPrimitive::from_usize(cmd).ok_or(LinuxError::EINVAL)?;
         let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
-        debug!("[task {}] fcntl: {:?}", self.task.get_task_id(), cmd);
+        debug!("[task {}] fcntl: {:?}", self.tid, cmd);
         match cmd {
             FcntlCmd::DUPFD | FcntlCmd::DUPFDCLOEXEC => self.sys_dup(fd).await,
             FcntlCmd::GETFD => Ok(1),

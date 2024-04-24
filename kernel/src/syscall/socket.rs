@@ -3,7 +3,7 @@ use core::net::{Ipv4Addr, SocketAddrV4};
 
 use alloc::sync::Arc;
 use devices::get_net_device;
-use executor::{yield_now, AsyncTask};
+use executor::yield_now;
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
@@ -340,11 +340,7 @@ impl UserTaskContainer {
             socket_addr.family = 2;
             socket_addr.addr = *socket_address.ip();
             socket_addr.in_port = socket_address.port().to_be();
-            debug!(
-                "[task {}] socket address: {:?}",
-                self.task.get_task_id(),
-                socket_address
-            );
+            debug!("[task {}] socket address: {:?}", self.tid, socket_address);
         }
         Ok(0)
     }

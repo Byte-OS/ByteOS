@@ -1,4 +1,4 @@
-use core::{any::Any, future::Future, mem::size_of, ops::Add};
+use core::{future::Future, mem::size_of, ops::Add};
 
 use alloc::{
     boxed::Box,
@@ -11,12 +11,10 @@ use arch::{
     pagetable::{MappingFlags, MappingSize, PageTableWrapper},
     {TrapFrame, TrapFrameArgs, PAGE_SIZE},
 };
-use executor::{
-    task_id_alloc, thread, AsyncTask, DowncastTask, TaskId, FUTURE_LIST,
-};
-use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
+use executor::{task::TaskType, task_id_alloc, thread, AsyncTask, TaskId};
+use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::File;
-use log::{debug, warn};
+use log::debug;
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
@@ -34,50 +32,6 @@ use super::{
 };
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
-
-#[allow(dead_code)]
-pub struct KernelTask {
-    page_table: Arc<PageTableWrapper>,
-    task_id: TaskId,
-    memset: Vec<Arc<FrameTracker>>,
-}
-
-impl Drop for KernelTask {
-    fn drop(&mut self) {
-        FUTURE_LIST.lock().remove(&self.task_id);
-    }
-}
-
-impl KernelTask {
-    pub fn new(future: impl Future<Output = ()> + Send + 'static) -> Arc<Self> {
-        let task_id = task_id_alloc();
-        let memset = vec![];
-
-        FUTURE_LIST
-            .lock()
-            .insert(task_id, Box::pin(kernel_entry(future)));
-
-        Arc::new(Self {
-            page_table: Arc::new(PageTableWrapper::alloc()),
-            task_id,
-            memset,
-        })
-    }
-}
-
-impl AsyncTask for KernelTask {
-    fn get_task_id(&self) -> TaskId {
-        self.task_id
-    }
-
-    fn before_run(&self) {
-        self.page_table.change();
-    }
-
-    fn as_any(self: Arc<Self>) -> Arc<dyn Any + Send + Sync + 'static> {
-        self
-    }
-}
 
 pub struct ProcessControlBlock {
     pub memset: MemSet,
@@ -117,13 +71,6 @@ pub struct UserTask {
     pub tcb: RwLock<ThreadControlBlock>,
 }
 
-impl Drop for UserTask {
-    fn drop(&mut self) {
-        warn!("drop user task: {}", self.task_id);
-        FUTURE_LIST.lock().remove(&self.task_id);
-    }
-}
-
 impl UserTask {
     pub fn new(
         future: impl Future<Output = ()> + Send + 'static,
@@ -133,10 +80,6 @@ impl UserTask {
         let task_id = task_id_alloc();
         // initialize memset
         let memset = MemSet::new(vec![]);
-
-        FUTURE_LIST
-            .lock()
-            .insert(task_id, Box::pin(future));
 
         let inner = ProcessControlBlock {
             memset,
@@ -176,6 +119,7 @@ impl UserTask {
             tcb,
         });
         task.pcb.lock().threads.push(Arc::downgrade(&task));
+        thread::spawn(task.clone(), future, TaskType::MonolithicTask);
         task
     }
 
@@ -318,7 +262,6 @@ impl UserTask {
         self.pcb.lock().exit_code = Some(exit_code);
         let exit_signal = tcb_writer.exit_signal;
         drop(tcb_writer);
-        FUTURE_LIST.lock().remove(&self.task_id);
 
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
@@ -361,7 +304,6 @@ impl UserTask {
         tcb_writer.thread_exit_code = Some(exit_code as u32);
         let exit_signal = tcb_writer.exit_signal;
         drop(tcb_writer);
-        FUTURE_LIST.lock().remove(&self.task_id);
 
         // recycle memory resouces if the pcb just used by this thread
         if Arc::strong_count(&self.pcb) == 1 {
@@ -441,7 +383,6 @@ impl UserTask {
                 );
             });
         });
-        thread::spawn(new_task.clone());
         new_task
     }
 
@@ -483,11 +424,7 @@ impl UserTask {
         pcb.threads.push(Arc::downgrade(&new_task));
         // pcb.children.push(new_task.clone());
 
-        FUTURE_LIST
-            .lock()
-            .insert(task_id, Box::pin(future));
-
-        thread::spawn(new_task.clone());
+        thread::spawn(new_task.clone(), Box::pin(future), TaskType::MonolithicTask);
         new_task
     }
 
@@ -607,21 +544,11 @@ impl UserTask {
 }
 
 impl AsyncTask for UserTask {
-    #[inline]
-    fn get_task_id(&self) -> TaskId {
-        self.task_id
-    }
-
     fn before_run(&self) {
         self.page_table.change();
     }
 
-    fn as_any(self: Arc<Self>) -> Arc<DowncastTask> {
-        self
+    fn get_task_id(&self) -> TaskId {
+        self.task_id
     }
-}
-
-pub async fn kernel_entry(future: impl Future<Output = ()> + 'static) {
-    debug!("kernel_entry");
-    future.await;
 }

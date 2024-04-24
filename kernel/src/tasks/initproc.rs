@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use arch::debug::DebugConsole;
-use executor::{current_task, yield_now, FUTURE_LIST, TASK_QUEUE};
+use executor::{current_task, task::TaskType, yield_now, TASK_QUEUE};
 use frame_allocator::get_free_pages;
 use fs::{
     dentry::{dentry_open, dentry_root, DentryNode},
@@ -58,17 +58,7 @@ fn clear() {
 async fn kill_all_tasks() {
     TASK_QUEUE
         .lock()
-        .iter()
-        .for_each(|x| match x.clone().as_any().downcast::<UserTask>() {
-            Ok(user_task) => {
-                user_task.exit(0);
-                FUTURE_LIST.lock().remove(&user_task.task_id);
-            }
-            Err(_) => {}
-        });
-    TASK_QUEUE
-        .lock()
-        .retain(|x| x.clone().as_any().downcast::<UserTask>().is_err());
+        .retain(|x| x.task_type != TaskType::MonolithicTask);
 }
 
 async fn run_libc_test() -> bool {
@@ -143,7 +133,7 @@ async fn file_command(cmd: &str) {
                 if TASK_QUEUE
                     .lock()
                     .iter()
-                    .find(|x| x.get_task_id() == task_id)
+                    .find(|x| x.task.get_task_id() == task_id)
                     .is_none()
                 {
                     break;
