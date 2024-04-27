@@ -3,7 +3,7 @@ use alloc::sync::Weak;
 use alloc::{sync::Arc, vec::Vec};
 use arch::get_cpu_num;
 use devices::get_net_device;
-use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR, TASK_QUEUE};
+use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
 use hal::{ITimerVal, TimeVal};
 
 use crate::syscall::{exec_with_process, NET_SERVER};
@@ -74,9 +74,6 @@ pub async fn handle_net() {
     let mut buffer = vec![0u8; 2048];
     // #[cfg(feature = "net")]
     loop {
-        if TASK_QUEUE.lock().len() == 0 {
-            break;
-        }
         let res = get_net_device(0).recv(&mut buffer);
         if let Ok(rlen) = res {
             NET_SERVER.analysis_net_data(&buffer[..rlen]);
@@ -86,11 +83,10 @@ pub async fn handle_net() {
 }
 
 pub fn init() {
+    DEFAULT_EXECUTOR.init(get_cpu_num());
     thread::spawn_blank(initproc());
     #[cfg(feature = "net")]
     thread::spawn_blank(KernelTask::new(handle_net()));
-
-    DEFAULT_EXECUTOR.init(get_cpu_num());
 }
 
 pub fn run_tasks() {
@@ -99,8 +95,7 @@ pub fn run_tasks() {
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> TaskId {
     let curr_task = current_task();
-    let task = UserTask::new(user_entry(), Weak::new(), initproc::USER_WORK_DIR);
-
+    let task = UserTask::new(Weak::new(), initproc::USER_WORK_DIR);
     task.before_run();
     exec_with_process(
         task.clone(),
@@ -111,6 +106,7 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
     .await
     .expect("can't add task to excutor");
     curr_task.before_run();
+    thread::spawn(task.clone(), user_entry());
 
     task.get_task_id()
 }

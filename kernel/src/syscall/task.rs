@@ -24,7 +24,7 @@ use arch::{
 };
 use async_recursion::async_recursion;
 use core::cmp;
-use executor::{select, yield_now, AsyncTask, TASK_QUEUE};
+use executor::{select, thread, tid2task, yield_now, AsyncTask};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::dentry::{dentry_open, dentry_root};
 use fs::TimeSpec;
@@ -228,8 +228,10 @@ pub async fn exec_with_process(
         Ok(user_task)
     } else {
         drop(caches);
-        let file = dentry_open(dentry_root(), &path, OpenFlags::O_RDONLY).map_err(from_vfs)?;
-        let file = file.node.clone();
+        let file = dentry_open(dentry_root(), &path, OpenFlags::O_RDONLY)
+            .map_err(from_vfs)?
+            .node
+            .clone();
         debug!("file: {:#x?}", file.metadata().unwrap());
         let file_size = file.metadata().unwrap().size;
         let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
@@ -454,10 +456,10 @@ impl UserTaskContainer {
         );
 
         let new_task = match flags.contains(CloneFlags::CLONE_THREAD) {
-            true => self.task.clone().thread_clone(user_entry()),
+            true => self.task.clone().thread_clone(),
             // false => curr_task.clone().fork(user_entry()),
             // use cow(Copy On Write) to save memory.
-            false => self.task.clone().cow_fork(user_entry()),
+            false => self.task.clone().cow_fork(),
         };
 
         let clear_child_tid = flags
@@ -484,6 +486,7 @@ impl UserTaskContainer {
         new_tcb.exit_signal = sig as u8;
         drop(new_tcb);
         yield_now().await;
+        thread::spawn(new_task.clone(), user_entry());
         Ok(new_task.task_id)
     }
 
@@ -531,11 +534,13 @@ impl UserTaskContainer {
                 "wait ok: {}  waiter: {}",
                 child_task.task_id, self.task.task_id
             );
+            // release the task resources
             self.task
                 .pcb
                 .lock()
                 .children
                 .retain(|x| x.task_id != child_task.task_id);
+            child_task.release();
             debug!("wait pid: {}", child_task.exit_code().unwrap());
 
             if status.is_valid() {
@@ -555,11 +560,13 @@ impl UserTaskContainer {
             match exit {
                 Some(t1) => {
                     let child_task = child_task.unwrap();
+                    // Release task.
                     self.task
                         .pcb
                         .lock()
                         .children
                         .retain(|x| x.task_id != child_task.task_id);
+                    child_task.release();
                     if status.is_valid() {
                         *status.get_mut() = (t1 as i32) << 8;
                     }
@@ -780,23 +787,12 @@ impl UserTaskContainer {
             self.tid, pid, signal
         );
 
-        let user_task = match pid == self.tid {
-            true => Some(self.task.clone()),
-            false => TASK_QUEUE
-                .lock()
-                .iter()
-                .find(|x| x.task.get_task_id() == pid)
-                .ok_or(LinuxError::ESRCH)?
-                .task
-                .clone()
+        let user_task = match tid2task(pid) {
+            Some(task) => task
                 .downcast_arc::<UserTask>()
-                .ok(),
-        };
-
-        let user_task = match user_task {
-            Some(t) => t,
-            None => return Err(LinuxError::ESRCH),
-        };
+                .map_err(|_| LinuxError::ESRCH),
+            None => Err(LinuxError::ESRCH),
+        }?;
 
         user_task.tcb.write().signal.add_signal(signal.clone());
 

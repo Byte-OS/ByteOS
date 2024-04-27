@@ -1,7 +1,6 @@
-use core::{future::Future, mem::size_of, ops::Add};
+use core::{mem::size_of, ops::Add};
 
 use alloc::{
-    boxed::Box,
     collections::BTreeMap,
     sync::{Arc, Weak},
     vec::Vec,
@@ -11,7 +10,7 @@ use arch::{
     pagetable::{MappingFlags, MappingSize, PageTableWrapper},
     {TrapFrame, TrapFrameArgs, PAGE_SIZE},
 };
-use executor::{task::TaskType, task_id_alloc, thread, AsyncTask, TaskId};
+use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::File;
 use log::debug;
@@ -72,11 +71,15 @@ pub struct UserTask {
 }
 
 impl UserTask {
-    pub fn new(
-        future: impl Future<Output = ()> + Send + 'static,
-        parent: Weak<UserTask>,
-        work_dir: &str,
-    ) -> Arc<Self> {
+    pub fn release(&self) {
+        // Ensure that the task was exited successfully.
+        assert!(self.exit_code().is_some() || self.tcb.read().thread_exit_code.is_some());
+        release_task(self.task_id);
+    }
+}
+
+impl UserTask {
+    pub fn new(parent: Weak<UserTask>, work_dir: &str) -> Arc<Self> {
         let task_id = task_id_alloc();
         // initialize memset
         let memset = MemSet::new(vec![]);
@@ -119,7 +122,6 @@ impl UserTask {
             tcb,
         });
         task.pcb.lock().threads.push(Arc::downgrade(&task));
-        thread::spawn(task.clone(), future, TaskType::MonolithicTask);
         task
     }
 
@@ -219,10 +221,6 @@ impl UserTask {
         unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx }
     }
 
-    pub fn exit_code(&self) -> Option<usize> {
-        self.pcb.lock().exit_code
-    }
-
     pub fn sbrk(&self, incre: isize) -> usize {
         let inner = self.pcb.lock();
         let curr_page = inner.heap / PAGE_SIZE;
@@ -241,48 +239,6 @@ impl UserTask {
 
     pub fn heap(&self) -> usize {
         self.pcb.lock().heap
-    }
-
-    #[inline]
-    pub fn exit(&self, exit_code: usize) {
-        let tcb_writer = self.tcb.write();
-        let uaddr = tcb_writer.clear_child_tid;
-        if uaddr != 0 {
-            debug!("write addr: {:#x}", uaddr);
-            let addr = self
-                .page_table
-                .translate(VirtAddr::from(uaddr))
-                .expect("can't find a valid addr")
-                .0;
-            unsafe {
-                addr.get_mut_ptr::<u32>().write(0);
-            }
-            futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
-        }
-        self.pcb.lock().exit_code = Some(exit_code);
-        let exit_signal = tcb_writer.exit_signal;
-        drop(tcb_writer);
-
-        // recycle memory resouces if the pcb just used by this thread
-        if Arc::strong_count(&self.pcb) == 1 {
-            self.pcb.lock().memset.clear();
-            self.pcb.lock().fd_table.clear();
-            self.pcb.lock().children.clear();
-        }
-
-        if let Some(parent) = self.parent.read().upgrade() {
-            if exit_signal != 0 {
-                parent
-                    .tcb
-                    .write()
-                    .signal
-                    .add_signal(SignalFlags::from_usize(exit_signal as usize));
-            } else {
-                parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
-            }
-        } else {
-            self.pcb.lock().children.clear();
-        }
     }
 
     #[inline]
@@ -311,20 +267,27 @@ impl UserTask {
             self.pcb.lock().fd_table.clear();
             self.pcb.lock().children.clear();
             self.pcb.lock().exit_code = Some(exit_code);
+
+            if let Some(parent) = self.parent.read().upgrade() {
+                if exit_signal != 0 {
+                    parent
+                        .tcb
+                        .write()
+                        .signal
+                        .add_signal(SignalFlags::from_usize(exit_signal as usize));
+                } else {
+                    parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                }
+            }
         }
 
-        if let Some(parent) = self.parent.read().upgrade() {
-            if exit_signal != 0 {
-                parent
-                    .tcb
-                    .write()
-                    .signal
-                    .add_signal(SignalFlags::from_usize(exit_signal as usize));
-            } else {
-                parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
-            }
-        } else {
-            self.pcb.lock().children.clear();
+        // If this is not the main thread, Just exit immediately, don't store any resources.
+        if self.task_id != self.process_id {
+            self.pcb
+                .lock()
+                .children
+                .retain(|x| x.task_id != self.task_id);
+            self.release();
         }
     }
 
@@ -334,10 +297,7 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn cow_fork(
-        self: Arc<Self>,
-        future: impl Future<Output = ()> + Send + 'static,
-    ) -> Arc<Self> {
+    pub fn cow_fork(self: Arc<Self>) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -350,7 +310,7 @@ impl UserTask {
             .curr_dir
             .path()
             .expect("can't get parent work dir in the cow_fork");
-        let new_task = Self::new(future, Arc::downgrade(&parent_task), &work_dir);
+        let new_task = Self::new(Arc::downgrade(&parent_task), &work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
         let mut new_pcb = new_task.pcb.lock();
@@ -387,10 +347,7 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn thread_clone(
-        self: Arc<Self>,
-        future: impl Future<Output = ()> + Send + 'static,
-    ) -> Arc<Self> {
+    pub fn thread_clone(self: Arc<Self>) -> Arc<Self> {
         // Give the frame_tracker in the memset a type.
         // it will contains the frame used for page mapping、
         // mmap or text section.
@@ -423,8 +380,6 @@ impl UserTask {
         });
         pcb.threads.push(Arc::downgrade(&new_task));
         // pcb.children.push(new_task.clone());
-
-        thread::spawn(new_task.clone(), Box::pin(future), TaskType::MonolithicTask);
         new_task
     }
 
@@ -458,21 +413,6 @@ impl UserTask {
     }
 
     pub fn get_last_free_addr(&self) -> VirtAddr {
-        // let map_last = self
-        //     .pcb
-        //     .lock()
-        //     .memset
-        //     .iter()
-        //     .filter(|x| x.mtype != MemType::Stack)
-        //     .fold(0, |acc, x| {
-        //         x.mtrackers
-        //             .iter()
-        //             .filter(|x| x.vpn.to_addr() > acc && x.vpn.to_addr() < VIRT_ADDR_START)
-        //             .map(|x| x.vpn.to_addr())
-        //             .max()
-        //             .unwrap_or(acc)
-        //     })
-        //     + PAGE_SIZE;
         let map_last = self
             .pcb
             .lock()
@@ -550,5 +490,56 @@ impl AsyncTask for UserTask {
 
     fn get_task_id(&self) -> TaskId {
         self.task_id
+    }
+
+    fn get_task_type(&self) -> TaskType {
+        TaskType::MonolithicTask
+    }
+
+    #[inline]
+    fn exit(&self, exit_code: usize) {
+        let tcb_writer = self.tcb.write();
+        let uaddr = tcb_writer.clear_child_tid;
+        if uaddr != 0 {
+            debug!("write addr: {:#x}", uaddr);
+            let addr = self
+                .page_table
+                .translate(VirtAddr::from(uaddr))
+                .expect("can't find a valid addr")
+                .0;
+            unsafe {
+                addr.get_mut_ptr::<u32>().write(0);
+            }
+            futex_wake(self.pcb.lock().futex_table.clone(), uaddr, 1);
+        }
+        self.pcb.lock().exit_code = Some(exit_code);
+        let exit_signal = tcb_writer.exit_signal;
+        drop(tcb_writer);
+
+        // recycle memory resouces if the pcb just used by this thread
+        if Arc::strong_count(&self.pcb) == 1 {
+            self.pcb.lock().memset.clear();
+            self.pcb.lock().fd_table.clear();
+            self.pcb.lock().children.clear();
+        }
+
+        if let Some(parent) = self.parent.read().upgrade() {
+            if exit_signal != 0 {
+                parent
+                    .tcb
+                    .write()
+                    .signal
+                    .add_signal(SignalFlags::from_usize(exit_signal as usize));
+            } else {
+                parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+            }
+        } else {
+            self.pcb.lock().children.clear();
+        }
+    }
+
+    #[inline]
+    fn exit_code(&self) -> Option<usize> {
+        self.pcb.lock().exit_code
     }
 }
