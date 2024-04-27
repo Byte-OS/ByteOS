@@ -214,9 +214,7 @@ fn main(hart_id: usize) {
 
         // init kernel threads and async executor
         tasks::init();
-        loop {
-            arch::wfi()
-        }
+        // loop { arch::wfi() }
         tasks::run_tasks();
 
         println!("Task All Finished!");

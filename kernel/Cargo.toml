@@ -14,7 +14,6 @@ serde_derive = "1.0.136"
 
 [dependencies]
 allocator = { git = "https://github.com/Byte-OS/allocator.git", rev = "c6ce949146d5feab1d406502b19b035f5d392c35"}
-crate_interface = { git = "https://github.com/Byte-OS/crate_interface.git" }
 frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
 logging = { git = "https://github.com/Byte-OS/logging.git", features = []}
 log = "0.4"

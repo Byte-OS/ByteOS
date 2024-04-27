@@ -171,16 +171,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
-name = "crate_interface"
-version = "0.1.1"
-source = "git+https://github.com/Byte-OS/crate_interface.git#d4580bd225c6d1f9a3760428d65e553cd4a25ee7"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "devfs"
 version = "0.1.0"
 source = "git+https://github.com/Byte-OS/devfs.git#c5e510dfbedbe42866fa4ab23fecfd8d7f596dff"
@@ -220,10 +210,11 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "executor"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/executor.git#33efc33ecb89b091c860b178d0b504868c46c25f"
+source = "git+https://github.com/Byte-OS/executor.git#10a32aa0172343288755df88687a356ccad957db"
 dependencies = [
  "arch",
  "downcast-rs",
+ "hashbrown",
  "log",
  "sync",
 ]
@@ -335,7 +326,6 @@ dependencies = [
  "bit_field",
  "bitflags 2.4.2",
  "cfg-if",
- "crate_interface",
  "devices",
  "executor",
  "fdt",
@@ -441,7 +431,7 @@ dependencies = [
 [[package]]
 name = "logging"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/logging.git#f60613d5935e13aa40f810e69041c9244e3fd2fa"
+source = "git+https://github.com/Byte-OS/logging.git#ebcb476827a96d179e2c342c5454c30d99f96199"
 dependencies = [
  "arch",
  "devices",

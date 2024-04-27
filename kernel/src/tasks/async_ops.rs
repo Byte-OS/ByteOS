@@ -2,6 +2,7 @@ use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
 use arch::time::Time;
+use executor::AsyncTask;
 use sync::Mutex;
 
 use crate::syscall::consts::LinuxError;

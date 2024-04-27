@@ -4,8 +4,8 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use arch::debug::DebugConsole;
-use executor::{current_task, task::TaskType, yield_now, TASK_QUEUE};
+use arch::{debug::DebugConsole, hart_id, shutdown};
+use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
 use frame_allocator::get_free_pages;
 use fs::{
     dentry::{dentry_open, dentry_root, DentryNode},
@@ -56,9 +56,9 @@ fn clear() {
 }
 
 async fn kill_all_tasks() {
-    TASK_QUEUE
-        .lock()
-        .retain(|x| x.task_type != TaskType::MonolithicTask);
+    TASK_MAP.lock().values().into_iter().for_each(|task| {
+        task.upgrade().inspect(|x| x.exit(100));
+    });
 }
 
 async fn run_libc_test() -> bool {
@@ -129,13 +129,10 @@ async fn file_command(cmd: &str) {
             args_extend.extend(args.into_iter());
             // args.into_iter().for_each(|x| args_extend.push(x));
             let task_id = add_user_task(&filename, args_extend, Vec::new()).await;
+            let task = tid2task(task_id).unwrap();
             loop {
-                if TASK_QUEUE
-                    .lock()
-                    .iter()
-                    .find(|x| x.task.get_task_id() == task_id)
-                    .is_none()
-                {
+                if task.exit_code().is_some() {
+                    release_task(task_id);
                     break;
                 }
                 yield_now().await;
@@ -225,6 +222,7 @@ pub async fn initproc() {
     // }
 
     println!("start kernel tasks");
+
     // command("ls").await;
     // command("entry-static.exe crypt").await;
     // command("./runtest.exe -w entry-dynamic.exe dlopen").await;
@@ -283,10 +281,12 @@ pub async fn initproc() {
     // command("busybox echo run libctest_testcode.sh").await;
     // command("busybox sh libctest_testcode.sh").await;
 
+    // command("busybox sh ./run-static.sh").await;
+    // command("./runtest.exe -w entry-dynamic.exe pthread_robust_detach").await;
     // command("busybox echo 123").await;
-    command("qjs.static test.js").await;
+    // command("qjs.static test.js").await;
     // command("qjs.static").await;
-    command("busybox sh").await;
+    // command("busybox sh").await;
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 
@@ -306,8 +306,8 @@ pub async fn initproc() {
     // command("busybox echo run lmbench_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;
 
-    // command("busybox echo run unixbench_testcode.sh").await;
-    // command("busybox sh unixbench_testcode.sh").await;
+    command("busybox echo run unixbench_testcode.sh").await;
+    command("busybox sh unixbench_testcode.sh").await;
 
     // command("copy-file-range-test-1").await;
     // command("copy-file-range-test-2").await;
@@ -380,4 +380,18 @@ pub async fn initproc() {
 
     // switch_to_kernel_page_table();
     println!("!TEST FINISH!");
+
+    // Shutdown if there just have blankkernel task.
+    if TASK_MAP
+        .lock()
+        .values()
+        .find(|x| {
+            x.upgrade()
+                .map(|x| x.get_task_type() != TaskType::BlankKernel)
+                .unwrap_or(false)
+        })
+        .is_none()
+    {
+        shutdown();
+    }
 }
