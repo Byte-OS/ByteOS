@@ -1,15 +1,16 @@
 SHELL := /bin/bash
+ARCH := riscv64
+BOARD:= qemu
+byteos = $(shell byteos $(1) byteos.toml $(ARCH)-$(BOARD) $(2))
+byteos_config = $(call byteos,config,get_cfg $(1))
+byteos_env = $(call byteos,config,get_env $(1))
 NVME := off
 NET  := off
-ARCH := riscv64
 LOG  := error
-BOARD:= qemu
 RELEASE := release
 QEMU_EXEC ?= 
-BUILD_ARGS := 
 GDB  ?= gdb-multiarch
-MOUNT_IMG_PATH ?= $(shell pwd)/mount.img
-ROOT_FS := fat32
+ROOT_FS := $(call byteos_config,root_fs)
 
 BUS  := device
 ifeq ($(ARCH), x86_64)
@@ -34,7 +35,6 @@ else ifeq ($(ARCH), aarch64)
 else ifeq ($(ARCH), loongarch64)
   TARGET := loongarch64-unknown-none
   QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
-  BUILD_ARGS += -Z build-std
   BUS := pci
 else
   $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
@@ -54,9 +54,6 @@ QEMU_EXEC += -m 128M\
 			-smp 1 \
 			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
 
-ifeq ($(RELEASE), release)
-	BUILD_ARGS += --release
-endif
 TESTCASE := testcase-$(ARCH)
 ifeq ($(NVME), on)
 QEMU_EXEC += -drive file=$(FS_IMG),if=none,id=nvm \
@@ -78,7 +75,6 @@ features += k210
 endif
 
 all: build
-
 offline:
 	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
 #	cp $(SBI) sbi-qemu
@@ -86,30 +82,25 @@ offline:
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
-ifeq ($(ROOT_FS), fat32)
+	@echo "ROOT_FS: $(ROOT_FS)"
 	rm -f $(FS_IMG)
 	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
+	sync
+ifeq ($(ROOT_FS), fat32)
 	mkfs.vfat -F 32 $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	sudo rm -rf mount/*
-	sudo cp -rf tools/$(TESTCASE)/* mount/
-	sudo chmod 777 $(FS_IMG)
-	sync
-	sudo umount $(FS_IMG)
 else ifeq ($(ROOT_FS), ext4)
-	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
 	mkfs.ext4  -F -O ^metadata_csum_seed $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/
+endif
 	sudo cp -rf tools/$(TESTCASE)/* mount/
 	sync
 	sudo umount $(FS_IMG)
-endif
 
 build:
-#	RUST_BACKTRACE=1 LOG=$(LOG) MOUNT_IMG_PATH=$(MOUNT_IMG_PATH) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"
 	byteos build byteos.toml $(ARCH)-$(BOARD)
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
