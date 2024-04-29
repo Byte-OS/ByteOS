@@ -1,6 +1,6 @@
 # 编译的目标平台
 [build]
-target = 'riscv64imac-unknown-none-elf'
+target = 'riscv64gc-unknown-none-elf'
 # target = 'x86_64-unknown-none'
 # target = 'aarch64-unknown-none-softfloat'
 # target = 'loongarch64-unknown-none'
@@ -10,6 +10,7 @@ rustflags = [
     '-Cforce-frame-pointers=yes',
     '-Clink-arg=-no-pie',
     '--cfg=board="qemu"',
+    '--cfg=root_fs="ext4"',
     '-Zunstable-options',
     '-Ztls-model=local-exec',
     # '--cfg=driver="kvirtio,kgoldfish-rtc,ns16550a"',

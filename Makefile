@@ -9,6 +9,7 @@ QEMU_EXEC ?=
 BUILD_ARGS := 
 GDB  ?= gdb-multiarch
 MOUNT_IMG_PATH ?= $(shell pwd)/mount.img
+ROOT_FS := fat32
 
 BUS  := device
 ifeq ($(ARCH), x86_64)
@@ -19,7 +20,7 @@ ifeq ($(ARCH), x86_64)
 				-cpu IvyBridge-v2
   BUS := pci
 else ifeq ($(ARCH), riscv64)
-  TARGET := riscv64imac-unknown-none-elf
+  TARGET := riscv64gc-unknown-none-elf
   QEMU_EXEC += qemu-system-$(ARCH) \
 				-machine virt \
 				-bios $(SBI) \
@@ -48,9 +49,9 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC += -m 1G\
+QEMU_EXEC += -m 128M\
 			-nographic \
-			-smp 2 \
+			-smp 1 \
 			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
 
 ifeq ($(RELEASE), release)
@@ -85,15 +86,27 @@ offline:
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
+ifeq ($(ROOT_FS), fat32)
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=64
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
 	mkfs.vfat -F 32 $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
-	rm -rf mount/*
-	-cp -rf tools/$(TESTCASE)/* mount/
+	sudo rm -rf mount/*
+	sudo cp -rf tools/$(TESTCASE)/* mount/
+	sudo chmod 777 $(FS_IMG)
 	sync
 	sudo umount $(FS_IMG)
+else ifeq ($(ROOT_FS), ext4)
+	rm -f $(FS_IMG)
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
+	mkfs.ext4  -F -O ^metadata_csum_seed $(FS_IMG)
+	mkdir mount/ -p
+	sudo mount $(FS_IMG) mount/
+	sudo cp -rf tools/$(TESTCASE)/* mount/
+	sync
+	sudo umount $(FS_IMG)
+endif
 
 build:
 #	RUST_BACKTRACE=1 LOG=$(LOG) MOUNT_IMG_PATH=$(MOUNT_IMG_PATH) cargo build --target $(TARGET) $(BUILD_ARGS) --features "$(features)"

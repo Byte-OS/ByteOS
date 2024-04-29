@@ -897,6 +897,9 @@ impl<T> UserRef<T> {
 
     #[inline]
     pub fn slice_until_valid(&self, is_valid: fn(T) -> bool) -> &'static mut [T] {
+        if self.addr.addr() == 0 {
+            return &mut [];
+        }
         self.addr.slice_until(is_valid)
     }
 

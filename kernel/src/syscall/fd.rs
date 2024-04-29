@@ -169,7 +169,7 @@ impl UserTaskContainer {
         let new_dir = to_node(&self.task, newdir_fd, new_path)?;
         if old_file_type == FileType::File {
             let new_file = new_dir
-                .dentry_open(new_path, OpenFlags::empty())
+                .dentry_open(new_path, OpenFlags::O_CREAT)
                 .expect("can't find new file");
             // TODO: Check the file exists
             let file_size = old_file.metadata().map_err(from_vfs)?.size;

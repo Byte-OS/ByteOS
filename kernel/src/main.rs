@@ -69,7 +69,11 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
         | TrapType::InstructionPageFault(addr)
         | TrapType::LoadPageFault(addr) => {
             if addr > VIRT_ADDR_START {
-                panic!("kernel error: {:#x}", addr);
+                panic!(
+                    "kernel page error: {:#x} sepc: {:#x}",
+                    addr,
+                    cx_ref[TrapFrameArgs::SEPC]
+                );
             }
             // judge whether it is trigger by a user_task handler.
             if let Some(task) = current_task().downcast_arc::<UserTask>().ok() {
