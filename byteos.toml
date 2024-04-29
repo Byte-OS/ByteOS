@@ -1,9 +1,10 @@
 # build for riscv64-qemu
 [bin.riscv64-qemu]
-target = "riscv64imac-unknown-none-elf"
+target = "riscv64gc-unknown-none-elf"
     [bin.riscv64-qemu.configs]
     board = "qemu"
     driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    root_fs = "ext4"
 
     [bin.riscv64-qemu.env]
     HEAP_SIZE = "0x0180_0000"
@@ -15,9 +16,10 @@ target = "x86_64-unknown-none"
     [bin.x86_64-qemu.configs]
     board = "qemu"
     driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    root_fs = "ext4"
 
     [bin.x86_64-qemu.env]
-    HEAP_SIZE = "0x0200_0000"
+    HEAP_SIZE = "0x0180_0000"
     MOUNT_IMG_PATH = "mount.img"
 
 # build for aarch64-qemu
@@ -26,9 +28,10 @@ target = "aarch64-unknown-none-softfloat"
     [bin.aarch64-qemu.configs]
     board = "qemu"
     driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    root_fs = "fat32"
 
     [bin.aarch64-qemu.env]
-    HEAP_SIZE = "0x0200_0000"
+    HEAP_SIZE = "0x0180_0000"
     MOUNT_IMG_PATH = "mount.img"
 
 # build for loongarch64-qemu
@@ -38,8 +41,9 @@ build_std = true
     [bin.loongarch64-qemu.configs]
     board = "qemu"
     driver = "kramdisk"
+    root_fs = "ext4"
 
     [bin.loongarch64-qemu.env]
-    HEAP_SIZE = "0x0200_0000"
+    HEAP_SIZE = "0x0180_0000"
     CARGO_CFG_DRIVER = "kramdisk"
     MOUNT_IMG_PATH = "mount.img"

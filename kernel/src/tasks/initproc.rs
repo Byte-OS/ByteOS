@@ -57,7 +57,11 @@ fn clear() {
 
 async fn kill_all_tasks() {
     TASK_MAP.lock().values().into_iter().for_each(|task| {
-        task.upgrade().inspect(|x| x.exit(100));
+        task.upgrade().inspect(|x| {
+            if x.get_task_type() == TaskType::MonolithicTask {
+                x.exit(100)
+            }
+        });
     });
 }
 
@@ -264,7 +268,7 @@ pub async fn initproc() {
     // command("./runtest.exe -w entry-static.exe pthread_cond_smasher").await;
 
     // command("test-fscanf").await;
-    // command("./runtest.exe -w entry-static.exe argv").await;
+    // command("./runtest.exe -w entry-static.exe statvfs").await;
     // command("entry-static.exe fscanf").await;
     // command(" busybox sh").await;
     // command("./a.out").await;
@@ -279,7 +283,11 @@ pub async fn initproc() {
     // command("busybox sh busybox_testcode.sh").await;
 
     // command("busybox echo run libctest_testcode.sh").await;
-    // command("busybox sh libctest_testcode.sh").await;
+    command("busybox sh libctest_testcode.sh").await;
+    // command("ls").await;
+
+    // simple_shell().await;
+    // command("busybox sh").await;
 
     // command("busybox sh ./run-static.sh").await;
     // command("./runtest.exe -w entry-dynamic.exe pthread_robust_detach").await;
@@ -287,6 +295,10 @@ pub async fn initproc() {
     // command("qjs.static test.js").await;
     // command("qjs.static").await;
     // command("busybox sh").await;
+    // command("busybox mkdir touch123").await;
+    // command("busybox rm -r touch123").await;
+    // command("busybox touch 123 >> touch123/123").await;
+    // command("busybox cat touch123/123").await;
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 
@@ -306,8 +318,8 @@ pub async fn initproc() {
     // command("busybox echo run lmbench_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;
 
-    command("busybox echo run unixbench_testcode.sh").await;
-    command("busybox sh unixbench_testcode.sh").await;
+    // command("busybox echo run unixbench_testcode.sh").await;
+    // command("busybox sh unixbench_testcode.sh").await;
 
     // command("copy-file-range-test-1").await;
     // command("copy-file-range-test-2").await;
