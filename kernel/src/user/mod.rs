@@ -1,7 +1,7 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
-use arch::addr::VirtPage;
-use arch::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
+use polyhal::addr::VirtPage;
+use polyhal::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
 use executor::{AsyncTask, TaskId};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};

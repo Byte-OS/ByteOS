@@ -1,5 +1,5 @@
 use alloc::boxed::Box;
-use arch::{kernel_page_table, TrapFrame, TrapFrameArgs};
+use polyhal::{kernel_page_table, TrapFrame};
 use async_recursion::async_recursion;
 use executor::{yield_now, AsyncTask};
 use futures_lite::future;
@@ -80,12 +80,6 @@ impl UserTaskContainer {
                 );
                 break;
             }
-
-            debug!(
-                "[task {}] user_entry sepc: {:#X}",
-                self.task.task_id,
-                cx_ref[TrapFrameArgs::SEPC]
-            );
 
             let res = future::or(self.handle_syscall(cx_ref), async {
                 loop {

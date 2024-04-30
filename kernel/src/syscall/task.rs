@@ -16,7 +16,7 @@ use alloc::{
     vec::Vec,
     {boxed::Box, sync::Arc},
 };
-use arch::{
+use polyhal::{
     addr::VirtPage,
     pagetable::MappingFlags,
     time::Time,

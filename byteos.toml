@@ -11,13 +11,13 @@ MOUNT_IMG_PATH = "mount.img"
 target = "riscv64gc-unknown-none-elf"
     [bin.riscv64-qemu.configs]
     driver = "kvirtio,kgoldfish-rtc,ns16550a"
+    root_fs = "ext4"
 
 # build for x86_64-qemu
 [bin.x86_64-qemu]
 target = "x86_64-unknown-none"
     [bin.x86_64-qemu.configs]
     driver = "kvirtio,kgoldfish-rtc,ns16550a"
-    root_fs = "ext4"
 
 # build for aarch64-qemu
 [bin.aarch64-qemu]

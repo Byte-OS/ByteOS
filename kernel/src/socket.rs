@@ -1,7 +1,7 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use arch::debug::DebugConsole;
+use polyhal::debug::DebugConsole;
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
 use sync::Mutex;

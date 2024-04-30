@@ -4,7 +4,7 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use arch::{debug::DebugConsole, hart_id, shutdown};
+use polyhal::{debug::DebugConsole, hart_id, shutdown};
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
 use frame_allocator::get_free_pages;
 use fs::{
