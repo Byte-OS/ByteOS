@@ -1,6 +1,6 @@
 use alloc::{sync::Arc, vec::Vec};
-use arch::addr::VirtPage;
-use arch::{pagetable::PageTable, PAGE_SIZE};
+use polyhal::addr::VirtPage;
+use polyhal::{pagetable::PageTable, PAGE_SIZE};
 use core::{
     cmp::min,
     fmt::Debug,

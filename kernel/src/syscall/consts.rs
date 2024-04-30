@@ -4,9 +4,9 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
-use arch::addr::VirtAddr;
-use arch::pagetable::MappingFlags;
-use arch::TrapFrame;
+use polyhal::addr::VirtAddr;
+use polyhal::pagetable::MappingFlags;
+use polyhal::TrapFrame;
 use bitflags::bitflags;
 use cfg_if::cfg_if;
 use fs::VfsError;

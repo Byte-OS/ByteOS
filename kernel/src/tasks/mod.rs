@@ -1,7 +1,7 @@
 use alloc::string::String;
 use alloc::sync::Weak;
 use alloc::{sync::Arc, vec::Vec};
-use arch::get_cpu_num;
+use polyhal::get_cpu_num;
 use devices::get_net_device;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
 use hal::{ITimerVal, TimeVal};

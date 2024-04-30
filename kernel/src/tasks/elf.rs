@@ -1,6 +1,6 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use arch::addr::VirtPage;
-use arch::{TrapFrame, TrapFrameArgs, PAGE_SIZE};
+use polyhal::addr::VirtPage;
+use polyhal::{TrapFrame, TrapFrameArgs, PAGE_SIZE};
 use executor::AsyncTask;
 use log::warn;
 use xmas_elf::{

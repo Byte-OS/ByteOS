@@ -47,36 +47,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 
 [[package]]
-name = "arch"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arch.git#cc15da6e256aeddd5b60cb0276884f5b52a427f9"
-dependencies = [
- "aarch64-cpu",
- "arch-macro",
- "arm_gic",
- "arm_pl011",
- "bitflags 2.4.2",
- "cfg-if",
- "fdt",
- "irq_safety",
- "log",
- "loongarch64",
- "multiboot",
- "percpu",
- "raw-cpuid 11.0.1",
- "riscv",
- "sbi-rt",
- "spin",
- "tock-registers",
- "x2apic",
- "x86",
- "x86_64",
-]
-
-[[package]]
 name = "arch-macro"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arch.git#cc15da6e256aeddd5b60cb0276884f5b52a427f9"
+source = "git+https://github.com/Byte-OS/polyhal.git#aaade3d7a947d344c182affcfdc516dcee5d16c8"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -205,13 +178,13 @@ dependencies = [
 [[package]]
 name = "devices"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/devices.git#2e4f30dc37c766ef67c3555c6c380f4e281cc36e"
+source = "git+https://github.com/Byte-OS/devices.git#28ba385a63b5ba6e08131f022551ad66edb490c9"
 dependencies = [
- "arch",
  "fdt",
  "frame_allocator",
  "linkme",
  "log",
+ "polyhal",
  "sync",
  "timestamp",
  "virtio-drivers",
@@ -232,12 +205,12 @@ checksum = "a47c1c47d2f5964e29c61246e81db715514cd532db6b5116a25ea3c03d6780a2"
 [[package]]
 name = "executor"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/executor.git#10a32aa0172343288755df88687a356ccad957db"
+source = "git+https://github.com/Byte-OS/executor.git#d1dd77ff19197ce17fdb67131e2b9be3f58681c0"
 dependencies = [
- "arch",
  "downcast-rs",
  "hashbrown",
  "log",
+ "polyhal",
  "sync",
 ]
 
@@ -259,20 +232,19 @@ checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
 [[package]]
 name = "frame_allocator"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/bit_frame_allocator.git#7866e6f8ea3eb8677e089bb7c9c357caf3723873"
+source = "git+https://github.com/Byte-OS/bit_frame_allocator.git#e401675aef8a404cdda5c09c603afd51fe3231a9"
 dependencies = [
- "arch",
  "bit_field",
  "log",
+ "polyhal",
  "sync",
 ]
 
 [[package]]
 name = "fs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/fs.git#9f6d1293ca3e369092329e43945873f61d077ee8"
+source = "git+https://github.com/Byte-OS/fs.git#6d968ea7e8ceb4ffbc8726a0569d64a403dc9d45"
 dependencies = [
- "arch",
  "devfs",
  "devices",
  "fatfs",
@@ -314,11 +286,11 @@ dependencies = [
 [[package]]
 name = "hal"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/hal.git#bf12540b2a0fdfa86d85f1cbfa2d961318087948"
+source = "git+https://github.com/Byte-OS/hal.git#a3dcf2e899fa6ba3b805d7a14f7166c4aad958ca"
 dependencies = [
- "arch",
  "frame_allocator",
  "log",
+ "polyhal",
 ]
 
 [[package]]
@@ -353,7 +325,6 @@ name = "kernel"
 version = "0.1.0"
 dependencies = [
  "allocator",
- "arch",
  "async-recursion",
  "bit_field",
  "bitflags 2.4.2",
@@ -376,6 +347,7 @@ dependencies = [
  "ns16550a 0.1.0",
  "num-derive",
  "num-traits",
+ "polyhal",
  "serde",
  "serde_derive",
  "signal",
@@ -463,11 +435,11 @@ dependencies = [
 [[package]]
 name = "logging"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/logging.git#ebcb476827a96d179e2c342c5454c30d99f96199"
+source = "git+https://github.com/Byte-OS/logging.git#3e749346c6085e89b4ae61e520a0cfeadd222f11"
 dependencies = [
- "arch",
  "devices",
  "log",
+ "polyhal",
  "sync",
 ]
 
@@ -611,6 +583,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
+name = "polyhal"
+version = "0.1.0"
+source = "git+https://github.com/Byte-OS/polyhal.git#aaade3d7a947d344c182affcfdc516dcee5d16c8"
+dependencies = [
+ "aarch64-cpu",
+ "arch-macro",
+ "arm_gic",
+ "arm_pl011",
+ "bitflags 2.4.2",
+ "cfg-if",
+ "fdt",
+ "irq_safety",
+ "log",
+ "loongarch64",
+ "multiboot",
+ "percpu",
+ "raw-cpuid 11.0.1",
+ "riscv",
+ "sbi-rt",
+ "spin",
+ "tock-registers",
+ "x2apic",
+ "x86",
+ "x86_64",
+]
+
+[[package]]
 name = "printf-compat"
 version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -634,9 +633,8 @@ dependencies = [
 [[package]]
 name = "procfs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/procfs.git#acb6440c7d7d378e06933da26b86a7f5e4838430"
+source = "git+https://github.com/Byte-OS/procfs.git#0477d4ee50bf00700e507f3f192c499a36d5265f"
 dependencies = [
- "arch",
  "log",
  "sync",
  "vfscore",
@@ -654,11 +652,11 @@ dependencies = [
 [[package]]
 name = "ramfs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/ramfs.git#69af7ab9dae6c986b22c862b1c69db94c647fc58"
+source = "git+https://github.com/Byte-OS/ramfs.git#57167265b20e428295c33e0c4e33eaf8ab7f3638"
 dependencies = [
- "arch",
  "frame_allocator",
  "log",
+ "polyhal",
  "sync",
  "vfscore",
 ]

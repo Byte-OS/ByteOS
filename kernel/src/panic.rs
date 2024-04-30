@@ -1,4 +1,4 @@
-use arch::{hart_id, shutdown};
+use polyhal::{hart_id, shutdown};
 // use backtrace::backtrace;
 use core::panic::PanicInfo;
 

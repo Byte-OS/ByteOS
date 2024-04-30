@@ -29,9 +29,9 @@ mod syscall;
 mod tasks;
 mod user;
 
-use arch::addr::{PhysPage, VirtPage};
-use arch::multicore::MultiCore;
-use arch::{
+use polyhal::addr::{PhysPage, VirtPage};
+use polyhal::multicore::MultiCore;
+use polyhal::{
     disable_irq, enable_irq, get_mem_areas, PageAlloc, TrapFrame, TrapFrameArgs, TrapType,
     VIRT_ADDR_START,
 };
@@ -61,7 +61,7 @@ impl PageAlloc for PageAllocImpl {
     }
 }
 
-#[arch::arch_interrupt]
+#[polyhal::arch_interrupt]
 /// Handle kernel interrupt
 fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
     match trap_type {
@@ -135,7 +135,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
 }
 
 /// The kernel entry
-#[arch::arch_entry]
+#[polyhal::arch_entry]
 fn main(hart_id: usize) {
     disable_irq();
     if hart_id == 0 {
@@ -152,7 +152,7 @@ fn main(hart_id: usize) {
         // initialize logging module
         logging::init(option_env!("LOG"));
 
-        arch::init(&PageAllocImpl);
+        polyhal::init(&PageAllocImpl);
         get_mem_areas().into_iter().for_each(|(start, size)| {
             frame_allocator::add_frame_map(start, start + size);
         });
@@ -166,7 +166,7 @@ fn main(hart_id: usize) {
 
         devices::prepare_drivers();
 
-        if let Some(fdt) = arch::get_fdt() {
+        if let Some(fdt) = polyhal::get_fdt() {
             for node in fdt.all_nodes() {
                 devices::try_to_add_device(&node);
             }

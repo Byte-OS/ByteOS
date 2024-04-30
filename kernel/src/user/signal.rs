@@ -1,6 +1,6 @@
 use core::mem::size_of;
 
-use arch::{TrapFrameArgs, SIG_RETURN_ADDR};
+use polyhal::{TrapFrameArgs, SIG_RETURN_ADDR};
 use executor::AsyncTask;
 use log::debug;
 use signal::SignalFlags;

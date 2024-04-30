@@ -5,7 +5,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use arch::{
+use polyhal::{
     addr::{PhysPage, VirtAddr, VirtPage},
     pagetable::{MappingFlags, MappingSize, PageTableWrapper},
     {TrapFrame, TrapFrameArgs, PAGE_SIZE},

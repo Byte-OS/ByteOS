@@ -1,8 +1,8 @@
 use core::ops::Add;
 
-use arch::addr::{VirtAddr, VirtPage};
-use arch::PAGE_SIZE;
-use arch::USER_VADDR_END;
+use polyhal::addr::{VirtAddr, VirtPage};
+use polyhal::PAGE_SIZE;
+use polyhal::USER_VADDR_END;
 use frame_allocator::ceil_div;
 use log::debug;
 

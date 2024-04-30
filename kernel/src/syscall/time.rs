@@ -5,7 +5,7 @@ use core::{
     task::{Context, Poll},
 };
 
-use arch::time::Time;
+use polyhal::time::Time;
 use executor::select;
 use fs::TimeSpec;
 pub use hal::current_nsec;
