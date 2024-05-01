@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 ARCH := riscv64
 BOARD:= qemu
-byteos = $(shell byteos $(1) byteos.toml $(ARCH)-$(BOARD) $(2))
+byteos = $(shell kbuild $(1) byteos.yaml $(ARCH)-$(BOARD) $(2))
 byteos_config = $(call byteos,config,get_cfg $(1))
 byteos_env = $(call byteos,config,get_env $(1))
 NVME := off
@@ -49,7 +49,7 @@ SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
-QEMU_EXEC += -m 128M\
+QEMU_EXEC += -m 1G\
 			-nographic \
 			-smp 1 \
 			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
@@ -101,7 +101,7 @@ endif
 	sudo umount $(FS_IMG)
 
 build:
-	byteos build byteos.toml $(ARCH)-$(BOARD)
+	kbuild build byteos.toml $(ARCH)-$(BOARD)
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
