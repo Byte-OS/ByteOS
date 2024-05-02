@@ -1,39 +1,39 @@
 SHELL := /bin/bash
-ARCH := riscv64
 BOARD:= qemu
-byteos = $(shell kbuild $(1) byteos.yaml $(ARCH)-$(BOARD) $(2))
+BIN   :=
+byteos = $(shell kbuild $(1) byteos.yaml $(BIN) $(2))
 byteos_config = $(call byteos,config,get_cfg $(1))
 byteos_env = $(call byteos,config,get_env $(1))
+byteos_meta = $(call byteos,config,get_meta $(1))
+byteos_triple = $(call byteos,config,get_triple $(1))
 NVME := off
 NET  := off
 LOG  := error
 RELEASE := release
 QEMU_EXEC ?= 
 GDB  ?= gdb-multiarch
+ARCH := $(call byteos_triple,arch)
 ROOT_FS := $(call byteos_config,root_fs)
+TARGET := $(call byteos_meta,target)
 
 BUS  := device
 ifeq ($(ARCH), x86_64)
-  TARGET := x86_64-unknown-none
   QEMU_EXEC += qemu-system-x86_64 \
 				-machine q35 \
 				-kernel $(KERNEL_ELF) \
 				-cpu IvyBridge-v2
   BUS := pci
 else ifeq ($(ARCH), riscv64)
-  TARGET := riscv64gc-unknown-none-elf
   QEMU_EXEC += qemu-system-$(ARCH) \
 				-machine virt \
 				-bios $(SBI) \
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), aarch64)
-  TARGET := aarch64-unknown-none-softfloat
   QEMU_EXEC += qemu-system-$(ARCH) \
 				-cpu cortex-a72 \
 				-machine virt \
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), loongarch64)
-  TARGET := loongarch64-unknown-none
   QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
   BUS := pci
 else
@@ -82,6 +82,7 @@ offline:
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
+	@echo "TESTCASE: $(TESTCASE)"
 	@echo "ROOT_FS: $(ROOT_FS)"
 	rm -f $(FS_IMG)
 	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
@@ -101,7 +102,7 @@ endif
 	sudo umount $(FS_IMG)
 
 build:
-	kbuild build byteos.toml $(ARCH)-$(BOARD)
+	kbuild build byteos.yaml $(BIN)
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
@@ -117,9 +118,9 @@ justrun: fs-img
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 	$(QEMU_EXEC)
 
-cv1811h-build: build
+tftp-build: build
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
-	sudo ./cv1811h-burn.sh
+	sudo ./tftp-burn.sh
 
 k210-build: build
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
