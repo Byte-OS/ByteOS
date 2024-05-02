@@ -12,7 +12,11 @@ bin:
     target: "riscv64gc-unknown-none-elf"
     configs:
       driver: "kvirtio,kgoldfish-rtc,ns16550a"
-      root_fs: "ext4"
+  riscv64-vf2:
+    target: "riscv64imac-unknown-none-elf"
+    configs:
+      board: "visionfive2"
+      driver: "kramdisk"
   x86_64-qemu:
     target: "x86_64-unknown-none"
     configs:

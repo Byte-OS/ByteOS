@@ -29,8 +29,9 @@ mod syscall;
 mod tasks;
 mod user;
 
+use core::sync::atomic::{AtomicBool, Ordering};
+
 use polyhal::addr::{PhysPage, VirtPage};
-use polyhal::multicore::MultiCore;
 use polyhal::{
     disable_irq, enable_irq, get_mem_areas, PageAlloc, TrapFrame, TrapFrameArgs, TrapType,
     VIRT_ADDR_START,
@@ -96,7 +97,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
             let task = current_user_task();
             let vpn = VirtPage::from_addr(addr);
             warn!(
-                "store/instruction page fault @ {:#x} vpn: {} ppn: {:?}",
+                "illegal instruction fault @ {:#x} vpn: {} ppn: {:?}",
                 addr,
                 vpn,
                 task.page_table.translate(addr.into()),
@@ -137,8 +138,10 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
 /// The kernel entry
 #[polyhal::arch_entry]
 fn main(hart_id: usize) {
+    static BOOT_CORE_FLAGS: AtomicBool = AtomicBool::new(false);
     disable_irq();
-    if hart_id == 0 {
+    // Ensure this is the first core
+    if BOOT_CORE_FLAGS.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
         extern "C" {
             fn start();
             fn end();
@@ -162,7 +165,7 @@ fn main(hart_id: usize) {
         info!("program size: {}KB", (end as usize - start as usize) / 1024);
 
         // Boot all application core.
-        MultiCore::boot_all();
+        // polyhal::multicore::MultiCore::boot_all();
 
         devices::prepare_drivers();
 
