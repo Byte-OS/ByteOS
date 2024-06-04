@@ -1,9 +1,9 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use polyhal::debug::DebugConsole;
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
+use polyhal::debug::DebugConsole;
 use sync::Mutex;
 use vfscore::{Metadata, PollEvent, VfsResult};
 

@@ -1,10 +1,10 @@
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
-use polyhal::addr::VirtPage;
-use polyhal::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
 use executor::{AsyncTask, TaskId};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
+use polyhal::addr::VirtPage;
+use polyhal::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
 
 use crate::tasks::{MapTrack, MemType, UserTask};
 use crate::{
@@ -24,11 +24,11 @@ pub struct UserTaskContainer {
 /// Copy on write.
 /// call this function when trigger store/instruction page fault.
 /// copy page or remap page.
-pub fn user_cow_int(task: Arc<UserTask>, _cx_ref: &mut TrapFrame, addr: usize) {
+pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, addr: usize) {
     let vpn = VirtPage::from_addr(addr);
     warn!(
         "store/instruction page fault @ {:#x} vaddr: {:#x} paddr: {:?} task_id: {}",
-        addr,
+        cx_ref[TrapFrameArgs::SEPC],
         addr,
         task.page_table.translate(addr.into()),
         task.get_task_id()

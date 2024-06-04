@@ -30,3 +30,9 @@ bin:
     build_std: "core,alloc"
     configs:
       driver: "kramdisk"
+  loongarch64-2k1000:
+    target: "loongarch64-unknown-none"
+    build_std: "core,alloc"
+    configs:
+      driver: "kramdisk"
+      board: "2k1000"

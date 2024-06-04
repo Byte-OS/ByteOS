@@ -4,14 +4,14 @@
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;
 
-use polyhal::addr::VirtAddr;
-use polyhal::pagetable::MappingFlags;
-use polyhal::TrapFrame;
 use bitflags::bitflags;
 use cfg_if::cfg_if;
 use fs::VfsError;
 use hal::TimeVal;
 use num_derive::FromPrimitive;
+use polyhal::addr::VirtAddr;
+use polyhal::pagetable::MappingFlags;
+use polyhal::TrapFrame;
 use signal::SigProcMask;
 
 #[repr(i32)]

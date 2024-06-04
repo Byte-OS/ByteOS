@@ -44,6 +44,7 @@ fn main() {
 
 fn gen_linker_script(platform: &str) -> Result<()> {
     let arch = env::var("CARGO_CFG_TARGET_ARCH").expect("can't find target");
+    let board = env::var("CARGO_CFG_BOARD").unwrap_or("qemu".to_string());
     let fname = format!("linker_{}_{}.lds", arch, platform);
     let (output_arch, kernel_base) = if arch == "x86_64" {
         ("i386:x86-64", "0xffffff8000200000")
@@ -54,7 +55,10 @@ fn gen_linker_script(platform: &str) -> Result<()> {
         ("aarch64", "0xffffff8040080000")
         // ("aarch64", "0xffff000040080000")
     } else if arch.contains("loongarch64") {
-        ("loongarch64", "0x9000000090000000")
+        match board.as_str() {
+            "2k1000" => ("loongarch64", "0x9000000098000000"),
+            _ => ("loongarch64", "0x9000000090000000"),
+        }
     } else {
         (arch.as_str(), "0")
     };
