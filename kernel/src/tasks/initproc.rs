@@ -4,7 +4,6 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
-use polyhal::{debug::DebugConsole, hart_id, shutdown};
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
 use frame_allocator::get_free_pages;
 use fs::{
@@ -13,6 +12,7 @@ use fs::{
 };
 use log::debug;
 use logging::get_char;
+use polyhal::{debug::DebugConsole, hart_id, shutdown};
 use vfscore::INodeInterface;
 
 use crate::tasks::add_user_task;
@@ -284,6 +284,9 @@ pub async fn initproc() {
 
     // command("busybox echo run libctest_testcode.sh").await;
     command("busybox sh libctest_testcode.sh").await;
+    // command("busybox echo Hello World!").await;
+    // command("busybox sh").await;
+    // command("hello").await;
     // command("ls").await;
 
     // simple_shell().await;

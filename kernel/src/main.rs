@@ -31,15 +31,12 @@ mod user;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use polyhal::addr::{PhysPage, VirtPage};
-use polyhal::{
-    disable_irq, enable_irq, get_mem_areas, PageAlloc, TrapFrame, TrapFrameArgs, TrapType,
-    VIRT_ADDR_START,
-};
 use devices::{self, get_int_device};
 use executor::current_task;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
-use hal;
+use polyhal::addr::{PhysPage, VirtPage};
+use polyhal::irq::IRQ;
+use polyhal::{get_mem_areas, PageAlloc, TrapFrame, TrapFrameArgs, TrapType, VIRT_ADDR_START};
 use tasks::UserTask;
 use user::user_cow_int;
 use vfscore::OpenFlags;
@@ -139,9 +136,12 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
 #[polyhal::arch_entry]
 fn main(hart_id: usize) {
     static BOOT_CORE_FLAGS: AtomicBool = AtomicBool::new(false);
-    disable_irq();
+    IRQ::int_disable();
     // Ensure this is the first core
-    if BOOT_CORE_FLAGS.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed).is_ok() {
+    if BOOT_CORE_FLAGS
+        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
+        .is_ok()
+    {
         extern "C" {
             fn start();
             fn end();
@@ -157,6 +157,7 @@ fn main(hart_id: usize) {
 
         polyhal::init(&PageAllocImpl);
         get_mem_areas().into_iter().for_each(|(start, size)| {
+            info!("memory area: {:#x} - {:#x}", start, start + size);
             frame_allocator::add_frame_map(start, start + size);
         });
 
@@ -175,11 +176,10 @@ fn main(hart_id: usize) {
             }
         }
 
-        // initialize interrupt
-        hal::interrupt::init();
-
         // get devices and init
         devices::regist_devices_irq();
+
+        polyhal::instruction::Instruction::ebreak();
 
         // initialize filesystem
         fs::init();
@@ -204,7 +204,7 @@ fn main(hart_id: usize) {
         }
 
         // enable interrupts
-        enable_irq();
+        IRQ::int_enable();
 
         // cache task with task templates
         // crate::syscall::cache_task_template("/bin/busybox").expect("can't cache task");
@@ -228,11 +228,7 @@ fn main(hart_id: usize) {
     } else {
         println!("run kernel @ hart {}", hart_id);
 
-        // initialize interrupt
-        hal::interrupt::init();
-
-        // enable_irq();
-        enable_irq();
+        IRQ::int_enable();
         // loop { arch::wfi() }
         tasks::run_tasks();
         info!("shutdown ap core");

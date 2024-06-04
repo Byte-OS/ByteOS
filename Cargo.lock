@@ -270,7 +270,7 @@ dependencies = [
 [[package]]
 name = "hal"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/hal.git#a3dcf2e899fa6ba3b805d7a14f7166c4aad958ca"
+source = "git+https://github.com/Byte-OS/hal.git#6f40272c10b59062dfb3dc37de2fddf58912002e"
 dependencies = [
  "frame_allocator",
  "log",
@@ -564,7 +564,7 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 [[package]]
 name = "polyhal"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/polyhal.git#ffe8692cd6cd0cff4d5a994e8fd4cd4dbe4755f8"
+source = "git+https://github.com/Byte-OS/polyhal.git#78137eed487335ba331e7c86d8895fe2156145a3"
 dependencies = [
  "aarch64-cpu",
  "arm_gic",
@@ -591,7 +591,7 @@ dependencies = [
 [[package]]
 name = "polyhal-macro"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/polyhal.git#ffe8692cd6cd0cff4d5a994e8fd4cd4dbe4755f8"
+source = "git+https://github.com/Byte-OS/polyhal.git#78137eed487335ba331e7c86d8895fe2156145a3"
 dependencies = [
  "proc-macro2",
  "quote",
