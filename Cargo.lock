@@ -199,6 +199,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "ext4_rs"
+version = "1.0.0"
+source = "git+https://github.com/yuoo655/ext4_rs.git?rev=04286c7#04286c79da45154a7e007a7ef73bcbe5cad073e1"
+dependencies = [
+ "bitflags 2.4.2",
+ "log",
+]
+
+[[package]]
 name = "fatfs"
 version = "0.4.0"
 source = "git+https://github.com/byte-os/rust-fatfs.git#3b45ddc5f3991f1a59040404e14da19d149f1dbf"
@@ -227,10 +236,11 @@ dependencies = [
 [[package]]
 name = "fs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/fs.git#6d968ea7e8ceb4ffbc8726a0569d64a403dc9d45"
+source = "git+https://github.com/Byte-OS/fs.git#79f9b3e25c9d7eb72bfbb62c1d3f6ba6ce3cfbb0"
 dependencies = [
  "devfs",
  "devices",
+ "ext4_rs",
  "fatfs",
  "frame_allocator",
  "log",

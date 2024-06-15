@@ -92,7 +92,11 @@ ifeq ($(ROOT_FS), fat32)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	sudo rm -rf mount/*
-else ifeq ($(ROOT_FS), ext4)
+else ifeq ($(ROOT_FS), ext4_rs)
+	mkfs.ext4 $(FS_IMG)
+	mkdir mount/ -p
+	sudo mount $(FS_IMG) mount/
+else 
 	mkfs.ext4  -F -O ^metadata_csum_seed $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/

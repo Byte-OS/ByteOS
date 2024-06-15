@@ -11,26 +11,13 @@ Run with make file.
 
 ```shell
 # riscv64
-make ARCH=riscv64 run
+make BIN=riscv64-qemu run
 # aarch64
-make ARCH=aarch64 run
+make BIN=aarch64-qemu run
 # x86_64
-make ARCH=x86_64 run
+make BIN=x86_64-qemu run
 # loongarch64
-make ARCH=loongarch64 run
-```
-
-Run with build tool.
-
-```shell
-# riscv64
-byteos build byteos.toml riscv64-qemu
-# aarch64
-byteos build byteos.toml aarch64-qemu
-# x86_64
-byteos build byteos.toml x86_64-qemu
-# loongarch64
-byteos build byteos.toml loongarch64-qemu
+make BIN=loongarch64-qemu run
 ```
 
 You can find available modules using the following command.
@@ -45,7 +32,18 @@ byteos patch add arch
 byteos patch remove arch
 ```
 
-Additionally, you maybe need to careabout the workspace in the Cargo.toml(Improve it in the future).
+## byteos.yaml
+
+> byteos.yaml is a configuration file for the ByteOS.
+
+You can change the config in this file. For example, you want to use the ext4 fielsystem.
+
+Set the root_fs to 'ext4' or 'ext4_rs' will change the root_fs from 'fat32' to 'ext4'.
+
+The 'ext4' and 'ext4_rs' are the different implementation of the ext4.
+
+TIPS: Make ensure that the mkefs version of your system lower than 1.70. If not, you have to use another argument to build the ext4 image.
+
 
 ## Kernel struct Design
 
