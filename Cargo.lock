@@ -189,7 +189,7 @@ checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 [[package]]
 name = "executor"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/executor.git#d1dd77ff19197ce17fdb67131e2b9be3f58681c0"
+source = "git+https://github.com/Byte-OS/executor.git#1fa479565027f0377de4ea1b64ce683ee10e6d39"
 dependencies = [
  "downcast-rs",
  "hashbrown",
@@ -295,14 +295,6 @@ checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
 dependencies = [
  "ahash",
  "allocator-api2",
-]
-
-[[package]]
-name = "irq_safety"
-version = "0.1.1"
-source = "git+https://github.com/theseus-os/irq_safety.git#11bfab9f410a898df1e42ad6213488612e20c926"
-dependencies = [
- "spin",
 ]
 
 [[package]]
@@ -545,27 +537,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
 
 [[package]]
-name = "percpu"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/percpu.git#a71e60e376ac28cdf1a46312e2705b864c07732e"
-dependencies = [
- "cfg-if",
- "percpu_macros",
- "spin",
- "x86",
-]
-
-[[package]]
-name = "percpu_macros"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/percpu.git#a71e60e376ac28cdf1a46312e2705b864c07732e"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "pin-project-lite"
 version = "0.2.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -574,7 +545,7 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 [[package]]
 name = "polyhal"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/polyhal.git#78137eed487335ba331e7c86d8895fe2156145a3"
+source = "git+https://github.com/Byte-OS/polyhal.git#3cfa99e25f41a0594d3c52f26d70f39699cac59b"
 dependencies = [
  "aarch64-cpu",
  "arm_gic",
@@ -582,11 +553,9 @@ dependencies = [
  "bitflags 2.4.2",
  "cfg-if",
  "fdt",
- "irq_safety",
  "log",
  "loongArch64",
  "multiboot",
- "percpu",
  "polyhal-macro",
  "raw-cpuid 11.0.1",
  "riscv",
@@ -601,7 +570,7 @@ dependencies = [
 [[package]]
 name = "polyhal-macro"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/polyhal.git#78137eed487335ba331e7c86d8895fe2156145a3"
+source = "git+https://github.com/Byte-OS/polyhal.git#3cfa99e25f41a0594d3c52f26d70f39699cac59b"
 dependencies = [
  "proc-macro2",
  "quote",
