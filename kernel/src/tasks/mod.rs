@@ -4,7 +4,7 @@ use alloc::{sync::Arc, vec::Vec};
 use devices::get_net_device;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
 use hal::{ITimerVal, TimeVal};
-use polyhal::get_cpu_num;
+use polyhal::common::get_cpu_num;
 
 use crate::syscall::{exec_with_process, NET_SERVER};
 use crate::user::entry::user_entry;

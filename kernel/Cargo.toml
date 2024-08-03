@@ -19,7 +19,7 @@ logging = { git = "https://github.com/Byte-OS/logging.git", features = []}
 log = "0.4"
 devices = { git = "https://github.com/Byte-OS/devices.git" }
 hal = { git = "https://github.com/Byte-OS/hal.git" }
-polyhal = { git = "https://github.com/Byte-OS/polyhal.git" }
+polyhal = { git = "https://github.com/Byte-OS/polyhal.git", features = ["trap"]}
 fs = { git = "https://github.com/Byte-OS/fs.git" }
 fdt = "0.1.5"
 executor = { git = "https://github.com/Byte-OS/executor.git" }

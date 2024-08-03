@@ -4,7 +4,7 @@ use executor::{yield_now, AsyncTask};
 use futures_lite::future;
 use hal::TimeVal;
 use log::debug;
-use polyhal::{kernel_page_table, TrapFrame};
+use polyhal::{boot::boot_page_table, trapframe::TrapFrame};
 use signal::SignalFlags;
 
 use crate::tasks::{current_user_task, UserTaskControlFlow};
@@ -114,7 +114,7 @@ impl UserTaskContainer {
         }
 
         debug!("exit_task: {}", self.task.get_task_id());
-        kernel_page_table().change();
+        boot_page_table().change();
     }
 }
 
