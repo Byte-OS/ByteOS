@@ -3,7 +3,7 @@ use core::{cmp, net::SocketAddrV4};
 use alloc::{sync::Arc, vec::Vec};
 use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
-use polyhal::debug::DebugConsole;
+use polyhal::debug_console::DebugConsole;
 use sync::Mutex;
 use vfscore::{Metadata, PollEvent, VfsResult};
 

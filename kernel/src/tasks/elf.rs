@@ -1,8 +1,8 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
+use devices::PAGE_SIZE;
 use executor::AsyncTask;
 use log::warn;
-use polyhal::addr::VirtPage;
-use polyhal::{TrapFrame, TrapFrameArgs, PAGE_SIZE};
+use polyhal::{addr::VirtPage, trapframe::{TrapFrame, TrapFrameArgs}};
 use xmas_elf::{
     program::Type,
     sections::SectionData,

@@ -10,8 +10,8 @@ use fs::VfsError;
 use hal::TimeVal;
 use num_derive::FromPrimitive;
 use polyhal::addr::VirtAddr;
-use polyhal::pagetable::MappingFlags;
-use polyhal::TrapFrame;
+use polyhal::trapframe::TrapFrame;
+use polyhal::MappingFlags;
 use signal::SigProcMask;
 
 #[repr(i32)]

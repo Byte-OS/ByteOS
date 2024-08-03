@@ -38,9 +38,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0942ffc6dcaadf03badf6e6a2d0228460359d5e34b57ccdc720b7382dfbd5ec5"
 
 [[package]]
-name = "arm_gic"
+name = "arm_gicv2"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arm_gic#7a0693ebe4113cfeb2f5ee93920e6e7ea3afe99a"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "47d25e73c949c69f75d1b9dba39c5475523403b31eb8c2fdc99da4dc33bc1aca"
 dependencies = [
  "tock-registers",
 ]
@@ -48,7 +49,8 @@ dependencies = [
 [[package]]
 name = "arm_pl011"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/arm_pl011.git#8a66e24c7e6ac2a01841cd29c5e1690323aa1d8d"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "efcf6afca4502993a737ba1e00952d1321078689da92bf7aab27d4e5756c0bec"
 dependencies = [
  "tock-registers",
 ]
@@ -156,7 +158,7 @@ dependencies = [
 [[package]]
 name = "devices"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/devices.git#28ba385a63b5ba6e08131f022551ad66edb490c9"
+source = "git+https://github.com/Byte-OS/devices.git#89a7844a041117af8465b2f484f3627aef929a32"
 dependencies = [
  "fdt",
  "frame_allocator",
@@ -189,7 +191,7 @@ checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 [[package]]
 name = "executor"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/executor.git#1fa479565027f0377de4ea1b64ce683ee10e6d39"
+source = "git+https://github.com/Byte-OS/executor.git#7cab69999a3b48e12addd861dfaa4471fd8afba9"
 dependencies = [
  "downcast-rs",
  "hashbrown",
@@ -225,7 +227,7 @@ checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
 [[package]]
 name = "frame_allocator"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/bit_frame_allocator.git#e401675aef8a404cdda5c09c603afd51fe3231a9"
+source = "git+https://github.com/Byte-OS/bit_frame_allocator.git#b989b6a4e17d960fca1e77c83f060cb6006fc924"
 dependencies = [
  "bit_field",
  "log",
@@ -415,7 +417,7 @@ dependencies = [
 [[package]]
 name = "logging"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/logging.git#3e749346c6085e89b4ae61e520a0cfeadd222f11"
+source = "git+https://github.com/Byte-OS/logging.git#242f79a5628f9d2dfa79b287bca6125575ce98bf"
 dependencies = [
  "devices",
  "log",
@@ -544,11 +546,11 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "polyhal"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/polyhal.git#3cfa99e25f41a0594d3c52f26d70f39699cac59b"
+version = "0.1.2"
+source = "git+https://github.com/Byte-OS/polyhal.git#bbfe118fc45861c253b110a049e56deb954b4e30"
 dependencies = [
  "aarch64-cpu",
- "arm_gic",
+ "arm_gicv2",
  "arm_pl011",
  "bitflags 2.4.2",
  "cfg-if",
@@ -569,8 +571,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-macro"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/polyhal.git#3cfa99e25f41a0594d3c52f26d70f39699cac59b"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "fa314a044c9b63aac7e5633f7d709c0ea28e6f97f98e3932ae10bbb2ff3a27ce"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -620,7 +623,7 @@ dependencies = [
 [[package]]
 name = "ramfs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/ramfs.git#57167265b20e428295c33e0c4e33eaf8ab7f3638"
+source = "git+https://github.com/Byte-OS/ramfs.git#55d83b65cfc6b3f0c2d83403515c1618a578a99a"
 dependencies = [
  "frame_allocator",
  "log",

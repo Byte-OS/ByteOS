@@ -1,10 +1,12 @@
+use polyhal::trap::{run_user_task, EscapeReason};
+use polyhal::trapframe::{TrapFrame, TrapFrameArgs};
+use polyhal::{MappingFlags, Time};
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use executor::{AsyncTask, TaskId};
 use frame_allocator::frame_alloc;
 use log::{debug, warn};
 use polyhal::addr::VirtPage;
-use polyhal::{pagetable::MappingFlags, run_user_task, time::Time, TrapFrame, TrapFrameArgs};
 
 use crate::tasks::{MapTrack, MemType, UserTask};
 use crate::{
@@ -71,6 +73,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, addr: usize) {
                 ppn
             }
         };
+
         drop(pcb);
         task.map(ppn, vpn, MappingFlags::URWX);
     } else {
@@ -82,7 +85,7 @@ impl UserTaskContainer {
     /// Handle user interrupt.
     pub async fn handle_syscall(&self, cx_ref: &mut TrapFrame) -> UserTaskControlFlow {
         let ustart = Time::now().raw();
-        if let Some(()) = run_user_task(cx_ref) {
+        if matches!(run_user_task(cx_ref), EscapeReason::SysCall) {
             self.task
                 .inner_map(|inner| inner.tms.utime += (Time::now().raw() - ustart) as u64);
 

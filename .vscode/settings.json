@@ -1,12 +1,5 @@
 {
-    "rust-analyzer.checkOnSave.allTargets": false,
-    "rust-analyzer.checkOnSave.extraArgs": [
-        // "--target",
-        // "riscv64imac-unknown-none-elf"
-        // "x86_64-unknown-none"
-    ],
-    "files.associations": {
-        "*.in": "cpp",
-        "fcntl.h": "c"
-    }
+    "rust-analyzer.check.allTargets": false,
+    "rust-analyzer.check.extraArgs": [],
+    "rust-analyzer.procMacro.enable": true
 }

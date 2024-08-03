@@ -93,7 +93,7 @@ ifeq ($(ROOT_FS), fat32)
 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
 	sudo rm -rf mount/*
 else ifeq ($(ROOT_FS), ext4_rs)
-	mkfs.ext4 $(FS_IMG)
+	mkfs.ext4 -b 4096 $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/
 else 
@@ -161,4 +161,12 @@ gdb:
 addr2line:
 	addr2line -sfipe $(KERNEL_ELF) | rustfilt
 
-.PHONY: all run build clean gdb justbuild
+
+iso: build
+	cp $(KERNEL_ELF) tools/iso/example
+	grub-mkrescue -o bootable.iso tools/iso
+
+boot-iso: iso
+	qemu-system-x86_64 -cdrom bootable.iso -serial stdio
+
+.PHONY: all run build clean gdb justbuild iso boot-iso

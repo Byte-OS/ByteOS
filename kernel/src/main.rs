@@ -31,12 +31,14 @@ mod user;
 
 use core::sync::atomic::{AtomicBool, Ordering};
 
-use devices::{self, get_int_device};
+use devices::{self, get_int_device, VIRT_ADDR_START};
 use executor::current_task;
 use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use polyhal::addr::{PhysPage, VirtPage};
+use polyhal::common::{get_fdt, get_mem_areas, PageAlloc};
 use polyhal::irq::IRQ;
-use polyhal::{get_mem_areas, PageAlloc, TrapFrame, TrapFrameArgs, TrapType, VIRT_ADDR_START};
+use polyhal::trap::TrapType;
+use polyhal::trapframe::{TrapFrame, TrapFrameArgs};
 use tasks::UserTask;
 use user::user_cow_int;
 use vfscore::OpenFlags;
@@ -155,7 +157,7 @@ fn main(hart_id: usize) {
         // initialize logging module
         logging::init(option_env!("LOG"));
 
-        polyhal::init(&PageAllocImpl);
+        polyhal::common::init(&PageAllocImpl);
         get_mem_areas().into_iter().for_each(|(start, size)| {
             info!("memory area: {:#x} - {:#x}", start, start + size);
             frame_allocator::add_frame_map(start, start + size);
@@ -170,7 +172,7 @@ fn main(hart_id: usize) {
 
         devices::prepare_drivers();
 
-        if let Some(fdt) = polyhal::get_fdt() {
+        if let Some(fdt) = get_fdt() {
             for node in fdt.all_nodes() {
                 devices::try_to_add_device(&node);
             }
@@ -179,7 +181,8 @@ fn main(hart_id: usize) {
         // get devices and init
         devices::regist_devices_irq();
 
-        polyhal::instruction::Instruction::ebreak();
+        // TODO: test ebreak
+        // Instruction::ebreak();
 
         // initialize filesystem
         fs::init();
@@ -221,6 +224,7 @@ fn main(hart_id: usize) {
 
         // init kernel threads and async executor
         tasks::init();
+        log::info!("run tasks");
         // loop { arch::wfi() }
         tasks::run_tasks();
 

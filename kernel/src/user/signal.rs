@@ -2,7 +2,7 @@ use core::mem::size_of;
 
 use executor::AsyncTask;
 use log::debug;
-use polyhal::{TrapFrameArgs, SIG_RETURN_ADDR};
+use polyhal::trapframe::TrapFrameArgs;
 use signal::SignalFlags;
 
 use crate::syscall::consts::{SignalUserContext, UserRef};
@@ -68,7 +68,9 @@ impl UserTaskContainer {
         tcb.cx[TrapFrameArgs::SP] = sp;
         tcb.cx[TrapFrameArgs::SEPC] = sigaction.handler;
         tcb.cx[TrapFrameArgs::RA] = if sigaction.restorer == 0 {
-            SIG_RETURN_ADDR
+            // SIG_RETURN_ADDR
+            // TODO: add sigreturn addr.
+            0
         } else {
             sigaction.restorer
         };
