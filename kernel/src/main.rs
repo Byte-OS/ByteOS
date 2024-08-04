@@ -155,7 +155,7 @@ fn main(hart_id: usize) {
         println!("{}", str);
 
         // initialize logging module
-        logging::init(option_env!("LOG"));
+        // logging::init(option_env!("LOG"));
 
         polyhal::common::init(&PageAllocImpl);
         get_mem_areas().into_iter().for_each(|(start, size)| {
