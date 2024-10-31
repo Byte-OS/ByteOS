@@ -1,0 +1,32 @@
+#!/usr/bin/env -S deno --ext=ts --allow-run --allow-read --allow-env
+
+import { Command } from "https://deno.land/x/cliffy@v1.0.0-rc.4/command/mod.ts";
+import { cliCommand as buildCommand } from './scripts/cli-build.ts';
+import { cliCommand as qemuCommand } from './scripts/cli-qemu.ts';
+import { logLevelEnum, archEnum } from './scripts/cli-types.ts';
+import { parse } from "jsr:@std/yaml";
+
+const command = new Command()
+    .name("byteos")
+    .version("0.1.0")
+    .description("Building tools for the byteos.")
+
+    .globalType("log-level", logLevelEnum)
+    .globalOption("-l, --log-level <level:log-level>", "Set Log Level", { default: 'info' })
+    .globalType("architecture", archEnum)
+    .globalOption("-a, --arch [arch:architecture]", "Set the architecture", { required: true })
+
+    // Sub Command build
+    .command("build", buildCommand)
+    .command("qemu", qemuCommand);
+
+// parse yaml file
+const data = parse(new TextDecoder("utf-8").decode(await Deno.readFile("byteos.yaml")));
+console.log(data);
+
+try {
+    // Parse the command.
+    await command.parse(Deno.args);
+} catch (e) {
+    console.error("Error", e);
+}
