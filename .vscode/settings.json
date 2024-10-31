@@ -1,5 +1,6 @@
 {
     "rust-analyzer.check.allTargets": false,
     "rust-analyzer.check.extraArgs": [],
-    "rust-analyzer.procMacro.enable": true
+    "rust-analyzer.procMacro.enable": true,
+    "deno.enable": true
 }
