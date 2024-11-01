@@ -1,7 +1,7 @@
 // use backtrace::backtrace;
 use core::panic::PanicInfo;
 
-use polyhal::instruction::Instruction;
+use polyhal::instruction::shutdown;
 
 #[inline]
 fn hart_id() -> usize {
@@ -27,5 +27,6 @@ fn panic_handler(info: &PanicInfo) -> ! {
     // backtrace();
     println!("!TEST FINISH!");
     // loop {}
-    Instruction::shutdown()
+    
+    shutdown();
 }
