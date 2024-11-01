@@ -12,7 +12,7 @@ use fs::{
 };
 use log::debug;
 use logging::get_char;
-use polyhal::{debug_console::DebugConsole, instruction::Instruction};
+use polyhal::{debug_console::DebugConsole, instruction::shutdown};
 use vfscore::INodeInterface;
 
 use crate::tasks::add_user_task;
@@ -407,6 +407,6 @@ pub async fn initproc() {
         })
         .is_none()
     {
-        Instruction::shutdown();
+        shutdown();
     }
 }

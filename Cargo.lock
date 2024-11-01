@@ -427,9 +427,9 @@ dependencies = [
 
 [[package]]
 name = "loongArch64"
-version = "0.2.2"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "68608d80585f06cd02ecf725d20d75f450f493422be76bfea3a02063f9732444"
+checksum = "dd48200d465466664e4e899b204b77b5447d60b1ababdad3a2c49ae85417b552"
 dependencies = [
  "bit_field",
  "bitflags 1.3.2",
@@ -546,8 +546,8 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "polyhal"
-version = "0.1.2"
-source = "git+https://github.com/Byte-OS/polyhal.git#bbfe118fc45861c253b110a049e56deb954b4e30"
+version = "0.1.3"
+source = "git+https://github.com/Byte-OS/polyhal.git#5b890102fb32de0ca0f7c3e7a776454b6d0bd583"
 dependencies = [
  "aarch64-cpu",
  "arm_gicv2",
@@ -571,9 +571,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-macro"
-version = "0.1.2"
+version = "0.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fa314a044c9b63aac7e5633f7d709c0ea28e6f97f98e3932ae10bbb2ff3a27ce"
+checksum = "e8445234620fa3a0886b9cae5d5fa568a6124efb916041628eb9c4011d1a3e8b"
 dependencies = [
  "proc-macro2",
  "quote",
