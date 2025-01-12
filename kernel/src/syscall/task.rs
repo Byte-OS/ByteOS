@@ -190,7 +190,6 @@ pub async fn exec_with_process(
     envp: Vec<String>,
 ) -> Result<Arc<UserTask>, LinuxError> {
     // copy args, avoid free before pushing.
-    let path = path;
     let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
     user_task.page_table.restore();

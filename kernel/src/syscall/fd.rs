@@ -987,7 +987,7 @@ impl UserTaskContainer {
 
         if off_out.is_valid() {
             *off_out.get_mut() += out_file
-                .writeat(*off_out.get_ref(), &mut buffer[..rsize])
+                .writeat(*off_out.get_ref(), &buffer[..rsize])
                 .map_err(from_vfs)?;
         } else {
             out_file.write(&buffer[..rsize]).map_err(from_vfs)?;

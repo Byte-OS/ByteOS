@@ -138,7 +138,7 @@ pub fn futex_requeue(
         .map(|x| x.drain(..reque_count).collect());
 
     if let Some(reque) = reque {
-        futex_table.entry(uaddr2).or_insert_with(|| vec![]);
+        futex_table.entry(uaddr2).or_default();
         futex_table.get_mut(&uaddr2).unwrap().extend(reque);
     }
 

@@ -108,6 +108,7 @@ impl ElfExtra for ElfFile<'_> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn init_task_stack(
     user_task: Arc<UserTask>,
     args: Vec<String>,
