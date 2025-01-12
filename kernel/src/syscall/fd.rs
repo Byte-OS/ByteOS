@@ -661,14 +661,12 @@ impl UserTaskContainer {
         };
         let n = loop {
             let mut num = 0;
-            for i in 0..nfds {
-                poll_fds[i].revents = self
+            for fd in &mut *poll_fds {
+                fd.revents = self
                     .task
-                    .get_fd(poll_fds[i].fd as _)
-                    .map_or(PollEvent::NONE, |x| {
-                        x.poll(poll_fds[i].events.clone()).unwrap()
-                    });
-                if poll_fds[i].revents != PollEvent::NONE {
+                    .get_fd(fd.fd as _)
+                    .map_or(PollEvent::NONE, |x| x.poll(fd.events.clone()).unwrap());
+                if fd.revents != PollEvent::NONE {
                     num += 1;
                 }
             }
