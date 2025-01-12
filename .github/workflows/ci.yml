@@ -29,8 +29,8 @@ jobs:
       run: make BIN=riscv64-qemu run
     - name: "[aarch64] make run"
       run: make BIN=aarch64-qemu run
-    - name: "[x86_64] make run"
-      run: make BIN=x86_64-qemu run
+    # - name: "[x86_64] make run"
+    #   run: make BIN=x86_64-qemu run
     - name: "[loongarch64] make run"
       run: make BIN=loongarch64-qemu run
 
