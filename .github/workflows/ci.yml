@@ -1,0 +1,32 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     arch: [riscv64, aarch64, x86_64, loongarch64]
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install qemu-system
+      run: sudo apt update && sudo apt install qemu-system -y
+    - name: Install cargo-binutils
+      run: cargo install cargo-binutils
+    - name: Install kbuild
+      run: cargo install kbuild
+
+    - name: "[riscv64] make run"
+      run: make BIN=riscv64-qemu run
+    - name: "[aarch64] make run"
+      run: make BIN=aarch64-qemu run
+    - name: "[x86_64] make run"
+      run: make BIN=x86_64-qemu run
+    - name: "[loongarch64] make run"
+      run: make BIN=loongarch64-qemu run
