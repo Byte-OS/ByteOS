@@ -106,6 +106,7 @@ endif
 	sudo umount $(FS_IMG)
 
 build:
+	echo arch=$(ARCH)
 	kbuild build byteos.yaml $(BIN)
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 

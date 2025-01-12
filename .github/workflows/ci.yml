@@ -23,6 +23,7 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install toolchain
       run: rustup show
+    - run: make --version
 
     - name: "[riscv64] make run"
       run: make BIN=riscv64-qemu run
