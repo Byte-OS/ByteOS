@@ -207,7 +207,7 @@ impl<'a> FileItem {
             };
             buffer[..file_bytes.len()].copy_from_slice(file_bytes);
             buffer[file_bytes.len()] = b'\0';
-            ptr = ptr + current_len;
+            ptr += current_len;
             finished = i + 1;
         }
         *self.offset.lock() = finished;
@@ -330,7 +330,7 @@ impl FileItem {
 
     pub fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, VfsError> {
         self.check_writeable()?;
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Ok(0);
         }
         self.inner.writeat(offset, buffer)
@@ -346,7 +346,7 @@ impl FileItem {
 
     pub fn write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
         self.check_writeable()?;
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Ok(0);
         }
         let offset = *self.offset.lock();
@@ -371,11 +371,11 @@ impl FileItem {
 
     pub async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
         // self.check_writeable()?;
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Ok(0);
         }
         let offset = *self.offset.lock();
-        WaitBlockingWrite(self.inner.clone(), &buffer, offset)
+        WaitBlockingWrite(self.inner.clone(), buffer, offset)
             .await
             .map(|x| {
                 *self.offset.lock() += x;

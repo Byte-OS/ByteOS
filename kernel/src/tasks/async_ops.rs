@@ -64,8 +64,7 @@ pub fn in_futex(futex_table: Arc<Mutex<FutexTable>>, task_id: usize) -> bool {
     let futex_table = futex_table.lock();
     futex_table
         .values()
-        .find(|x| x.contains(&task_id))
-        .is_some()
+        .any(|x| x.contains(&task_id))
 }
 
 pub struct WaitFutex(pub Arc<Mutex<FutexTable>>, pub usize);
@@ -78,11 +77,10 @@ impl Future for WaitFutex {
         match in_futex(self.0.clone(), self.1) {
             true => {
                 if signal.has_signal() {
-                    self.0
+                    if let Some(x) = self.0
                         .lock()
                         .values_mut()
-                        .find(|x| x.contains(&self.1))
-                        .map(|x| x.retain(|x| *x != self.1));
+                        .find(|x| x.contains(&self.1)) { x.retain(|x| *x != self.1) }
                     Poll::Ready(Err(LinuxError::EINTR))
                 } else {
                     Poll::Pending
@@ -118,7 +116,7 @@ pub fn futex_wake(futex_table: Arc<Mutex<FutexTable>>, uaddr: usize, wake_count:
     } else {
         let que = futex_table
             .get_mut(&uaddr)
-            .map(|x| x.drain(..cmp::min(wake_count as usize, que_size)));
+            .map(|x| x.drain(..cmp::min(wake_count, que_size)));
 
         que.map(|x| x.count()).unwrap_or(0)
     }
@@ -135,17 +133,15 @@ pub fn futex_requeue(
 
     let waked_size = futex_table
         .get_mut(&uaddr)
-        .map(|x| x.drain(..wake_count as usize).count())
+        .map(|x| x.drain(..wake_count).count())
         .unwrap_or(0);
 
     let reque: Option<Vec<_>> = futex_table
         .get_mut(&uaddr)
-        .map(|x| x.drain(..reque_count as usize).collect());
+        .map(|x| x.drain(..reque_count).collect());
 
     if let Some(reque) = reque {
-        if !futex_table.contains_key(&uaddr2) {
-            futex_table.insert(uaddr2, vec![]);
-        }
+        futex_table.entry(uaddr2).or_insert_with(|| vec![]);
         futex_table.get_mut(&uaddr2).unwrap().extend(reque);
     }
 

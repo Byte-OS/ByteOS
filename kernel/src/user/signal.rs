@@ -25,7 +25,7 @@ impl UserTaskContainer {
         }
 
         // get the signal action for the signal.
-        let sigaction = self.task.pcb.lock().sigaction[signal.num()].clone();
+        let sigaction = self.task.pcb.lock().sigaction[signal.num()];
 
         // if there doesn't have signal handler.
         // Then use default handler. Exit or do nothing.
@@ -62,7 +62,7 @@ impl UserTaskContainer {
         let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
-        cx.store_ctx(&cx_ref);
+        cx.store_ctx(cx_ref);
         cx.set_pc(tcb.cx[TrapFrameArgs::SEPC]);
         cx.sig_mask = sigaction.mask;
         tcb.cx[TrapFrameArgs::SP] = sp;

@@ -355,7 +355,7 @@ impl UserTask {
         let mut pcb = self.pcb.lock();
         let tcb = RwLock::new(ThreadControlBlock {
             cx: parent_tcb.cx.clone(),
-            sigmask: parent_tcb.sigmask.clone(),
+            sigmask: parent_tcb.sigmask,
             clear_child_tid: 0,
             set_child_tid: 0,
             signal: SignalList::new(),

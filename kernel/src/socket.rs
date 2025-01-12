@@ -160,7 +160,7 @@ impl INodeInterface for Socket {
         //     }
         // }
         // Ok(rlen)
-        if data.len() == 0 {
+        if data.is_empty() {
             match self.inner.recv_from() {
                 Ok((recv_data, _)) => {
                     data = recv_data;
@@ -183,7 +183,7 @@ impl INodeInterface for Socket {
     }
 
     fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
-        match self.inner.sendto(&buffer, None) {
+        match self.inner.sendto(buffer, None) {
             Ok(len) => {
                 self.options.lock().wsize += len;
                 Ok(len)

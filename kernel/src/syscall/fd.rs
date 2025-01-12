@@ -23,7 +23,7 @@ use super::consts::{LinuxError, UserRef};
 use super::SysResult;
 
 pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<FileItem>, LinuxError> {
-    if path.len() > 0 && path.starts_with("/") {
+    if !path.is_empty() && path.starts_with('/') {
         return Ok(FileItem::root());
     }
     const NEW_AT_CWD: u32 = AT_CWD as u32;
@@ -295,7 +295,7 @@ impl UserTaskContainer {
         let stat = stat_ptr.get_mut();
 
         let dir = to_node(&self.task, dir_fd, path)?;
-        dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)
+        dentry_open(dir.dentry.clone().unwrap(), path, OpenFlags::NONE)
             .map_err(from_vfs)?
             .node
             .stat(stat)
@@ -933,7 +933,7 @@ impl UserTaskContainer {
         let end = if timeout == usize::MAX {
             usize::MAX
         } else {
-            stime + timeout * 0x1000_000
+            stime + timeout * 0x0100_0000
         };
         let buffer = events.slice_mut_with_len(max_events);
         debug!("epoll_wait:{:#x?}", epfile.data.lock());

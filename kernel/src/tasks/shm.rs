@@ -27,7 +27,7 @@ pub struct MapedSharedMemory {
 impl Drop for MapedSharedMemory {
     fn drop(&mut self) {
         // self.mem.trackers.remove(self.key);
-        if Arc::strong_count(&self.mem) == 1 && *self.mem.deleted.lock() == true {
+        if Arc::strong_count(&self.mem) == 1 && *self.mem.deleted.lock() {
             SHARED_MEMORY.lock().remove(&self.key);
         }
     }

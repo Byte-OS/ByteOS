@@ -26,7 +26,6 @@ impl INodeInterface for SocketPair {
         queue
             .drain(..rlen)
             .enumerate()
-            .into_iter()
             .for_each(|(i, x)| {
                 buffer[i] = x;
             });
@@ -39,15 +38,11 @@ impl INodeInterface for SocketPair {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLOUT) {
-            if self.inner.lock().len() <= 0x50000 {
-                res |= PollEvent::POLLOUT;
-            }
+        if events.contains(PollEvent::POLLOUT) && self.inner.lock().len() <= 0x50000 {
+            res |= PollEvent::POLLOUT;
         }
-        if events.contains(PollEvent::POLLIN) {
-            if self.inner.lock().len() > 0 {
-                res |= PollEvent::POLLIN;
-            }
+        if events.contains(PollEvent::POLLIN) && self.inner.lock().len() > 0 {
+            res |= PollEvent::POLLIN;
         }
         Ok(res)
     }

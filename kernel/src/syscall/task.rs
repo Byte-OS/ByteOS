@@ -66,7 +66,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
     assert_eq!(rsize, file_size);
     // flush_dcache_range();
     // 读取elf信息
-    if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
+    if let Ok(elf) = xmas_elf::ElfFile::new(buffer) {
         let elf_header = elf.header;
 
         let entry_point = elf.header.pt2.entry_point() as usize;
@@ -124,7 +124,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
                 let pages: Vec<Arc<FrameTracker>> = frame_alloc_much(page_count)
                     .expect("can't alloc in cache task template")
                     .into_iter()
-                    .map(|x| Arc::new(x))
+                    .map(Arc::new)
                     .collect();
                 let ppn_space = unsafe {
                     core::slice::from_raw_parts_mut(
@@ -190,7 +190,7 @@ pub async fn exec_with_process(
     envp: Vec<String>,
 ) -> Result<Arc<UserTask>, LinuxError> {
     // copy args, avoid free before pushing.
-    let path = String::from(path);
+    let path = path;
     let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
     user_task.page_table.restore();
@@ -241,7 +241,7 @@ pub async fn exec_with_process(
         assert_eq!(rsize, file_size);
         // flush_dcache_range();
         // 读取elf信息
-        let elf = if let Ok(elf) = xmas_elf::ElfFile::new(&buffer) {
+        let elf = if let Ok(elf) = xmas_elf::ElfFile::new(buffer) {
             elf
         } else {
             let mut new_args = vec!["busybox".to_string(), "sh".to_string()];
@@ -403,13 +403,13 @@ impl UserTaskContainer {
         let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
         let args = args
             .slice_until_valid(|x| x.is_valid())
-            .into_iter()
+            .iter_mut()
             .map(|x| x.get_cstr().unwrap().to_string())
             .collect();
         debug!("test1: envp: {:?}", envp);
         let envp: Vec<String> = envp
             .slice_until_valid(|x| x.is_valid())
-            .into_iter()
+            .iter_mut()
             .map(|x| x.get_cstr().unwrap().to_string())
             .collect();
         debug!(
@@ -458,10 +458,8 @@ impl UserTaskContainer {
             false => self.task.clone().cow_fork(),
         };
 
-        let clear_child_tid = flags
-            .contains(CloneFlags::CLONE_CHILD_CLEARTID)
-            .then_some(ctid)
-            .unwrap_or(UserRef::from(0));
+        let clear_child_tid = if flags
+            .contains(CloneFlags::CLONE_CHILD_CLEARTID) { ctid } else { UserRef::from(0) };
 
         let mut new_tcb = new_task.tcb.write();
         new_tcb.clear_child_tid = clear_child_tid.addr();
@@ -514,15 +512,14 @@ impl UserTaskContainer {
                     inner
                         .children
                         .iter()
-                        .find(|x| x.task_id == pid as usize)
-                        .map(|x| x.clone())
+                        .find(|x| x.task_id == pid as usize).cloned()
                 })
                 .ok_or(LinuxError::ECHILD)?;
         }
         if options == 0 || options == 2 || options == 3 || options == 10 {
             debug!(
                 "children:{:?}",
-                self.task.pcb.lock().children.iter().count()
+                self.task.pcb.lock().children.len()
             );
             let child_task = WaitPid(self.task.clone(), pid).await?;
 
@@ -552,7 +549,7 @@ impl UserTaskContainer {
                 .iter()
                 .find(|x| x.task_id == pid as usize || pid == -1)
                 .cloned();
-            let exit = child_task.clone().map_or(None, |x| x.exit_code());
+            let exit = child_task.clone().and_then(|x| x.exit_code());
             match exit {
                 Some(t1) => {
                     let child_task = child_task.unwrap();
@@ -696,7 +693,7 @@ impl UserTaskContainer {
                 ))
             }
             _ => {
-                return Err(LinuxError::EPERM);
+                Err(LinuxError::EPERM)
             }
         }
     }
@@ -709,8 +706,7 @@ impl UserTaskContainer {
                 .find(|x| match x.upgrade() {
                     Some(thread) => thread.task_id == tid,
                     None => false,
-                })
-                .map(|x| x.clone())
+                }).cloned()
         });
 
         if tid == self.tid {
@@ -724,10 +720,8 @@ impl UserTaskContainer {
                 let mut child_tcb = child_task.tcb.write();
                 if !child_tcb.signal.has_sig(target_signal.clone()) {
                     child_tcb.signal.add_signal(target_signal);
-                } else {
-                    if let Some(index) = target_signal.real_time_index() {
-                        child_tcb.signal_queue[index] += 1;
-                    }
+                } else if let Some(index) = target_signal.real_time_index() {
+                    child_tcb.signal_queue[index] += 1;
                 }
                 // let signal = child
                 //     .upgrade().unwrap()
@@ -755,12 +749,12 @@ impl UserTaskContainer {
         let stime = Time::from_raw(tms.stime as _);
         let utime = Time::from_raw(tms.utime as _);
         rusage.ru_stime = TimeVal {
-            sec: stime.to_usec() / 1000_000,
-            usec: stime.to_usec() % 1000_000,
+            sec: stime.to_usec() / 1_000_000,
+            usec: stime.to_usec() % 1_000_000,
         };
         rusage.ru_utime = TimeVal {
-            sec: utime.to_usec() / 1000_000,
-            usec: utime.to_usec() % 1000_000,
+            sec: utime.to_usec() / 1_000_000,
+            usec: utime.to_usec() % 1_000_000,
         };
         Ok(0)
     }

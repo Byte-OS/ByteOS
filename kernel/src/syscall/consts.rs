@@ -419,7 +419,7 @@ cfg_if::cfg_if! {
 
 }
 
-pub const AT_CWD: usize = -100 as isize as usize;
+pub const AT_CWD: usize = -100_isize as usize;
 
 pub struct UTSname {
     pub sysname: [u8; 65],
@@ -506,16 +506,16 @@ bitflags! {
     }
 }
 
-impl Into<MappingFlags> for MmapProt {
-    fn into(self) -> MappingFlags {
+impl From<MmapProt> for MappingFlags {
+    fn from(val: MmapProt) -> Self {
         let mut res = MappingFlags::empty();
-        if self.contains(Self::PROT_READ) {
+        if val.contains(MmapProt::PROT_READ) {
             res |= MappingFlags::R;
         }
-        if self.contains(Self::PROT_WRITE) {
+        if val.contains(MmapProt::PROT_WRITE) {
             res |= MappingFlags::W;
         }
-        if self.contains(Self::PROT_EXEC) {
+        if val.contains(MmapProt::PROT_EXEC) {
             res |= MappingFlags::X;
         }
         res
@@ -869,9 +869,9 @@ impl<T> From<VirtAddr> for UserRef<T> {
     }
 }
 
-impl<T> Into<usize> for UserRef<T> {
-    fn into(self) -> usize {
-        self.addr.addr()
+impl<T> From<UserRef<T>> for usize {
+    fn from(val: UserRef<T>) -> Self {
+        val.addr.addr()
     }
 }
 

@@ -35,7 +35,7 @@ impl<'a> MemSet {
     }
 
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
-        self.0.iter().find(|x| x.overlapping(start, end)).is_some()
+        self.0.iter().any(|x| x.overlapping(start, end))
     }
 
     pub fn sub_area(&mut self, start: usize, end: usize, pt: &PageTable) {
@@ -106,9 +106,8 @@ impl MemArea {
     /// Check the memory is overlapping.
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
         let self_end = self.start + self.len;
-        let res =
-            !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end));
-        res
+        
+        !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end))
     }
 
     /// write page to file

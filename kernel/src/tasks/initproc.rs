@@ -56,7 +56,7 @@ fn clear() {
 }
 
 async fn kill_all_tasks() {
-    TASK_MAP.lock().values().into_iter().for_each(|task| {
+    TASK_MAP.lock().values().for_each(|task| {
         task.upgrade().inspect(|x| {
             if x.get_task_type() == TaskType::MonolithicTask {
                 x.exit(100)
@@ -115,14 +115,14 @@ async fn run_all() -> bool {
         file_command(i).await
     }
 
-    return true;
+    true
 }
 
 async fn file_command(cmd: &str) {
-    let mut args: Vec<&str> = cmd.split(" ").filter(|x| *x != "").collect();
+    let mut args: Vec<&str> = cmd.split(' ').filter(|x| !x.is_empty()).collect();
     debug!("cmd: {}  args: {:?}", cmd, args);
     let filename = args.drain(..1).last().unwrap();
-    let filename = match filename.starts_with("/") {
+    let filename = match filename.starts_with('/') {
         true => String::from(filename),
         false => String::from("/") + filename,
     };
@@ -181,10 +181,10 @@ pub async fn simple_shell() {
             new_line = false;
         }
         if let Some(c) = get_char() {
-            match c as u8 {
+            match c {
                 CR | LF => {
                     print!("\n");
-                    let sign = command(&String::from_utf8_lossy(&buffer).to_string()).await;
+                    let sign = command(String::from_utf8_lossy(&buffer).as_ref()).await;
                     if sign {
                         break;
                     }
@@ -192,7 +192,7 @@ pub async fn simple_shell() {
                     new_line = true;
                 }
                 BS | DL => {
-                    if buffer.len() > 0 {
+                    if !buffer.is_empty() {
                         buffer.pop();
                         DebugConsole::putchar(BS);
                         DebugConsole::putchar(SPACE);
@@ -201,8 +201,8 @@ pub async fn simple_shell() {
                 }
                 0..30 => {}
                 _ => {
-                    buffer.push(c as u8);
-                    DebugConsole::putchar(c as u8);
+                    buffer.push(c);
+                    DebugConsole::putchar(c);
                 }
             }
         }
@@ -210,7 +210,7 @@ pub async fn simple_shell() {
     }
 }
 
-pub const USER_WORK_DIR: &'static str = "/";
+pub const USER_WORK_DIR: &str = "/";
 
 pub async fn initproc() {
     // link files.
