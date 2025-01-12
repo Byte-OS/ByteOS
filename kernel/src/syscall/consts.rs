@@ -1,5 +1,6 @@
 //! allow dead code in the file
 #![allow(dead_code)]
+#![allow(clippy::upper_case_acronyms)]
 
 use core::fmt::{Debug, Display};
 use core::marker::PhantomData;

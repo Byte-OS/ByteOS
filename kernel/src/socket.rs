@@ -11,6 +11,7 @@ use crate::syscall::NET_SERVER;
 
 #[derive(Clone, Copy, PartialEq, Debug)]
 #[allow(dead_code)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum NetType {
     STEAM,
     DGRAME,

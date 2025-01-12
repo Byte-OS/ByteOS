@@ -74,6 +74,7 @@ impl INodeInterface for EpollFile {}
 
 #[repr(u8)]
 #[derive(Debug, Eq, PartialEq, FromPrimitive)]
+#[allow(clippy::upper_case_acronyms)]
 /// epoll_ctl
 pub enum EpollCtl {
     ADD = 1,

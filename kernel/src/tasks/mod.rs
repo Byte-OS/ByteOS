@@ -122,6 +122,7 @@ pub fn current_user_task() -> Arc<UserTask> {
 // tms_ustime记录的是子进程执行内核代码的时间.
 #[allow(dead_code)]
 #[derive(Default, Clone, Copy)]
+#[allow(clippy::upper_case_acronyms)]
 pub struct TMS {
     pub utime: u64,
     pub stime: u64,
