@@ -1,10 +1,10 @@
 use alloc::{sync::Arc, vec::Vec};
-use devices::PAGE_SIZE;
 use core::{
     cmp::min,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
+use devices::PAGE_SIZE;
 use frame_allocator::FrameTracker;
 use fs::File;
 use polyhal::{addr::VirtPage, PageTable};
@@ -29,13 +29,13 @@ impl DerefMut for MemSet {
     }
 }
 
-impl<'a> MemSet {
+impl MemSet {
     pub fn new(vec: Vec<MemArea>) -> Self {
         Self(vec)
     }
 
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
-        self.0.iter().find(|x| x.overlapping(start, end)).is_some()
+        self.0.iter().any(|x| x.overlapping(start, end))
     }
 
     pub fn sub_area(&mut self, start: usize, end: usize, pt: &PageTable) {
@@ -106,9 +106,8 @@ impl MemArea {
     /// Check the memory is overlapping.
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
         let self_end = self.start + self.len;
-        let res =
-            !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end));
-        res
+
+        !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end))
     }
 
     /// write page to file
@@ -210,26 +209,23 @@ impl MemArea {
 
 impl Drop for MemArea {
     fn drop(&mut self) {
-        match &self.mtype {
-            MemType::ShareFile => {
-                let start = self.start;
-                let len = self.len;
-                let mapfile = self.file.clone().unwrap();
-                for tracker in &self.mtrackers {
-                    if Arc::strong_count(&tracker.tracker) > 1 {
-                        continue;
-                    }
-
-                    let offset = tracker.vpn.to_addr() - start;
-                    let wlen = min(len - offset, PAGE_SIZE);
-
-                    let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
-                    mapfile
-                        .writeat(offset, bytes)
-                        .expect("can't write data to file at drop");
+        if let MemType::ShareFile = &self.mtype {
+            let start = self.start;
+            let len = self.len;
+            let mapfile = self.file.clone().unwrap();
+            for tracker in &self.mtrackers {
+                if Arc::strong_count(&tracker.tracker) > 1 {
+                    continue;
                 }
+
+                let offset = tracker.vpn.to_addr() - start;
+                let wlen = min(len - offset, PAGE_SIZE);
+
+                let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
+                mapfile
+                    .writeat(offset, bytes)
+                    .expect("can't write data to file at drop");
             }
-            _ => {}
         }
     }
 }

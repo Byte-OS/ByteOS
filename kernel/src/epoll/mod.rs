@@ -62,9 +62,9 @@ impl EpollFile {
                 self.data.lock().remove(&fd);
             }
             EpollCtl::MOD => {
-                self.data.lock().get_mut(&fd).map(|x| {
+                if let Some(x) = self.data.lock().get_mut(&fd) {
                     *x = ev;
-                });
+                }
             }
         }
     }
@@ -74,6 +74,7 @@ impl INodeInterface for EpollFile {}
 
 #[repr(u8)]
 #[derive(Debug, Eq, PartialEq, FromPrimitive)]
+#[allow(clippy::upper_case_acronyms)]
 /// epoll_ctl
 pub enum EpollCtl {
     ADD = 1,

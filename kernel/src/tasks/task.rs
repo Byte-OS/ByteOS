@@ -10,7 +10,11 @@ use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::File;
 use log::debug;
-use polyhal::{addr::{PhysPage, VirtAddr, VirtPage}, trapframe::{TrapFrame, TrapFrameArgs}, MappingFlags, MappingSize, PageTableWrapper};
+use polyhal::{
+    addr::{PhysPage, VirtAddr, VirtPage},
+    trapframe::{TrapFrame, TrapFrameArgs},
+    MappingFlags, MappingSize, PageTableWrapper,
+};
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
@@ -136,6 +140,7 @@ impl UserTask {
         self.map_frames(vpn, mtype, count, None, 0, vpn.to_addr(), count * PAGE_SIZE)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn map_frames(
         &self,
         vpn: VirtPage,
@@ -355,7 +360,7 @@ impl UserTask {
         let mut pcb = self.pcb.lock();
         let tcb = RwLock::new(ThreadControlBlock {
             cx: parent_tcb.cx.clone(),
-            sigmask: parent_tcb.sigmask.clone(),
+            sigmask: parent_tcb.sigmask,
             clear_child_tid: 0,
             set_child_tid: 0,
             signal: SignalList::new(),

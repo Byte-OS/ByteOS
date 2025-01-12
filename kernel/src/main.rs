@@ -76,7 +76,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
                 );
             }
             // judge whether it is trigger by a user_task handler.
-            if let Some(task) = current_task().downcast_arc::<UserTask>().ok() {
+            if let Ok(task) = current_task().downcast_arc::<UserTask>() {
                 let cx_ref = task.force_cx_ref();
                 if task.pcb.is_locked() {
                     // task.pcb.force_unlock();

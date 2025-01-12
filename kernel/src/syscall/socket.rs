@@ -234,11 +234,7 @@ impl UserTaskContainer {
 
         let socket_addr = socket_addr.get_mut();
         let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
-        loop {
-            match socket.inner.clone().connect(remote) {
-                Err(NetServerError::Blocking) => {}
-                _ => break,
-            }
+        while let Err(NetServerError::Blocking) = socket.inner.clone().connect(remote) {
             yield_now().await;
         }
         Ok(0)
@@ -485,7 +481,7 @@ impl UserTaskContainer {
                 let sa = socket_addr.get_mut();
                 sa.family = 2;
                 sa.in_port = new_socket.get_remote().unwrap().port();
-                sa.addr = new_socket.get_remote().unwrap().ip().clone();
+                sa.addr = *new_socket.get_remote().unwrap().ip();
                 let new_file = FileItem::new_dev(Socket::new_with_inner(
                     socket.domain,
                     socket.net_type,

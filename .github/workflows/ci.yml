@@ -1,0 +1,49 @@
+name: CI
+
+on: [push, pull_request]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  make-run:
+    runs-on: ubuntu-latest
+    # strategy:
+    #   fail-fast: false
+    #   matrix:
+    #     arch: [riscv64, aarch64, x86_64, loongarch64]
+    steps:
+    - name: Install qemu-system
+      run: sudo apt update && sudo apt install qemu-system -y
+    - name: Install cargo-binutils
+      run: cargo install cargo-binutils
+    - name: Install kbuild
+      run: cargo install kbuild
+
+    - uses: actions/checkout@v4
+    - name: Install toolchain
+      run: rustup show && cargo -Vv && rustc -Vv
+    - run: rustup default nightly && cargo -Vv && rustc -Vv
+
+    - name: "[riscv64] make run"
+      run: make BIN=riscv64-qemu run
+    - name: "[aarch64] make run"
+      run: make BIN=aarch64-qemu run
+    # It takes 20 minutes to succeed.
+    # - name: "[x86_64] make run"
+    #   run: make BIN=x86_64-qemu run
+    # FIXME: qemu-system-loongarch64: command not found
+    - name: "[loongarch64] make run"
+      run: make BIN=loongarch64-qemu run
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    # FIXME: Could not find incbin file '../mount.img'
+    # - name: build
+    #   run: cargo build
+
+    - uses: taiki-e/install-action@cargo-hack
+    - run: cargo hack clippy --each-feature

@@ -23,7 +23,7 @@ use super::consts::{LinuxError, UserRef};
 use super::SysResult;
 
 pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<FileItem>, LinuxError> {
-    if path.len() > 0 && path.starts_with("/") {
+    if !path.is_empty() && path.starts_with('/') {
         return Ok(FileItem::root());
     }
     const NEW_AT_CWD: u32 = AT_CWD as u32;
@@ -295,7 +295,7 @@ impl UserTaskContainer {
         let stat = stat_ptr.get_mut();
 
         let dir = to_node(&self.task, dir_fd, path)?;
-        dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)
+        dentry_open(dir.dentry.clone().unwrap(), path, OpenFlags::NONE)
             .map_err(from_vfs)?
             .node
             .stat(stat)
@@ -520,21 +520,18 @@ impl UserTaskContainer {
         );
         // build times
         let mut times = match !times_ptr.is_valid() {
-            true => {
-                vec![timespc_now(), timespc_now()]
-            }
-            false => {
-                let ts = times_ptr.slice_mut_with_len(2);
-                let mut times = vec![];
-                for i in 0..2 {
-                    if ts[i].nsec == UTIME_NOW {
-                        times.push(timespc_now());
+            true => vec![timespc_now(), timespc_now()],
+            false => times_ptr
+                .slice_mut_with_len(2)
+                .iter()
+                .map(|t| {
+                    if t.nsec == UTIME_NOW {
+                        timespc_now()
                     } else {
-                        times.push(ts[i]);
+                        *t
                     }
-                }
-                times
-            }
+                })
+                .collect(),
         };
 
         let path = if !path.is_valid() {
@@ -664,14 +661,12 @@ impl UserTaskContainer {
         };
         let n = loop {
             let mut num = 0;
-            for i in 0..nfds {
-                poll_fds[i].revents = self
+            for fd in &mut *poll_fds {
+                fd.revents = self
                     .task
-                    .get_fd(poll_fds[i].fd as _)
-                    .map_or(PollEvent::NONE, |x| {
-                        x.poll(poll_fds[i].events.clone()).unwrap()
-                    });
-                if poll_fds[i].revents != PollEvent::NONE {
+                    .get_fd(fd.fd as _)
+                    .map_or(PollEvent::NONE, |x| x.poll(fd.events.clone()).unwrap());
+                if fd.revents != PollEvent::NONE {
                     num += 1;
                 }
             }
@@ -933,7 +928,7 @@ impl UserTaskContainer {
         let end = if timeout == usize::MAX {
             usize::MAX
         } else {
-            stime + timeout * 0x1000_000
+            stime + timeout * 0x0100_0000
         };
         let buffer = events.slice_mut_with_len(max_events);
         debug!("epoll_wait:{:#x?}", epfile.data.lock());
@@ -992,7 +987,7 @@ impl UserTaskContainer {
 
         if off_out.is_valid() {
             *off_out.get_mut() += out_file
-                .writeat(*off_out.get_ref(), &mut buffer[..rsize])
+                .writeat(*off_out.get_ref(), &buffer[..rsize])
                 .map_err(from_vfs)?;
         } else {
             out_file.write(&buffer[..rsize]).map_err(from_vfs)?;

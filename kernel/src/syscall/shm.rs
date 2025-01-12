@@ -5,7 +5,10 @@ use alloc::{sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use log::debug;
-use polyhal::{addr::{VirtAddr, VirtPage}, MappingFlags};
+use polyhal::{
+    addr::{VirtAddr, VirtPage},
+    MappingFlags,
+};
 
 use crate::user::UserTaskContainer;
 
@@ -28,6 +31,7 @@ impl UserTaskContainer {
         if mem.is_some() {
             return Ok(key);
         }
+        // FIXME: 01000 is a decimal constant
         if shmflg & 01000 > 0 {
             let shm: Vec<Arc<FrameTracker>> = frame_alloc_much(ceil_div(size, PAGE_SIZE))
                 .expect("can't alloc page in shm")

@@ -2,7 +2,10 @@ use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use executor::AsyncTask;
 use log::warn;
-use polyhal::{addr::VirtPage, trapframe::{TrapFrame, TrapFrameArgs}};
+use polyhal::{
+    addr::VirtPage,
+    trapframe::{TrapFrame, TrapFrameArgs},
+};
 use xmas_elf::{
     program::Type,
     sections::SectionData,
@@ -105,6 +108,7 @@ impl ElfExtra for ElfFile<'_> {
     }
 }
 
+#[allow(clippy::too_many_arguments)]
 pub fn init_task_stack(
     user_task: Arc<UserTask>,
     args: Vec<String>,
