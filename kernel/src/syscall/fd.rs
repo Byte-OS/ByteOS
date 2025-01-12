@@ -520,21 +520,18 @@ impl UserTaskContainer {
         );
         // build times
         let mut times = match !times_ptr.is_valid() {
-            true => {
-                vec![timespc_now(), timespc_now()]
-            }
-            false => {
-                let ts = times_ptr.slice_mut_with_len(2);
-                let mut times = vec![];
-                for i in 0..2 {
-                    if ts[i].nsec == UTIME_NOW {
-                        times.push(timespc_now());
+            true => vec![timespc_now(), timespc_now()],
+            false => times_ptr
+                .slice_mut_with_len(2)
+                .iter()
+                .map(|t| {
+                    if t.nsec == UTIME_NOW {
+                        timespc_now()
                     } else {
-                        times.push(ts[i]);
+                        *t
                     }
-                }
-                times
-            }
+                })
+                .collect(),
         };
 
         let path = if !path.is_valid() {
