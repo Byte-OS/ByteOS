@@ -2,9 +2,9 @@
 
 ## How to use this project.
 
-Install build package.
+Install kbuild.
 ```shell
-cargo install --git https://github.com/Byte-OS/cargo-byteos
+cargo install kbuild
 ```
 
 Run with make file.
