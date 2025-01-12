@@ -75,7 +75,7 @@ pub struct FileItem {
     pub flags: Mutex<OpenFlags>,
 }
 
-impl<'a> FileItem {
+impl FileItem {
     pub fn new(
         inner: Arc<dyn INodeInterface>,
         dentry: Option<Arc<DentryNode>>,

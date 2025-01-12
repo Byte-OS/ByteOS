@@ -29,7 +29,7 @@ impl DerefMut for MemSet {
     }
 }
 
-impl<'a> MemSet {
+impl MemSet {
     pub fn new(vec: Vec<MemArea>) -> Self {
         Self(vec)
     }
@@ -209,26 +209,23 @@ impl MemArea {
 
 impl Drop for MemArea {
     fn drop(&mut self) {
-        match &self.mtype {
-            MemType::ShareFile => {
-                let start = self.start;
-                let len = self.len;
-                let mapfile = self.file.clone().unwrap();
-                for tracker in &self.mtrackers {
-                    if Arc::strong_count(&tracker.tracker) > 1 {
-                        continue;
-                    }
-
-                    let offset = tracker.vpn.to_addr() - start;
-                    let wlen = min(len - offset, PAGE_SIZE);
-
-                    let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
-                    mapfile
-                        .writeat(offset, bytes)
-                        .expect("can't write data to file at drop");
+        if let MemType::ShareFile = &self.mtype {
+            let start = self.start;
+            let len = self.len;
+            let mapfile = self.file.clone().unwrap();
+            for tracker in &self.mtrackers {
+                if Arc::strong_count(&tracker.tracker) > 1 {
+                    continue;
                 }
+
+                let offset = tracker.vpn.to_addr() - start;
+                let wlen = min(len - offset, PAGE_SIZE);
+
+                let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
+                mapfile
+                    .writeat(offset, bytes)
+                    .expect("can't write data to file at drop");
             }
-            _ => {}
         }
     }
 }

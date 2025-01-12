@@ -140,6 +140,7 @@ impl UserTask {
         self.map_frames(vpn, mtype, count, None, 0, vpn.to_addr(), count * PAGE_SIZE)
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn map_frames(
         &self,
         vpn: VirtPage,
