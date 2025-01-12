@@ -6,7 +6,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  CI:
+  make-run:
     runs-on: ubuntu-latest
     # strategy:
     #   fail-fast: false
@@ -33,3 +33,15 @@ jobs:
       run: make BIN=x86_64-qemu run
     - name: "[loongarch64] make run"
       run: make BIN=loongarch64-qemu run
+
+  clippy:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    # FIXME: Could not find incbin file '../mount.img'
+    # - name: build
+    #   run: cargo build
+
+    - uses: taiki-e/install-action@cargo-hack
+    - run: cargo hack clippy --each-feature
