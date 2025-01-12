@@ -397,16 +397,11 @@ pub async fn initproc() {
     println!("!TEST FINISH!");
 
     // Shutdown if there just have blankkernel task.
-    if TASK_MAP
-        .lock()
-        .values()
-        .find(|x| {
-            x.upgrade()
-                .map(|x| x.get_task_type() != TaskType::BlankKernel)
-                .unwrap_or(false)
-        })
-        .is_none()
-    {
+    if !TASK_MAP.lock().values().any(|x| {
+        x.upgrade()
+            .map(|x| x.get_task_type() != TaskType::BlankKernel)
+            .unwrap_or(false)
+    }) {
         shutdown();
     }
 }
