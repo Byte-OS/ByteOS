@@ -13,14 +13,14 @@ jobs:
     #   matrix:
     #     arch: [riscv64, aarch64, x86_64, loongarch64]
     steps:
-    - uses: actions/checkout@v4
-
     - name: Install qemu-system
       run: sudo apt update && sudo apt install qemu-system -y
     - name: Install cargo-binutils
       run: cargo install cargo-binutils
     - name: Install kbuild
       run: cargo install kbuild
+
+    - uses: actions/checkout@v4
 
     - name: "[riscv64] make run"
       run: make BIN=riscv64-qemu run
