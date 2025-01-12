@@ -378,7 +378,7 @@ impl UserTaskContainer {
                 )
                 .await
             }
-            #[cfg(any(target_arch = "x86_64"))]
+            #[cfg(target_arch = "x86_64")]
             SYS_CLONE => {
                 self.sys_clone(
                     args[0] as _,
