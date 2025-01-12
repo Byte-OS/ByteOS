@@ -31,6 +31,7 @@ impl UserTaskContainer {
         if mem.is_some() {
             return Ok(key);
         }
+        // FIXME: 01000 is a decimal constant
         if shmflg & 01000 > 0 {
             let shm: Vec<Arc<FrameTracker>> = frame_alloc_much(ceil_div(size, PAGE_SIZE))
                 .expect("can't alloc page in shm")
