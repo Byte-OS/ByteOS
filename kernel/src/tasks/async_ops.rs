@@ -62,9 +62,7 @@ impl Future for WaitSignal {
 
 pub fn in_futex(futex_table: Arc<Mutex<FutexTable>>, task_id: usize) -> bool {
     let futex_table = futex_table.lock();
-    futex_table
-        .values()
-        .any(|x| x.contains(&task_id))
+    futex_table.values().any(|x| x.contains(&task_id))
 }
 
 pub struct WaitFutex(pub Arc<Mutex<FutexTable>>, pub usize);
@@ -77,10 +75,9 @@ impl Future for WaitFutex {
         match in_futex(self.0.clone(), self.1) {
             true => {
                 if signal.has_signal() {
-                    if let Some(x) = self.0
-                        .lock()
-                        .values_mut()
-                        .find(|x| x.contains(&self.1)) { x.retain(|x| *x != self.1) }
+                    if let Some(x) = self.0.lock().values_mut().find(|x| x.contains(&self.1)) {
+                        x.retain(|x| *x != self.1)
+                    }
                     Poll::Ready(Err(LinuxError::EINTR))
                 } else {
                     Poll::Pending

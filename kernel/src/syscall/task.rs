@@ -17,9 +17,8 @@ use alloc::{
     {boxed::Box, sync::Arc},
 };
 use async_recursion::async_recursion;
-use devices::PAGE_SIZE;
-use polyhal::{trapframe::TrapFrameArgs, MappingFlags, Time, VirtPage};
 use core::cmp;
+use devices::PAGE_SIZE;
 use executor::{select, thread, tid2task, yield_now, AsyncTask};
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::dentry::{dentry_open, dentry_root};
@@ -27,6 +26,7 @@ use fs::TimeSpec;
 use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
 use num_traits::FromPrimitive;
+use polyhal::{trapframe::TrapFrameArgs, MappingFlags, Time, VirtPage};
 use signal::SignalFlags;
 use sync::Mutex;
 use vfscore::OpenFlags;
@@ -458,8 +458,11 @@ impl UserTaskContainer {
             false => self.task.clone().cow_fork(),
         };
 
-        let clear_child_tid = if flags
-            .contains(CloneFlags::CLONE_CHILD_CLEARTID) { ctid } else { UserRef::from(0) };
+        let clear_child_tid = if flags.contains(CloneFlags::CLONE_CHILD_CLEARTID) {
+            ctid
+        } else {
+            UserRef::from(0)
+        };
 
         let mut new_tcb = new_task.tcb.write();
         new_tcb.clear_child_tid = clear_child_tid.addr();
@@ -512,15 +515,13 @@ impl UserTaskContainer {
                     inner
                         .children
                         .iter()
-                        .find(|x| x.task_id == pid as usize).cloned()
+                        .find(|x| x.task_id == pid as usize)
+                        .cloned()
                 })
                 .ok_or(LinuxError::ECHILD)?;
         }
         if options == 0 || options == 2 || options == 3 || options == 10 {
-            debug!(
-                "children:{:?}",
-                self.task.pcb.lock().children.len()
-            );
+            debug!("children:{:?}", self.task.pcb.lock().children.len());
             let child_task = WaitPid(self.task.clone(), pid).await?;
 
             debug!(
@@ -692,9 +693,7 @@ impl UserTaskContainer {
                     value2,
                 ))
             }
-            _ => {
-                Err(LinuxError::EPERM)
-            }
+            _ => Err(LinuxError::EPERM),
         }
     }
 
@@ -706,7 +705,8 @@ impl UserTaskContainer {
                 .find(|x| match x.upgrade() {
                     Some(thread) => thread.task_id == tid,
                     None => false,
-                }).cloned()
+                })
+                .cloned()
         });
 
         if tid == self.tid {

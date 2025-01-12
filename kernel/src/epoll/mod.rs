@@ -62,7 +62,9 @@ impl EpollFile {
                 self.data.lock().remove(&fd);
             }
             EpollCtl::MOD => {
-                if let Some(x) = self.data.lock().get_mut(&fd) { *x = ev; }
+                if let Some(x) = self.data.lock().get_mut(&fd) {
+                    *x = ev;
+                }
             }
         }
     }

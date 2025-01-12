@@ -23,12 +23,9 @@ impl INodeInterface for SocketPair {
     fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut queue = self.inner.lock();
         let rlen = cmp::min(queue.len(), buffer.len());
-        queue
-            .drain(..rlen)
-            .enumerate()
-            .for_each(|(i, x)| {
-                buffer[i] = x;
-            });
+        queue.drain(..rlen).enumerate().for_each(|(i, x)| {
+            buffer[i] = x;
+        });
         if rlen == 0 {
             Err(vfscore::VfsError::Blocking)
         } else {

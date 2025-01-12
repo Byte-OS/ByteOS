@@ -1,10 +1,10 @@
 use alloc::{sync::Arc, vec::Vec};
-use devices::PAGE_SIZE;
 use core::{
     cmp::min,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
+use devices::PAGE_SIZE;
 use frame_allocator::FrameTracker;
 use fs::File;
 use polyhal::{addr::VirtPage, PageTable};
@@ -106,7 +106,7 @@ impl MemArea {
     /// Check the memory is overlapping.
     pub fn overlapping(&self, start: usize, end: usize) -> bool {
         let self_end = self.start + self.len;
-        
+
         !((start <= self.start && end <= self.start) || (start >= self_end && end >= self_end))
     }
 

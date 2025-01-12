@@ -5,7 +5,10 @@ use alloc::{sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use log::debug;
-use polyhal::{addr::{VirtAddr, VirtPage}, MappingFlags};
+use polyhal::{
+    addr::{VirtAddr, VirtPage},
+    MappingFlags,
+};
 
 use crate::user::UserTaskContainer;
 
