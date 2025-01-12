@@ -29,8 +29,10 @@ jobs:
       run: make BIN=riscv64-qemu run
     - name: "[aarch64] make run"
       run: make BIN=aarch64-qemu run
+    # It takes 20 minutes to succeed.
     # - name: "[x86_64] make run"
     #   run: make BIN=x86_64-qemu run
+    # FIXME: qemu-system-loongarch64: command not found
     - name: "[loongarch64] make run"
       run: make BIN=loongarch64-qemu run
 
