@@ -1,5 +1,5 @@
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
-use frame_allocator::FrameTracker;
+use runtime::frame::FrameTracker;
 use sync::Mutex;
 
 pub struct SharedMemory {

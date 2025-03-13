@@ -1,12 +1,12 @@
 [toolchain]
 profile = "minimal"
 # channel = "nightly-2023-03-29"
-channel = "nightly-2023-12-01"
+channel = "nightly-2024-07-01"
 components = ["rust-src", "rustfmt", "clippy"]
 targets = [
     "riscv64imac-unknown-none-elf",
     "riscv64gc-unknown-none-elf",
     "x86_64-unknown-none",
     "aarch64-unknown-none-softfloat",
-    "loongarch64-unknown-none"
+    "loongarch64-unknown-none",
 ]

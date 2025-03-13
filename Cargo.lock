@@ -13,22 +13,14 @@ dependencies = [
 
 [[package]]
 name = "ahash"
-version = "0.8.3"
+version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c99f64d1e06488f620f932677e24bc6e2897582980441ae90a671415bd7ec2f"
+checksum = "e89da841a80418a9b391ebaea17f5c112ffaaa96f621d2c285b5174da76b9011"
 dependencies = [
  "cfg-if",
  "once_cell",
  "version_check",
-]
-
-[[package]]
-name = "allocator"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/allocator.git?rev=c6ce949146d5feab1d406502b19b035f5d392c35#c6ce949146d5feab1d406502b19b035f5d392c35"
-dependencies = [
- "buddy_system_allocator",
- "log",
+ "zerocopy",
 ]
 
 [[package]]
@@ -142,13 +134,10 @@ checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
 [[package]]
 name = "devfs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/devfs.git#c5e510dfbedbe42866fa4ab23fecfd8d7f596dff"
 dependencies = [
  "bitflags 2.4.2",
  "devices",
- "hal",
  "log",
- "logging",
  "num-derive",
  "num-traits",
  "sync",
@@ -158,13 +147,12 @@ dependencies = [
 [[package]]
 name = "devices"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/devices.git#89a7844a041117af8465b2f484f3627aef929a32"
 dependencies = [
  "fdt",
- "frame_allocator",
  "linkme",
  "log",
  "polyhal",
+ "runtime",
  "sync",
  "timestamp",
  "virtio-drivers",
@@ -191,7 +179,6 @@ checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 [[package]]
 name = "executor"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/executor.git#7cab69999a3b48e12addd861dfaa4471fd8afba9"
 dependencies = [
  "downcast-rs",
  "hashbrown",
@@ -225,28 +212,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
 
 [[package]]
-name = "frame_allocator"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/bit_frame_allocator.git#b989b6a4e17d960fca1e77c83f060cb6006fc924"
-dependencies = [
- "bit_field",
- "log",
- "polyhal",
- "sync",
-]
-
-[[package]]
 name = "fs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/fs.git#79f9b3e25c9d7eb72bfbb62c1d3f6ba6ce3cfbb0"
 dependencies = [
  "devfs",
  "devices",
  "ext4_rs",
  "fatfs",
- "frame_allocator",
  "log",
- "logging",
  "lwext4_rust",
  "procfs",
  "ramfs",
@@ -273,27 +246,16 @@ dependencies = [
 [[package]]
 name = "general-plic"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/driver-general-plic.git#d6196a18a523e297123aa5bca7249f112a732486"
 dependencies = [
  "devices",
  "log",
 ]
 
 [[package]]
-name = "hal"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/hal.git#6f40272c10b59062dfb3dc37de2fddf58912002e"
-dependencies = [
- "frame_allocator",
- "log",
- "polyhal",
-]
-
-[[package]]
 name = "hashbrown"
-version = "0.14.0"
+version = "0.14.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2c6201b9ff9fd90a5a3bac2e56a830d0caa509576f0e503818ee82c181b3437a"
+checksum = "e5274423e17b7c9fc20b6e7e208532f9b19825d82dfd615708b70edd83df41f1"
 dependencies = [
  "ahash",
  "allocator-api2",
@@ -312,7 +274,6 @@ dependencies = [
 name = "kernel"
 version = "0.1.0"
 dependencies = [
- "allocator",
  "async-recursion",
  "bit_field",
  "bitflags 2.4.2",
@@ -320,22 +281,20 @@ dependencies = [
  "devices",
  "executor",
  "fdt",
- "frame_allocator",
  "fs",
  "futures-lite",
  "general-plic",
- "hal",
  "hashbrown",
  "kgoldfish-rtc",
  "kramdisk",
  "kvirtio",
  "log",
- "logging",
  "lose-net-stack",
  "ns16550a 0.1.0",
  "num-derive",
  "num-traits",
  "polyhal",
+ "runtime",
  "serde",
  "serde_derive",
  "signal",
@@ -348,7 +307,6 @@ dependencies = [
 [[package]]
 name = "kgoldfish-rtc"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/driver-kgoldfish-rtc.git#66e0234f67f68072a634cf2c02afa341c8e8f7a2"
 dependencies = [
  "devices",
  "log",
@@ -358,7 +316,6 @@ dependencies = [
 [[package]]
 name = "kramdisk"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/kramdisk.git#9eb2394b52c5af15dcbadbf9bd1af2979df3c20c"
 dependencies = [
  "devices",
  "log",
@@ -368,7 +325,6 @@ dependencies = [
 [[package]]
 name = "kvirtio"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/driver-kvirtio.git#5917abe91c1d6ba998c893abd33404c6c3eb140d"
 dependencies = [
  "devices",
  "log",
@@ -412,17 +368,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
 dependencies = [
  "cfg-if",
-]
-
-[[package]]
-name = "logging"
-version = "0.1.0"
-source = "git+https://github.com/Byte-OS/logging.git#242f79a5628f9d2dfa79b287bca6125575ce98bf"
-dependencies = [
- "devices",
- "log",
- "polyhal",
- "sync",
 ]
 
 [[package]]
@@ -473,7 +418,6 @@ dependencies = [
 [[package]]
 name = "ns16550a"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/driver-ns16550a.git#059e0f27aa0b37a7d3a4dfda16679eafb33a5da4"
 dependencies = [
  "devices",
  "log",
@@ -528,9 +472,9 @@ dependencies = [
 
 [[package]]
 name = "once_cell"
-version = "1.19.0"
+version = "1.21.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3fdb12b2476b595f9358c5161aa467c2438859caa136dec86c26fdd2efe17b92"
+checksum = "cde51589ab56b20a6f686b2c68f7a0bd6add753d697abf720d63f8db3ab7b1ad"
 
 [[package]]
 name = "paste"
@@ -604,7 +548,6 @@ dependencies = [
 [[package]]
 name = "procfs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/procfs.git#0477d4ee50bf00700e507f3f192c499a36d5265f"
 dependencies = [
  "log",
  "sync",
@@ -623,11 +566,10 @@ dependencies = [
 [[package]]
 name = "ramfs"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/ramfs.git#55d83b65cfc6b3f0c2d83403515c1618a578a99a"
 dependencies = [
- "frame_allocator",
  "log",
  "polyhal",
+ "runtime",
  "sync",
  "vfscore",
 ]
@@ -658,6 +600,17 @@ checksum = "2f5c1b8bf41ea746266cdee443d1d1e9125c86ce1447e1a2615abd34330d33a9"
 dependencies = [
  "critical-section",
  "embedded-hal",
+]
+
+[[package]]
+name = "runtime"
+version = "0.1.0"
+dependencies = [
+ "bit_field",
+ "buddy_system_allocator",
+ "log",
+ "polyhal",
+ "sync",
 ]
 
 [[package]]
@@ -713,7 +666,6 @@ dependencies = [
 [[package]]
 name = "signal"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/signal.git#a03290b18ccd77a999d4c3755b902895079f6ff5"
 dependencies = [
  "bit_field",
  "bitflags 2.4.2",
@@ -749,7 +701,6 @@ dependencies = [
 [[package]]
 name = "sync"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/sync.git#8c5f094d85cd7f4574bb6035c87d94dc5dee3998"
 dependencies = [
  "spin",
 ]
@@ -782,14 +733,13 @@ checksum = "e5464a87b239f13a63a501f2701565754bae92d243d4bb7eb12f6d57d2269bf4"
 
 [[package]]
 name = "version_check"
-version = "0.9.4"
+version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vfscore"
 version = "0.1.0"
-source = "git+https://github.com/Byte-OS/vfscore.git#63092dfae0c3a865ca5dc9292d628e10c6b82392"
 dependencies = [
  "bitflags 2.4.2",
  "downcast-rs",

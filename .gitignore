@@ -12,3 +12,4 @@ qemu.log
 kernel/src/drivers.rs
 graph.png
 tools/iso/example
+*.log

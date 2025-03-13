@@ -2,12 +2,14 @@ use alloc::boxed::Box;
 use async_recursion::async_recursion;
 use executor::{yield_now, AsyncTask};
 use futures_lite::future;
-use hal::TimeVal;
 use log::debug;
 use polyhal::{boot::boot_page_table, trapframe::TrapFrame};
 use signal::SignalFlags;
 
-use crate::tasks::{current_user_task, UserTaskControlFlow};
+use crate::{
+    syscall::consts::TimeVal,
+    tasks::{current_user_task, UserTaskControlFlow},
+};
 
 use super::UserTaskContainer;
 

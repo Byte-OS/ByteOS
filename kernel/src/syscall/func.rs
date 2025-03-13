@@ -1,6 +1,6 @@
 use fs::TimeSpec;
 
-use super::time::current_nsec;
+use super::consts::current_nsec;
 
 pub fn timespc_now() -> TimeSpec {
     let ns = current_nsec();

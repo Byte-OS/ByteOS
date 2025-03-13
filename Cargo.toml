@@ -1,8 +1,50 @@
-[patch]
-
 [profile.release]
-debug = true
+# debug = true
 
 [workspace]
-members = ["kernel"]
 resolver = "2"
+members = [
+    # 普通模块
+    "crates/devices",
+    "crates/executor",
+    "crates/runtime",
+    "crates/signal",
+    "crates/sync",
+
+    # 文件系统
+    "filesystem/devfs",
+    "filesystem/fs",
+    "filesystem/procfs",
+    "filesystem/ramfs",
+    "filesystem/vfscore",
+
+    # 驱动
+    "driver/general-plic",
+    "driver/kgoldfish-rtc",
+    "driver/kramdisk",
+    "driver/kvirtio",
+    "driver/ns16550a",
+
+    #内核
+    "kernel",
+]
+
+[workspace.dependencies]
+fs = { path = "filesystem/fs" }
+devfs = { path = "filesystem/devfs" }
+procfs = { path = "filesystem/procfs" }
+vfscore = { path = "filesystem/vfscore" }
+ramfs = { path = "filesystem/ramfs" }
+
+general-plic = { path = "driver/general-plic" }
+kgoldfish-rtc = { path = "driver/kgoldfish-rtc" }
+kramdisk = { path = "driver/kramdisk" }
+kvirtio = { path = "driver/kvirtio" }
+ns16550a = { path = "driver/ns16550a" }
+
+devices = { path = "crates/devices" }
+executor = { path = "crates/executor" }
+runtime = { path = "crates/runtime" }
+logging = { path = "crates/logging" }
+signal = { path = "crates/signal" }
+sync = { path = "crates/sync" }

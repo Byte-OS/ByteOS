@@ -13,9 +13,8 @@ use log::debug;
 use polyhal::addr::VirtAddr;
 
 use crate::epoll::{EpollEvent, EpollFile};
-use crate::syscall::consts::{from_vfs, FcntlCmd, IoVec, AT_CWD};
+use crate::syscall::consts::{current_nsec, from_vfs, FcntlCmd, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
-use crate::syscall::time::current_nsec;
 use crate::tasks::{FileItem, UserTask};
 use crate::user::UserTaskContainer;
 

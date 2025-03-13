@@ -1,13 +1,13 @@
 use alloc::{sync::Arc, vec::Vec};
-use devices::PAGE_SIZE;
 use core::{
     cmp::min,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use frame_allocator::FrameTracker;
+use devices::PAGE_SIZE;
 use fs::File;
 use polyhal::{addr::VirtPage, PageTable};
+use runtime::frame::FrameTracker;
 
 /// Memory set for storing the memory and its map relation.
 #[derive(Debug)]

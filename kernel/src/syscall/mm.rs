@@ -1,10 +1,10 @@
 use core::ops::Add;
 
 use devices::PAGE_SIZE;
-use frame_allocator::ceil_div;
 use log::debug;
 use polyhal::addr::{VirtAddr, VirtPage};
 use polyhal::pagetable::USER_VADDR_END;
+use runtime::frame::alignup;
 
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MSyncFlags;
@@ -43,7 +43,7 @@ impl UserTaskContainer {
     ) -> SysResult {
         let flags = MapFlags::from_bits_truncate(flags as _);
         let prot = MmapProt::from_bits_truncate(prot as _);
-        len = ceil_div(len, PAGE_SIZE) * PAGE_SIZE;
+        len = alignup(len, PAGE_SIZE);
         debug!(
             "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
             self.tid, start, len, prot, flags, fd as isize, off
@@ -132,7 +132,7 @@ impl UserTaskContainer {
                 .frame_alloc(
                     VirtPage::from_addr(addr.into()),
                     MemType::Mmap,
-                    ceil_div(len, PAGE_SIZE),
+                    len.div_ceil(PAGE_SIZE),
                 )
                 .ok_or(LinuxError::EFAULT)?;
         } else {

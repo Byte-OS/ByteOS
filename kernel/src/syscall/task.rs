@@ -1,6 +1,6 @@
 use crate::{
     syscall::{
-        consts::{from_vfs, CloneFlags, Rusage},
+        consts::{current_nsec, from_vfs, CloneFlags, Rusage, TimeVal},
         time::WaitUntilsec,
     },
     tasks::{
@@ -17,16 +17,15 @@ use alloc::{
     {boxed::Box, sync::Arc},
 };
 use async_recursion::async_recursion;
-use devices::PAGE_SIZE;
-use polyhal::{trapframe::TrapFrameArgs, MappingFlags, Time, VirtPage};
 use core::cmp;
+use devices::PAGE_SIZE;
 use executor::{select, thread, tid2task, yield_now, AsyncTask};
-use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use fs::dentry::{dentry_open, dentry_root};
 use fs::TimeSpec;
-use hal::{current_nsec, TimeVal};
 use log::{debug, warn};
 use num_traits::FromPrimitive;
+use polyhal::{trapframe::TrapFrameArgs, MappingFlags, Time, VirtPage};
+use runtime::frame::{frame_alloc_much, FrameTracker};
 use signal::SignalFlags;
 use sync::Mutex;
 use vfscore::OpenFlags;
@@ -55,7 +54,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
         .node
         .clone();
     let file_size = file.metadata().unwrap().size;
-    let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
+    let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
     let buffer = unsafe {
         core::slice::from_raw_parts_mut(
             frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
@@ -120,7 +119,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
                 let virt_addr = base + ph.virtual_addr() as usize;
                 let vpn = virt_addr / PAGE_SIZE;
 
-                let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
+                let page_count = (virt_addr + mem_size).div_ceil(PAGE_SIZE) - vpn;
                 let pages: Vec<Arc<FrameTracker>> = frame_alloc_much(page_count)
                     .expect("can't alloc in cache task template")
                     .into_iter()
@@ -230,7 +229,7 @@ pub async fn exec_with_process(
             .clone();
         debug!("file: {:#x?}", file.metadata().unwrap());
         let file_size = file.metadata().unwrap().size;
-        let frame_ppn = frame_alloc_much(ceil_div(file_size, PAGE_SIZE));
+        let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
         let buffer = unsafe {
             core::slice::from_raw_parts_mut(
                 frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
@@ -318,7 +317,7 @@ pub async fn exec_with_process(
                 let virt_addr = base + ph.virtual_addr() as usize;
                 let vpn = virt_addr / PAGE_SIZE;
 
-                let page_count = ceil_div(virt_addr + mem_size, PAGE_SIZE) - vpn;
+                let page_count = (virt_addr + mem_size).div_ceil(PAGE_SIZE) - vpn;
                 let ppn_start = user_task.frame_alloc(
                     VirtPage::from_addr(virt_addr),
                     MemType::CodeSection,

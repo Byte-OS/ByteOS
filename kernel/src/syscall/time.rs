@@ -7,18 +7,17 @@ use core::{
 
 use executor::select;
 use fs::TimeSpec;
-pub use hal::current_nsec;
-use hal::{ITimerVal, TimeVal};
 use log::{debug, warn};
 use polyhal::time::Time;
 
 use crate::{
+    syscall::consts::{current_nsec, TimeVal},
     tasks::{WaitHandleAbleSignal, TMS},
     user::UserTaskContainer,
 };
 
 use super::{
-    consts::{LinuxError, UserRef},
+    consts::{ITimerVal, LinuxError, UserRef},
     SysResult,
 };
 impl UserTaskContainer {
