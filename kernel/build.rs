@@ -1,5 +1,3 @@
-#![feature(lazy_cell)]
-
 use std::io::Result;
 use std::{env, fs, path::PathBuf};
 

@@ -1,0 +1,13 @@
+[package]
+name = "ramfs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vfscore = { workspace = true }
+log = "0.4"
+sync = { workspace = true }
+polyhal = { git = "https://github.com/Byte-OS/polyhal.git" }
+runtime = { workspace = true }

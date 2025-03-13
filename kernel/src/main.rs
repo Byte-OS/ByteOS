@@ -1,25 +1,23 @@
 #![no_main]
 #![no_std]
-#![feature(exclusive_range_pattern)]
 #![feature(extract_if)]
-#![feature(ip_in_core)]
 #![feature(async_closure)]
 #![feature(let_chains)]
 #![feature(panic_info_message)]
-#![feature(stdsimd)]
 
 // include modules drivers
 // mod drivers;
 include!(concat!(env!("OUT_DIR"), "/drivers.rs"));
 
 #[macro_use]
-extern crate logging;
-#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate log;
+
+#[macro_use]
+mod logging;
 
 mod epoll;
 // mod modules;
@@ -33,12 +31,12 @@ use core::sync::atomic::{AtomicBool, Ordering};
 
 use devices::{self, get_int_device, VIRT_ADDR_START};
 use executor::current_task;
-use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
 use polyhal::addr::{PhysPage, VirtPage};
 use polyhal::common::{get_fdt, get_mem_areas, PageAlloc};
 use polyhal::irq::IRQ;
 use polyhal::trap::TrapType;
 use polyhal::trapframe::{TrapFrame, TrapFrameArgs};
+use runtime::frame::{frame_alloc_persist, frame_unalloc};
 use tasks::UserTask;
 use user::user_cow_int;
 use vfscore::OpenFlags;
@@ -61,7 +59,7 @@ impl PageAlloc for PageAllocImpl {
     }
 }
 
-#[polyhal::arch_interrupt]
+#[export_name = "_interrupt_for_arch"]
 /// Handle kernel interrupt
 fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
     match trap_type {
@@ -135,7 +133,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
 }
 
 /// The kernel entry
-#[polyhal::arch_entry]
+#[export_name = "_main_for_arch"]
 fn main(hart_id: usize) {
     static BOOT_CORE_FLAGS: AtomicBool = AtomicBool::new(false);
     IRQ::int_disable();
@@ -149,18 +147,15 @@ fn main(hart_id: usize) {
             fn end();
         }
 
-        allocator::init();
+        runtime::init();
 
         let str = include_str!("banner.txt");
         println!("{}", str);
 
-        // initialize logging module
-        // logging::init(option_env!("LOG"));
-
         polyhal::common::init(&PageAllocImpl);
         get_mem_areas().into_iter().for_each(|(start, size)| {
             info!("memory area: {:#x} - {:#x}", start, start + size);
-            frame_allocator::add_frame_map(start, start + size);
+            runtime::frame::add_frame_map(start, start + size);
         });
 
         println!("run kernel @ hart {}", hart_id);

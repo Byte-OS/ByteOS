@@ -7,10 +7,14 @@ use alloc::{
 };
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
-use frame_allocator::{ceil_div, frame_alloc_much};
 use fs::File;
 use log::debug;
-use polyhal::{addr::{PhysPage, VirtAddr, VirtPage}, trapframe::{TrapFrame, TrapFrameArgs}, MappingFlags, MappingSize, PageTableWrapper};
+use polyhal::{
+    addr::{PhysPage, VirtAddr, VirtPage},
+    trapframe::{TrapFrame, TrapFrameArgs},
+    MappingFlags, MappingSize, PageTableWrapper,
+};
+use runtime::frame::{alignup, frame_alloc_much};
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
@@ -389,8 +393,7 @@ impl UserTask {
 
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
-        let sp = tcb.cx[TrapFrameArgs::SP] - ceil_div(len + 1, ULEN) * ULEN;
-
+        let sp = tcb.cx[TrapFrameArgs::SP] - alignup(len + 1, ULEN); // ceil_div(len + 1, ULEN) * ULEN;
         VirtAddr::from(sp)
             .slice_mut_with_len(len)
             .copy_from_slice(buffer);

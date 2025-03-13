@@ -4,14 +4,13 @@ use alloc::{
     string::{String, ToString},
     vec::Vec,
 };
+use devices::utils::get_char;
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
-use frame_allocator::get_free_pages;
 use fs::{
     dentry::{dentry_open, dentry_root, DentryNode},
     get_filesystem, File, FileType, OpenFlags,
 };
 use log::debug;
-use logging::get_char;
 use polyhal::{debug_console::DebugConsole, instruction::shutdown};
 use vfscore::INodeInterface;
 

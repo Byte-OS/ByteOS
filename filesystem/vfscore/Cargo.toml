@@ -1,0 +1,10 @@
+[package]
+name = "vfscore"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+bitflags = "2.0.2"
+downcast-rs = { version = "1.2.0", default-features = false }

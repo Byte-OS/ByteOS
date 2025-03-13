@@ -3,9 +3,12 @@ use core::ops::Add;
 use crate::tasks::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
 use alloc::{sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
-use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use log::debug;
-use polyhal::{addr::{VirtAddr, VirtPage}, MappingFlags};
+use polyhal::{
+    addr::{VirtAddr, VirtPage},
+    MappingFlags,
+};
+use runtime::frame::{frame_alloc_much, FrameTracker};
 
 use crate::user::UserTaskContainer;
 
@@ -29,7 +32,7 @@ impl UserTaskContainer {
             return Ok(key);
         }
         if shmflg & 01000 > 0 {
-            let shm: Vec<Arc<FrameTracker>> = frame_alloc_much(ceil_div(size, PAGE_SIZE))
+            let shm: Vec<Arc<FrameTracker>> = frame_alloc_much(size.div_ceil(PAGE_SIZE))
                 .expect("can't alloc page in shm")
                 .into_iter()
                 .map(Arc::new)

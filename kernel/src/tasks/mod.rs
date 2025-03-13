@@ -3,9 +3,9 @@ use alloc::sync::Weak;
 use alloc::{sync::Arc, vec::Vec};
 use devices::get_net_device;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
-use hal::{ITimerVal, TimeVal};
 use polyhal::common::get_cpu_num;
 
+use crate::syscall::consts::{ITimerVal, TimeVal};
 use crate::syscall::{exec_with_process, NET_SERVER};
 use crate::user::entry::user_entry;
 
@@ -37,36 +37,36 @@ pub enum UserTaskControlFlow {
 
 pub fn hexdump(data: &[u8], mut start_addr: usize) {
     const PRELAND_WIDTH: usize = 70;
-    logging::println!("{:-^1$}", " hexdump ", PRELAND_WIDTH);
+    println!("{:-^1$}", " hexdump ", PRELAND_WIDTH);
     for offset in (0..data.len()).step_by(16) {
-        logging::print!("{:08x} ", start_addr);
+        print!("{:08x} ", start_addr);
         start_addr += 0x10;
         for i in 0..16 {
             if offset + i < data.len() {
-                logging::print!("{:02x} ", data[offset + i]);
+                print!("{:02x} ", data[offset + i]);
             } else {
-                logging::print!("{:02} ", "");
+                print!("{:02} ", "");
             }
         }
 
-        logging::print!("{:>6}", ' ');
+        print!("{:>6}", ' ');
 
         for i in 0..16 {
             if offset + i < data.len() {
                 let c = data[offset + i];
                 if c >= 0x20 && c <= 0x7e {
-                    logging::print!("{}", c as char);
+                    print!("{}", c as char);
                 } else {
-                    logging::print!(".");
+                    print!(".");
                 }
             } else {
-                logging::print!("{:02} ", "");
+                print!("{:02} ", "");
             }
         }
 
-        logging::println!("");
+        println!("");
     }
-    logging::println!("{:-^1$}", " hexdump end ", PRELAND_WIDTH);
+    println!("{:-^1$}", " hexdump end ", PRELAND_WIDTH);
 }
 
 #[allow(dead_code)]
