@@ -1,7 +1,7 @@
 SHELL := /bin/bash
 BOARD:= qemu
-BIN   :=
-byteos = $(shell kbuild $(1) byteos.yaml $(BIN) $(2))
+PLATFORM   :=
+byteos = $(shell kbuild $(1) byteos.yaml $(PLATFORM) $(2))
 byteos_config = $(call byteos,config,get_cfg $(1))
 byteos_env = $(call byteos,config,get_env $(1))
 byteos_meta = $(call byteos,config,get_meta $(1))
@@ -106,7 +106,7 @@ endif
 	sudo umount $(FS_IMG)
 
 build:
-	kbuild build byteos.yaml $(BIN)
+	kbuild build byteos.yaml $(PLATFORM)
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
