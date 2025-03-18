@@ -1,8 +1,9 @@
 # ByteOS
 
-## How to use this project.
+## How to use this project
 
 Install build package.
+
 ```shell
 cargo install --git https://github.com/Byte-OS/cargo-byteos
 ```
@@ -11,13 +12,13 @@ Run with make file.
 
 ```shell
 # riscv64
-make BIN=riscv64-qemu run
+make PLATFORM=riscv64-qemu run
 # aarch64
-make BIN=aarch64-qemu run
+make PLATFORM=aarch64-qemu run
 # x86_64
-make BIN=x86_64-qemu run
+make PLATFORM=x86_64-qemu run
 # loongarch64
-make BIN=loongarch64-qemu run
+make PLATFORM=loongarch64-qemu run
 ```
 
 You can find available modules using the following command.
@@ -44,20 +45,20 @@ The 'ext4' and 'ext4_rs' are the different implementation of the ext4.
 
 TIPS: Make ensure that the mkefs version of your system lower than 1.70. If not, you have to use another argument to build the ext4 image.
 
-
 ## Kernel struct Design
 
 > ByteOS is a posix-compatible kernel.
 >
 > If you are interested in this project, please contact me.
 >
-> email: 321353225@qq.com  qq: 321353225
+> email: <321353225@qq.com>  qq: 321353225
 
 ```plain
 crates --> arch --> modules --> kernel
 ```
 
 ## TODO List
+
 - [x] higher half kernel
 - [x] Modular skeleton
 - [x] global allocator
@@ -83,7 +84,6 @@ crates --> arch --> modules --> kernel
 - [ ] desktop support. eg: dwm, hyprland.
 
 ## Program support
-
 
 tools/final2023:
 
