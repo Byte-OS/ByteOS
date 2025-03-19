@@ -12,7 +12,7 @@ bin:
   riscv64-qemu:
     target: "riscv64gc-unknown-none-elf"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a"
+      driver: "kvirtio,kgoldfish-rtc,ns16550a,kramdisk"
   riscv64-vf2:
     target: "riscv64imac-unknown-none-elf"
     configs:
@@ -32,12 +32,12 @@ bin:
       driver: "kvirtio,kgoldfish-rtc,ns16550a"
   loongarch64-qemu:
     target: "loongarch64-unknown-none"
-    build_std: "core,alloc"
+    # build_std: "core,alloc"
     configs:
       driver: "kramdisk"
   loongarch64-2k1000:
     target: "loongarch64-unknown-none"
-    build_std: "core,alloc"
+    # build_std: "core,alloc"
     configs:
       driver: "kramdisk"
       board: "2k1000"
