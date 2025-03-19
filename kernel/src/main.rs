@@ -3,7 +3,6 @@
 #![feature(extract_if)]
 #![feature(async_closure)]
 #![feature(let_chains)]
-#![feature(panic_info_message)]
 
 // include modules drivers
 // mod drivers;
