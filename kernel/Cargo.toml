@@ -19,7 +19,6 @@ executor = { workspace = true }
 polyhal = { workspace = true }
 polyhal-boot = { workspace = true }
 polyhal-trap = { workspace = true }
-fdt = "0.1.5"
 xmas-elf = "0.9.0"
 signal = { workspace = true }
 sync = { workspace = true }

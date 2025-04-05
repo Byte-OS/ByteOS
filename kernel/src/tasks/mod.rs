@@ -5,6 +5,7 @@ use devices::get_net_device;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
 use polyhal::common::get_cpu_num;
 
+use crate::consts::USER_WORK_DIR;
 use crate::syscall::consts::{ITimerVal, TimeVal};
 use crate::syscall::{exec_with_process, NET_SERVER};
 use crate::user::entry::user_entry;
@@ -35,40 +36,6 @@ pub enum UserTaskControlFlow {
     Break,
 }
 
-pub fn hexdump(data: &[u8], mut start_addr: usize) {
-    const PRELAND_WIDTH: usize = 70;
-    println!("{:-^1$}", " hexdump ", PRELAND_WIDTH);
-    for offset in (0..data.len()).step_by(16) {
-        print!("{:08x} ", start_addr);
-        start_addr += 0x10;
-        for i in 0..16 {
-            if offset + i < data.len() {
-                print!("{:02x} ", data[offset + i]);
-            } else {
-                print!("{:02} ", "");
-            }
-        }
-
-        print!("{:>6}", ' ');
-
-        for i in 0..16 {
-            if offset + i < data.len() {
-                let c = data[offset + i];
-                if c >= 0x20 && c <= 0x7e {
-                    print!("{}", c as char);
-                } else {
-                    print!(".");
-                }
-            } else {
-                print!("{:02} ", "");
-            }
-        }
-
-        println!("");
-    }
-    println!("{:-^1$}", " hexdump end ", PRELAND_WIDTH);
-}
-
 #[allow(dead_code)]
 pub async fn handle_net() {
     let mut buffer = vec![0u8; 2048];
@@ -95,7 +62,7 @@ pub fn run_tasks() {
 
 pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> TaskId {
     let curr_task = current_task();
-    let task = UserTask::new(Weak::new(), initproc::USER_WORK_DIR);
+    let task = UserTask::new(Weak::new(), USER_WORK_DIR);
     task.before_run();
     exec_with_process(
         task.clone(),

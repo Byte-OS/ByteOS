@@ -1,9 +1,0 @@
-{
-  "name": "ByteOS",
-  "description": "This is a kernel.",
-  "authors": [{
-    "name": "yfblock",
-    "email": "321353225@qq.com"
-  }],
-  "keywords": ["os", "byteos", "kernel"]
-}

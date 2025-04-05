@@ -21,9 +21,9 @@ export class KernelBuilder {
     buildFlags() {
         const rustflags = [
             // "-Cforce-frame-pointers=yes",
-            // "-Clink-arg=-no-pie",
+            "-Clink-arg=-no-pie",
             // "-Ztls-model=local-exec",
-            `--cfg=root_fs="ext4"`,
+            `--cfg=root_fs="ext4_rs"`,
             '--cfg=board="qemu"',
             `--cfg=driver="kramdisk"`
         ];
