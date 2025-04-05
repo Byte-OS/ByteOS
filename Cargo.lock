@@ -293,6 +293,7 @@ dependencies = [
  "serde_derive",
  "signal",
  "sync",
+ "syscalls",
  "toml",
  "vfscore",
  "xmas-elf",
@@ -761,6 +762,11 @@ version = "0.1.0"
 dependencies = [
  "spin 0.9.8",
 ]
+
+[[package]]
+name = "syscalls"
+version = "0.6.18"
+source = "git+https://github.com/jasonwhite/syscalls.git#92624de3dee33427fde46da083809d7e86a721ec"
 
 [[package]]
 name = "timestamp"

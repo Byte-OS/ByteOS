@@ -38,6 +38,7 @@ cfg-if = "1.0.0"
 num-traits = { version = "0.2", default-features = false }
 num-derive = "0.4"
 
+syscalls = { workspace = true }
 runtime = { workspace = true }
 
 # filesystem

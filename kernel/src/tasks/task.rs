@@ -17,7 +17,7 @@ use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
 
 use crate::tasks::{
-    futex_wake, hexdump,
+    futex_wake,
     memset::{MapTrack, MemArea},
 };
 

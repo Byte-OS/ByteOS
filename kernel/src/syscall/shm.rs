@@ -1,17 +1,12 @@
+use super::SysResult;
 use crate::tasks::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
+use crate::user::UserTaskContainer;
 use alloc::{sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use log::debug;
 use polyhal::{va, MappingFlags};
 use runtime::frame::{frame_alloc_much, FrameTracker};
-
-use crate::user::UserTaskContainer;
-
-use super::{consts::LinuxError, SysResult};
-
-// #define IPC_CREAT  01000
-// #define IPC_EXCL   02000
-// #define IPC_NOWAIT 04000
+use syscalls::Errno;
 
 impl UserTaskContainer {
     pub async fn sys_shmget(&self, mut key: usize, size: usize, shmflg: usize) -> SysResult {
@@ -37,7 +32,7 @@ impl UserTaskContainer {
                 .insert(key, Arc::new(SharedMemory::new(shm)));
             return Ok(key);
         }
-        Err(LinuxError::ENOENT)
+        Err(Errno::ENOENT)
     }
 
     pub async fn sys_shmat(&self, shmid: usize, shmaddr: usize, shmflg: usize) -> SysResult {
@@ -58,7 +53,7 @@ impl UserTaskContainer {
         };
         let trackers = SHARED_MEMORY.lock().get(&shmid).cloned();
         if trackers.is_none() {
-            return Err(LinuxError::ENOENT);
+            return Err(Errno::ENOENT);
         }
         trackers
             .as_ref()
@@ -91,6 +86,6 @@ impl UserTaskContainer {
             }
             return Ok(0);
         }
-        Err(LinuxError::EPERM)
+        Err(Errno::EPERM)
     }
 }

@@ -3,13 +3,12 @@ use async_recursion::async_recursion;
 use executor::{boot_page_table, yield_now, AsyncTask};
 use futures_lite::future;
 use log::debug;
-use polyhal::PageTable;
 use polyhal_trap::trapframe::TrapFrame;
 use signal::SignalFlags;
 
 use crate::{
     syscall::consts::TimeVal,
-    tasks::{current_user_task, hexdump, UserTaskControlFlow},
+    tasks::{current_user_task, UserTaskControlFlow},
 };
 
 use super::UserTaskContainer;

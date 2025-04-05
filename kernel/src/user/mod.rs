@@ -7,12 +7,10 @@ use polyhal::{MappingFlags, Time, VirtAddr};
 use polyhal_trap::trap::{run_user_task, EscapeReason};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::frame_alloc;
+use syscalls::Sysno;
 
+use crate::tasks::{hexdump, UserTaskControlFlow};
 use crate::tasks::{MapTrack, MemType, UserTask};
-use crate::{
-    syscall::consts::SYS_SIGRETURN,
-    tasks::{hexdump, UserTaskControlFlow},
-};
 
 pub mod entry;
 pub mod signal;
@@ -92,7 +90,7 @@ impl UserTaskContainer {
                 .inner_map(|inner| inner.tms.utime += (Time::now().raw() - ustart) as u64);
 
             let sstart = Time::now().raw();
-            if cx_ref[TrapFrameArgs::SYSCALL] == SYS_SIGRETURN {
+            if cx_ref[TrapFrameArgs::SYSCALL] == Sysno::rt_sigreturn.id() as _ {
                 return UserTaskControlFlow::Break;
             }
 
@@ -102,7 +100,8 @@ impl UserTaskContainer {
             let result = self
                 .syscall(cx_ref[TrapFrameArgs::SYSCALL], cx_ref.args())
                 .await
-                .map_or_else(|e| -e.code(), |x| x as isize) as usize;
+                .map_or_else(|e| -e.into_raw() as isize, |x| x as isize)
+                as usize;
 
             debug!(
                 "[task {}] syscall result: {}",

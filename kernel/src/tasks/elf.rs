@@ -4,6 +4,7 @@ use executor::AsyncTask;
 use log::warn;
 use polyhal::va;
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use syscalls::Errno;
 use xmas_elf::{
     program::Type,
     sections::SectionData,
@@ -11,20 +12,20 @@ use xmas_elf::{
     ElfFile,
 };
 
-use crate::syscall::consts::{elf, LinuxError};
+use crate::syscall::consts::elf;
 use crate::tasks::memset::MemType;
 
 use super::task::UserTask;
 
 pub trait ElfExtra {
-    fn get_ph_addr(&self) -> Result<u64, LinuxError>;
+    fn get_ph_addr(&self) -> Result<u64, Errno>;
     fn dynsym(&self) -> Result<&[DynEntry64], &'static str>;
     fn relocate(&self, base: usize) -> Result<Vec<(usize, usize)>, &str>;
 }
 
 impl ElfExtra for ElfFile<'_> {
     // 获取elf加载需要的内存大小
-    fn get_ph_addr(&self) -> Result<u64, LinuxError> {
+    fn get_ph_addr(&self) -> Result<u64, Errno> {
         if let Some(phdr) = self
             .program_iter()
             .find(|ph| ph.get_type() == Ok(Type::Phdr))
@@ -39,7 +40,7 @@ impl ElfExtra for ElfFile<'_> {
             Ok(elf_addr.virtual_addr() + self.header.pt2.ph_offset())
         } else {
             warn!("elf: no phdr found, tls might not work");
-            Err(LinuxError::EBADF)
+            Err(Errno::EBADF)
         }
     }
 
