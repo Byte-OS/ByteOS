@@ -1,8 +1,4 @@
-use devices::PAGE_SIZE;
-use log::debug;
-use polyhal::VirtAddr;
-use runtime::frame::alignup;
-
+use super::SysResult;
 use crate::syscall::consts::from_vfs;
 use crate::syscall::consts::MSyncFlags;
 use crate::syscall::consts::MapFlags;
@@ -11,9 +7,11 @@ use crate::syscall::consts::ProtFlags;
 use crate::syscall::consts::UserRef;
 use crate::tasks::{MemArea, MemType};
 use crate::user::UserTaskContainer;
-
-use super::consts::LinuxError;
-use super::SysResult;
+use devices::PAGE_SIZE;
+use log::debug;
+use polyhal::VirtAddr;
+use runtime::frame::alignup;
+use syscalls::Errno;
 
 // The high 25bits in sv39 should be the same as bit 38.
 const MAP_AREA_START: usize = 0x2_0000_0000;
@@ -84,7 +82,7 @@ impl UserTaskContainer {
             .memset
             .overlapping(addr.raw(), addr.raw() + len)
         {
-            return Err(LinuxError::EINVAL);
+            return Err(Errno::EINVAL);
         }
 
         if flags.contains(MapFlags::MAP_SHARED) {
@@ -100,12 +98,12 @@ impl UserTaskContainer {
                         usize::from(addr),
                         len,
                     )
-                    .ok_or(LinuxError::EFAULT)?,
+                    .ok_or(Errno::EFAULT)?,
                 None => {
                     let paddr = self
                         .task
                         .frame_alloc(addr, MemType::Shared, len.div_ceil(PAGE_SIZE))
-                        .ok_or(LinuxError::EFAULT)?;
+                        .ok_or(Errno::EFAULT)?;
 
                     for i in 0..(len + PAGE_SIZE - 1) / PAGE_SIZE {
                         self.task
@@ -117,7 +115,7 @@ impl UserTaskContainer {
         } else if file.is_some() {
             self.task
                 .frame_alloc(addr, MemType::Mmap, len.div_ceil(PAGE_SIZE))
-                .ok_or(LinuxError::EFAULT)?;
+                .ok_or(Errno::EFAULT)?;
         } else {
             self.task.pcb.lock().memset.push(MemArea {
                 mtype: MemType::Mmap,

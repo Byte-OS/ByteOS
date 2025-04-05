@@ -1,5 +1,5 @@
 SHELL := /bin/bash
-BOARD:= qemu
+export BOARD:= qemu
 PLATFORM   :=
 SMP := 1
 byteos = $(shell kbuild $(1) byteos.yaml $(PLATFORM) $(2))

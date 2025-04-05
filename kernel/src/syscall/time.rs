@@ -9,6 +9,7 @@ use executor::select;
 use fs::TimeSpec;
 use log::{debug, warn};
 use polyhal::time::Time;
+use syscalls::Errno;
 
 use crate::{
     syscall::consts::{current_nsec, TimeVal},
@@ -17,7 +18,7 @@ use crate::{
 };
 
 use super::{
-    consts::{ITimerVal, LinuxError, UserRef},
+    consts::{ITimerVal, UserRef},
     SysResult,
 };
 impl UserTaskContainer {
@@ -54,7 +55,7 @@ impl UserTaskContainer {
         .await
         {
             executor::Either::Right(_) => Ok(0),
-            executor::Either::Left(_) => Err(LinuxError::EINTR),
+            executor::Either::Left(_) => Err(Errno::EINTR),
         };
         if rem_ptr.is_valid() {
             *rem_ptr.get_mut() = Default::default();
@@ -89,7 +90,7 @@ impl UserTaskContainer {
                 warn!("CLOCK_THREAD_CPUTIME_ID not implemented");
                 0
             }
-            _ => return Err(LinuxError::EINVAL),
+            _ => return Err(Errno::EINVAL),
         };
 
         *times_ptr.get_mut() = TimeSpec {
@@ -139,7 +140,7 @@ impl UserTaskContainer {
             }
             Ok(0)
         } else {
-            Err(LinuxError::EPERM)
+            Err(Errno::EPERM)
         }
     }
 

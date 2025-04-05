@@ -1,25 +1,22 @@
+use super::consts::UserRef;
+use super::SysResult;
+use crate::socket::{self, NetType};
+use crate::tasks::FileItem;
+use crate::user::socket_pair::create_socket_pair;
+use crate::user::UserTaskContainer;
+use alloc::sync::Arc;
 use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};
-
-use alloc::sync::Arc;
 use devices::get_net_device;
 use executor::yield_now;
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
-
 use lose_net_stack::results::NetServerError;
 use lose_net_stack::MacAddress;
 use sync::Lazy;
+use syscalls::Errno;
 use vfscore::OpenFlags;
-
-use crate::socket::{self, NetType};
-use crate::tasks::FileItem;
-use crate::user::socket_pair::create_socket_pair;
-use crate::user::UserTaskContainer;
-
-use super::consts::{LinuxError, UserRef};
-use super::SysResult;
 
 type Socket = socket::Socket;
 
@@ -67,12 +64,12 @@ impl UserTaskContainer {
             "[task {}] sys_socket @ domain: {:#x}, net_type: {:#x}, protocol: {:#x}",
             self.tid, domain, net_type, protocol
         );
-        let fd = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+        let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         log::debug!(
             "net_type: {:?}",
-            NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?
+            NetType::from_usize(net_type).ok_or(Errno::EINVAL)?
         );
-        let net_type = NetType::from_usize(net_type).ok_or(LinuxError::EINVAL)?;
+        let net_type = NetType::from_usize(net_type).ok_or(Errno::EINVAL)?;
         let socket = Socket::new(domain, net_type);
         self.task.set_fd(fd, FileItem::new_dev(socket));
         Ok(fd)
@@ -92,11 +89,11 @@ impl UserTaskContainer {
         let fds = socket_vector.slice_mut_with_len(2);
 
         let socket = create_socket_pair();
-        let rx_fd = self.task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+        let rx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
         self.task.set_fd(rx_fd, FileItem::new_dev(socket.clone()));
         fds[0] = rx_fd as u32;
 
-        let tx_fd = self.task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+        let tx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
         self.task.set_fd(tx_fd, FileItem::new_dev(socket.clone()));
         fds[1] = tx_fd as u32;
 
@@ -118,10 +115,10 @@ impl UserTaskContainer {
         let socket = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
 
         let net_server = NET_SERVER.clone();
         let port = socket_addr.in_port.to_be();
@@ -129,7 +126,7 @@ impl UserTaskContainer {
 
         if socket_addr.family != 0x02 {
             warn!("only support IPV4 now");
-            return Err(LinuxError::EAFNOSUPPORT);
+            return Err(Errno::EAFNOSUPPORT);
         }
 
         match socket.net_type {
@@ -157,7 +154,7 @@ impl UserTaskContainer {
             .inner
             .clone()
             .bind(local)
-            .map_err(|_| LinuxError::EALREADY)?;
+            .map_err(|_| Errno::EALREADY)?;
         debug!("socket_addr: {:#x?}", socket_addr);
         Ok(0)
     }
@@ -170,10 +167,10 @@ impl UserTaskContainer {
         let _ = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?
+            .map_err(|_| Errno::EINVAL)?
             .inner
             .clone()
             .listen();
@@ -185,13 +182,13 @@ impl UserTaskContainer {
             "[task {}] sys_accept @ socket_fd: {:#x}, socket_addr: {:#x}, len: {:#x}",
             self.tid, socket_fd, socket_addr, len
         );
-        let file = self.task.get_fd(socket_fd).ok_or(LinuxError::EINVAL)?;
+        let file = self.task.get_fd(socket_fd).ok_or(Errno::EINVAL)?;
         let socket = file
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
         debug!("flags: {:?}", file.flags.lock());
-        let fd = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+        let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         loop {
             if let Ok(new_socket) = socket.inner.accept() {
                 self.task.set_fd(
@@ -206,7 +203,7 @@ impl UserTaskContainer {
             }
 
             if self.task.tcb.read().signal.has_signal() {
-                return Err(LinuxError::EINTR);
+                return Err(Errno::EINTR);
             }
 
             yield_now().await;
@@ -227,10 +224,10 @@ impl UserTaskContainer {
         let socket = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
 
         let socket_addr = socket_addr.get_mut();
         let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
@@ -258,11 +255,11 @@ impl UserTaskContainer {
             self.tid, socket_fd, buffer_ptr, len, flags, addr, addr_len
         );
         let buffer = buffer_ptr.slice_mut_with_len(len);
-        let file = self.task.get_fd(socket_fd).ok_or(LinuxError::EINVAL)?;
+        let file = self.task.get_fd(socket_fd).ok_or(Errno::EINVAL)?;
         let socket = file
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
 
         let (data, remote) = loop {
             let res = socket.recv_from();
@@ -271,7 +268,7 @@ impl UserTaskContainer {
                 Ok(r) => break r,
                 Err(_) => {
                     if file.flags.lock().contains(OpenFlags::O_NONBLOCK) {
-                        return Err(LinuxError::EAGAIN);
+                        return Err(Errno::EAGAIN);
                     }
                     yield_now().await
                 }
@@ -302,10 +299,10 @@ impl UserTaskContainer {
         let socket = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
         if addr_ptr.is_valid() {
             let socket_address = socket.inner.get_local().expect("can't get socket address");
             let socket_addr = addr_ptr.get_mut();
@@ -330,10 +327,10 @@ impl UserTaskContainer {
         let socket = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
         if addr_ptr.is_valid() {
             let socket_address = socket.inner.get_remote().expect("can't get socket address");
             let socket_addr = addr_ptr.get_mut();
@@ -386,7 +383,7 @@ impl UserTaskContainer {
             0x8 => *optval = 32000,
             0x2 => *optval = 2000,
             // getsockopt
-            0x4 => return Err(LinuxError::EPERM),
+            0x4 => return Err(Errno::EPERM),
             _ => {
                 // *optval = 2000;
             }
@@ -412,10 +409,10 @@ impl UserTaskContainer {
         let socket = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
 
         debug!("send");
 
@@ -424,7 +421,7 @@ impl UserTaskContainer {
                 .inner
                 .clone()
                 .bind(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0))
-                .map_err(|_| LinuxError::EALREADY)?;
+                .map_err(|_| Errno::EALREADY)?;
         }
 
         let remote = if addr_ptr.is_valid() {
@@ -449,10 +446,10 @@ impl UserTaskContainer {
         let _ = self
             .task
             .get_fd(socket_fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?
+            .map_err(|_| Errno::EINVAL)?
             .inner
             .close();
         Ok(0)
@@ -474,12 +471,12 @@ impl UserTaskContainer {
             len,
             flags
         );
-        let file = self.task.get_fd(socket_fd).ok_or(LinuxError::EINVAL)?;
+        let file = self.task.get_fd(socket_fd).ok_or(Errno::EINVAL)?;
         let socket = file
             .get_bare_file()
             .downcast_arc::<Socket>()
-            .map_err(|_| LinuxError::EINVAL)?;
-        let fd = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+            .map_err(|_| Errno::EINVAL)?;
+        let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         loop {
             if let Ok(new_socket) = socket.inner.accept() {
                 let sa = socket_addr.get_mut();
@@ -495,7 +492,7 @@ impl UserTaskContainer {
                 self.task.set_fd(fd, new_file);
                 break Ok(fd);
             } else if file.flags.lock().contains(OpenFlags::O_NONBLOCK) {
-                break Err(LinuxError::EAGAIN);
+                break Err(Errno::EAGAIN);
             }
             yield_now().await;
         }

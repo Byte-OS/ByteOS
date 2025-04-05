@@ -1,47 +1,45 @@
-use alloc::string::String;
-use core::cmp;
-use fs::dentry::{dentry_open, DentryNode};
-use num_traits::FromPrimitive;
-use polyhal::VirtAddr;
-use vfscore::FileType;
-
-use alloc::sync::Arc;
-use bit_field::BitArray;
-use executor::yield_now;
-use fs::pipe::create_pipe;
-use fs::{OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW};
-use log::debug;
-
+use super::consts::UserRef;
+use super::SysResult;
 use crate::epoll::{EpollEvent, EpollFile};
 use crate::syscall::consts::{current_nsec, from_vfs, FcntlCmd, IoVec, AT_CWD};
 use crate::syscall::func::timespc_now;
 use crate::tasks::{FileItem, UserTask};
 use crate::user::UserTaskContainer;
+use alloc::string::String;
+use alloc::sync::Arc;
+use bit_field::BitArray;
+use core::cmp;
+use executor::yield_now;
+use fs::dentry::{dentry_open, DentryNode};
+use fs::pipe::create_pipe;
+use fs::{OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW};
+use log::debug;
+use num_traits::FromPrimitive;
+use polyhal::VirtAddr;
+use syscalls::Errno;
+use vfscore::FileType;
 
-use super::consts::{LinuxError, UserRef};
-use super::SysResult;
-
-pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<FileItem>, LinuxError> {
+pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<FileItem>, Errno> {
     if path.len() > 0 && path.starts_with("/") {
         return Ok(FileItem::root());
     }
     const NEW_AT_CWD: u32 = AT_CWD as u32;
     match fd as u32 {
         NEW_AT_CWD => Ok(task.pcb.lock().curr_dir.clone()),
-        x => task.get_fd(x as _).ok_or(LinuxError::EBADF),
+        x => task.get_fd(x as _).ok_or(Errno::EBADF),
     }
 }
 
 impl UserTaskContainer {
     pub async fn sys_dup(&self, fd: usize) -> SysResult {
         debug!("sys_dup3 @ fd_src: {}", fd);
-        let fd_dst = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+        let fd_dst = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         self.sys_dup3(fd, fd_dst).await
     }
 
     pub async fn sys_dup3(&self, fd_src: usize, fd_dst: usize) -> SysResult {
         debug!("sys_dup3 @ fd_src: {}, fd_dst: {}", fd_src, fd_dst);
-        let file = self.task.get_fd(fd_src).ok_or(LinuxError::EBADF)?;
+        let file = self.task.get_fd(fd_src).ok_or(Errno::EBADF)?;
         self.task.set_fd(fd_dst, file);
         Ok(fd_dst)
     }
@@ -59,7 +57,7 @@ impl UserTaskContainer {
         let buffer = buf_ptr.slice_mut_with_len(count);
         self.task
             .get_fd(fd)
-            .ok_or(LinuxError::EBADF)?
+            .ok_or(Errno::EBADF)?
             .async_read(buffer)
             .await
             .map_err(from_vfs)
@@ -71,7 +69,7 @@ impl UserTaskContainer {
             self.tid, fd as isize, buf_ptr, count
         );
         let buffer = buf_ptr.slice_with_len(count);
-        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         // if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
         //     yield_now().await;
         // }
@@ -84,7 +82,7 @@ impl UserTaskContainer {
         let mut rsize = 0;
 
         let iov = iov.slice_mut_with_len(iocnt);
-        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
 
         for io in iov {
             let buffer = UserRef::<u8>::from(io.base).slice_mut_with_len(io.len);
@@ -100,7 +98,7 @@ impl UserTaskContainer {
 
         let iov = iov.slice_mut_with_len(iocnt);
 
-        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
 
         for io in iov {
             let buffer = UserRef::<u8>::from(io.base).slice_mut_with_len(io.len);
@@ -118,14 +116,14 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_mkdir_at(&self, dir_fd: usize, path: UserRef<i8>, mode: usize) -> SysResult {
-        let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
             dir_fd as isize, path, mode
         );
         let dir = to_node(&self.task, dir_fd, path)?;
         if path == "/" {
-            return Err(LinuxError::EEXIST);
+            return Err(Errno::EEXIST);
         }
 
         dir.dentry_open(path, OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY)
@@ -157,14 +155,14 @@ impl UserTaskContainer {
             olddir_fd, oldpath, newdir_fd, newpath, flags
         );
 
-        let old_path = oldpath.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let old_path = oldpath.get_cstr().map_err(|_| Errno::EINVAL)?;
         let old_dir = to_node(&self.task, olddir_fd, old_path)?;
         let old_file = old_dir
             .dentry_open(old_path, OpenFlags::empty())
             .map_err(from_vfs)?;
 
         let old_file_type = old_file.metadata().map_err(from_vfs)?.file_type;
-        let new_path = newpath.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let new_path = newpath.get_cstr().map_err(|_| Errno::EINVAL)?;
         let new_dir = to_node(&self.task, newdir_fd, new_path)?;
         if old_file_type == FileType::File {
             let new_file = new_dir
@@ -196,7 +194,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_unlinkat(&self, dir_fd: usize, path: UserRef<i8>, flags: usize) -> SysResult {
-        let path = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
             dir_fd as isize, path, flags
@@ -218,7 +216,7 @@ impl UserTaskContainer {
     ) -> SysResult {
         let flags = OpenFlags::from_bits_truncate(flags);
         let filename = if filename.is_valid() {
-            filename.get_cstr().map_err(|_| LinuxError::EINVAL)?
+            filename.get_cstr().map_err(|_| Errno::EINVAL)?
         } else {
             ""
         };
@@ -228,7 +226,7 @@ impl UserTaskContainer {
         );
         let dir = to_node(&self.task, fd, filename)?;
         let file = dir.dentry_open(filename, flags).map_err(from_vfs)?;
-        let fd = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+        let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         self.task.set_fd(fd, file);
         debug!("sys_openat @ ret fd: {}", fd);
         Ok(fd)
@@ -249,7 +247,7 @@ impl UserTaskContainer {
     ) -> SysResult {
         let open_flags = OpenFlags::from_bits_truncate(flags);
         let filename = if filename.is_valid() {
-            filename.get_cstr().map_err(|_| LinuxError::EINVAL)?
+            filename.get_cstr().map_err(|_| Errno::EINVAL)?
         } else {
             ""
         };
@@ -267,7 +265,7 @@ impl UserTaskContainer {
         debug!("sys_fstat @ fd: {} stat_ptr: {}", fd, stat_ptr);
         let stat_ref = stat_ptr.get_mut();
 
-        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         file.stat(stat_ref).map_err(from_vfs)?;
         stat_ref.mode |= StatMode::OWNER_MASK;
         if let Ok(metadata) = file.metadata() {
@@ -286,7 +284,7 @@ impl UserTaskContainer {
             "sys_fstatat @ dir_fd: {}, path_ptr:{}, stat_ptr: {}",
             dir_fd as isize, path_ptr, stat_ptr
         );
-        let path = path_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_fstatat @ dir_fd: {}, path:{}, stat_ptr: {}",
             dir_fd as isize, path, stat_ptr
@@ -322,7 +320,7 @@ impl UserTaskContainer {
             "sys_statfs @ filename_ptr: {}, statfs_ptr: {}",
             filename_ptr, statfs_ptr
         );
-        let path = filename_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
         FileItem::fs_open(path, OpenFlags::NONE)
             .map_err(from_vfs)?
@@ -336,11 +334,11 @@ impl UserTaskContainer {
         let fds = fds_ptr.slice_mut_with_len(2);
 
         let (rx, tx) = create_pipe();
-        let rx_fd = self.task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+        let rx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
         self.task.set_fd(rx_fd, FileItem::new_dev(rx));
         fds[0] = rx_fd as u32;
 
-        let tx_fd = self.task.alloc_fd().ok_or(LinuxError::ENFILE)?;
+        let tx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
         self.task.set_fd(tx_fd, FileItem::new_dev(tx));
         fds[1] = tx_fd as u32;
 
@@ -361,7 +359,7 @@ impl UserTaskContainer {
         );
         let buffer = ptr.slice_mut_with_len(len);
 
-        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         file.readat(offset, buffer).map_err(from_vfs)
     }
 
@@ -379,7 +377,7 @@ impl UserTaskContainer {
         let buffer = buf_ptr.slice_with_len(count);
         self.task
             .get_fd(fd)
-            .ok_or(LinuxError::EBADF)?
+            .ok_or(Errno::EBADF)?
             .writeat(offset, buffer)
             .map_err(from_vfs)
     }
@@ -392,9 +390,9 @@ impl UserTaskContainer {
         flags: usize,
         data: usize,
     ) -> SysResult {
-        let special = special.get_cstr().map_err(|_| LinuxError::EINVAL)?;
-        let dir = dir.get_cstr().map_err(|_| LinuxError::EINVAL)?;
-        let fstype = fstype.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let special = special.get_cstr().map_err(|_| Errno::EINVAL)?;
+        let dir = dir.get_cstr().map_err(|_| Errno::EINVAL)?;
+        let fstype = fstype.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_mount @ special: {}, dir: {}, fstype: {}, flags: {}, data: {:#x}",
             special, dir, fstype, flags, data
@@ -406,7 +404,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_umount2(&self, special: UserRef<i8>, flags: usize) -> SysResult {
-        let special = special.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let special = special.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_umount @ special: {}, flags: {}", special, flags);
         match special.starts_with("/dev") {
             true => {
@@ -442,12 +440,12 @@ impl UserTaskContainer {
 
         self.task
             .get_fd(fd)
-            .ok_or(LinuxError::EBADF)?
+            .ok_or(Errno::EBADF)?
             .seek(match whence {
                 0 => SeekFrom::SET(offset),
                 1 => SeekFrom::CURRENT(offset as isize),
                 2 => SeekFrom::END(offset as isize),
-                _ => return Err(LinuxError::EINVAL),
+                _ => return Err(Errno::EINVAL),
             })
             .map_err(from_vfs)
     }
@@ -466,9 +464,9 @@ impl UserTaskContainer {
         );
         self.task
             .get_fd(fd)
-            .ok_or(LinuxError::EINVAL)?
+            .ok_or(Errno::EINVAL)?
             .ioctl(request, arg1)
-            .map_err(|_| LinuxError::ENOTTY)
+            .map_err(|_| Errno::ENOTTY)
     }
 
     pub async fn sys_fcntl(&self, fd: usize, cmd: usize, arg: usize) -> SysResult {
@@ -476,8 +474,8 @@ impl UserTaskContainer {
             "[task {}] fcntl: fd: {}, cmd: {:#x}, arg: {}",
             self.tid, fd, cmd, arg
         );
-        let cmd = FromPrimitive::from_usize(cmd).ok_or(LinuxError::EINVAL)?;
-        let file = self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+        let cmd = FromPrimitive::from_usize(cmd).ok_or(Errno::EINVAL)?;
+        let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         debug!("[task {}] fcntl: {:?}", self.tid, cmd);
         match cmd {
             FcntlCmd::DUPFD | FcntlCmd::DUPFDCLOEXEC => self.sys_dup(fd).await,
@@ -539,7 +537,7 @@ impl UserTaskContainer {
         let path = if !path.is_valid() {
             ""
         } else {
-            path.get_cstr().map_err(|_| LinuxError::EINVAL)?
+            path.get_cstr().map_err(|_| Errno::EINVAL)?
         };
 
         let dir = to_node(&self.task, dir_fd, path)?;
@@ -569,7 +567,7 @@ impl UserTaskContainer {
             "sys_readlinkat @ dir_fd: {}, path: {}, buffer: {}, size: {}",
             dir_fd, path, buffer, buffer_size
         );
-        let filename = path.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let filename = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         let buffer = buffer.slice_mut_with_len(buffer_size);
         debug!("readlinkat @ filename: {}", filename);
 
@@ -583,7 +581,7 @@ impl UserTaskContainer {
             .file_type;
 
         if FileType::Link != ftype {
-            return Err(LinuxError::EINVAL);
+            return Err(Errno::EINVAL);
         }
 
         let file_path = FileItem::fs_open(filename, OpenFlags::NONE)
@@ -621,8 +619,8 @@ impl UserTaskContainer {
             "out_fd: {}  in_fd: {}  offset: {:#x}   count: {:#x}",
             out_fd, in_fd, offset, count
         );
-        let out_file = self.task.get_fd(out_fd).ok_or(LinuxError::EINVAL)?;
-        let in_file = self.task.get_fd(in_fd).ok_or(LinuxError::EINVAL)?;
+        let out_file = self.task.get_fd(out_fd).ok_or(Errno::EINVAL)?;
+        let in_file = self.task.get_fd(in_fd).ok_or(Errno::EINVAL)?;
 
         let curr_off = if offset != 0 {
             offset
@@ -871,9 +869,9 @@ impl UserTaskContainer {
         debug!("sys_ftruncate @ fields: {}, len: {}", fields, len);
         // Ok(0)
         if fields == usize::MAX {
-            return Err(LinuxError::EPERM);
+            return Err(Errno::EPERM);
         }
-        let file = self.task.get_fd(fields).ok_or(LinuxError::EINVAL)?;
+        let file = self.task.get_fd(fields).ok_or(Errno::EINVAL)?;
         file.truncate(len).map_err(from_vfs)?;
         Ok(0)
     }
@@ -881,7 +879,7 @@ impl UserTaskContainer {
     pub async fn sys_epoll_create1(&self, flags: usize) -> SysResult {
         debug!("sys_epoll_create @ flags: {:#x}", flags);
         let file = Arc::new(EpollFile::new(flags));
-        let fd = self.task.alloc_fd().ok_or(LinuxError::EMFILE)?;
+        let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         self.task.set_fd(fd, FileItem::new_dev(file));
         Ok(fd)
     }
@@ -897,16 +895,16 @@ impl UserTaskContainer {
             "sys_epoll_ctl @ epfd: {:#x} op: {:#x} fd: {:#x} event: {:#x?}",
             epfd, op, fd, event
         );
-        let ctl = FromPrimitive::from_usize(op).ok_or(LinuxError::EINVAL)?;
+        let ctl = FromPrimitive::from_usize(op).ok_or(Errno::EINVAL)?;
         let epfile = self
             .task
             .get_fd(epfd)
-            .ok_or(LinuxError::EBADF)?
+            .ok_or(Errno::EBADF)?
             .inner
             .clone()
             .downcast_arc::<EpollFile>()
-            .map_err(|_| LinuxError::EINVAL)?;
-        self.task.get_fd(fd).ok_or(LinuxError::EBADF)?;
+            .map_err(|_| Errno::EINVAL)?;
+        self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         epfile.ctl(ctl, fd, event.get_ref().clone());
         Ok(0)
     }
@@ -923,11 +921,11 @@ impl UserTaskContainer {
         let epfile = self
             .task
             .get_fd(epfd)
-            .ok_or(LinuxError::EBADF)?
+            .ok_or(Errno::EBADF)?
             .inner
             .clone()
             .downcast_arc::<EpollFile>()
-            .map_err(|_| LinuxError::EINVAL)?;
+            .map_err(|_| Errno::EINVAL)?;
         let stime = current_nsec();
         let end = if timeout == usize::MAX {
             usize::MAX
@@ -972,8 +970,8 @@ impl UserTaskContainer {
             "sys_copy_file_range @ fd_in: {}, off_in: {}, fd_out: {}, off_out: {}, len: {}",
             fd_in, off_in, fd_out, off_out, len
         );
-        let in_file = self.task.get_fd(fd_in).ok_or(LinuxError::EBADF)?;
-        let out_file = self.task.get_fd(fd_out).ok_or(LinuxError::EBADF)?;
+        let in_file = self.task.get_fd(fd_in).ok_or(Errno::EBADF)?;
+        let out_file = self.task.get_fd(fd_out).ok_or(Errno::EBADF)?;
         let mut buffer = vec![0u8; len];
         let rsize = if off_in.is_valid() {
             let rsize = in_file

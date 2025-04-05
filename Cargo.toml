@@ -54,6 +54,8 @@ polyhal-boot = { version = "0.2.1" }
 polyhal-trap = { version = "0.2.1" }
 fdt-parser = { version = "0.4.12" }
 
+syscalls = { git = "https://github.com/jasonwhite/syscalls.git", default-features = false }
+
 [patch.crates-io]
 # polyhal = { path = "../polyhal/polyhal" }
 # polyhal-boot = { path = "../polyhal/polyhal-boot" }

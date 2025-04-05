@@ -5,8 +5,8 @@ use crate::{
     },
     tasks::{
         elf::{init_task_stack, ElfExtra},
-        futex_requeue, futex_wake, hexdump, FileItem, MapTrack, MemArea, MemType, UserTask,
-        WaitFutex, WaitPid,
+        futex_requeue, futex_wake, FileItem, MapTrack, MemArea, MemType, UserTask, WaitFutex,
+        WaitPid,
     },
     user::{entry::user_entry, UserTaskContainer},
 };
@@ -25,15 +25,16 @@ use fs::dentry::{dentry_open, dentry_root};
 use fs::TimeSpec;
 use log::{debug, warn};
 use num_traits::FromPrimitive;
-use polyhal::{va, MappingFlags, PageTable, Time, VirtAddr};
+use polyhal::{va, MappingFlags, Time, VirtAddr};
 use polyhal_trap::trapframe::TrapFrameArgs;
 use runtime::frame::{frame_alloc_much, FrameTracker};
 use signal::SignalFlags;
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::OpenFlags;
 use xmas_elf::program::{SegmentData, Type};
 
-use super::consts::{FutexFlags, LinuxError, UserRef};
+use super::consts::{FutexFlags, UserRef};
 use super::SysResult;
 
 pub struct TaskCacheTemplate {
@@ -50,7 +51,7 @@ pub struct TaskCacheTemplate {
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
 #[allow(dead_code)]
-pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
+pub fn cache_task_template(path: &str) -> Result<(), Errno> {
     let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)
         .map_err(from_vfs)?
         .node
@@ -181,7 +182,7 @@ pub async fn exec_with_process(
     path: String,
     args: Vec<String>,
     envp: Vec<String>,
-) -> Result<Arc<UserTask>, LinuxError> {
+) -> Result<Arc<UserTask>, Errno> {
     // copy args, avoid free before pushing.
     let path = String::from(path);
     let user_task = task.clone();
@@ -335,7 +336,7 @@ pub async fn exec_with_process(
 
 impl UserTaskContainer {
     pub async fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
-        let path = path_ptr.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_chdir @ path: {}", path);
         let now_file = self.task.pcb.lock().curr_dir.clone();
         let new_dir = now_file
@@ -347,7 +348,7 @@ impl UserTaskContainer {
                 self.task.pcb.lock().curr_dir = new_dir;
                 Ok(0)
             }
-            _ => Err(LinuxError::ENOTDIR),
+            _ => Err(Errno::ENOTDIR),
         }
     }
 
@@ -381,7 +382,7 @@ impl UserTaskContainer {
             filename, args, envp
         );
         // TODO: use map_err insteads of unwrap and unsafe code.
-        let filename = filename.get_cstr().map_err(|_| LinuxError::EINVAL)?;
+        let filename = filename.get_cstr().map_err(|_| Errno::EINVAL)?;
         let args = args
             .slice_until_valid(|x| x.is_valid())
             .into_iter()
@@ -486,7 +487,7 @@ impl UserTaskContainer {
 
         // return LinuxError::ECHILD if there has no child process.
         if self.task.inner_map(|inner| inner.children.len()) == 0 {
-            return Err(LinuxError::ECHILD);
+            return Err(Errno::ECHILD);
         }
 
         if pid != -1 {
@@ -498,7 +499,7 @@ impl UserTaskContainer {
                         .find(|x| x.task_id == pid as usize)
                         .map(|x| x.clone())
                 })
-                .ok_or(LinuxError::ECHILD)?;
+                .ok_or(Errno::ECHILD)?;
         }
         if options == 0 || options == 2 || options == 3 || options == 10 {
             debug!(
@@ -555,7 +556,7 @@ impl UserTaskContainer {
             }
         } else {
             warn!("wait4 unsupported options: {}", options);
-            Err(LinuxError::EPERM)
+            Err(Errno::EPERM)
         }
     }
 
@@ -600,7 +601,7 @@ impl UserTaskContainer {
             .read()
             .upgrade()
             .map(|x| x.task_id)
-            .ok_or(LinuxError::EPERM)
+            .ok_or(Errno::EPERM)
     }
 
     /// sys_gettid() 获取线程 id.
@@ -625,7 +626,7 @@ impl UserTaskContainer {
             self.tid, uaddr_ptr, op, value, value2, uaddr2, value3
         );
         let uaddr = uaddr_ptr.get_mut();
-        let flags = FromPrimitive::from_usize(op).ok_or(LinuxError::EINVAL)?;
+        let flags = FromPrimitive::from_usize(op).ok_or(Errno::EINVAL)?;
         debug!(
             "sys_futex @ uaddr: {:#x} flags: {:?} value: {}",
             uaddr, flags, value
@@ -650,14 +651,14 @@ impl UserTaskContainer {
                             .await
                         {
                             executor::Either::Left((res, _)) => res,
-                            executor::Either::Right(_) => Err(LinuxError::ETIMEDOUT),
+                            executor::Either::Right(_) => Err(Errno::ETIMEDOUT),
                         }
                     } else {
                         wait_func.await
                     }
                     // wait_func.await
                 } else {
-                    Err(LinuxError::EAGAIN)
+                    Err(Errno::EAGAIN)
                 }
             }
             FutexFlags::Wake => {
@@ -677,7 +678,7 @@ impl UserTaskContainer {
                 ))
             }
             _ => {
-                return Err(LinuxError::EPERM);
+                return Err(Errno::EPERM);
             }
         }
     }
@@ -718,7 +719,7 @@ impl UserTaskContainer {
                 //     .add_signal(SignalFlags::from_usize(signum));
                 Ok(0)
             }
-            None => Err(LinuxError::ECHILD),
+            None => Err(Errno::ECHILD),
         }
     }
 
@@ -765,10 +766,8 @@ impl UserTaskContainer {
         );
 
         let user_task = match tid2task(pid) {
-            Some(task) => task
-                .downcast_arc::<UserTask>()
-                .map_err(|_| LinuxError::ESRCH),
-            None => Err(LinuxError::ESRCH),
+            Some(task) => task.downcast_arc::<UserTask>().map_err(|_| Errno::ESRCH),
+            None => Err(Errno::ESRCH),
         }?;
 
         user_task.tcb.write().signal.add_signal(signal.clone());
