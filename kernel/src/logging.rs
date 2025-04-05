@@ -20,12 +20,6 @@ macro_rules! print {
     });
 }
 
-#[macro_export]
-macro_rules! println {
-    ($fmt:expr) => ($crate::print!(concat!($fmt, "\n")));
-    ($fmt:expr, $($arg:tt)*) => ($crate::print!(concat!($fmt, "\n"), $($arg)*));
-}
-
 #[inline]
 pub fn print(args: fmt::Arguments) {
     Logger

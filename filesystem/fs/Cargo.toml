@@ -19,7 +19,7 @@ devices = { workspace = true }
 ext4_rs = { git = "https://github.com/yuoo655/ext4_rs.git", rev = "04286c7" }
 
 [target.'cfg(root_fs = "ext4")'.dependencies]
-lwext4_rust = { git = "https://github.com/elliott10/lwext4_rust.git" }
+lwext4_rust = { git = "https://github.com/Azure-stars/lwext4_rust.git", default-features = false, rev = "ee5131c" }
 
 [target.'cfg(root_fs = "fat32")'.dependencies.fatfs]
 git = "https://github.com/byte-os/rust-fatfs.git"

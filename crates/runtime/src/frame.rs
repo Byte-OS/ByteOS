@@ -1,30 +1,37 @@
-use core::mem::size_of;
-
 use alloc::vec::Vec;
 use bit_field::{BitArray, BitField};
 use log::info;
-use polyhal::{addr::PhysPage, consts::VIRT_ADDR_START, pagetable::PAGE_SIZE};
+use polyhal::{consts::VIRT_ADDR_START, pa, pagetable::PAGE_SIZE, PhysAddr};
 use sync::Mutex;
 
 pub const fn alignup(a: usize, b: usize) -> usize {
-    (a + b - 1) / b * b
+    a.div_ceil(b) * b
+}
+
+pub const fn aligndown(a: usize, b: usize) -> usize {
+    a / b * b
 }
 
 #[derive(Debug)]
 /// 页帧
 ///
 /// 用这个代表一个已经被分配的页表，并且利用 Drop 机制保证页表能够顺利被回收
-pub struct FrameTracker(pub PhysPage);
+pub struct FrameTracker(pub PhysAddr);
 
 impl FrameTracker {
-    pub fn new(ppn: PhysPage) -> Self {
-        Self(ppn)
+    pub const fn new(paddr: PhysAddr) -> Self {
+        Self(paddr)
+    }
+
+    #[inline]
+    pub fn clear(&self) {
+        self.0.clear_len(PAGE_SIZE);
     }
 }
 
 impl Drop for FrameTracker {
     fn drop(&mut self) {
-        self.0.drop_clear();
+        self.clear();
         FRAME_ALLOCATOR.lock().dealloc(self.0);
     }
 }
@@ -34,8 +41,8 @@ impl Drop for FrameTracker {
 /// 利用页帧分布图保存页帧分配器中的空闲内存，并且利用 bitArray 记录页帧使用情况
 pub struct FrameRegionMap {
     bits: Vec<usize>,
-    ppn: PhysPage,
-    ppn_end: PhysPage,
+    paddr: PhysAddr,
+    paddr_end: PhysAddr,
 }
 
 impl FrameRegionMap {
@@ -54,8 +61,8 @@ impl FrameRegionMap {
 
         Self {
             bits,
-            ppn: PhysPage::from_addr(start_addr),
-            ppn_end: PhysPage::from_addr(end_addr),
+            paddr: pa!(start_addr),
+            paddr_end: pa!(end_addr),
         }
     }
 
@@ -81,11 +88,11 @@ impl FrameRegionMap {
     ///
     /// index: usize 指定的位置 self.bits[index]
     #[inline]
-    fn alloc_in_pos(&mut self, index: usize) -> Option<PhysPage> {
+    fn alloc_in_pos(&mut self, index: usize) -> Option<PhysAddr> {
         for bit_index in 0..64 {
             if !self.bits[index].get_bit(bit_index) {
                 self.bits[index].set_bit(bit_index, true);
-                return Some(self.ppn + index * 64 + bit_index);
+                return Some(pa!(self.paddr.raw() + (index * 64 + bit_index) * PAGE_SIZE));
             }
         }
         None
@@ -93,7 +100,7 @@ impl FrameRegionMap {
 
     /// 申请一个空闲页
     #[inline]
-    pub fn alloc(&mut self) -> Option<PhysPage> {
+    pub fn alloc(&mut self) -> Option<PhysAddr> {
         for i in 0..self.bits.len() {
             if self.bits[i] != usize::MAX {
                 return self.alloc_in_pos(i);
@@ -109,14 +116,19 @@ impl FrameRegionMap {
     pub fn alloc_much(&mut self, pages: usize) -> Option<Vec<FrameTracker>> {
         // TODO: alloc more than 64?;
         // 优化本函数
-        for mut i in 0..(usize::from(self.ppn_end) - usize::from(self.ppn) - pages + 1) {
+        let start_ppn = self.paddr.raw() / PAGE_SIZE;
+        let end_ppn = self.paddr_end.raw() / PAGE_SIZE;
+        if pages > end_ppn - start_ppn {
+            return None;
+        }
+        for mut i in 0..(end_ppn - start_ppn - pages + 1) {
             let mut j = i;
             loop {
                 if j - i >= pages {
                     let mut ans = Vec::new();
                     (i..j).into_iter().for_each(|x| {
                         self.bits.set_bit(x, true);
-                        ans.push(FrameTracker::new(self.ppn + x));
+                        ans.push(FrameTracker::new(pa!((start_ppn + x) * PAGE_SIZE)));
                     });
                     return Some(ans);
                 }
@@ -136,9 +148,10 @@ impl FrameRegionMap {
     ///
     /// ppn: PhysPage 要释放的页的地址
     #[inline]
-    pub fn dealloc(&mut self, ppn: PhysPage) {
-        self.bits
-            .set_bit(usize::from(ppn) - usize::from(self.ppn), false);
+    pub fn dealloc(&mut self, paddr: PhysAddr) {
+        let ppn = paddr.raw() / PAGE_SIZE;
+        let start_ppn = self.paddr.raw() / PAGE_SIZE;
+        self.bits.set_bit(ppn - start_ppn, false);
     }
 }
 
@@ -173,14 +186,8 @@ impl FrameAllocator {
 
     /// 申请一个空闲页
     #[inline]
-    pub fn alloc(&mut self) -> Option<PhysPage> {
-        for frm in &mut self.0 {
-            let frame = frm.alloc();
-            if frame.is_some() {
-                return frame;
-            }
-        }
-        None
+    pub fn alloc(&mut self) -> Option<PhysAddr> {
+        self.0.iter_mut().find_map(|frm| frm.alloc())
     }
 
     /// 申请多个空闲页, 空闲页是连续的
@@ -200,10 +207,10 @@ impl FrameAllocator {
 
     /// 释放一个页
     #[inline]
-    pub fn dealloc(&mut self, ppn: PhysPage) {
+    pub fn dealloc(&mut self, paddr: PhysAddr) {
         for frm in &mut self.0 {
-            if ppn >= frm.ppn && ppn < frm.ppn_end {
-                frm.dealloc(ppn);
+            if paddr >= frm.paddr && paddr < frm.paddr_end {
+                frm.dealloc(paddr);
                 break;
             }
         }
@@ -213,24 +220,14 @@ impl FrameAllocator {
 /// 一个总的页帧分配器
 pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = Mutex::new(FrameAllocator::new());
 
-pub fn add_frame_map(mm_start: usize, mm_end: usize) {
-    extern "C" {
-        fn end();
-    }
-    let phys_end = alignup(end as usize, PAGE_SIZE);
-    if phys_end > mm_start && phys_end < mm_end {
-        info!("add frame memory region {:#x} - {:#x}", phys_end, mm_end);
-        unsafe {
-            core::slice::from_raw_parts_mut(
-                phys_end as *mut usize,
-                (mm_end - phys_end) / size_of::<usize>(),
-            )
-            .fill(0);
-        };
-        FRAME_ALLOCATOR
-            .lock()
-            .add_memory_region(phys_end - VIRT_ADDR_START, mm_end - VIRT_ADDR_START);
-    }
+pub fn add_frame_map(mut mm_start: usize, mut mm_end: usize) {
+    mm_start = alignup(mm_start, PAGE_SIZE);
+    mm_end = aligndown(mm_end, PAGE_SIZE);
+    info!("add frame memory region {:#x} - {:#x}", mm_start, mm_end);
+
+    FRAME_ALLOCATOR
+        .lock()
+        .add_memory_region(mm_start & !VIRT_ADDR_START, mm_end & !VIRT_ADDR_START);
 }
 
 /// 页帧分配器初始化
@@ -245,13 +242,13 @@ pub fn init() {
 }
 
 /// 申请一个持久化存在的页表，需要手动释放
-pub unsafe fn frame_alloc_persist() -> Option<PhysPage> {
+pub unsafe fn frame_alloc_persist() -> Option<PhysAddr> {
     FRAME_ALLOCATOR.lock().alloc()
 }
 
 /// 手动释放一个页表
-pub unsafe fn frame_unalloc(ppn: PhysPage) {
-    FRAME_ALLOCATOR.lock().dealloc(ppn)
+pub unsafe fn frame_unalloc(paddr: PhysAddr) {
+    FRAME_ALLOCATOR.lock().dealloc(paddr)
 }
 
 /// 申请一个空闲页表

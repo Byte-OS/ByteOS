@@ -118,7 +118,6 @@ impl KernelDevOp for Ext4DiskWrapper {
     type DevType = Self;
 
     fn write(dev: &mut Self::DevType, mut buf: &[u8]) -> Result<usize, i32> {
-        log::debug!("WRITE block device buf={}", buf.len());
         let mut write_len = 0;
         while !buf.is_empty() {
             match dev.write_one(buf) {
@@ -130,12 +129,10 @@ impl KernelDevOp for Ext4DiskWrapper {
                 Err(_e) => return Err(-1),
             }
         }
-        log::debug!("WRITE rt len={}", write_len);
         Ok(write_len)
     }
 
     fn read(dev: &mut Self::DevType, mut buf: &mut [u8]) -> Result<usize, i32> {
-        log::debug!("READ block device buf={}", buf.len());
         let mut read_len = 0;
         while !buf.is_empty() {
             match dev.read_one(buf) {
@@ -148,38 +145,23 @@ impl KernelDevOp for Ext4DiskWrapper {
                 Err(_e) => return Err(-1),
             }
         }
-        log::debug!("READ rt len={}", read_len);
         Ok(read_len)
     }
 
     fn seek(dev: &mut Self::DevType, off: i64, whence: i32) -> Result<i64, i32> {
         // let size = dev.size();
-        info!("seek: {}, {}", off, whence);
         let size = get_blk_device(dev.blk_id)
             .expect("can't seek to device")
             .capacity();
-        info!("capacity: {:#x}", size);
-        log::debug!(
-            "SEEK block device size:{}, pos:{}, offset={}, whence={}",
-            size,
-            &dev.position(),
-            off,
-            whence
-        );
         let new_pos = match whence as u32 {
             lwext4_rust::bindings::SEEK_SET => Some(off),
             lwext4_rust::bindings::SEEK_CUR => {
                 dev.position().checked_add_signed(off).map(|v| v as i64)
             }
             lwext4_rust::bindings::SEEK_END => size.checked_add_signed(off as _).map(|v| v as i64),
-            _ => {
-                log::error!("invalid seek() whence: {}", whence);
-                Some(off)
-            }
+            _ => Some(off),
         }
         .ok_or(-1)?;
-
-        info!("new_pos: {new_pos}");
 
         if new_pos as u64 > (size as _) {
             log::warn!("Seek beyond the end of the block device");
@@ -243,7 +225,6 @@ pub struct Ext4FileWrapper {
 
 impl Ext4FileWrapper {
     fn new(path: &str, types: InodeTypes) -> Self {
-        info!("FileWrapper new {:?} {}", types, path);
         //file.file_read_test("/test/test.txt", &mut buf);
         let file = Ext4File::new(path, types);
         let file_type = map_ext4_type(file.get_type());
@@ -307,7 +288,6 @@ impl Ext4FileWrapper {
         let file = self.inner.lock();
         let path = file.get_path();
         let fpath = String::from(path.to_str().unwrap().trim_end_matches('/')) + "/" + p;
-        info!("dealt with full path: {}", fpath.as_str());
         fpath
     }
 
@@ -330,7 +310,6 @@ impl Ext4FileWrapper {
 // }
 impl INodeInterface for Ext4FileWrapper {
     fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        // info!("metadata open file");
         if self.filename == "/" {
             return Ok(Metadata {
                 filename: &self.filename,
@@ -394,7 +373,6 @@ impl INodeInterface for Ext4FileWrapper {
 
     fn touch(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
         let fpath = self.path_deal_with(name);
-        info!("touch {fpath}");
         let mut file = self.inner.lock();
         file.file_open(&fpath, O_WRONLY | O_CREAT | O_TRUNC)
             .map_err(map_ext4_err)?;
@@ -414,11 +392,6 @@ impl INodeInterface for Ext4FileWrapper {
             .map_err(map_ext4_err)?;
         let mut ans = Vec::new();
         for (name, file_type) in zip(iters.0, iters.1).skip(3) {
-            info!(
-                "iter once {} {:?}",
-                String::from_utf8(name.clone()).map_err(|_| VfsError::InvalidData)?,
-                file_type
-            );
             ans.push(DirEntry {
                 filename: CString::from_vec_with_nul(name)
                     .map_err(|_| VfsError::InvalidData)?
@@ -437,7 +410,6 @@ impl INodeInterface for Ext4FileWrapper {
     }
 
     fn open(&self, name: &str, flags: vfscore::OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
-        info!("open file {name}");
         let fpath = self.path_deal_with(name);
         let mut file = self.inner.lock();
         if file.check_inode_exist(&fpath, InodeTypes::EXT4_DE_DIR) {
@@ -453,11 +425,6 @@ impl INodeInterface for Ext4FileWrapper {
                 inner: Mutex::new(Ext4File::new(&fpath, InodeTypes::EXT4_DE_REG_FILE)),
             }))
         } else {
-            info!(
-                "open file: {}  {}",
-                fpath,
-                flags.contains(OpenFlags::O_CREAT)
-            );
             if flags.contains(OpenFlags::O_CREAT) {
                 if flags.contains(OpenFlags::O_DIRECTORY) {
                     drop(file);
@@ -500,7 +467,6 @@ impl INodeInterface for Ext4FileWrapper {
     }
 
     fn unlink(&self, name: &str) -> VfsResult<()> {
-        info!("unlink {}", name);
         let fpath = self.path_deal_with(name);
         let mut file = self.inner.lock();
         if file.check_inode_exist(&fpath, InodeTypes::EXT4_DE_DIR) {
@@ -514,7 +480,6 @@ impl INodeInterface for Ext4FileWrapper {
     }
 
     fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
-        info!("ext4 stat");
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = match self.file_type {
             FileType::File => StatMode::FILE,

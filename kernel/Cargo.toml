@@ -16,11 +16,9 @@ serde_derive = "1.0.136"
 log = "0.4"
 devices = { workspace = true }
 executor = { workspace = true }
-polyhal = { git = "https://github.com/Byte-OS/polyhal.git", features = [
-    "trap",
-    "graphic",
-    "logger",
-] }
+polyhal = { workspace = true }
+polyhal-boot = { workspace = true }
+polyhal-trap = { workspace = true }
 fdt = "0.1.5"
 xmas-elf = "0.9.0"
 signal = { workspace = true }

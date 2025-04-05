@@ -10,7 +10,7 @@ class QemuRunner {
     constructor(options: CommandOptions<globalArgType>, builder: KernelBuilder) {
         this.arch = options.arch;
         this.builder = builder;
-        if(this.arch == "x86_64" || this.arch == "loongarch64")
+        if (this.arch == "x86_64" || this.arch == "loongarch64")
             this.bus = "pci";
     }
 
@@ -31,7 +31,7 @@ class QemuRunner {
                 this.builder.binPath
             ],
             aarch64: [
-                "-cpu", 
+                "-cpu",
                 "cortex-a72",
                 "-machine",
                 "virt",
@@ -52,17 +52,17 @@ class QemuRunner {
                 "-m",
                 "1G",
                 "-nographic",
-                "-smp", 
+                "-smp",
                 "1",
-                "-D", 
+                "-D",
                 "qemu.log",
                 "-d",
                 "in_asm,int,pcall,cpu_reset,guest_errors",
-    
+
                 "-drive",
                 "file=mount.img,if=none,format=raw,id=x0",
                 "-device",
-                "virtio-blk-device,drive=x0"
+                `virtio-blk-${this.bus},drive=x0`
             ]
         });
         await qemuCommand.spawn().status;

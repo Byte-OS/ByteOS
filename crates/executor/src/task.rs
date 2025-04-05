@@ -2,9 +2,8 @@ use core::{future::Future, pin::Pin};
 
 use alloc::{boxed::Box, sync::Arc};
 use downcast_rs::{impl_downcast, DowncastSync};
-use polyhal::boot::boot_page_table;
 
-use crate::TaskId;
+use crate::{boot_page_table, TaskId};
 
 /// Default is kernel task
 pub const TYPE_KERNEL_TASK: u8 = 0;
@@ -62,19 +61,19 @@ impl AsyncTask for BlankKernelTask {
     /// before run switch to kernel page table.
     /// maybe I don't need to do this.
     fn before_run(&self) {
-        boot_page_table().change()
+        boot_page_table().change();
     }
 
     /// Get task type.
     fn get_task_type(&self) -> TaskType {
         TaskType::BlankKernel
     }
-    
-    /// Exit a task with exit code. But kernel blanktask's exit function never be called. 
+
+    /// Exit a task with exit code. But kernel blanktask's exit function never be called.
     fn exit(&self, _exit_code: usize) {
         unreachable!("can't exit blank kernel task")
     }
-    
+
     /// Get the task exit code.
     fn exit_code(&self) -> Option<usize> {
         unreachable!("Kernel blanktask can't exit")

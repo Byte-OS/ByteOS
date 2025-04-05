@@ -6,7 +6,7 @@ use core::{
 };
 use devices::PAGE_SIZE;
 use fs::File;
-use polyhal::{addr::VirtPage, PageTable};
+use polyhal::{PageTable, VirtAddr};
 use runtime::frame::FrameTracker;
 
 /// Memory set for storing the memory and its map relation.
@@ -66,7 +66,7 @@ pub enum MemType {
 
 #[derive(Clone)]
 pub struct MapTrack {
-    pub vpn: VirtPage,
+    pub vaddr: VirtAddr,
     pub tracker: Arc<FrameTracker>,
     pub rwx: u8,
 }
@@ -75,8 +75,8 @@ impl Debug for MapTrack {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         f.write_fmt(format_args!(
             "{:#x} -> {:#x}",
-            self.vpn.to_addr(),
-            self.tracker.0.to_addr()
+            self.vaddr.raw(),
+            self.tracker.0.raw()
         ))
     }
 }
@@ -115,8 +115,8 @@ impl MemArea {
     pub fn write_page(&self, mtracker: &MapTrack) {
         assert!(self.file.is_some());
         if let Some(file) = &self.file {
-            let offset = mtracker.vpn.to_addr() + self.offset - self.start;
-            file.writeat(offset, mtracker.tracker.0.get_buffer())
+            let offset = mtracker.vaddr.raw() + self.offset - self.start;
+            file.writeat(offset, mtracker.tracker.0.slice_mut_with_len(PAGE_SIZE))
                 .expect("can't write data back to mapped file.");
         }
     }
@@ -137,19 +137,19 @@ impl MemArea {
             if let Some(_file) = &self.file {
                 self.mtrackers
                     .iter()
-                    .filter(|x| jrange.contains(&x.vpn.to_addr()))
+                    .filter(|x| jrange.contains(&x.vaddr.raw()))
                     .for_each(|x| {
                         self.write_page(x);
                     });
             };
             // drop the sub memory area pages.
             self.mtrackers
-                .retain(|x| !new_area_range.contains(&x.vpn.to_addr()));
+                .retain(|x| !new_area_range.contains(&x.vaddr.raw()));
             return Some(MemArea {
                 mtype: self.mtype,
                 mtrackers: self
                     .mtrackers
-                    .extract_if(|x| new_area_range.contains(&x.vpn.to_addr()))
+                    .extract_if(|x| new_area_range.contains(&x.vaddr.raw()))
                     .collect(),
                 file: self.file.clone(),
                 start: end,
@@ -165,13 +165,13 @@ impl MemArea {
             if let Some(_file) = &self.file {
                 self.mtrackers
                     .iter()
-                    .filter(|x| jrange.contains(&x.vpn.to_addr()))
+                    .filter(|x| jrange.contains(&x.vaddr.raw()))
                     .for_each(|x| {
                         self.write_page(x);
                     });
             };
             self.mtrackers.retain(|x| {
-                pt.unmap_page(x.vpn);
+                pt.unmap_page(x.vaddr);
                 false
             });
             return None;
@@ -187,7 +187,7 @@ impl MemArea {
         if let Some(_file) = &self.file {
             self.mtrackers
                 .iter()
-                .filter(|x| jrange.contains(&x.vpn.to_addr()))
+                .filter(|x| jrange.contains(&x.vaddr.raw()))
                 .for_each(|x| {
                     self.write_page(x);
                 });
@@ -195,9 +195,9 @@ impl MemArea {
         // drop the sub memory area pages.
         let new_self_rang = self.start..self.start + self.len;
         self.mtrackers
-            .extract_if(|x| !new_self_rang.contains(&x.vpn.to_addr()))
+            .extract_if(|x| !new_self_rang.contains(&x.vaddr.raw()))
             .for_each(|x| {
-                pt.unmap_page(x.vpn);
+                pt.unmap_page(x.vaddr);
             });
         None
     }
@@ -220,12 +220,11 @@ impl Drop for MemArea {
                         continue;
                     }
 
-                    let offset = tracker.vpn.to_addr() - start;
+                    let offset = tracker.vaddr.raw() - start;
                     let wlen = min(len - offset, PAGE_SIZE);
 
-                    let bytes = &mut tracker.tracker.0.get_buffer()[..wlen];
                     mapfile
-                        .writeat(offset, bytes)
+                        .writeat(offset, tracker.tracker.0.slice_mut_with_len(wlen))
                         .expect("can't write data to file at drop");
                 }
             }

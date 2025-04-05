@@ -8,8 +8,8 @@ edition = "2021"
 [features]
 
 [dependencies]
-polyhal = { git = "https://github.com/Byte-OS/polyhal.git" }
-fdt = "0.1.5"
+polyhal = { workspace = true }
+fdt-parser = { workspace = true }
 linkme = { version = "0.3.22", features = ["used_linker"] }
 log = "0.4"
 sync = { workspace = true }

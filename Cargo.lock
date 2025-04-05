@@ -12,6 +12,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "acpi"
+version = "5.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "94476c7ef97af4c4d998b3f422c1b01d5211aad57c80ed200baf148d1f1efab6"
+dependencies = [
+ "bit_field",
+ "bitflags 2.9.0",
+ "log",
+]
+
+[[package]]
 name = "ahash"
 version = "0.8.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -48,6 +59,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "arrayvec"
+version = "0.7.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7c02d123df017efcdfbd739ef81735b36c5ba83ec3c59c80a9d7ecc718f92e50"
+
+[[package]]
 name = "async-recursion"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -60,9 +77,9 @@ dependencies = [
 
 [[package]]
 name = "autocfg"
-version = "1.1.0"
+version = "1.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d468802bab17cbc0cc575e9b053f41e72aa36bfa6b7f55e3529ffa43161b97fa"
+checksum = "ace50bade8e6234aa140d9a2f552bbee1db4d353f69b8217bc503490fc1a9f26"
 
 [[package]]
 name = "bit"
@@ -84,9 +101,9 @@ checksum = "bef38d45163c2f1dde094a7dfd33ccf595c92905c8f8f4fdc18d06fb1037718a"
 
 [[package]]
 name = "bitflags"
-version = "2.4.2"
+version = "2.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed570934406eb16438a4e976b1b4500774099c13b8cb96eec99f620f05090ddf"
+checksum = "5c8214115b7bf84099f1309324e63141d4c5d7cc26862f97a0a857dbefe165bd"
 
 [[package]]
 name = "buddy_system_allocator"
@@ -94,7 +111,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "43f9365b6b0c9e1663ca4ca9440c00eda46bc85a3407070be8b5e0d8d1f29629"
 dependencies = [
- "spin",
+ "spin 0.9.8",
 ]
 
 [[package]]
@@ -111,31 +128,15 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "critical-section"
-version = "1.1.2"
+version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7059fff8937831a9ae6f0fe4d658ffabf58f2ca96aa9dec1c889f936f705f216"
-
-[[package]]
-name = "cstr_core"
-version = "0.2.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dd98742e4fdca832d40cab219dc2e3048de17d873248f83f17df47c1bea70956"
-dependencies = [
- "cty",
- "memchr",
-]
-
-[[package]]
-name = "cty"
-version = "0.2.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b365fabc795046672053e29c954733ec3b05e4be654ab130fe8f1f94d7051f35"
+checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "devfs"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "devices",
  "log",
  "num-derive",
@@ -148,7 +149,7 @@ dependencies = [
 name = "devices"
 version = "0.1.0"
 dependencies = [
- "fdt",
+ "fdt-parser",
  "linkme",
  "log",
  "polyhal",
@@ -163,12 +164,6 @@ name = "downcast-rs"
 version = "1.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
-
-[[package]]
-name = "either"
-version = "1.11.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a47c1c47d2f5964e29c61246e81db715514cd532db6b5116a25ea3c03d6780a2"
 
 [[package]]
 name = "embedded-hal"
@@ -192,7 +187,7 @@ name = "ext4_rs"
 version = "1.0.0"
 source = "git+https://github.com/yuoo655/ext4_rs.git?rev=04286c7#04286c79da45154a7e007a7ef73bcbe5cad073e1"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "log",
 ]
 
@@ -210,6 +205,12 @@ name = "fdt"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "784a4df722dc6267a04af36895398f59d21d07dce47232adf31ec0ff2fa45e67"
+
+[[package]]
+name = "fdt-parser"
+version = "0.4.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "371a22bb791074c597c250202eb46293e301ee49a2bc3b1a4f47839ed74796e9"
 
 [[package]]
 name = "fs"
@@ -262,21 +263,12 @@ dependencies = [
 ]
 
 [[package]]
-name = "itertools"
-version = "0.9.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "284f18f85651fe11e8a991b2adb42cb078325c996ed026d994719efcfca1d54b"
-dependencies = [
- "either",
-]
-
-[[package]]
 name = "kernel"
 version = "0.1.0"
 dependencies = [
  "async-recursion",
  "bit_field",
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "cfg-if",
  "devices",
  "executor",
@@ -294,6 +286,8 @@ dependencies = [
  "num-derive",
  "num-traits",
  "polyhal",
+ "polyhal-boot",
+ "polyhal-trap",
  "runtime",
  "serde",
  "serde_derive",
@@ -332,6 +326,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "lazyinit"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3861aac8febbb038673bf945ee47ac67940ca741b94d1bb3ff6066af2a181338"
+
+[[package]]
 name = "linkme"
 version = "0.3.22"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -363,12 +363,9 @@ dependencies = [
 
 [[package]]
 name = "log"
-version = "0.4.17"
+version = "0.4.27"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "abb12e687cfb44aa40f41fc3978ef76448f9b6038cad6aef4259d3c095a2382e"
-dependencies = [
- "cfg-if",
-]
+checksum = "13dc2df351e3202783a1fe0d44375f7295ffb4049267b0f3018346dc122a1d94"
 
 [[package]]
 name = "loongArch64"
@@ -385,26 +382,19 @@ name = "lose-net-stack"
 version = "0.1.0"
 source = "git+https://github.com/byte-os/lose-net-stack?rev=bb99460#bb99460fc226b13e3fd1c7689139c325e9d713ce"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "log",
  "num_enum",
- "spin",
+ "spin 0.9.8",
 ]
 
 [[package]]
 name = "lwext4_rust"
 version = "0.2.0"
-source = "git+https://github.com/elliott10/lwext4_rust.git#238d3a2560353679f0c577686006d41ed48a0f56"
+source = "git+https://github.com/Azure-stars/lwext4_rust.git?rev=ee5131c#ee5131ca3fbb03f39ea0878431aadb521d191122"
 dependencies = [
  "log",
- "printf-compat",
 ]
-
-[[package]]
-name = "memchr"
-version = "2.7.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6c8640c5d730cb13ebd907d8d04b52f55ac9a2eec55b440c8892f40d56c76c1d"
 
 [[package]]
 name = "multiboot"
@@ -429,6 +419,12 @@ name = "ns16550a"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a38464b781e571e0447c11c029ce798383b5e79ac3270df63b3254192a05458d"
+
+[[package]]
+name = "ns16550a"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e3cd8abe9e54bce27659507b94f355c9334378ab15da332b6986b3583ebf7228"
 
 [[package]]
 name = "num-derive"
@@ -478,9 +474,9 @@ checksum = "cde51589ab56b20a6f686b2c68f7a0bd6add753d697abf720d63f8db3ab7b1ad"
 
 [[package]]
 name = "paste"
-version = "1.0.14"
+version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "de3145af08024dea9fa9914f381a17b8fc6034dfb00f3a84013f7ff43f29ed4c"
+checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
 
 [[package]]
 name = "pin-project-lite"
@@ -490,23 +486,29 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "polyhal"
-version = "0.1.3"
-source = "git+https://github.com/Byte-OS/polyhal.git#5b890102fb32de0ca0f7c3e7a776454b6d0bd583"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "265b5b69cb1bb2406fc711642cf71913ecdd7a1dcf7d11fe5d8e4d2621eb2c41"
 dependencies = [
  "aarch64-cpu",
+ "acpi",
  "arm_gicv2",
  "arm_pl011",
- "bitflags 2.4.2",
+ "arrayvec",
+ "autocfg",
+ "bitflags 2.9.0",
  "cfg-if",
- "fdt",
+ "fdt-parser",
+ "lazyinit",
  "log",
  "loongArch64",
  "multiboot",
+ "ns16550a 0.5.0",
  "polyhal-macro",
  "raw-cpuid 11.0.1",
  "riscv",
  "sbi-rt",
- "spin",
+ "spin 0.10.0",
  "tock-registers",
  "x2apic",
  "x86",
@@ -514,10 +516,28 @@ dependencies = [
 ]
 
 [[package]]
-name = "polyhal-macro"
-version = "0.1.3"
+name = "polyhal-boot"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e8445234620fa3a0886b9cae5d5fa568a6124efb916041628eb9c4011d1a3e8b"
+checksum = "e2858033c9a114b759a395397b9b3e7a9046d8058cd60c29fc4af30efc55d444"
+dependencies = [
+ "aarch64-cpu",
+ "cfg-if",
+ "loongArch64",
+ "multiboot",
+ "polyhal",
+ "raw-cpuid 11.0.1",
+ "riscv",
+ "tock-registers",
+ "x86",
+ "x86_64",
+]
+
+[[package]]
+name = "polyhal-macro"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "611d9cab20b0231c7fd493a593a3960e959ea144f76286728a5c849c0b91a0c4"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -525,15 +545,23 @@ dependencies = [
 ]
 
 [[package]]
-name = "printf-compat"
-version = "0.1.1"
+name = "polyhal-trap"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b002af28ffe3d3d67202ae717810a28125a494d5396debc43de01ee136ac404"
+checksum = "23835be937fb71b99bbed605bd8f703c5334cc2cc8ea1d7996cc637a47a10e42"
 dependencies = [
- "bitflags 1.3.2",
- "cstr_core",
- "cty",
- "itertools",
+ "aarch64-cpu",
+ "bitflags 2.9.0",
+ "log",
+ "loongArch64",
+ "multiboot",
+ "polyhal",
+ "polyhal-macro",
+ "raw-cpuid 11.0.1",
+ "riscv",
+ "tock-registers",
+ "x86",
+ "x86_64",
 ]
 
 [[package]]
@@ -589,18 +617,38 @@ version = "11.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9d86a7c4638d42c44551f4791a20e687dbb4c3de1f33c43dd71e355cd429def1"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
 ]
 
 [[package]]
 name = "riscv"
-version = "0.11.1"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2f5c1b8bf41ea746266cdee443d1d1e9125c86ce1447e1a2615abd34330d33a9"
+checksum = "afa3cdbeccae4359f6839a00e8b77e5736caa200ba216caf38d24e4c16e2b586"
 dependencies = [
  "critical-section",
  "embedded-hal",
+ "paste",
+ "riscv-macros",
+ "riscv-pac",
 ]
+
+[[package]]
+name = "riscv-macros"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e8c4aa1ea1af6dcc83a61be12e8189f9b293c3ba5a487778a4cd89fb060fdbbc"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "riscv-pac"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8188909339ccc0c68cfb5a04648313f09621e8b87dc03095454f1a11f6c5d436"
 
 [[package]]
 name = "runtime"
@@ -668,7 +716,7 @@ name = "signal"
 version = "0.1.0"
 dependencies = [
  "bit_field",
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "num_enum",
 ]
 
@@ -677,6 +725,15 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
+dependencies = [
+ "lock_api",
+]
+
+[[package]]
+name = "spin"
+version = "0.10.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d5fe4ccb98d9c292d56fec89a5e07da7fc4cf0dc11e156b41793132775d3e591"
 dependencies = [
  "lock_api",
 ]
@@ -702,7 +759,7 @@ dependencies = [
 name = "sync"
 version = "0.1.0"
 dependencies = [
- "spin",
+ "spin 0.9.8",
 ]
 
 [[package]]
@@ -741,7 +798,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "vfscore"
 version = "0.1.0"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "downcast-rs",
 ]
 
@@ -750,7 +807,7 @@ name = "virtio-drivers"
 version = "0.7.1"
 source = "git+https://github.com/rcore-os/virtio-drivers?rev=61ece50#61ece509c40f32c03378a7a037ef9863ed5deba7"
 dependencies = [
- "bitflags 2.4.2",
+ "bitflags 2.9.0",
  "log",
  "zerocopy",
 ]
@@ -787,12 +844,12 @@ dependencies = [
 
 [[package]]
 name = "x86_64"
-version = "0.14.10"
+version = "0.14.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "100555a863c0092238c2e0e814c1096c1e5cf066a309c696a87e907b5f8c5d69"
+checksum = "96cb6fd45bfeab6a5055c5bffdb08768bd0c069f1d946debe585bbb380a7c062"
 dependencies = [
  "bit_field",
- "bitflags 1.3.2",
+ "bitflags 2.9.0",
  "rustversion",
  "volatile",
 ]

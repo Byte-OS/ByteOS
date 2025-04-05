@@ -10,9 +10,9 @@ use bitflags::bitflags;
 use cfg_if::cfg_if;
 use fs::VfsError;
 use num_derive::FromPrimitive;
-use polyhal::addr::VirtAddr;
-use polyhal::trapframe::TrapFrame;
+use polyhal::VirtAddr;
 use polyhal::{MappingFlags, Time};
+use polyhal_trap::trapframe::TrapFrame;
 use signal::SigProcMask;
 
 #[repr(i32)]
@@ -872,14 +872,14 @@ impl<T> From<VirtAddr> for UserRef<T> {
 
 impl<T> Into<usize> for UserRef<T> {
     fn into(self) -> usize {
-        self.addr.addr()
+        self.addr.raw()
     }
 }
 
 impl<T> UserRef<T> {
     #[inline]
     pub fn addr(&self) -> usize {
-        self.addr.addr()
+        self.addr.raw()
     }
     #[inline]
     pub fn get_ref(&self) -> &'static T {
@@ -898,7 +898,7 @@ impl<T> UserRef<T> {
 
     #[inline]
     pub fn slice_until_valid(&self, is_valid: fn(T) -> bool) -> &'static mut [T] {
-        if self.addr.addr() == 0 {
+        if self.addr.raw() == 0 {
             return &mut [];
         }
         self.addr.slice_until(is_valid)
@@ -911,7 +911,7 @@ impl<T> UserRef<T> {
 
     #[inline]
     pub fn is_valid(&self) -> bool {
-        self.addr.addr() != 0
+        self.addr.raw() != 0
     }
 }
 
@@ -920,7 +920,7 @@ impl<T> Display for UserRef<T> {
         f.write_fmt(format_args!(
             "{}({:#x})",
             core::any::type_name::<T>(),
-            self.addr.addr()
+            self.addr.raw()
         ))
     }
 }
@@ -930,7 +930,7 @@ impl<T> Debug for UserRef<T> {
         f.write_fmt(format_args!(
             "{}({:#x})",
             core::any::type_name::<T>(),
-            self.addr.addr()
+            self.addr.raw()
         ))
     }
 }

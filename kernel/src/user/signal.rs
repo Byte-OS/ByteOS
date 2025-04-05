@@ -2,7 +2,7 @@ use core::mem::size_of;
 
 use executor::AsyncTask;
 use log::debug;
-use polyhal::trapframe::TrapFrameArgs;
+use polyhal_trap::trapframe::TrapFrameArgs;
 use signal::SignalFlags;
 
 use crate::syscall::consts::{SignalUserContext, UserRef};

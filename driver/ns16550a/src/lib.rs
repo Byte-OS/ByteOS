@@ -7,7 +7,7 @@ use alloc::{sync::Arc, vec::Vec};
 use devices::{
     device::{DeviceType, Driver, UartDriver},
     driver_define,
-    fdt::node::FdtNode,
+    fdt::Node,
     node_to_interrupts, register_device_irqs, VIRT_ADDR_START,
 };
 use log::info;
@@ -50,16 +50,13 @@ impl UartDriver for NS16550a {
     }
 }
 
-fn init_driver(node: &FdtNode) -> Arc<dyn Driver> {
-    let addr = node.property("reg").unwrap().value[4..8]
-        .iter()
-        .fold(0, |acc, x: &u8| (acc << 8) | (*x as usize));
+fn init_driver(node: &Node) -> Arc<dyn Driver> {
+    let addr = node.reg().unwrap().next().unwrap().address as usize;
 
     info!(
-        "get ns1655a device, interrupts: {:?}",
-        node.interrupts().map(|x| x.collect::<Vec<usize>>())
+        "node interrupts: {:?}",
+        node.interrupts().unwrap().flatten().collect::<Vec<u32>>()
     );
-
     let uart = Arc::new(NS16550a {
         _base: VIRT_ADDR_START + addr,
         inner: Uart::new(VIRT_ADDR_START + addr),

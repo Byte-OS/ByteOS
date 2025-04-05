@@ -9,5 +9,5 @@ edition = "2021"
 vfscore = { workspace = true }
 log = "0.4"
 sync = { workspace = true }
-polyhal = { git = "https://github.com/Byte-OS/polyhal.git" }
+polyhal = { workspace = true }
 runtime = { workspace = true }

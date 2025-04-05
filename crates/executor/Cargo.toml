@@ -6,7 +6,7 @@ edition = "2021"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-polyhal = { git = "https://github.com/Byte-OS/polyhal.git" }
+polyhal = { workspace = true }
 sync = { workspace = true }
 log = "0.4"
 downcast-rs = { version = "1.2.0", default-features = false }

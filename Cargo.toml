@@ -48,3 +48,13 @@ runtime = { path = "crates/runtime" }
 logging = { path = "crates/logging" }
 signal = { path = "crates/signal" }
 sync = { path = "crates/sync" }
+
+polyhal = { version = "0.2.1", features = ["logger", "trap"] }
+polyhal-boot = { version = "0.2.1" }
+polyhal-trap = { version = "0.2.1" }
+fdt-parser = { version = "0.4.12" }
+
+[patch.crates-io]
+# polyhal = { path = "../polyhal/polyhal" }
+# polyhal-boot = { path = "../polyhal/polyhal-boot" }
+# polyhal-trap = { path = "../polyhal/polyhal-trap" }

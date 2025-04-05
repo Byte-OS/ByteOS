@@ -11,11 +11,11 @@ pub struct HalImpl;
 unsafe impl Hal for HalImpl {
     fn dma_alloc(pages: usize, _direction: BufferDirection) -> (PhysAddr, NonNull<u8>) {
         let trackers = frame_alloc_much(pages).expect("can't alloc page in virtio");
-        let paddr = trackers[0].0.to_addr();
-        let vaddr = NonNull::new((paddr | VIRT_ADDR_START) as *mut u8).unwrap();
-        trace!("alloc DMA: paddr={:#x}, pages={}", paddr, pages);
+        let paddr = trackers[0].0;
+        let vaddr = NonNull::new(paddr.get_mut_ptr()).unwrap();
+        trace!("alloc DMA: paddr={:#x}, pages={}", paddr.raw(), pages);
         VIRTIO_CONTAINER.lock().extend(trackers.into_iter());
-        (paddr, vaddr)
+        (paddr.raw(), vaddr)
     }
 
     unsafe fn dma_dealloc(paddr: PhysAddr, _vaddr: NonNull<u8>, pages: usize) -> i32 {
@@ -28,7 +28,7 @@ unsafe impl Hal for HalImpl {
         // });
         VIRTIO_CONTAINER.lock().retain(|x| {
             let phy_page = paddr as usize >> 12;
-            let calc_page = usize::from(x.0);
+            let calc_page = x.0.raw();
 
             !(phy_page..phy_page + pages).contains(&calc_page)
         });

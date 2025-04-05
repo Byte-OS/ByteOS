@@ -1,12 +1,17 @@
-use alloc::{collections::VecDeque, sync::{Arc, Weak}, task::Wake, vec::Vec};
-use polyhal::utils::LazyInit;
-use hashbrown::HashMap;
+use alloc::{
+    collections::VecDeque,
+    sync::{Arc, Weak},
+    task::Wake,
+    vec::Vec,
+};
 use core::{
     sync::atomic::{AtomicBool, Ordering},
     task::{Context, Poll},
 };
+use hashbrown::HashMap;
 use log::info;
-use sync::Mutex;
+use polyhal::{hart_id, PageTable};
+use sync::{LazyInit, Mutex};
 
 use crate::task::{AsyncTask, AsyncTaskItem, PinedFuture};
 
@@ -19,11 +24,7 @@ pub(crate) static TASK_QUEUE: Mutex<VecDeque<AsyncTaskItem>> = Mutex::new(VecDeq
 
 pub static DEFAULT_EXECUTOR: Executor = Executor::new();
 
-/// Get the hartid. But return 0 always for now.
-#[inline]
-fn hart_id() -> usize {
-    0
-}
+static BOOT_PAGE: LazyInit<PageTable> = LazyInit::new();
 
 pub struct Executor {
     cores: LazyInit<Vec<Mutex<Option<Arc<dyn AsyncTask>>>>>,
@@ -45,16 +46,16 @@ impl Executor {
 
         // Init TaskMAP with new empty hash map
         TASK_MAP.init_by(Mutex::new(HashMap::new()));
+        if !BOOT_PAGE.is_init() {
+            BOOT_PAGE.init_by(PageTable::current());
+        }
 
         // Finish initializing
         self.inited.store(true, Ordering::SeqCst);
     }
 
     pub fn spawn(&mut self, task: Arc<dyn AsyncTask>, future: PinedFuture) {
-        TASK_QUEUE.lock().push_back(AsyncTaskItem {
-            future,
-            task,
-        })
+        TASK_QUEUE.lock().push_back(AsyncTaskItem { future, task })
     }
 
     pub fn run(&self) {
@@ -74,24 +75,19 @@ impl Executor {
     fn run_ready_task(&self) {
         let task = TASK_QUEUE.lock().pop_front();
         if let Some(task_item) = task {
-            let AsyncTaskItem {
-                task,
-                mut future,
-            } = task_item;
+            let AsyncTaskItem { task, mut future } = task_item;
             task.before_run();
             *self.cores[hart_id()].lock() = Some(task.clone());
             // Create Waker
             let waker = Arc::new(Waker {
                 task_id: task.get_task_id(),
-            }).into();
+            })
+            .into();
             let mut context = Context::from_waker(&waker);
 
             match future.as_mut().poll(&mut context) {
                 Poll::Ready(()) => {} // task done
-                Poll::Pending => TASK_QUEUE.lock().push_back(AsyncTaskItem {
-                    future,
-                    task,
-                }),
+                Poll::Pending => TASK_QUEUE.lock().push_back(AsyncTaskItem { future, task }),
             }
         }
     }
@@ -137,5 +133,13 @@ pub fn release_task(tid: usize) {
 #[inline]
 pub fn current_task() -> Arc<dyn AsyncTask> {
     // CURRENT_TASK.lock().as_ref().map(|x| x.clone()).unwrap()
-    DEFAULT_EXECUTOR.cores[hart_id()].lock().as_ref().map(|x| x.clone()).unwrap()
+    DEFAULT_EXECUTOR.cores[hart_id()]
+        .lock()
+        .as_ref()
+        .map(|x| x.clone())
+        .unwrap()
+}
+
+pub fn boot_page_table() -> PageTable {
+    *BOOT_PAGE
 }
