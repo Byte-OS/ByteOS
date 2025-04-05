@@ -2,5 +2,13 @@
     "rust-analyzer.check.allTargets": false,
     "rust-analyzer.check.extraArgs": [],
     "rust-analyzer.procMacro.enable": true,
+    "rust-analyzer.cargo.target": "riscv64gc-unknown-none-elf",
+    // "rust-analyzer.cargo.target": "x86_64-unknown-none",
+    // "rust-analyzer.cargo.target": "aarch64-unknown-none-softfloat",
+    // "rust-analyzer.cargo.target": "loongarch64-unknown-none",
+    "rust-analyzer.cargo.extraEnv": {
+        "RUSTFLAGS": "-Clink-arg=-no-pie --cfg=root_fs=\"ext4_rs\"",
+        "BOARD": "qemu"
+    },
     "deno.enable": true
 }

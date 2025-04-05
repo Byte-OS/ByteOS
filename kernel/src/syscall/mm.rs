@@ -1,9 +1,6 @@
-use core::ops::Add;
-
 use devices::PAGE_SIZE;
 use log::debug;
-use polyhal::addr::{VirtAddr, VirtPage};
-use polyhal::pagetable::USER_VADDR_END;
+use polyhal::VirtAddr;
 use runtime::frame::alignup;
 
 use crate::syscall::consts::from_vfs;
@@ -48,9 +45,6 @@ impl UserTaskContainer {
             "[task {}] sys_mmap @ start: {:#x}, len: {:#x}, prot: {:?}, flags: {:?}, fd: {}, offset: {}",
             self.tid, start, len, prot, flags, fd as isize, off
         );
-        if start > USER_VADDR_END {
-            return Err(LinuxError::EINVAL);
-        }
         let file = self.task.get_fd(fd);
 
         let addr = self.task.get_last_free_addr();
@@ -75,11 +69,11 @@ impl UserTaskContainer {
                 .pcb
                 .lock()
                 .memset
-                .overlapping(addr.addr(), addr.addr() + len);
+                .overlapping(addr.raw(), addr.raw() + len);
             if overlaped {
                 self.task.pcb.lock().memset.sub_area(
-                    addr.addr(),
-                    addr.addr() + len,
+                    addr.raw(),
+                    addr.raw() + len,
                     &self.task.page_table,
                 );
             }
@@ -88,7 +82,7 @@ impl UserTaskContainer {
             .pcb
             .lock()
             .memset
-            .overlapping(addr.addr(), addr.addr() + len)
+            .overlapping(addr.raw(), addr.raw() + len)
         {
             return Err(LinuxError::EINVAL);
         }
@@ -98,7 +92,7 @@ impl UserTaskContainer {
                 Some(file) => self
                     .task
                     .map_frames(
-                        VirtPage::from_addr(addr.into()),
+                        addr,
                         MemType::ShareFile,
                         (len + PAGE_SIZE - 1) / PAGE_SIZE,
                         Some(file.get_bare_file()),
@@ -108,47 +102,29 @@ impl UserTaskContainer {
                     )
                     .ok_or(LinuxError::EFAULT)?,
                 None => {
-                    let ppn = self
+                    let paddr = self
                         .task
-                        .frame_alloc(
-                            VirtPage::from_addr(addr.into()),
-                            MemType::Shared,
-                            (len + PAGE_SIZE - 1) / PAGE_SIZE,
-                        )
+                        .frame_alloc(addr, MemType::Shared, len.div_ceil(PAGE_SIZE))
                         .ok_or(LinuxError::EFAULT)?;
 
                     for i in 0..(len + PAGE_SIZE - 1) / PAGE_SIZE {
-                        self.task.map(
-                            ppn.add(i),
-                            VirtPage::from_addr(addr.into()).add(i),
-                            prot.into(),
-                        );
+                        self.task
+                            .map(paddr + i * PAGE_SIZE, addr + i * PAGE_SIZE, prot.into());
                     }
-                    ppn
+                    paddr
                 }
             };
         } else if file.is_some() {
             self.task
-                .frame_alloc(
-                    VirtPage::from_addr(addr.into()),
-                    MemType::Mmap,
-                    len.div_ceil(PAGE_SIZE),
-                )
+                .frame_alloc(addr, MemType::Mmap, len.div_ceil(PAGE_SIZE))
                 .ok_or(LinuxError::EFAULT)?;
         } else {
-            // task.frame_alloc(
-            //     VirtPage::from_addr(addr.into()),
-            //     executor::MemType::Mmap,
-            //     ceil_div(len, PAGE_SIZE),
-            // )
-            // .ok_or(LinuxError::EFAULT)?;
-
             self.task.pcb.lock().memset.push(MemArea {
                 mtype: MemType::Mmap,
                 mtrackers: vec![],
                 file: None,
                 offset: 0,
-                start: addr.addr(),
+                start: addr.raw(),
                 len,
             });
         };

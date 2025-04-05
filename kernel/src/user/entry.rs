@@ -1,14 +1,15 @@
 use alloc::boxed::Box;
 use async_recursion::async_recursion;
-use executor::{yield_now, AsyncTask};
+use executor::{boot_page_table, yield_now, AsyncTask};
 use futures_lite::future;
 use log::debug;
-use polyhal::{boot::boot_page_table, trapframe::TrapFrame};
+use polyhal::PageTable;
+use polyhal_trap::trapframe::TrapFrame;
 use signal::SignalFlags;
 
 use crate::{
     syscall::consts::TimeVal,
-    tasks::{current_user_task, UserTaskControlFlow},
+    tasks::{current_user_task, hexdump, UserTaskControlFlow},
 };
 
 use super::UserTaskContainer;
@@ -70,7 +71,6 @@ impl UserTaskContainer {
 
         loop {
             self.check_timer();
-
             self.check_signal().await;
 
             // check for task exit status.

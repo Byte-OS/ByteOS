@@ -5,8 +5,8 @@ use crate::{
     },
     tasks::{
         elf::{init_task_stack, ElfExtra},
-        futex_requeue, futex_wake, FileItem, MapTrack, MemArea, MemType, UserTask, WaitFutex,
-        WaitPid,
+        futex_requeue, futex_wake, hexdump, FileItem, MapTrack, MemArea, MemType, UserTask,
+        WaitFutex, WaitPid,
     },
     user::{entry::user_entry, UserTaskContainer},
 };
@@ -18,13 +18,15 @@ use alloc::{
 };
 use async_recursion::async_recursion;
 use core::cmp;
+use core::ops::Add;
 use devices::PAGE_SIZE;
 use executor::{select, thread, tid2task, yield_now, AsyncTask};
 use fs::dentry::{dentry_open, dentry_root};
 use fs::TimeSpec;
 use log::{debug, warn};
 use num_traits::FromPrimitive;
-use polyhal::{trapframe::TrapFrameArgs, MappingFlags, Time, VirtPage};
+use polyhal::{va, MappingFlags, PageTable, Time, VirtAddr};
+use polyhal_trap::trapframe::TrapFrameArgs;
 use runtime::frame::{frame_alloc_much, FrameTracker};
 use signal::SignalFlags;
 use sync::Mutex;
@@ -54,13 +56,10 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
         .node
         .clone();
     let file_size = file.metadata().unwrap().size;
-    let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
-    let buffer = unsafe {
-        core::slice::from_raw_parts_mut(
-            frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
-            file_size,
-        )
-    };
+    let frame_paddr = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
+    let buffer = frame_paddr.as_ref().unwrap()[0]
+        .0
+        .slice_mut_with_len(file_size);
     let rsize = file.readat(0, buffer).map_err(from_vfs)?;
     assert_eq!(rsize, file_size);
     // flush_dcache_range();
@@ -125,16 +124,11 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
                     .into_iter()
                     .map(|x| Arc::new(x))
                     .collect();
-                let ppn_space = unsafe {
-                    core::slice::from_raw_parts_mut(
-                        pages[0]
-                            .0
-                            .get_buffer()
-                            .as_mut_ptr()
-                            .add(virt_addr % PAGE_SIZE),
-                        file_size,
-                    )
-                };
+                let ppn_space = pages[0]
+                    .0
+                    .add(virt_addr % PAGE_SIZE)
+                    .slice_mut_with_len(file_size);
+
                 ppn_space.copy_from_slice(&buffer[offset..offset + file_size]);
 
                 maps.push(MemArea {
@@ -143,7 +137,7 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
                         .into_iter()
                         .enumerate()
                         .map(|(i, x)| MapTrack {
-                            vpn: VirtPage::from(vpn + i),
+                            vaddr: va!(virt_addr + i * PAGE_SIZE),
                             tracker: x,
                             rwx: 0,
                         })
@@ -156,11 +150,11 @@ pub fn cache_task_template(path: &str) -> Result<(), LinuxError> {
             });
         if base > 0 {
             relocated_arr.iter().for_each(|(addr, value)| unsafe {
-                let vpn = VirtPage::from_addr(*addr);
+                let vaddr = VirtAddr::new(*addr);
                 let offset = addr % PAGE_SIZE;
                 for area in &maps {
-                    if let Some(x) = area.mtrackers.iter().find(|x| x.vpn == vpn) {
-                        (x.tracker.0.get_buffer().as_mut_ptr().add(offset) as *mut usize)
+                    if let Some(x) = area.mtrackers.iter().find(|x| x.vaddr == vaddr) {
+                        (x.tracker.0.get_mut_ptr::<u8>().add(offset) as *mut usize)
                             .write_volatile(*value);
                     }
                 }
@@ -217,7 +211,7 @@ pub async fn exec_with_process(
                 pcb.memset.push(area.clone());
             });
             for mtracker in area.mtrackers.iter() {
-                user_task.map(mtracker.tracker.0, mtracker.vpn, MappingFlags::URX);
+                user_task.map(mtracker.tracker.0, mtracker.vaddr, MappingFlags::URX);
             }
         }
         Ok(user_task)
@@ -230,12 +224,9 @@ pub async fn exec_with_process(
         debug!("file: {:#x?}", file.metadata().unwrap());
         let file_size = file.metadata().unwrap().size;
         let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
-        let buffer = unsafe {
-            core::slice::from_raw_parts_mut(
-                frame_ppn.as_ref().unwrap()[0].0.get_buffer().as_mut_ptr(),
-                file_size,
-            )
-        };
+        let buffer = frame_ppn.as_ref().unwrap()[0]
+            .0
+            .slice_mut_with_len(file_size);
         let rsize = file.readat(0, buffer).map_err(from_vfs)?;
         assert_eq!(rsize, file_size);
         // flush_dcache_range();
@@ -318,23 +309,14 @@ pub async fn exec_with_process(
                 let vpn = virt_addr / PAGE_SIZE;
 
                 let page_count = (virt_addr + mem_size).div_ceil(PAGE_SIZE) - vpn;
-                let ppn_start = user_task.frame_alloc(
-                    VirtPage::from_addr(virt_addr),
-                    MemType::CodeSection,
-                    page_count,
-                );
-                let page_space =
-                    unsafe { core::slice::from_raw_parts_mut(virt_addr as _, file_size) };
-                let ppn_space = unsafe {
-                    core::slice::from_raw_parts_mut(
-                        ppn_start
-                            .expect("not hava enough memory")
-                            .get_buffer()
-                            .as_mut_ptr()
-                            .add(virt_addr % PAGE_SIZE),
-                        file_size,
-                    )
-                };
+                let ppn_start =
+                    user_task.frame_alloc(va!(virt_addr).floor(), MemType::CodeSection, page_count);
+                let page_space = va!(virt_addr).slice_mut_with_len(file_size);
+                let ppn_space = ppn_start
+                    .expect("not have enough memory")
+                    .add(virt_addr % PAGE_SIZE)
+                    .slice_mut_with_len(file_size);
+
                 page_space.copy_from_slice(&buffer[offset..offset + file_size]);
                 assert_eq!(ppn_space, page_space);
                 assert_eq!(&buffer[offset..offset + file_size], ppn_space);

@@ -20,7 +20,7 @@ fn main() {
             ".section .data
     .global ramdisk_start
     .global ramdisk_end
-    .align 16
+    .p2align 12
     ramdisk_start:
     .incbin \"{img_path}\"
     ramdisk_end:"

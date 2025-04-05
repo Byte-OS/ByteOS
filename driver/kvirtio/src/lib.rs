@@ -17,7 +17,7 @@ use alloc::{sync::Arc, vec::Vec};
 use devices::{
     device::{Driver, UnsupportedDriver},
     driver_define,
-    fdt::node::FdtNode,
+    fdt::Node,
     node_to_interrupts, VIRT_ADDR_START,
 };
 use virtio_drivers::transport::{
@@ -37,9 +37,9 @@ use virtio_drivers::transport::pci::{
 #[cfg(any(target_arch = "x86_64"))]
 use crate::virtio_impl::HalImpl;
 
-pub fn init_mmio(node: &FdtNode) -> Arc<dyn Driver> {
+pub fn init_mmio(node: &Node) -> Arc<dyn Driver> {
     if let Some(reg) = node.reg().and_then(|mut reg| reg.next()) {
-        let paddr = reg.starting_address as usize;
+        let paddr = reg.address as usize;
         let vaddr = VIRT_ADDR_START + paddr;
         let header = NonNull::new(vaddr as *mut VirtIOHeader).unwrap();
         if let Ok(transport) = unsafe { MmioTransport::new(header) } {
@@ -47,14 +47,14 @@ pub fn init_mmio(node: &FdtNode) -> Arc<dyn Driver> {
                 "Detected virtio MMIO device with
                     vendor id {:#X}
                     device type {:?}
-                    version {:?} 
-                    addr @ {:#X} 
+                    version {:?}
+                    addr @ {:#X}
                     interrupt: {:?}",
                 transport.vendor_id(),
                 transport.device_type(),
                 transport.version(),
                 vaddr,
-                node.interrupts().map(|x| x.collect::<Vec<usize>>())
+                node.interrupts().unwrap().flatten().collect::<Vec<u32>>()
             );
             return virtio_device(transport, node);
         }
@@ -62,7 +62,7 @@ pub fn init_mmio(node: &FdtNode) -> Arc<dyn Driver> {
     Arc::new(UnsupportedDriver)
 }
 
-fn virtio_device(transport: MmioTransport, node: &FdtNode) -> Arc<dyn Driver> {
+fn virtio_device(transport: MmioTransport, node: &Node) -> Arc<dyn Driver> {
     let irqs = node_to_interrupts(node);
     match transport.device_type() {
         DeviceType::Block => virtio_blk::init(transport, irqs),

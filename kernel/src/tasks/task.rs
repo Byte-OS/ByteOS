@@ -1,4 +1,4 @@
-use core::{mem::size_of, ops::Add};
+use core::mem::size_of;
 
 use alloc::{
     collections::BTreeMap,
@@ -9,18 +9,15 @@ use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::File;
 use log::debug;
-use polyhal::{
-    addr::{PhysPage, VirtAddr, VirtPage},
-    trapframe::{TrapFrame, TrapFrameArgs},
-    MappingFlags, MappingSize, PageTableWrapper,
-};
+use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use vfscore::OpenFlags;
 
 use crate::tasks::{
-    futex_wake,
+    futex_wake, hexdump,
     memset::{MapTrack, MemArea},
 };
 
@@ -130,48 +127,52 @@ impl UserTask {
         f(&mut self.pcb.lock())
     }
 
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags) {
+    #[inline]
+    pub fn map(&self, paddr: PhysAddr, vaddr: VirtAddr, flags: MappingFlags) {
+        assert_eq!(paddr.raw() % PAGE_SIZE, 0);
+        assert_eq!(vaddr.raw() % PAGE_SIZE, 0);
         // self.page_table.map(ppn, vpn, flags, 3);
         self.page_table
-            .map_page(vpn, ppn, flags, MappingSize::Page4KB);
+            .map_page(vaddr, paddr, flags, MappingSize::Page4KB);
     }
 
-    pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> Option<PhysPage> {
-        self.map_frames(vpn, mtype, count, None, 0, vpn.to_addr(), count * PAGE_SIZE)
+    #[inline]
+    pub fn frame_alloc(&self, vaddr: VirtAddr, mtype: MemType, count: usize) -> Option<PhysAddr> {
+        self.map_frames(vaddr, mtype, count, None, 0, vaddr.raw(), count * PAGE_SIZE)
     }
 
     pub fn map_frames(
         &self,
-        vpn: VirtPage,
+        vaddr: VirtAddr,
         mtype: MemType,
         count: usize,
         file: Option<File>,
         offset: usize,
         start: usize,
         len: usize,
-    ) -> Option<PhysPage> {
+    ) -> Option<PhysAddr> {
         assert!(count > 0, "can't alloc count = 0 in user_task frame_alloc");
         // alloc trackers and map vpn
         let trackers: Vec<_> = frame_alloc_much(count)?
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
-                let vpn = match vpn.to_addr() == 0 {
-                    true => vpn,
-                    false => vpn.add(i),
+                let vaddr = match vaddr.raw() == 0 {
+                    true => vaddr,
+                    false => va!(vaddr.raw() + i * PAGE_SIZE),
                 };
                 MapTrack {
-                    vpn,
+                    vaddr,
                     tracker: Arc::new(x),
                     rwx: 0,
                 }
             })
             .collect();
-        if vpn.to_addr() != 0 {
+        if vaddr.raw() != 0 {
             debug!(
-                "map {:#x} @ {:#x} size: {:#x} flags: {:?}",
-                vpn.to_addr(),
-                trackers[0].tracker.0.to_addr(),
+                "map {:?} @ {:#x} size: {:#x} flags: {:?}",
+                vaddr,
+                trackers[0].tracker.0.raw(),
                 count * PAGE_SIZE,
                 MappingFlags::URWX
             );
@@ -179,8 +180,8 @@ impl UserTask {
             trackers
                 .clone()
                 .iter()
-                .filter(|x| x.vpn.to_addr() != 0)
-                .for_each(|x| self.map(x.tracker.0, x.vpn, MappingFlags::URWX));
+                .filter(|x| x.vaddr.raw() != 0)
+                .for_each(|x| self.map(x.tracker.0, x.vaddr, MappingFlags::URWX));
         }
         let mut inner = self.pcb.lock();
         let ppn = trackers[0].tracker.0;
@@ -230,7 +231,7 @@ impl UserTask {
         // need alloc frame page
         if after_page > curr_page {
             for i in curr_page..after_page {
-                self.frame_alloc(VirtPage::new(i + 1), MemType::CodeSection, 1);
+                self.frame_alloc(va!((i + 1) * PAGE_SIZE), MemType::CodeSection, 1);
             }
         }
         let mut inner = self.pcb.lock();
@@ -328,8 +329,8 @@ impl UserTask {
         pcb.memset.iter().for_each(|x| {
             let map_area = x.clone();
             map_area.mtrackers.iter().for_each(|x| {
-                new_task.map(x.tracker.0, x.vpn, MappingFlags::URX);
-                self.map(x.tracker.0, x.vpn, MappingFlags::URX);
+                new_task.map(x.tracker.0, x.vaddr, MappingFlags::URX);
+                self.map(x.tracker.0, x.vaddr, MappingFlags::URX);
             });
             new_task.pcb.lock().memset.push(map_area);
         });
@@ -337,11 +338,7 @@ impl UserTask {
         // copy shm and map them
         pcb.shms.iter().for_each(|x| {
             x.mem.trackers.iter().enumerate().for_each(|(i, tracker)| {
-                new_task.map(
-                    tracker.0,
-                    VirtPage::from_addr(x.start).add(i),
-                    MappingFlags::URWX,
-                );
+                new_task.map(tracker.0, va!(x.start + i * PAGE_SIZE), MappingFlags::URWX);
             });
         });
         new_task

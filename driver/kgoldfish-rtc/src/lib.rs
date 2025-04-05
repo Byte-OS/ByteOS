@@ -11,7 +11,7 @@ use core::ptr::read_volatile;
 use devices::{
     device::{DeviceType, Driver, RtcDriver},
     driver_define,
-    fdt::node::FdtNode,
+    fdt::Node,
     VIRT_ADDR_START,
 };
 use timestamp::DateTime;
@@ -49,8 +49,8 @@ impl RtcDriver for RtcGoldfish {
     }
 }
 
-pub fn init_rtc(node: &FdtNode) -> Arc<dyn Driver> {
-    let addr = node.property("reg").unwrap().value[4..8]
+pub fn init_rtc(node: &Node) -> Arc<dyn Driver> {
+    let addr = node.find_property("reg").unwrap().raw_value()[4..8]
         .iter()
         .fold(0, |acc, x| (acc << 8) | (*x as usize));
     let rtc = Arc::new(RtcGoldfish {

@@ -150,7 +150,7 @@ impl UserTaskContainer {
     pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
         use crate::syscall::consts::{ArchPrctlCode, LinuxError};
         use num_traits::FromPrimitive;
-        use polyhal::trapframe::TrapFrameArgs;
+        use polyhal_trap::trapframe::TrapFrameArgs;
 
         let arch_prctl_code = FromPrimitive::from_usize(code).ok_or(LinuxError::EINVAL)?;
         debug!(

@@ -9,7 +9,7 @@ use alloc::sync::Arc;
 use devices::{
     device::{DeviceType, Driver, IntDriver},
     driver_define,
-    fdt::node::FdtNode,
+    fdt::Node,
     VIRT_ADDR_START,
 };
 
@@ -41,8 +41,8 @@ impl IntDriver for PLIC {
     }
 }
 
-pub fn init_driver(node: &FdtNode) -> Arc<dyn Driver> {
-    let addr = node.property("reg").unwrap().value[4..8]
+pub fn init_driver(node: &Node) -> Arc<dyn Driver> {
+    let addr = node.find_property("reg").unwrap().raw_value()[4..8]
         .iter()
         .fold(0, |acc, x: &u8| (acc << 8) | (*x as usize));
     let plic = Arc::new(PLIC {

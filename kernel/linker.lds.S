@@ -5,12 +5,11 @@ BASE_ADDRESS = %KERNEL_BASE%;
 
 SECTIONS
 {
-    /* Load the kernel at this address: "." means the current address */
     . = BASE_ADDRESS;
-    start = .;
     _skernel = .;
 
     .text ALIGN(4K): {
+        *(.multiboot .multiboot.*)
         stext = .;
         *(.text.entry)
         *(.text .text.*)
@@ -20,34 +19,33 @@ SECTIONS
     .rodata ALIGN(4K): {
         srodata = .;
         *(.rodata .rodata.*)
-        . = ALIGN(4K);
         erodata = .;
     }
 
+    .got : {
+        *(.got .got.*)
+    }
+
     .data ALIGN(4K): {
-        . = ALIGN(4K);
-        *(.data.prepage .data.prepage.*)
-        . = ALIGN(4K);
         _sdata = .;
+        . = ALIGN(4K);
+        *(.data.boot_page_table)
+
         *(.data .data.*)
         *(.sdata .sdata.*)
         _edata = .;
     }
 
-    .sigtrx ALIGN(4K): {
-        *(.sigtrx .sigtrx.*)
-    }
-
     .bss ALIGN(4K): {
         _load_end = .;
-        *(.bss.stack)
+        *(.bss.bstack .bss.bstack.*)
         _sbss = .;
         *(.bss .bss.*)
         *(.sbss .sbss.*)
         _ebss = .;
     }
 
-    PROVIDE(end = .);
+    PROVIDE(_end = .);
     /DISCARD/ : {
         *(.comment) *(.gnu*) *(.note*) *(.eh_frame*)
     }

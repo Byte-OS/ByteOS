@@ -8,7 +8,7 @@ use crate::MAIN_UART;
 pub fn virt_to_phys(vaddr: usize) -> Option<usize> {
     PageTable::current()
         .translate(vaddr.into())
-        .map(|x| x.0.addr())
+        .map(|x| x.0.raw())
 }
 
 pub fn puts(buffer: &[u8]) {

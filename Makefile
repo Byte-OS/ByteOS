@@ -1,6 +1,7 @@
 SHELL := /bin/bash
 BOARD:= qemu
 PLATFORM   :=
+SMP := 1
 byteos = $(shell kbuild $(1) byteos.yaml $(PLATFORM) $(2))
 byteos_config = $(call byteos,config,get_cfg $(1))
 byteos_env = $(call byteos,config,get_env $(1))
@@ -10,48 +11,42 @@ NVME := off
 NET  := off
 LOG  := error
 RELEASE := release
-QEMU_EXEC ?= 
 GDB  ?= gdb-multiarch
 ARCH := $(call byteos_triple,arch)
 ROOT_FS := $(call byteos_config,root_fs)
 TARGET := $(call byteos_meta,target)
+KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
+KERNEL_BIN = target/$(TARGET)/$(RELEASE)/kernel.bin
 
 BUS  := device
+QEMU_EXEC := qemu-system-$(ARCH) 
 ifeq ($(ARCH), x86_64)
-  QEMU_EXEC += qemu-system-x86_64 \
-				-machine q35 \
+  QEMU_EXEC += -machine q35 \
 				-kernel $(KERNEL_ELF) \
 				-cpu IvyBridge-v2
   BUS := pci
 else ifeq ($(ARCH), riscv64)
-  QEMU_EXEC += qemu-system-$(ARCH) \
-				-machine virt \
-				-bios $(SBI) \
+  QEMU_EXEC += -machine virt \
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), aarch64)
-  QEMU_EXEC += qemu-system-$(ARCH) \
-				-cpu cortex-a72 \
+  QEMU_EXEC += -cpu cortex-a72 \
 				-machine virt \
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), loongarch64)
-  QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
+  QEMU_EXEC += -kernel $(KERNEL_ELF)
   BUS := pci
 else
   $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
 endif
 
-KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
-KERNEL_BIN = target/$(TARGET)/$(RELEASE)/kernel.bin
 BIN_FILE = byteos.bin
-# SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
-SBI := tools/opensbi-$(BOARD).bin
 features:= 
 K210-SERIALPORT	= /dev/ttyUSB0
 K210-BURNER	= tools/k210/kflash.py
 QEMU_EXEC += -m 1G\
 			-nographic \
-			-smp 1 \
+			-smp $(SMP) \
 			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
 
 TESTCASE := testcase-$(ARCH)
@@ -85,22 +80,22 @@ fs-img:
 	@echo "TESTCASE: $(TESTCASE)"
 	@echo "ROOT_FS: $(ROOT_FS)"
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=64
 	sync
-ifeq ($(ROOT_FS), fat32)
-	mkfs.vfat -F 32 $(FS_IMG)
-	mkdir mount/ -p
-	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
-	sudo rm -rf mount/*
-else ifeq ($(ROOT_FS), ext4_rs)
-	mkfs.ext4 -b 4096 $(FS_IMG)
+# ifeq ($(ROOT_FS), fat32)
+# 	mkfs.vfat -F 32 $(FS_IMG)
+# 	mkdir mount/ -p
+# 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
+# 	sudo rm -rf mount/*
+# else ifeq ($(ROOT_FS), ext4_rs)
+# 	mkfs.ext4 -b 4096 $(FS_IMG)
+# 	mkdir mount/ -p
+# 	sudo mount $(FS_IMG) mount/
+# else 
+	mkfs.ext4 -b 4096 -F -O ^metadata_csum_seed $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/
-else 
-	mkfs.ext4  -F -O ^metadata_csum_seed $(FS_IMG)
-	mkdir mount/ -p
-	sudo mount $(FS_IMG) mount/
-endif
+# endif
 	sudo cp -rf tools/$(TESTCASE)/* mount/
 	sync
 	sudo umount $(FS_IMG)

@@ -3,9 +3,9 @@
 #[macro_use]
 extern crate alloc;
 
-use core::cmp::{self, min};
-
 use alloc::{string::String, sync::Arc, vec::Vec};
+use core::cmp::{self, min};
+use core::ops::Add;
 use polyhal::pagetable::PAGE_SIZE;
 use runtime::frame::{frame_alloc, FrameTracker};
 use sync::Mutex;
@@ -312,15 +312,16 @@ impl INodeInterface for RamFile {
                         break;
                     }
                     let index = offset / PAGE_SIZE;
-                    let page_data = inner[index].0.get_buffer();
                     buffer[buffer_off..buffer_off + curr_size].copy_from_slice(
-                        &page_data[offset % PAGE_SIZE..offset % PAGE_SIZE + curr_size],
+                        inner[index]
+                            .0
+                            .add(offset % PAGE_SIZE)
+                            .slice_with_len(curr_size),
                     );
                     offset += curr_size;
                     last_len -= curr_size;
                     buffer_off += curr_size;
                 }
-                // Ok(origin_read_len)
                 Ok(read_len)
             }
         }
@@ -344,8 +345,10 @@ impl INodeInterface for RamFile {
                 break;
             }
             let index = offset / PAGE_SIZE;
-            let page_data = inner[index].0.get_buffer();
-            page_data[offset % PAGE_SIZE..offset % PAGE_SIZE + curr_size]
+            inner[index]
+                .0
+                .add(offset % PAGE_SIZE)
+                .slice_mut_with_len(curr_size)
                 .copy_from_slice(&buffer[buffer_off..buffer_off + curr_size]);
             offset += curr_size;
             buffer_off += curr_size;
@@ -370,16 +373,13 @@ impl INodeInterface for RamFile {
         // TODO: Check this line.
         let target_pages = size.div_ceil(PAGE_SIZE);
 
-        page_cont
-            .iter()
-            .skip(target_pages)
-            .for_each(|x| x.0.drop_clear());
+        page_cont.iter().skip(target_pages).for_each(|x| x.clear());
 
         if size % PAGE_SIZE != 0 {
             let page = size / PAGE_SIZE;
             let offset = size % PAGE_SIZE;
             if let Some(page) = page_cont.get(page) {
-                page.0.get_buffer()[offset..].fill(0);
+                page.0.add(offset).clear_len(PAGE_SIZE - offset);
             }
         }
 

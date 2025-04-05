@@ -12,17 +12,18 @@ extern crate alloc;
 pub mod device;
 pub mod utils;
 
-use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
+pub use fdt_parser as fdt;
+
+use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use device::{BlkDriver, DeviceSet, Driver, IntDriver, NetDriver, UartDriver};
-pub use fdt;
-use fdt::{node::FdtNode, Fdt};
+use fdt_parser::Node;
 pub use linkme::{self, distributed_slice as linker_use};
 pub use polyhal::{consts::VIRT_ADDR_START, pagetable::PAGE_SIZE};
 pub use runtime::frame::{frame_alloc, frame_alloc_much, FrameTracker};
 pub use sync::{LazyInit, Mutex, MutexGuard};
 
 pub static DEVICE_TREE: LazyInit<Vec<u8>> = LazyInit::new();
-pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&FdtNode) -> Arc<dyn Driver>>> =
+pub static DRIVER_REGS: Mutex<BTreeMap<&str, fn(&Node) -> Arc<dyn Driver>>> =
     Mutex::new(BTreeMap::new());
 pub static IRQ_MANAGER: Mutex<BTreeMap<u32, Arc<dyn Driver>>> = Mutex::new(BTreeMap::new());
 pub static INT_DEVICE: LazyInit<Arc<dyn IntDriver>> = LazyInit::new();
@@ -67,22 +68,6 @@ pub fn get_net_device(id: usize) -> Arc<dyn NetDriver> {
         .clone()
 }
 
-pub fn init_device(device_tree: usize) {
-    if device_tree == 0 {
-        return;
-    }
-    // DEVICE_TREE_ADDR.store(device_tree, Ordering::Relaxed);
-    let fdt = unsafe { Fdt::from_ptr(device_tree as *const u8).unwrap() };
-    let mut dt_buf = vec![0u8; fdt.total_size()];
-    dt_buf.copy_from_slice(unsafe {
-        core::slice::from_raw_parts(device_tree as *const u8, fdt.total_size())
-    });
-    DEVICE_TREE.init_by(dt_buf);
-
-    // init memory
-    // memory::init();
-}
-
 /// prepare_drivers
 /// This function will init drivers
 #[inline]
@@ -95,15 +80,15 @@ pub fn prepare_drivers() {
     });
 }
 
-pub fn try_to_add_device(node: &FdtNode) {
+pub fn try_to_add_device(node: &Node) {
     let driver_manager = DRIVER_REGS.lock();
-    if let Some(compatible) = node.compatible() {
+    if let Some(mut compatible) = node.compatible() {
         info!(
-            "    {}  {}",
+            "    {}  {:?}",
             node.name,
-            compatible.all().intersperse(" ").collect::<String>()
+            compatible.next() // compatible.intersperse(" ").collect::<String>()
         );
-        for compati in compatible.all() {
+        for compati in node.compatibles() {
             if let Some(f) = driver_manager.get(compati) {
                 ALL_DEVICES.lock().add_device(f(&node));
                 break;
@@ -129,9 +114,9 @@ pub fn register_device_irqs(driver: Arc<dyn Driver>) {
     });
 }
 
-pub fn node_to_interrupts(node: &FdtNode) -> Vec<u32> {
+pub fn node_to_interrupts(node: &Node) -> Vec<u32> {
     node.interrupts()
-        .map(|x| x.map(|x| x as u32).collect())
+        .map(|x| x.flatten().collect())
         .unwrap_or_default()
 }
 

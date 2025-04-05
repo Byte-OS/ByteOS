@@ -2,7 +2,8 @@ use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use executor::AsyncTask;
 use log::warn;
-use polyhal::{addr::VirtPage, trapframe::{TrapFrame, TrapFrameArgs}};
+use polyhal::va;
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use xmas_elf::{
     program::Type,
     sections::SectionData,
@@ -118,7 +119,7 @@ pub fn init_task_stack(
     tls: usize,
 ) {
     // map stack
-    user_task.frame_alloc(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
+    user_task.frame_alloc(va!(0x7ffe0000), MemType::Stack, 32);
     log::debug!(
         "[task {}] entry: {:#x}",
         user_task.get_task_id(),

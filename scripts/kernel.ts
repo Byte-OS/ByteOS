@@ -15,19 +15,19 @@ export class KernelBuilder {
         this.arch = arch;
         this.elfPath = `${Deno.cwd()}/target/${targetMap[arch]}/release/kernel`;
         this.binPath = `${this.elfPath}.bin`;
-
         this.rustflags = Deno.env.get('rustflags') || "";
     }
 
     buildFlags() {
         const rustflags = [
-            "-Cforce-frame-pointers=yes",
-            "-Clink-arg=-no-pie",
-            "-Ztls-model=local-exec",
-            `--cfg=root_fs="ext4_rs"`,
-            '--cfg=board="qemu"'
+            // "-Cforce-frame-pointers=yes",
+            // "-Clink-arg=-no-pie",
+            // "-Ztls-model=local-exec",
+            `--cfg=root_fs="ext4"`,
+            '--cfg=board="qemu"',
+            `--cfg=driver="kramdisk"`
         ];
-        
+
         this.rustflags += rustflags.join(" ");
     }
 
@@ -48,9 +48,9 @@ export class KernelBuilder {
                 BOARD: "qemu",
                 RUSTFLAGS: this.rustflags
             },
-        });        
+        });
         const code = await buildProc.spawn().status;
-        if(!code.success) {
+        if (!code.success) {
             console.error("Failed to build the kernel");
             Deno.exit(1);
         }
