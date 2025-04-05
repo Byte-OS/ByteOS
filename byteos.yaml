@@ -3,7 +3,7 @@ global:
     board: "qemu"
     # Available are fat32, ext4 and ext4_rs.
     # root_fs: "fat32"
-    root_fs: "ext4"
+    root_fs: "ext4_rs"
   env:
     HEAP_SIZE: "0x0180_0000"
     MOUNT_IMG_PATH: "mount.img"

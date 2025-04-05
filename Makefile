@@ -1,20 +1,13 @@
 SHELL := /bin/bash
-export BOARD:= qemu
-PLATFORM   :=
+include scripts/config.mk
+export BOARD := qemu
+export ROOT_MANIFEST_DIR := $(shell pwd)
+export LOG  := error
 SMP := 1
-byteos = $(shell kbuild $(1) byteos.yaml $(PLATFORM) $(2))
-byteos_config = $(call byteos,config,get_cfg $(1))
-byteos_env = $(call byteos,config,get_env $(1))
-byteos_meta = $(call byteos,config,get_meta $(1))
-byteos_triple = $(call byteos,config,get_triple $(1))
 NVME := off
 NET  := off
-LOG  := error
 RELEASE := release
 GDB  ?= gdb-multiarch
-ARCH := $(call byteos_triple,arch)
-ROOT_FS := $(call byteos_config,root_fs)
-TARGET := $(call byteos_meta,target)
 KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
 KERNEL_BIN = target/$(TARGET)/$(RELEASE)/kernel.bin
 
@@ -22,8 +15,8 @@ BUS  := device
 QEMU_EXEC := qemu-system-$(ARCH) 
 ifeq ($(ARCH), x86_64)
   QEMU_EXEC += -machine q35 \
-				-kernel $(KERNEL_ELF) \
-				-cpu IvyBridge-v2
+				-cpu IvyBridge-v2 \
+				-kernel $(KERNEL_ELF)
   BUS := pci
 else ifeq ($(ARCH), riscv64)
   QEMU_EXEC += -machine virt \
@@ -36,14 +29,11 @@ else ifeq ($(ARCH), loongarch64)
   QEMU_EXEC += -kernel $(KERNEL_ELF)
   BUS := pci
 else
-  $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
+  $(error "ARCH"($(ARCH)) must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
 endif
 
-BIN_FILE = byteos.bin
 FS_IMG  := mount.img
 features:= 
-K210-SERIALPORT	= /dev/ttyUSB0
-K210-BURNER	= tools/k210/kflash.py
 QEMU_EXEC += -m 1G\
 			-nographic \
 			-smp $(SMP) \
@@ -64,16 +54,15 @@ QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::6379-:6379,hostfwd=tcp::2222-:222
 features += net
 endif
 
-ifeq ($(BOARD), k210)
-SBI = tools/rustsbi-k210.bin
-features += k210
-endif
-
 all: build
+test: 
+	@echo $(TARGET)
+	@echo $(PLATFORM)
+	@echo $(ARCH)
+	@echo $(ROOT_FS)
+
 offline:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
-#	cp $(SBI) sbi-qemu
-#	cp $(KERNEL_ELF) kernel-qemu
+	cargo build $(BUILD_ARGS) --features "$(features)" --offline
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
@@ -82,20 +71,20 @@ fs-img:
 	rm -f $(FS_IMG)
 	dd if=/dev/zero of=$(FS_IMG) bs=1M count=64
 	sync
-# ifeq ($(ROOT_FS), fat32)
-# 	mkfs.vfat -F 32 $(FS_IMG)
-# 	mkdir mount/ -p
-# 	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
-# 	sudo rm -rf mount/*
-# else ifeq ($(ROOT_FS), ext4_rs)
-# 	mkfs.ext4 -b 4096 $(FS_IMG)
-# 	mkdir mount/ -p
-# 	sudo mount $(FS_IMG) mount/
-# else 
+ifeq ($(ROOT_FS), fat32)
+	mkfs.vfat -F 32 $(FS_IMG)
+	mkdir mount/ -p
+	sudo mount $(FS_IMG) mount/ -o uid=1000,gid=1000
+	sudo rm -rf mount/*
+else ifeq ($(ROOT_FS), ext4_rs)
+	mkfs.ext4 -b 4096 $(FS_IMG)
+	mkdir mount/ -p
+	sudo mount $(FS_IMG) mount/
+else 
 	mkfs.ext4 -b 4096 -F -O ^metadata_csum_seed $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/
-# endif
+endif
 	sudo cp -rf tools/$(TESTCASE)/* mount/
 	sync
 	sudo umount $(FS_IMG)
@@ -109,29 +98,11 @@ justbuild: fs-img build
 run: fs-img build
 	time $(QEMU_EXEC)
 
-fdt:
-	@qemu-system-riscv64 -M 128m -machine virt,dumpdtb=virt.out
-	fdtdump virt.out
-
 justrun: fs-img
-	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 	$(QEMU_EXEC)
 
 tftp-build: build
-	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
 	sudo ./tftp-burn.sh
-
-k210-build: build
-	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
-	@cp $(SBI) $(SBI).copy
-	@dd if=$(BIN_FILE) of=$(SBI).copy bs=131072 seek=1
-	@mv $(SBI).copy $(BIN_FILE)
-
-flash: k210-build
-	(which $(K`210-BURNER)) || (cd tools && git clone https://github.com/sipeed/kflash.py.git k210)
-	@sudo chmod 777 $(K210-SERIALPORT)
-	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(BIN_FILE)
-	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 
 debug: fs-img build
 	@tmux new-session -d \
@@ -155,7 +126,6 @@ gdb:
 
 addr2line:
 	addr2line -sfipe $(KERNEL_ELF) | rustfilt
-
 
 iso: build
 	cp $(KERNEL_ELF) tools/iso/example
