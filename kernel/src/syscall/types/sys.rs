@@ -28,8 +28,6 @@ pub struct Rlimit {
     pub max: usize,
 }
 
-pub const RLIMIT_NOFILE: usize = 7;
-
 #[repr(C)]
 pub struct Rusage {
     pub ru_utime: TimeVal,
