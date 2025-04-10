@@ -7,8 +7,8 @@ use polyhal_trap::trapframe::TrapFrame;
 use signal::SignalFlags;
 
 use crate::{
-    syscall::consts::TimeVal,
     tasks::{current_user_task, UserTaskControlFlow},
+    utils::time::current_timeval,
 };
 
 use super::UserTaskContainer;
@@ -24,7 +24,7 @@ impl UserTaskContainer {
         let mut pcb = self.task.pcb.lock();
         let timer = &mut pcb.timer[0];
         if timer.next > timer.last {
-            let now = TimeVal::now();
+            let now = current_timeval();
             if now >= timer.next {
                 self.task
                     .tcb

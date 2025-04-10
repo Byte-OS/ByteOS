@@ -1,7 +1,7 @@
 use crate::{
     syscall::{
-        consts::{current_nsec, from_vfs, CloneFlags, Rusage, TimeVal},
         time::WaitUntilsec,
+        types::{fd::FutexFlags, task::CloneFlags, time::TimeVal},
     },
     tasks::{
         elf::{init_task_stack, ElfExtra},
@@ -9,6 +9,7 @@ use crate::{
         WaitPid,
     },
     user::{entry::user_entry, UserTaskContainer},
+    utils::{time::current_nsec, useref::UserRef, vfs::from_vfs},
 };
 use alloc::{
     string::{String, ToString},
@@ -34,8 +35,7 @@ use syscalls::Errno;
 use vfscore::OpenFlags;
 use xmas_elf::program::{SegmentData, Type};
 
-use super::consts::{FutexFlags, UserRef};
-use super::SysResult;
+use super::{types::sys::Rusage, SysResult};
 
 pub struct TaskCacheTemplate {
     name: String,
@@ -50,7 +50,6 @@ pub struct TaskCacheTemplate {
 }
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
-#[allow(dead_code)]
 pub fn cache_task_template(path: &str) -> Result<(), Errno> {
     let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)
         .map_err(from_vfs)?
@@ -138,7 +137,7 @@ pub fn cache_task_template(path: &str) -> Result<(), Errno> {
                         .into_iter()
                         .enumerate()
                         .map(|(i, x)| MapTrack {
-                            vaddr: va!(virt_addr + i * PAGE_SIZE),
+                            vaddr: va!((vpn + i) * PAGE_SIZE),
                             tracker: x,
                             rwx: 0,
                         })

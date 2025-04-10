@@ -1,26 +1,27 @@
+use super::{
+    types::time::{ITimerVal, TimeVal},
+    SysResult,
+};
+use crate::{
+    tasks::{WaitHandleAbleSignal, TMS},
+    user::UserTaskContainer,
+    utils::{
+        time::{current_nsec, current_timeval},
+        useref::UserRef,
+    },
+};
 use core::{
     future::Future,
     ops::Add,
     pin::Pin,
     task::{Context, Poll},
 };
-
 use executor::select;
 use fs::TimeSpec;
 use log::{debug, warn};
 use polyhal::time::Time;
 use syscalls::Errno;
 
-use crate::{
-    syscall::consts::{current_nsec, TimeVal},
-    tasks::{WaitHandleAbleSignal, TMS},
-    user::UserTaskContainer,
-};
-
-use super::{
-    consts::{ITimerVal, UserRef},
-    SysResult,
-};
 impl UserTaskContainer {
     pub async fn sys_gettimeofday(
         &self,
@@ -31,7 +32,7 @@ impl UserTaskContainer {
             "sys_gettimeofday @ tv_ptr: {}, timezone: {:#x}",
             tv_ptr, timezone_ptr
         );
-        *tv_ptr.get_mut() = TimeVal::now();
+        *tv_ptr.get_mut() = current_timeval();
         Ok(0)
     }
 
@@ -132,7 +133,7 @@ impl UserTaskContainer {
             if times_ptr.is_valid() {
                 let new_timer = times_ptr.get_ref();
                 pcb.timer[0].timer = *new_timer;
-                pcb.timer[0].next = TimeVal::now().add(pcb.timer[0].timer.value);
+                pcb.timer[0].next = current_timeval().add(pcb.timer[0].timer.value);
                 if new_timer.value.sec == 0 && new_timer.value.usec == 0 {
                     pcb.timer[0].next = Default::default();
                     pcb.timer[0].last = Default::default();

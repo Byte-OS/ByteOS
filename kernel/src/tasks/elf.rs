@@ -12,7 +12,7 @@ use xmas_elf::{
     ElfFile,
 };
 
-use crate::syscall::consts::elf;
+use crate::syscall::types::elf::elf;
 use crate::tasks::memset::MemType;
 
 use super::task::UserTask;

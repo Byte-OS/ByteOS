@@ -1,13 +1,12 @@
 import { Command, CommandOptions } from "https://deno.land/x/cliffy@v1.0.0-rc.4/command/mod.ts";
 import { globalArgType } from "./cli-types.ts";
-import { KernelBuilder } from "./kernel.ts";
+import { Cargo } from "./cargo.ts";
 
 
-export const cargoBuild = async function(options: CommandOptions<globalArgType>) {
+export const cargoBuild = async function (options: CommandOptions<globalArgType>) {
 
-    const builder = new KernelBuilder(options.arch);
-    await builder.buildElf();
-    await builder.convertBin();
+    const cargo = new Cargo();
+    await cargo.build();
 
     console.log("options", options);
 }

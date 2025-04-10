@@ -1,11 +1,9 @@
-use log::{debug, warn};
-
-use crate::{
-    syscall::consts::{Rlimit, UTSname},
-    user::UserTaskContainer,
+use super::{
+    types::sys::{Rlimit, UTSname},
+    SysResult,
 };
-
-use super::{consts::UserRef, SysResult};
+use crate::{user::UserTaskContainer, utils::useref::UserRef};
+use log::{debug, warn};
 
 impl UserTaskContainer {
     pub async fn sys_uname(&self, uts_ptr: UserRef<UTSname>) -> SysResult {
@@ -148,7 +146,7 @@ impl UserTaskContainer {
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
-        use crate::syscall::consts::ArchPrctlCode;
+        use super::types::sys::ArchPrctlCode;
         use num_traits::FromPrimitive;
         use polyhal_trap::trapframe::TrapFrameArgs;
         use syscalls::Errno;

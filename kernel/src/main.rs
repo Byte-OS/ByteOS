@@ -16,6 +16,8 @@ extern crate bitflags;
 extern crate log;
 #[macro_use]
 extern crate polyhal;
+#[macro_use]
+extern crate cfg_if;
 
 extern crate polyhal_boot;
 extern crate polyhal_trap;
@@ -24,7 +26,6 @@ extern crate polyhal_trap;
 mod logging;
 
 mod consts;
-mod epoll;
 mod panic;
 mod socket;
 mod syscall;
@@ -208,14 +209,11 @@ fn main(hart_id: usize) {
     // crate::syscall::cache_task_template("/bin/busybox").expect("can't cache task");
     // crate::syscall::cache_task_template("./busybox").expect("can't cache task");
     // crate::syscall::cache_task_template("busybox").expect("can't cache task");
-    // crate::syscall::cache_task_template("./runtest.exe").expect("can't cache task");
-    // crate::syscall::cache_task_template("entry-static.exe").expect("can't cache task");
+    crate::syscall::cache_task_template("./runtest.exe").expect("can't cache task");
+    crate::syscall::cache_task_template("entry-static.exe").expect("can't cache task");
+    // crate::syscall::cache_task_template("entry-dynamic.exe").expect("can't cache task");
     // crate::syscall::cache_task_template("libc.so").expect("can't cache task");
     // crate::syscall::cache_task_template("lmbench_all").expect("can't cache task");
-
-    // loop {
-    //     info!("3");
-    // }
 
     // init kernel threads and async executor
     tasks::init();

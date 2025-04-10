@@ -1,12 +1,9 @@
 use super::SysResult;
-use crate::syscall::consts::from_vfs;
-use crate::syscall::consts::MSyncFlags;
-use crate::syscall::consts::MapFlags;
-use crate::syscall::consts::MmapProt;
-use crate::syscall::consts::ProtFlags;
-use crate::syscall::consts::UserRef;
+use crate::syscall::types::mm::{MSyncFlags, MapFlags, MmapProt, ProtFlags};
 use crate::tasks::{MemArea, MemType};
 use crate::user::UserTaskContainer;
+use crate::utils::useref::UserRef;
+use crate::utils::vfs::from_vfs;
 use devices::PAGE_SIZE;
 use log::debug;
 use polyhal::VirtAddr;

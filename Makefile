@@ -2,7 +2,6 @@ SHELL := /bin/bash
 include scripts/config.mk
 export BOARD := qemu
 export ROOT_MANIFEST_DIR := $(shell pwd)
-export LOG  := error
 SMP := 1
 NVME := off
 NET  := off
@@ -60,9 +59,10 @@ test:
 	@echo $(PLATFORM)
 	@echo $(ARCH)
 	@echo $(ROOT_FS)
+	@echo $(CONFIGS)
 
 offline:
-	cargo build $(BUILD_ARGS) --features "$(features)" --offline
+	cargo build --features "$(features)" --offline
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
@@ -90,7 +90,7 @@ endif
 	sudo umount $(FS_IMG)
 
 build:
-	kbuild build byteos.yaml $(PLATFORM)
+	cargo build --target $(TARGET) --features "$(features)" --release
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 

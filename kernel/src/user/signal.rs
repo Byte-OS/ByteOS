@@ -5,8 +5,9 @@ use log::debug;
 use polyhal_trap::trapframe::TrapFrameArgs;
 use signal::SignalFlags;
 
-use crate::syscall::consts::{SignalUserContext, UserRef};
+use crate::syscall::types::signal::SignalUserContext;
 use crate::tasks::{current_user_task, UserTaskControlFlow};
+use crate::utils::useref::UserRef;
 
 use super::UserTaskContainer;
 
