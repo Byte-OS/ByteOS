@@ -1,9 +1,9 @@
-use super::consts::UserRef;
 use super::SysResult;
 use crate::socket::{self, NetType};
 use crate::tasks::FileItem;
 use crate::user::socket_pair::create_socket_pair;
 use crate::user::UserTaskContainer;
+use crate::utils::useref::UserRef;
 use alloc::sync::Arc;
 use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};

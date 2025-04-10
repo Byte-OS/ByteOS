@@ -3,7 +3,7 @@ global:
     board: "qemu"
     # Available are fat32, ext4 and ext4_rs.
     # root_fs: "fat32"
-    root_fs: "ext4_rs"
+    root_fs: "ext4"
   env:
     HEAP_SIZE: "0x0180_0000"
     MOUNT_IMG_PATH: "mount.img"
@@ -32,12 +32,10 @@ bin:
       driver: "kvirtio,kgoldfish-rtc,ns16550a,kramdisk"
   loongarch64-qemu:
     target: "loongarch64-unknown-none"
-    # build_std: "core,alloc"
     configs:
       driver: "kramdisk"
   loongarch64-2k1000:
     target: "loongarch64-unknown-none"
-    # build_std: "core,alloc"
     configs:
       driver: "kramdisk"
       board: "2k1000"

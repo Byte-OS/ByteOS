@@ -1,6 +1,4 @@
-pub mod consts;
 mod fd;
-mod func;
 mod mm;
 mod shm;
 mod signal;
@@ -8,10 +6,11 @@ mod socket;
 mod sys;
 mod task;
 mod time;
+pub mod types;
 
 pub use socket::NET_SERVER;
 use syscalls::{Errno, Sysno};
-pub use task::exec_with_process;
+pub use task::{cache_task_template, exec_with_process};
 
 use log::warn;
 

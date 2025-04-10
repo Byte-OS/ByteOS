@@ -6,7 +6,7 @@ use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECU
 use polyhal::common::get_cpu_num;
 
 use crate::consts::USER_WORK_DIR;
-use crate::syscall::consts::{ITimerVal, TimeVal};
+use crate::syscall::types::time::{ITimerVal, TimeVal};
 use crate::syscall::{exec_with_process, NET_SERVER};
 use crate::user::entry::user_entry;
 

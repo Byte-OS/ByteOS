@@ -3,9 +3,9 @@ use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
 use syscalls::Errno;
 
-use crate::{tasks::WaitSignal, user::UserTaskContainer};
+use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
 
-use super::{consts::UserRef, SysResult};
+use super::SysResult;
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。

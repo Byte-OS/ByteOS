@@ -1,18 +1,20 @@
-use super::consts::UserRef;
+use super::types::fd::IoVec;
+use super::types::poll::{EpollEvent, EpollFile};
 use super::SysResult;
-use crate::epoll::{EpollEvent, EpollFile};
-use crate::syscall::consts::{current_nsec, from_vfs, FcntlCmd, IoVec, AT_CWD};
-use crate::syscall::func::timespc_now;
+use crate::syscall::types::fd::{FcntlCmd, AT_CWD};
 use crate::tasks::{FileItem, UserTask};
 use crate::user::UserTaskContainer;
-use alloc::string::String;
-use alloc::sync::Arc;
+use crate::utils::time::{current_nsec, current_timespec};
+use crate::utils::{useref::UserRef, vfs::from_vfs};
+use alloc::{string::String, sync::Arc};
 use bit_field::BitArray;
 use core::cmp;
 use executor::yield_now;
-use fs::dentry::{dentry_open, DentryNode};
-use fs::pipe::create_pipe;
-use fs::{OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW};
+use fs::{
+    dentry::{dentry_open, DentryNode},
+    pipe::create_pipe,
+    OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW,
+};
 use log::debug;
 use num_traits::FromPrimitive;
 use polyhal::VirtAddr;
@@ -518,14 +520,14 @@ impl UserTaskContainer {
         // build times
         let mut times = match !times_ptr.is_valid() {
             true => {
-                vec![timespc_now(), timespc_now()]
+                vec![current_timespec(), current_timespec()]
             }
             false => {
                 let ts = times_ptr.slice_mut_with_len(2);
                 let mut times = vec![];
                 for i in 0..2 {
                     if ts[i].nsec == UTIME_NOW {
-                        times.push(timespc_now());
+                        times.push(current_timespec());
                     } else {
                         times.push(ts[i]);
                     }
