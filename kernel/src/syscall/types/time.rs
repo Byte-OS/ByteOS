@@ -3,8 +3,10 @@ use core::{cmp::Ordering, ops::Add};
 #[repr(C)]
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct TimeVal {
-    pub sec: usize,  /* 秒 */
-    pub usec: usize, /* 微秒, 范围在0~999999 */
+    /// 秒
+    pub sec: usize,
+    /// 微秒, 范围在0~999999
+    pub usec: usize,
 }
 
 impl Add for TimeVal {
@@ -44,16 +46,17 @@ pub struct ITimerVal {
     pub value: TimeVal,
 }
 
-// tms_utime记录的是进程执行用户代码的时间.
-// tms_stime记录的是进程执行内核代码的时间.
-// tms_cutime记录的是子进程执行用户代码的时间.
-// tms_ustime记录的是子进程执行内核代码的时间.
+/// 程序运行的时间
 #[allow(dead_code)]
 #[derive(Default, Clone, Copy)]
 pub struct TMS {
+    /// 进程执行用户代码的时间
     pub utime: u64,
+    /// 进程执行内核代码的时间
     pub stime: u64,
+    /// 子进程执行用户代码的时间
     pub cutime: u64,
+    /// 子进程执行内核代码的时间
     pub cstime: u64,
 }
 

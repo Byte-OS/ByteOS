@@ -10,7 +10,6 @@ pub mod types;
 
 pub use socket::NET_SERVER;
 use syscalls::{Errno, Sysno};
-pub use task::{cache_task_template, exec_with_process};
 
 use log::warn;
 

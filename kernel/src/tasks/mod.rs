@@ -1,5 +1,6 @@
 mod async_ops;
 pub mod elf;
+pub mod exec;
 mod filetable;
 mod initproc;
 mod memset;
@@ -8,11 +9,7 @@ mod signal;
 mod task;
 
 use self::initproc::initproc;
-use crate::{
-    consts::USER_WORK_DIR,
-    syscall::{exec_with_process, NET_SERVER},
-    user::entry::user_entry,
-};
+use crate::{consts::USER_WORK_DIR, syscall::NET_SERVER, user::entry::user_entry};
 use alloc::{
     string::String,
     sync::Weak,
@@ -22,6 +19,7 @@ pub use async_ops::{
     futex_requeue, futex_wake, WaitFutex, WaitHandleAbleSignal, WaitPid, WaitSignal,
 };
 use devices::get_net_device;
+use exec::exec_with_process;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
 pub use filetable::FileItem;
 pub use memset::{MapTrack, MemArea, MemType};
