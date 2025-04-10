@@ -1,3 +1,5 @@
+use core::ops::Deref;
+
 use alloc::vec::Vec;
 use bit_field::{BitArray, BitField};
 use log::info;
@@ -33,6 +35,14 @@ impl Drop for FrameTracker {
     fn drop(&mut self) {
         self.clear();
         FRAME_ALLOCATOR.lock().dealloc(self.0);
+    }
+}
+
+impl Deref for FrameTracker {
+    type Target = PhysAddr;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
     }
 }
 

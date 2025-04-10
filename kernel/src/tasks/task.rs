@@ -172,7 +172,7 @@ impl UserTask {
             debug!(
                 "map {:?} @ {:#x} size: {:#x} flags: {:?}",
                 vaddr,
-                trackers[0].tracker.0.raw(),
+                trackers[0].tracker.raw(),
                 count * PAGE_SIZE,
                 MappingFlags::URWX
             );
@@ -223,20 +223,17 @@ impl UserTask {
         unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx }
     }
 
-    pub fn sbrk(&self, incre: isize) -> usize {
-        let inner = self.pcb.lock();
-        let curr_page = inner.heap / PAGE_SIZE;
-        let after_page = (inner.heap as isize + incre) as usize / PAGE_SIZE;
-        drop(inner);
-        // need alloc frame page
+    pub fn sbrk(&self, addr: usize) -> usize {
+        let curr_page = self.pcb.lock().heap.div_ceil(PAGE_SIZE);
+        let after_page = addr.div_ceil(PAGE_SIZE);
+        // 如果需要申请内存
         if after_page > curr_page {
             for i in curr_page..after_page {
-                self.frame_alloc(va!((i + 1) * PAGE_SIZE), MemType::CodeSection, 1);
+                self.frame_alloc(va!(i * PAGE_SIZE), MemType::CodeSection, 1);
             }
         }
-        let mut inner = self.pcb.lock();
-        inner.heap = (inner.heap as isize + incre) as usize;
-        inner.heap
+        self.pcb.lock().heap = addr;
+        addr
     }
 
     pub fn heap(&self) -> usize {

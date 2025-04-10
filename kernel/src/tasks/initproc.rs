@@ -73,20 +73,22 @@ async fn command(cmd: &str) {
 
 pub async fn initproc() {
     println!("start kernel tasks");
+    // command("./runtest.exe -w entry-dynamic.exe argv").await;
+    // command("./entry-dynamic.exe argv").await;
     // command("busybox echo run time-test").await;
     // command("time-test").await;
 
     // command("busybox echo run netperf_testcode.sh").await;
     // command("busybox sh netperf_testcode.sh").await;
 
-    // command("busybox echo run busybox_testcode.sh").await;
-    // command("busybox sh busybox_testcode.sh").await;
+    command("busybox echo run busybox_testcode.sh").await;
+    command("busybox sh busybox_testcode.sh").await;
 
-    // command("busybox echo run libctest_testcode.sh").await;
+    command("busybox echo run libctest_testcode.sh").await;
     command("busybox sh libctest_testcode.sh").await;
 
-    // command("busybox echo run lua_testcode.sh").await;
-    // command("busybox sh lua_testcode.sh").await;
+    command("busybox echo run lua_testcode.sh").await;
+    command("busybox sh lua_testcode.sh").await;
 
     // command("busybox echo run cyclic_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;

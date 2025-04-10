@@ -14,13 +14,11 @@ use syscalls::Errno;
 const MAP_AREA_START: usize = 0x2_0000_0000;
 
 impl UserTaskContainer {
-    pub async fn sys_brk(&self, addr: isize) -> SysResult {
-        debug!("sys_brk @ increment: {:#x}", addr);
-        if addr == 0 {
-            Ok(self.task.heap())
-        } else {
-            debug!("alloc pos: {}", addr - self.task.heap() as isize);
-            Ok(self.task.sbrk(addr - self.task.heap() as isize))
+    pub async fn sys_brk(&self, addr: usize) -> SysResult {
+        debug!("sys_brk @ new: {:#x} old: {:#x}", addr, self.task.heap());
+        match addr {
+            0 => Ok(self.task.heap()),
+            _ => Ok(self.task.sbrk(addr)),
         }
     }
 
