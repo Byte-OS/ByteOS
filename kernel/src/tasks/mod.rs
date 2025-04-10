@@ -1,17 +1,3 @@
-use alloc::string::String;
-use alloc::sync::Weak;
-use alloc::{sync::Arc, vec::Vec};
-use devices::get_net_device;
-use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
-use polyhal::common::get_cpu_num;
-
-use crate::consts::USER_WORK_DIR;
-use crate::syscall::types::time::{ITimerVal, TimeVal};
-use crate::syscall::{exec_with_process, NET_SERVER};
-use crate::user::entry::user_entry;
-
-use self::initproc::initproc;
-
 mod async_ops;
 pub mod elf;
 mod filetable;
@@ -21,15 +7,28 @@ mod shm;
 mod signal;
 mod task;
 
-pub use filetable::FileItem;
-pub use memset::{MapTrack, MemArea, MemType};
-pub use shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
-pub use signal::SignalList;
-pub use task::UserTask;
-
+use self::initproc::initproc;
+use crate::{
+    consts::USER_WORK_DIR,
+    syscall::{exec_with_process, NET_SERVER},
+    user::entry::user_entry,
+};
+use alloc::{
+    string::String,
+    sync::Weak,
+    {sync::Arc, vec::Vec},
+};
 pub use async_ops::{
     futex_requeue, futex_wake, WaitFutex, WaitHandleAbleSignal, WaitPid, WaitSignal,
 };
+use devices::get_net_device;
+use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
+pub use filetable::FileItem;
+pub use memset::{MapTrack, MemArea, MemType};
+use polyhal::common::get_cpu_num;
+pub use shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
+pub use signal::SignalList;
+pub use task::UserTask;
 
 pub enum UserTaskControlFlow {
     Continue,
@@ -81,24 +80,4 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
 #[inline]
 pub fn current_user_task() -> Arc<UserTask> {
     current_task().downcast_arc::<UserTask>().ok().unwrap()
-}
-
-// tms_utime记录的是进程执行用户代码的时间.
-// tms_stime记录的是进程执行内核代码的时间.
-// tms_cutime记录的是子进程执行用户代码的时间.
-// tms_ustime记录的是子进程执行内核代码的时间.
-#[allow(dead_code)]
-#[derive(Default, Clone, Copy)]
-pub struct TMS {
-    pub utime: u64,
-    pub stime: u64,
-    pub cutime: u64,
-    pub cstime: u64,
-}
-
-#[derive(Debug, Clone, Copy, Default)]
-pub struct ProcessTimer {
-    pub timer: ITimerVal,
-    pub next: TimeVal,
-    pub last: TimeVal,
 }

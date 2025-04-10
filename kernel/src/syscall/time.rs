@@ -1,9 +1,9 @@
 use super::{
-    types::time::{ITimerVal, TimeVal},
+    types::time::{ITimerVal, TimeVal, TMS},
     SysResult,
 };
 use crate::{
-    tasks::{WaitHandleAbleSignal, TMS},
+    tasks::WaitHandleAbleSignal,
     user::UserTaskContainer,
     utils::{
         time::{current_nsec, current_timeval},
