@@ -102,7 +102,7 @@ impl UserTaskContainer {
         act: UserRef<SigAction>,
         oldact: UserRef<SigAction>,
     ) -> SysResult {
-        let signal = SignalFlags::from_usize(sig);
+        let signal = SignalFlags::from_num(sig);
         debug!(
             "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
             signal, act, oldact

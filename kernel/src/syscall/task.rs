@@ -394,7 +394,7 @@ impl UserTaskContainer {
 
         match child {
             Some(child) => {
-                let target_signal = SignalFlags::from_usize(signum);
+                let target_signal = SignalFlags::from_num(signum);
                 let child_task = child.upgrade().unwrap();
                 let mut child_tcb = child_task.tcb.write();
                 if !child_tcb.signal.has_sig(target_signal.clone()) {
@@ -452,7 +452,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_kill(&self, pid: usize, signum: usize) -> SysResult {
-        let signal = SignalFlags::from_usize(signum);
+        let signal = SignalFlags::from_num(signum);
         debug!(
             "[task {}] sys_kill @ pid: {}, signum: {:?}",
             self.tid, pid, signal

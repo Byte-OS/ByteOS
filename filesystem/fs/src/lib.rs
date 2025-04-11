@@ -1,24 +1,22 @@
 #![no_std]
-#![feature(extract_if)]
 #![feature(let_chains)]
 
 #[macro_use]
 extern crate alloc;
-
 #[macro_use]
 extern crate log;
 
+use crate::dentry::{dentry_init, DentryNode};
+use alloc::{
+    string::{String, ToString},
+    sync::Arc,
+    vec::Vec,
+};
 use core::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
     usize,
-};
-
-use alloc::{
-    string::{String, ToString},
-    sync::Arc,
-    vec::Vec,
 };
 use devfs::{DevDir, DevFS, Sdx};
 use devices::get_blk_devices;
@@ -27,9 +25,8 @@ use ramfs::RamFs;
 use sync::LazyInit;
 use vfscore::{FileSystem, VfsResult};
 
-use crate::dentry::{dentry_init, DentryNode};
-
 pub mod dentry;
+pub mod file;
 
 #[cfg(root_fs = "ext4_rs")]
 mod ext4_rs_shim;
