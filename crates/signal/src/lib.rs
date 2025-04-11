@@ -121,8 +121,7 @@ bitflags! {
 }
 
 impl SignalFlags {
-    #[inline]
-    pub fn from_usize(num: usize) -> SignalFlags {
+    pub const fn from_num(num: usize) -> SignalFlags {
         SignalFlags::from_bits_truncate(1 << (num - 1))
     }
 

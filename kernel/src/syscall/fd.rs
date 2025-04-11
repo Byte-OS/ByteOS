@@ -440,15 +440,17 @@ impl UserTaskContainer {
             self.tid, fd, offset as isize, whence
         );
 
+        let seek_from = match whence {
+            0 => SeekFrom::SET(offset),
+            1 => SeekFrom::CURRENT(offset as isize),
+            2 => SeekFrom::END(offset as isize),
+            _ => return Err(Errno::EINVAL),
+        };
+
         self.task
             .get_fd(fd)
             .ok_or(Errno::EBADF)?
-            .seek(match whence {
-                0 => SeekFrom::SET(offset),
-                1 => SeekFrom::CURRENT(offset as isize),
-                2 => SeekFrom::END(offset as isize),
-                _ => return Err(Errno::EINVAL),
-            })
+            .seek(seek_from)
             .map_err(from_vfs)
     }
 

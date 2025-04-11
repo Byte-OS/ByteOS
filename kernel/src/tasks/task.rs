@@ -16,7 +16,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use core::mem::size_of;
+use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::File;
@@ -227,11 +227,9 @@ impl UserTask {
         let curr_page = self.pcb.lock().heap.div_ceil(PAGE_SIZE);
         let after_page = addr.div_ceil(PAGE_SIZE);
         // 如果需要申请内存
-        if after_page > curr_page {
-            for i in curr_page..after_page {
-                self.frame_alloc(va!(i * PAGE_SIZE), MemType::CodeSection, 1);
-            }
-        }
+        (curr_page..after_page).for_each(|i| {
+            self.frame_alloc(va!(i * PAGE_SIZE), MemType::CodeSection, 1);
+        });
         self.pcb.lock().heap = addr;
         addr
     }
@@ -273,7 +271,7 @@ impl UserTask {
                         .tcb
                         .write()
                         .signal
-                        .add_signal(SignalFlags::from_usize(exit_signal as usize));
+                        .add_signal(SignalFlags::from_num(exit_signal as _));
                 } else {
                     parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
                 }
@@ -387,7 +385,7 @@ impl UserTask {
 
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
-        let sp = tcb.cx[TrapFrameArgs::SP] - alignup(len + 1, ULEN); // ceil_div(len + 1, ULEN) * ULEN;
+        let sp = tcb.cx[TrapFrameArgs::SP] - alignup(len + 1, ULEN);
         VirtAddr::from(sp)
             .slice_mut_with_len(len)
             .copy_from_slice(buffer);
@@ -413,26 +411,14 @@ impl UserTask {
             .memset
             .iter()
             .filter(|x| x.mtype != MemType::Stack)
-            .fold(0, |acc, x| {
-                if acc > x.start + x.len {
-                    acc
-                } else {
-                    x.start + x.len
-                }
-            });
-        let shm_last = self.pcb.lock().shms.iter().fold(0, |acc, v| {
-            if v.start + v.size > acc {
-                v.start + v.size
-            } else {
-                acc
-            }
-        });
-
-        VirtAddr::new(if map_last > shm_last {
-            map_last
-        } else {
-            shm_last
-        })
+            .fold(0, |acc, x| max(acc, x.start + x.len));
+        let shm_last = self
+            .pcb
+            .lock()
+            .shms
+            .iter()
+            .fold(0, |acc, v| max(v.start + v.size, acc));
+        VirtAddr::new(max(map_last, shm_last))
     }
 
     pub fn get_fd(&self, index: usize) -> Option<Arc<FileItem>> {
@@ -523,7 +509,7 @@ impl AsyncTask for UserTask {
                     .tcb
                     .write()
                     .signal
-                    .add_signal(SignalFlags::from_usize(exit_signal as usize));
+                    .add_signal(SignalFlags::from_num(exit_signal as usize));
             } else {
                 parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
             }

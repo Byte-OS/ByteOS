@@ -1,5 +1,4 @@
 #![no_std]
-#![feature(extract_if)]
 
 extern crate alloc;
 
