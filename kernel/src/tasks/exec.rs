@@ -5,7 +5,6 @@ use crate::{
         elf::{init_task_stack, ElfExtra},
         MapTrack, MemArea, MemType,
     },
-    utils::vfs::from_vfs,
 };
 use alloc::{
     boxed::Box,
@@ -38,14 +37,13 @@ pub struct TaskCacheTemplate {
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
 pub fn cache_task_template(path: &str) -> Result<(), Errno> {
-    let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)
-        .map_err(from_vfs)?
+    let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)?
         .node
         .clone();
     let file_size = file.metadata().unwrap().size;
     let frame_paddr = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
     let buffer = frame_paddr.as_ref().unwrap()[0].slice_mut_with_len(file_size);
-    let rsize = file.readat(0, buffer).map_err(from_vfs)?;
+    let rsize = file.readat(0, buffer)?;
     assert_eq!(rsize, file_size);
     // flush_dcache_range();
     // 读取elf信息
@@ -175,15 +173,14 @@ pub async fn exec_with_process(
         Ok(user_task)
     } else {
         drop(caches);
-        let file = dentry_open(dentry_root(), &path, OpenFlags::O_RDONLY)
-            .map_err(from_vfs)?
+        let file = dentry_open(dentry_root(), &path, OpenFlags::O_RDONLY)?
             .node
             .clone();
         debug!("file: {:#x?}", file.metadata().unwrap());
         let file_size = file.metadata().unwrap().size;
         let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
         let buffer = frame_ppn.as_ref().unwrap()[0].slice_mut_with_len(file_size);
-        let rsize = file.readat(0, buffer).map_err(from_vfs)?;
+        let rsize = file.readat(0, buffer)?;
         assert_eq!(rsize, file_size);
         // flush_dcache_range();
         // 读取elf信息

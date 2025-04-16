@@ -6,7 +6,8 @@ use devices::utils::{get_char, puts};
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use sync::Mutex;
-use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsError, VfsResult};
+use syscalls::Errno;
+use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsResult};
 pub struct Tty {
     buffer: Mutex<VecDeque<u8>>,
     termios: Mutex<Termios>,
@@ -41,7 +42,7 @@ impl INodeInterface for Tty {
                 buffer[0] = c as u8;
                 Ok(1)
             } else {
-                Err(VfsError::Blocking)
+                Err(Errno::EWOULDBLOCK)
             }
         }
     }
@@ -85,7 +86,7 @@ impl INodeInterface for Tty {
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> VfsResult<usize> {
-        let cmd = FromPrimitive::from_usize(command).ok_or(VfsError::InvalidInput)?;
+        let cmd = FromPrimitive::from_usize(command).ok_or(Errno::EINVAL)?;
         match cmd {
             TeletypeCommand::TCGETS | TeletypeCommand::TCGETA => {
                 unsafe {
@@ -103,14 +104,14 @@ impl INodeInterface for Tty {
                     *pgid = *self.pgid.lock();
                     Ok(0)
                 }
-                None => Err(VfsError::InvalidInput),
+                None => Err(Errno::EINVAL),
             },
             TeletypeCommand::TIOCSPGRP => match unsafe { (arg as *mut u32).as_mut() } {
                 Some(pgid) => {
                     *self.pgid.lock() = *pgid;
                     Ok(0)
                 }
-                None => Err(VfsError::InvalidInput),
+                None => Err(Errno::EINVAL),
             },
             TeletypeCommand::TIOCGWINSZ => {
                 unsafe {
@@ -124,7 +125,7 @@ impl INodeInterface for Tty {
                 }
                 Ok(0)
             }
-            _ => Err(vfscore::VfsError::NotSupported),
+            _ => Err(Errno::EPERM),
         }
         // Err(VfsError::NotSupported)
     }

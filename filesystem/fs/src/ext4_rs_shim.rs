@@ -6,6 +6,7 @@ use alloc::{
 use devices::get_blk_device;
 
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::{
     DirEntry, FileSystem, FileType, INodeInterface, Metadata, OpenFlags, StatFS, StatMode,
     TimeSpec, VfsResult,
@@ -180,11 +181,11 @@ impl INodeInterface for Ext4FileWrapper {
 
         if let Err(e) = r {
             match e.error() {
-                Errnum::ENOENT => Err(vfscore::VfsError::FileNotFound),
-                Errnum::EALLOCFIAL => Err(vfscore::VfsError::UnexpectedEof),
-                Errnum::ELINKFIAL => Err(vfscore::VfsError::UnexpectedEof),
+                Errnum::ENOENT => Err(Errno::ENOENT),
+                Errnum::EALLOCFIAL => Err(Errno::EADDRINUSE),
+                Errnum::ELINKFIAL => Err(Errno::EAFNOSUPPORT),
 
-                _ => Err(vfscore::VfsError::UnexpectedEof),
+                _ => Err(Errno::EIO),
             }
         } else {
             Ok(Arc::new(Ext4FileWrapper {
@@ -251,8 +252,8 @@ impl INodeInterface for Ext4FileWrapper {
 
         if let Err(e) = r {
             match e.error() {
-                Errnum::EINVAL => Err(vfscore::VfsError::InvalidInput),
-                _ => Err(vfscore::VfsError::UnexpectedEof),
+                Errnum::EINVAL => Err(Errno::EINVAL),
+                _ => Err(Errno::EIO),
             }
         } else {
             Ok(ext4_file.fpos - offset)
@@ -269,17 +270,6 @@ impl INodeInterface for Ext4FileWrapper {
 
     fn remove(&self, _name: &str) -> VfsResult<()> {
         todo!("ext4 loopup")
-    }
-
-    fn touch(&self, path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        let mut ext4_file = Ext4File::new();
-        let _ = self.ext4.ext4_open(&mut ext4_file, path, "w+", true);
-        Ok(Arc::new(Ext4FileWrapper {
-            inner: Mutex::new(ext4_file),
-            ext4: self.ext4.clone(),
-            file_type: FileType::File,
-            file_name: String::from(path),
-        }))
     }
 
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
@@ -316,15 +306,15 @@ impl INodeInterface for Ext4FileWrapper {
     }
 
     fn resolve_link(&self) -> VfsResult<alloc::string::String> {
-        Err(vfscore::VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn link(&self, _name: &str, _src: Arc<dyn INodeInterface>) -> VfsResult<()> {
-        Err(vfscore::VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn sym_link(&self, _name: &str, _src: &str) -> VfsResult<()> {
-        Err(vfscore::VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn unlink(&self, _name: &str) -> VfsResult<()> {

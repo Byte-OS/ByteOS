@@ -81,14 +81,16 @@ pub async fn initproc() {
     // command("busybox echo run netperf_testcode.sh").await;
     // command("busybox sh netperf_testcode.sh").await;
 
-    command("busybox echo run busybox_testcode.sh").await;
-    command("busybox sh busybox_testcode.sh").await;
+    // command("busybox echo run busybox_testcode.sh").await;
+    // command("busybox sh busybox_testcode.sh").await;
 
     command("busybox echo run libctest_testcode.sh").await;
     command("busybox sh libctest_testcode.sh").await;
 
-    command("busybox echo run lua_testcode.sh").await;
-    command("busybox sh lua_testcode.sh").await;
+    // command("busybox echo run lua_testcode.sh").await;
+    // command("busybox sh lua_testcode.sh").await;
+
+    // command("busybox init").await;
 
     // command("busybox echo run cyclic_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;

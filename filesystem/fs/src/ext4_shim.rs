@@ -12,9 +12,10 @@ use lwext4_rust::{
     Ext4BlockWrapper, Ext4File, InodeTypes, KernelDevOp,
 };
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::{
     DirEntry, FileSystem, FileType, INodeInterface, Metadata, OpenFlags, StatFS, StatMode,
-    TimeSpec, VfsError, VfsResult,
+    TimeSpec, VfsResult,
 };
 
 const BLOCK_SIZE: usize = 0x200;
@@ -200,10 +201,10 @@ impl Ext4FileSystem {
     }
 }
 
-fn map_ext4_err(err: i32) -> VfsError {
+fn map_ext4_err(err: i32) -> Errno {
     match err {
-        2 => VfsError::FileNotFound,
-        _ => VfsError::NotSupported,
+        2 => Errno::ENOENT,
+        _ => Errno::EPERM,
     }
 }
 
@@ -371,19 +372,6 @@ impl INodeInterface for Ext4FileWrapper {
         self.unlink(name)
     }
 
-    fn touch(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        let fpath = self.path_deal_with(name);
-        let mut file = self.inner.lock();
-        file.file_open(&fpath, O_WRONLY | O_CREAT | O_TRUNC)
-            .map_err(map_ext4_err)?;
-        file.file_close().map_err(map_ext4_err)?;
-        Ok(Arc::new(Ext4FileWrapper {
-            filename: name.to_string(),
-            file_type: FileType::File,
-            inner: Mutex::new(Ext4File::new(&fpath, InodeTypes::EXT4_DE_REG_FILE)),
-        }))
-    }
-
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
         let iters = self
             .inner
@@ -394,9 +382,9 @@ impl INodeInterface for Ext4FileWrapper {
         for (name, file_type) in zip(iters.0, iters.1).skip(3) {
             ans.push(DirEntry {
                 filename: CString::from_vec_with_nul(name)
-                    .map_err(|_| VfsError::InvalidData)?
+                    .map_err(|_| Errno::EINVAL)?
                     .to_str()
-                    .map_err(|_| VfsError::InvalidData)?
+                    .map_err(|_| Errno::EINVAL)?
                     .to_string(),
                 len: 0,
                 file_type: map_ext4_type(file_type),
@@ -440,7 +428,7 @@ impl INodeInterface for Ext4FileWrapper {
                     }))
                 }
             } else {
-                Err(vfscore::VfsError::FileNotFound)
+                Err(Errno::ENOENT)
             }
         }
     }
@@ -452,18 +440,6 @@ impl INodeInterface for Ext4FileWrapper {
             .file_truncate(size as _)
             .map_err(map_ext4_err)?;
         Ok(())
-    }
-
-    fn resolve_link(&self) -> VfsResult<alloc::string::String> {
-        Err(vfscore::VfsError::NotSupported)
-    }
-
-    fn link(&self, _name: &str, _src: Arc<dyn INodeInterface>) -> VfsResult<()> {
-        Err(vfscore::VfsError::NotSupported)
-    }
-
-    fn sym_link(&self, _name: &str, _src: &str) -> VfsResult<()> {
-        Err(vfscore::VfsError::NotSupported)
     }
 
     fn unlink(&self, name: &str) -> VfsResult<()> {

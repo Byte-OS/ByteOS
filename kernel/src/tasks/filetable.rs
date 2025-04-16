@@ -6,9 +6,10 @@ use core::{
 use alloc::{string::String, sync::Arc, vec::Vec};
 use fs::{
     dentry::{self, dentry_open, dentry_root, DentryNode},
-    INodeInterface, VfsError, WaitBlockingRead, WaitBlockingWrite,
+    INodeInterface, WaitBlockingRead, WaitBlockingWrite,
 };
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::{
     DirEntry, Dirent64, Metadata, OpenFlags, PollEvent, SeekFrom, Stat, StatFS, TimeSpec,
 };
@@ -114,7 +115,7 @@ impl<'a> FileItem {
         self.inner.clone()
     }
 
-    pub fn fs_open(path: &str, open_flags: OpenFlags) -> Result<Arc<Self>, VfsError> {
+    pub fn fs_open(path: &str, open_flags: OpenFlags) -> Result<Arc<Self>, Errno> {
         let mut options = FileOptions::R | FileOptions::X;
         if open_flags.contains(OpenFlags::O_WRONLY)
             || open_flags.contains(OpenFlags::O_RDWR)
@@ -137,7 +138,7 @@ impl<'a> FileItem {
         }))
     }
 
-    pub fn dentry_open(&self, path: &str, flags: OpenFlags) -> Result<Arc<Self>, VfsError> {
+    pub fn dentry_open(&self, path: &str, flags: OpenFlags) -> Result<Arc<Self>, Errno> {
         let mut options = FileOptions::R | FileOptions::X;
         if flags.contains(OpenFlags::O_WRONLY)
             || flags.contains(OpenFlags::O_RDWR)
@@ -158,24 +159,24 @@ impl<'a> FileItem {
     }
 
     #[inline(always)]
-    fn check_writeable(&self) -> Result<(), VfsError> {
+    fn check_writeable(&self) -> Result<(), Errno> {
         if self.options.contains(FileOptions::W) {
             Ok(())
         } else {
-            Err(VfsError::NotWriteable)
+            Err(Errno::EPERM)
         }
     }
 
-    pub fn path(&self) -> Result<String, VfsError> {
+    pub fn path(&self) -> Result<String, Errno> {
         // Ok(&self.path)
         // dentry_open(dentry, path, flags)
         match &self.dentry {
             Some(dentry) => Ok(dentry.path()),
-            None => Err(VfsError::NotFile),
+            None => Err(Errno::ENOENT),
         }
     }
 
-    pub fn getdents(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
+    pub fn getdents(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
         let buf_ptr = buffer.as_mut_ptr() as usize;
         let len = buffer.len();
         let mut ptr: usize = buf_ptr;
@@ -215,25 +216,24 @@ impl<'a> FileItem {
     }
 }
 
-#[allow(dead_code)]
 impl FileItem {
-    pub fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
+    pub fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, Errno> {
         self.inner.mkdir(name)
     }
 
-    pub fn rmdir(&self, name: &str) -> Result<(), VfsError> {
+    pub fn rmdir(&self, name: &str) -> Result<(), Errno> {
         self.inner.rmdir(name)
     }
 
-    pub fn remove(&self, name: &str) -> Result<(), VfsError> {
+    pub fn remove(&self, name: &str) -> Result<(), Errno> {
         self.inner.remove(name)
     }
 
-    pub fn moveto(&self, _path: &str) -> Result<Self, VfsError> {
+    pub fn moveto(&self, _path: &str) -> Result<Self, Errno> {
         todo!("Move the file? to other location")
     }
 
-    pub fn remove_self(&self) -> Result<(), VfsError> {
+    pub fn remove_self(&self) -> Result<(), Errno> {
         match &self.dentry {
             Some(dentry) => {
                 let filename = &dentry.filename;
@@ -243,35 +243,31 @@ impl FileItem {
                 }
                 Ok(())
             }
-            None => Err(VfsError::FileNotFound),
+            None => Err(Errno::ENOENT),
         }
     }
 
-    pub fn touch(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
-        self.inner.touch(name)
-    }
-
-    pub fn read_dir(&self) -> Result<Vec<DirEntry>, VfsError> {
+    pub fn read_dir(&self) -> Result<Vec<DirEntry>, Errno> {
         self.inner.read_dir()
     }
 
-    pub fn metadata(&self) -> Result<Metadata, VfsError> {
+    pub fn metadata(&self) -> Result<Metadata, Errno> {
         self.inner.metadata()
     }
 
-    pub fn lookup(&self, name: &str) -> Result<Arc<dyn INodeInterface>, VfsError> {
+    pub fn lookup(&self, name: &str) -> Result<Arc<dyn INodeInterface>, Errno> {
         self.inner.lookup(name)
     }
 
-    pub fn open(&self, name: &str, flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, VfsError> {
+    pub fn open(&self, name: &str, flags: OpenFlags) -> Result<Arc<dyn INodeInterface>, Errno> {
         self.inner.open(name, flags)
     }
 
-    pub fn ioctl(&self, command: usize, arg: usize) -> Result<usize, VfsError> {
+    pub fn ioctl(&self, command: usize, arg: usize) -> Result<usize, Errno> {
         self.inner.ioctl(command, arg)
     }
 
-    pub fn truncate(&self, size: usize) -> Result<(), VfsError> {
+    pub fn truncate(&self, size: usize) -> Result<(), Errno> {
         // self.check_writeable()?;
         // let mut offset = self.offset.lock();
         // if *offset > size {
@@ -280,55 +276,55 @@ impl FileItem {
         self.inner.truncate(size)
     }
 
-    pub fn flush(&self) -> Result<(), VfsError> {
+    pub fn flush(&self) -> Result<(), Errno> {
         self.inner.flush()
     }
 
-    pub fn resolve_link(&self) -> Result<String, VfsError> {
+    pub fn resolve_link(&self) -> Result<String, Errno> {
         self.inner.resolve_link()
     }
 
-    pub fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> Result<(), VfsError> {
+    pub fn link(&self, name: &str, src: Arc<dyn INodeInterface>) -> Result<(), Errno> {
         self.inner.link(name, src)
     }
 
-    pub fn unlink(&self, name: &str) -> Result<(), VfsError> {
+    pub fn unlink(&self, name: &str) -> Result<(), Errno> {
         self.inner.unlink(name)
     }
 
-    pub fn stat(&self, stat: &mut Stat) -> Result<(), VfsError> {
+    pub fn stat(&self, stat: &mut Stat) -> Result<(), Errno> {
         self.inner.stat(stat)?;
         stat.dev = 0;
         Ok(())
     }
 
-    pub fn mount(&self, path: &str) -> Result<(), VfsError> {
+    pub fn mount(&self, path: &str) -> Result<(), Errno> {
         self.inner.mount(path)
     }
 
-    pub fn umount(&self) -> Result<(), VfsError> {
+    pub fn umount(&self) -> Result<(), Errno> {
         self.inner.umount()
     }
 
-    pub fn statfs(&self, statfs: &mut StatFS) -> Result<(), VfsError> {
+    pub fn statfs(&self, statfs: &mut StatFS) -> Result<(), Errno> {
         self.inner.statfs(statfs)
     }
 
-    pub fn utimes(&self, times: &mut [TimeSpec]) -> Result<(), VfsError> {
+    pub fn utimes(&self, times: &mut [TimeSpec]) -> Result<(), Errno> {
         self.inner.utimes(times)
     }
 
-    pub fn poll(&self, events: PollEvent) -> Result<PollEvent, VfsError> {
+    pub fn poll(&self, events: PollEvent) -> Result<PollEvent, Errno> {
         self.inner.poll(events)
     }
 }
 
 impl FileItem {
-    pub fn readat(&self, offset: usize, buffer: &mut [u8]) -> Result<usize, VfsError> {
+    pub fn readat(&self, offset: usize, buffer: &mut [u8]) -> Result<usize, Errno> {
         self.inner.readat(offset, buffer)
     }
 
-    pub fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, VfsError> {
+    pub fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, Errno> {
         self.check_writeable()?;
         if buffer.len() == 0 {
             return Ok(0);
@@ -336,7 +332,7 @@ impl FileItem {
         self.inner.writeat(offset, buffer)
     }
 
-    pub fn read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
+    pub fn read(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
         let offset = *self.offset.lock();
         self.inner.readat(offset, buffer).map(|x| {
             *self.offset.lock() += x;
@@ -344,7 +340,7 @@ impl FileItem {
         })
     }
 
-    pub fn write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
+    pub fn write(&self, buffer: &[u8]) -> Result<usize, Errno> {
         self.check_writeable()?;
         if buffer.len() == 0 {
             return Ok(0);
@@ -356,7 +352,7 @@ impl FileItem {
         })
     }
 
-    pub async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, VfsError> {
+    pub async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
         let offset = *self.offset.lock();
         if self.flags.lock().contains(OpenFlags::O_NONBLOCK) {
             self.inner.readat(offset, buffer)
@@ -369,7 +365,7 @@ impl FileItem {
         })
     }
 
-    pub async fn async_write(&self, buffer: &[u8]) -> Result<usize, VfsError> {
+    pub async fn async_write(&self, buffer: &[u8]) -> Result<usize, Errno> {
         // self.check_writeable()?;
         if buffer.len() == 0 {
             return Ok(0);
@@ -383,7 +379,7 @@ impl FileItem {
             })
     }
 
-    pub fn seek(&self, seek_from: SeekFrom) -> Result<usize, VfsError> {
+    pub fn seek(&self, seek_from: SeekFrom) -> Result<usize, Errno> {
         let offset = *self.offset.lock();
         let mut new_off = match seek_from {
             SeekFrom::SET(off) => off as isize,

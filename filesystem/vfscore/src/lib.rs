@@ -6,6 +6,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use downcast_rs::{impl_downcast, DowncastSync};
+use syscalls::Errno;
 
 bitflags::bitflags! {
     #[derive(Debug, Clone)]
@@ -121,27 +122,6 @@ bitflags::bitflags! {
 pub const UTIME_NOW: usize = 0x3fffffff;
 pub const UTIME_OMIT: usize = 0x3ffffffe;
 
-#[derive(Debug, Clone, Copy)]
-pub enum VfsError {
-    NotLinkFile,
-    NotDir,
-    NotFile,
-    NotSupported,
-    FileNotFound,
-    AlreadyExists,
-    InvalidData,
-    DirectoryNotEmpty,
-    InvalidInput,
-    StorageFull,
-    UnexpectedEof,
-    WriteZero,
-    Io,
-    Blocking,
-    NoMountedPoint,
-    NotAPipe,
-    NotWriteable,
-}
-
 #[derive(Debug, Copy, Clone, PartialEq)]
 pub enum FileType {
     File,
@@ -177,11 +157,11 @@ pub trait FileSystem: Send + Sync {
     fn root_dir(&'static self) -> Arc<dyn INodeInterface>;
     fn name(&self) -> &str;
     fn flush(&self) -> VfsResult<()> {
-        Err(VfsError::FileNotFound)
+        Ok(())
     }
 }
 
-pub type VfsResult<T> = core::result::Result<T, VfsError>;
+pub type VfsResult<T> = core::result::Result<T, Errno>;
 
 #[repr(C)]
 #[derive(Default, Clone, Copy, Debug)]
@@ -270,95 +250,91 @@ pub struct PollFd {
 
 pub trait INodeInterface: DowncastSync + Send + Sync {
     fn metadata(&self) -> VfsResult<Metadata> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> VfsResult<usize> {
-        Err(VfsError::NotFile)
+        Err(Errno::ENOENT)
     }
 
     fn writeat(&self, _offset: usize, _buffer: &[u8]) -> VfsResult<usize> {
-        Err(VfsError::NotFile)
+        Err(Errno::ENOENT)
     }
 
     fn mkdir(&self, _name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        Err(VfsError::NotDir)
+        Err(Errno::EEXIST)
     }
 
     fn rmdir(&self, _name: &str) -> VfsResult<()> {
-        Err(VfsError::NotDir)
+        Err(Errno::ENOENT)
     }
 
     fn remove(&self, _name: &str) -> VfsResult<()> {
-        Err(VfsError::NotDir)
-    }
-
-    fn touch(&self, _name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        Err(VfsError::NotDir)
+        Err(Errno::ENOENT)
     }
 
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
-        Err(VfsError::NotDir)
+        Err(Errno::EPERM)
     }
 
     fn lookup(&self, _name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        Err(VfsError::NotDir)
+        Err(Errno::ENOENT)
     }
 
     fn open(&self, _name: &str, _flags: OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
-        Err(VfsError::NotDir)
+        Err(Errno::ENOENT)
     }
 
     fn ioctl(&self, _command: usize, _arg: usize) -> VfsResult<usize> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn truncate(&self, _size: usize) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn flush(&self) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn resolve_link(&self) -> VfsResult<String> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn link(&self, _name: &str, _src: Arc<dyn INodeInterface>) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn sym_link(&self, _name: &str, _src: &str) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn unlink(&self, _name: &str) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn stat(&self, _stat: &mut Stat) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn mount(&self, _path: &str) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn umount(&self) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn statfs(&self, _statfs: &mut StatFS) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn utimes(&self, _times: &mut [TimeSpec]) -> VfsResult<()> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 
     fn poll(&self, _events: PollEvent) -> VfsResult<PollEvent> {
-        Err(VfsError::NotSupported)
+        Err(Errno::EPERM)
     }
 }
 

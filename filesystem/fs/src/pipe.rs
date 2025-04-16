@@ -5,6 +5,7 @@ use alloc::{
     sync::{Arc, Weak},
 };
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::{INodeInterface, PollEvent, VfsResult};
 
 // pipe sender, just can write.
@@ -14,7 +15,7 @@ impl INodeInterface for PipeSender {
     fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         let mut queue = self.0.lock();
         if queue.len() > 0x50000 {
-            Err(vfscore::VfsError::Blocking)
+            Err(Errno::EWOULDBLOCK)
         } else {
             let wlen = buffer.len();
             queue.extend(buffer.iter());
@@ -51,7 +52,7 @@ impl INodeInterface for PipeReceiver {
                 buffer[i] = x;
             });
         if rlen == 0 && Weak::strong_count(&self.sender) > 0 {
-            Err(vfscore::VfsError::Blocking)
+            Err(Errno::EWOULDBLOCK)
         } else {
             Ok(rlen)
         }

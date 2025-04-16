@@ -8,7 +8,7 @@ use crate::{
         exec::exec_with_process, futex_requeue, futex_wake, FileItem, UserTask, WaitFutex, WaitPid,
     },
     user::{entry::user_entry, UserTaskContainer},
-    utils::{time::current_nsec, useref::UserRef, vfs::from_vfs},
+    utils::{time::current_nsec, useref::UserRef},
 };
 use alloc::{
     string::{String, ToString},
@@ -32,9 +32,7 @@ impl UserTaskContainer {
         let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_chdir @ path: {}", path);
         let now_file = self.task.pcb.lock().curr_dir.clone();
-        let new_dir = now_file
-            .dentry_open(path, OpenFlags::O_DIRECTORY)
-            .map_err(from_vfs)?;
+        let new_dir = now_file.dentry_open(path, OpenFlags::O_DIRECTORY)?;
 
         match new_dir.metadata().unwrap().file_type {
             fs::FileType::Directory => {
@@ -49,7 +47,7 @@ impl UserTaskContainer {
         debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
         let buffer = buf_ptr.slice_mut_with_len(size);
         let curr_path = self.task.pcb.lock().curr_dir.clone();
-        let path = curr_path.path().map_err(from_vfs)?;
+        let path = curr_path.path()?;
         let bytes = path.as_bytes();
         let len = cmp::min(bytes.len(), size);
         buffer[..len].copy_from_slice(&bytes[..len]);
@@ -101,7 +99,7 @@ impl UserTaskContainer {
             self.task.exit(0);
             return Ok(0);
         }
-        let _exec_file = FileItem::fs_open(filename, OpenFlags::O_RDONLY).map_err(from_vfs)?;
+        let _exec_file = FileItem::fs_open(filename, OpenFlags::O_RDONLY)?;
         exec_with_process(self.task.clone(), filename.to_string(), args, envp).await?;
         self.task.before_run();
         Ok(0)

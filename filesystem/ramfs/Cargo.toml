@@ -11,3 +11,4 @@ log = "0.4"
 sync = { workspace = true }
 polyhal = { workspace = true }
 runtime = { workspace = true }
+syscalls = { workspace = true }
