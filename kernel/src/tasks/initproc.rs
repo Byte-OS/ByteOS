@@ -8,7 +8,7 @@ use devices::utils::get_char;
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
 use fs::{
     dentry::{dentry_open, dentry_root, DentryNode},
-    get_filesystem, File, FileType, OpenFlags,
+    get_filesystem, FileType, OpenFlags,
 };
 use log::debug;
 use polyhal::{debug_console::DebugConsole, instruction::shutdown};
@@ -84,13 +84,15 @@ pub async fn initproc() {
     // command("busybox echo run busybox_testcode.sh").await;
     // command("busybox sh busybox_testcode.sh").await;
 
-    command("busybox echo run libctest_testcode.sh").await;
-    command("busybox sh libctest_testcode.sh").await;
+    // command("busybox echo run libctest_testcode.sh").await;
+    // command("busybox sh libctest_testcode.sh").await;
 
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 
     // command("busybox init").await;
+    // command("busybox sh").await;
+    command("busybox sh init.sh").await;
 
     // command("busybox echo run cyclic_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;

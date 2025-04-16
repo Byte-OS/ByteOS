@@ -21,7 +21,7 @@ pub use async_ops::{
 use devices::get_net_device;
 use exec::exec_with_process;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
-pub use filetable::FileItem;
+pub use filetable::File;
 pub use memset::{MapTrack, MemArea, MemType};
 use polyhal::common::get_cpu_num;
 pub use shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};

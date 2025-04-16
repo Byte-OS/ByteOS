@@ -38,8 +38,6 @@ mod fatfs_shim;
 
 pub mod pipe;
 
-pub type File = Arc<dyn INodeInterface>;
-
 pub use vfscore::{
     FileType, INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode,
     TimeSpec, UTIME_NOW, UTIME_OMIT,

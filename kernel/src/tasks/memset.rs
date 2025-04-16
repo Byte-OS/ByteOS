@@ -5,7 +5,7 @@ use core::{
     ops::{Deref, DerefMut},
 };
 use devices::PAGE_SIZE;
-use fs::File;
+use fs::INodeInterface;
 use polyhal::{PageTable, VirtAddr};
 use runtime::frame::FrameTracker;
 
@@ -85,7 +85,7 @@ impl Debug for MapTrack {
 pub struct MemArea {
     pub mtype: MemType,
     pub mtrackers: Vec<MapTrack>,
-    pub file: Option<File>,
+    pub file: Option<Arc<dyn INodeInterface>>,
     pub offset: usize,
     pub start: usize,
     pub len: usize,
