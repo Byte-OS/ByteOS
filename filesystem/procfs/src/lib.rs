@@ -26,7 +26,7 @@ impl ProcFS {
 }
 
 impl FileSystem for ProcFS {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
+    fn root_dir(&self) -> Arc<dyn INodeInterface> {
         Arc::new(DevDirContainer {
             inner: self.root.clone(),
         })
@@ -56,7 +56,7 @@ pub struct DevDirContainer {
 }
 
 impl INodeInterface for DevDirContainer {
-    fn open(&self, name: &str, _flags: vfscore::OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
+    fn lookup(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
         self.inner
             .map
             .get(name)
@@ -89,15 +89,5 @@ impl INodeInterface for DevDirContainer {
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
         Ok(())
-    }
-
-    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        Ok(vfscore::Metadata {
-            filename: "dev",
-            inode: 0,
-            file_type: FileType::Directory,
-            size: 0,
-            childrens: self.inner.map.len(),
-        })
     }
 }

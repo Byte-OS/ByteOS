@@ -1,6 +1,5 @@
 use super::SysResult;
 use crate::socket::{self, NetType};
-use crate::tasks::File;
 use crate::user::socket_pair::create_socket_pair;
 use crate::user::UserTaskContainer;
 use crate::utils::useref::UserRef;
@@ -9,6 +8,7 @@ use core::cmp;
 use core::net::{Ipv4Addr, SocketAddrV4};
 use devices::get_net_device;
 use executor::yield_now;
+use fs::file::File;
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;

@@ -1,6 +1,6 @@
 use num_derive::FromPrimitive;
 
-pub const AT_CWD: usize = -100 as isize as usize;
+pub const AT_CWD: isize = -100;
 
 #[repr(u32)]
 #[derive(Debug, Clone, PartialEq, FromPrimitive)]

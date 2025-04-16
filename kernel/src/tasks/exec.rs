@@ -15,10 +15,7 @@ use alloc::{
 use async_recursion::async_recursion;
 use core::ops::{Add, Mul};
 use devices::{frame_alloc_much, FrameTracker, PAGE_SIZE};
-use fs::{
-    dentry::{dentry_open, dentry_root},
-    OpenFlags,
-};
+use fs::{file::File, OpenFlags};
 use polyhal::MappingFlags;
 use sync::Mutex;
 use syscalls::Errno;
@@ -37,10 +34,11 @@ pub struct TaskCacheTemplate {
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
 pub fn cache_task_template(path: &str) -> Result<(), Errno> {
-    let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)?
-        .node
-        .clone();
-    let file_size = file.metadata().unwrap().size;
+    let file = File::open(path, OpenFlags::O_RDONLY)?;
+    // let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)?
+    //     .node
+    //     .clone();
+    let file_size = file.file_size()?;
     let frame_paddr = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
     let buffer = frame_paddr.as_ref().unwrap()[0].slice_mut_with_len(file_size);
     let rsize = file.readat(0, buffer)?;
@@ -135,6 +133,7 @@ pub fn cache_task_template(path: &str) -> Result<(), Errno> {
 #[async_recursion(Sync)]
 pub async fn exec_with_process(
     task: Arc<UserTask>,
+    curr_dir: Option<Arc<File>>,
     path: String,
     args: Vec<String>,
     envp: Vec<String>,
@@ -173,11 +172,12 @@ pub async fn exec_with_process(
         Ok(user_task)
     } else {
         drop(caches);
-        let file = dentry_open(dentry_root(), &path, OpenFlags::O_RDONLY)?
-            .node
+        // TODO: 运行程序的时候，判断当前的路径
+        let file = File::open(&path, OpenFlags::O_RDONLY)
+            .map(Arc::new)?
             .clone();
-        debug!("file: {:#x?}", file.metadata().unwrap());
-        let file_size = file.metadata().unwrap().size;
+        debug!("file: {:#x?}", file.path);
+        let file_size = file.file_size()?;
         let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
         let buffer = frame_ppn.as_ref().unwrap()[0].slice_mut_with_len(file_size);
         let rsize = file.readat(0, buffer)?;
@@ -189,7 +189,8 @@ pub async fn exec_with_process(
         } else {
             let mut new_args = vec!["busybox".to_string(), "sh".to_string()];
             args.iter().for_each(|x| new_args.push(x.clone()));
-            return exec_with_process(task, String::from("busybox"), new_args, envp).await;
+            return exec_with_process(task, curr_dir, String::from("busybox"), new_args, envp)
+                .await;
         };
         let elf_header = elf.header;
 
@@ -212,7 +213,8 @@ pub async fn exec_with_process(
                 drop(frame_ppn);
                 let mut new_args = vec![String::from("libc.so")];
                 new_args.extend(args);
-                return exec_with_process(task, new_args[0].clone(), new_args, envp).await;
+                return exec_with_process(task, curr_dir, new_args[0].clone(), new_args, envp)
+                    .await;
             }
         }
 

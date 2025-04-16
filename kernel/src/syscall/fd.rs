@@ -2,35 +2,24 @@ use super::types::fd::IoVec;
 use super::types::poll::{EpollEvent, EpollFile};
 use super::SysResult;
 use crate::syscall::types::fd::{FcntlCmd, AT_CWD};
-use crate::tasks::{File, UserTask};
 use crate::user::UserTaskContainer;
 use crate::utils::time::{current_nsec, current_timespec};
 use crate::utils::useref::UserRef;
-use alloc::{string::String, sync::Arc};
+use alloc::sync::Arc;
 use bit_field::BitArray;
 use core::cmp;
 use executor::yield_now;
+use fs::dentry::umount;
+use fs::file::File;
 use fs::{
-    dentry::{dentry_open, DentryNode},
-    pipe::create_pipe,
-    OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW,
+    pipe::create_pipe, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
+    UTIME_NOW,
 };
 use log::debug;
 use num_traits::FromPrimitive;
 use polyhal::VirtAddr;
 use syscalls::Errno;
 use vfscore::FileType;
-
-pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<File>, Errno> {
-    if path.len() > 0 && path.starts_with("/") {
-        return Ok(File::root());
-    }
-    const NEW_AT_CWD: u32 = AT_CWD as u32;
-    match fd as u32 {
-        NEW_AT_CWD => Ok(task.pcb.lock().curr_dir.clone()),
-        x => task.get_fd(x as _).ok_or(Errno::EBADF),
-    }
-}
 
 impl UserTaskContainer {
     pub async fn sys_dup(&self, fd: usize) -> SysResult {
@@ -116,37 +105,22 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_mkdir_at(&self, dir_fd: usize, path: UserRef<i8>, mode: usize) -> SysResult {
+    pub async fn sys_mkdir_at(&self, dir_fd: isize, path: UserRef<i8>, mode: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
             dir_fd as isize, path, mode
         );
-        let dir = to_node(&self.task, dir_fd, path)?;
-        if path == "/" {
-            return Err(Errno::EEXIST);
-        }
-
-        dir.dentry_open(path, OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY)?;
-        // let path_str = rebuild_path(path);
-        // let paths: Vec<&str> = path_str.split("/").collect();
-        // let mut pfile = dir.inner.clone();
-        // for i in paths.into_iter().filter(|x| *x != "") {
-        //     let f = pfile.open(i, OpenFlags::O_RDWR);
-        //     if f.is_err() {
-        //         pfile.mkdir(i).map_err(from_vfs)?;
-        //     } else {
-        //         pfile = f.unwrap();
-        //     }
-        // }
+        self.task
+            .fd_open(dir_fd, path, OpenFlags::O_DIRECTORY | OpenFlags::O_CREAT)?;
         Ok(0)
     }
 
     pub async fn sys_renameat2(
         &self,
-        olddir_fd: usize,
+        olddir_fd: isize,
         oldpath: UserRef<i8>,
-        newdir_fd: usize,
+        newdir_fd: isize,
         newpath: UserRef<i8>,
         flags: usize,
     ) -> SysResult {
@@ -154,26 +128,29 @@ impl UserTaskContainer {
             "sys_renameat2 @ olddir_fd: {}, oldpath: {}, newdir_fd: {}, newpath: {}, flags: {}",
             olddir_fd, oldpath, newdir_fd, newpath, flags
         );
+        let flags = OpenFlags::from_bits_truncate(flags);
 
-        let old_path = oldpath.get_cstr().map_err(|_| Errno::EINVAL)?;
-        let old_dir = to_node(&self.task, olddir_fd, old_path)?;
-        let old_file = old_dir.dentry_open(old_path, OpenFlags::empty())?;
+        let old_path: &str = oldpath.get_cstr().map_err(|_| Errno::EINVAL)?;
+        let old_file = self.task.fd_open(olddir_fd, old_path, flags.clone())?;
 
-        let old_file_type = old_file.metadata()?.file_type;
+        let old_file_type = old_file.file_type()?;
         let new_path = newpath.get_cstr().map_err(|_| Errno::EINVAL)?;
-        let new_dir = to_node(&self.task, newdir_fd, new_path)?;
+
         if old_file_type == FileType::File {
-            let new_file = new_dir
-                .dentry_open(new_path, OpenFlags::O_CREAT)
-                .expect("can't find new file");
-            // TODO: Check the file exists
-            let file_size = old_file.metadata()?.size;
+            let new_file = self
+                .task
+                .fd_open(newdir_fd, new_path, OpenFlags::O_CREAT | flags)?;
+            let file_size = old_file.file_size()?;
             let mut buffer = vec![0u8; file_size];
             old_file.read(&mut buffer)?;
             new_file.write(&buffer)?;
             new_file.truncate(buffer.len())?;
         } else if old_file_type == FileType::Directory {
-            new_dir.mkdir(new_path)?;
+            self.task.fd_open(
+                newdir_fd,
+                new_path,
+                OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY | flags,
+            )?;
         } else {
             panic!("can't handle the file: {:?} now", old_file_type);
         }
@@ -191,15 +168,14 @@ impl UserTaskContainer {
         self.sys_unlinkat(AT_CWD, path, 0).await
     }
 
-    pub async fn sys_unlinkat(&self, dir_fd: usize, path: UserRef<i8>, flags: usize) -> SysResult {
+    pub async fn sys_unlinkat(&self, dir_fd: isize, path: UserRef<i8>, flags: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
             dir_fd as isize, path, flags
         );
         let flags = OpenFlags::from_bits_truncate(flags);
-        let dir = to_node(&self.task, dir_fd, path)?;
-        let file = dir.dentry_open(path, flags)?;
+        let file = self.task.fd_open(dir_fd, path, flags)?;
 
         file.remove_self()?;
         Ok(0)
@@ -207,7 +183,7 @@ impl UserTaskContainer {
 
     pub async fn sys_openat(
         &self,
-        fd: usize,
+        dir_fd: isize,
         filename: UserRef<i8>,
         flags: usize,
         mode: usize,
@@ -220,12 +196,13 @@ impl UserTaskContainer {
         };
         debug!(
             "sys_openat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
-            fd as isize, filename, flags, mode
+            dir_fd as isize, filename, flags, mode
         );
-        let dir = to_node(&self.task, fd, filename)?;
-        let file = dir.dentry_open(filename, flags)?;
+        // let dir = to_node(&self.task, fd, filename)?;
+        // let file = dir.dentry_open(filename, flags)?;
+        let file = self.task.fd_open(dir_fd, filename, flags)?;
         let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
-        self.task.set_fd(fd, file);
+        self.task.set_fd(fd, Arc::new(file));
         debug!("sys_openat @ ret fd: {}", fd);
         Ok(fd)
     }
@@ -238,7 +215,7 @@ impl UserTaskContainer {
 
     pub async fn sys_faccess_at(
         &self,
-        fd: usize,
+        dir_fd: isize,
         filename: UserRef<i8>,
         mode: usize,
         flags: usize,
@@ -251,10 +228,9 @@ impl UserTaskContainer {
         };
         debug!(
             "sys_accessat @ fd: {}, filename: {}, flags: {:?}, mode: {}",
-            fd as isize, filename, open_flags, mode
+            dir_fd as isize, filename, open_flags, mode
         );
-        let dir = to_node(&self.task, fd, filename)?;
-        let _node = dentry_open(dir.dentry.clone().unwrap(), filename, open_flags)?;
+        self.task.fd_open(dir_fd, filename, open_flags)?;
         Ok(0)
     }
 
@@ -265,15 +241,12 @@ impl UserTaskContainer {
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         file.stat(stat_ref)?;
         stat_ref.mode |= StatMode::OWNER_MASK;
-        if let Ok(metadata) = file.metadata() {
-            stat_ref.ino = metadata.filename.as_ptr() as _;
-        }
         Ok(0)
     }
 
     pub async fn sys_fstatat(
         &self,
-        dir_fd: usize,
+        dir_fd: isize,
         path_ptr: UserRef<i8>,
         stat_ptr: UserRef<Stat>,
     ) -> SysResult {
@@ -288,9 +261,8 @@ impl UserTaskContainer {
         );
         let stat = stat_ptr.get_mut();
 
-        let dir = to_node(&self.task, dir_fd, path)?;
-        dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)?
-            .node
+        self.task
+            .fd_open(dir_fd, path, OpenFlags::O_RDONLY)?
             .stat(stat)?;
         stat.mode |= StatMode::OWNER_MASK;
         Ok(0)
@@ -317,7 +289,7 @@ impl UserTaskContainer {
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
-        File::fs_open(path, OpenFlags::NONE)?.statfs(statfs)?;
+        File::open(path, OpenFlags::O_RDONLY)?.statfs(statfs)?;
         Ok(0)
     }
 
@@ -389,7 +361,7 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = File::fs_open(special, OpenFlags::NONE)?;
+        let dev_node = File::open(special, OpenFlags::NONE)?;
         dev_node.mount(dir)?;
         Ok(0)
     }
@@ -403,9 +375,7 @@ impl UserTaskContainer {
                 // let dev = dentry_open(dentry_root(), special, OpenFlags::NONE).map_err(from_vfs)?;
                 // dev.node.umount().map_err(from_vfs)?;
             }
-            false => {
-                DentryNode::unmount(String::from(special))?;
-            }
+            false => umount(special)?,
         };
 
         Ok(0)
@@ -495,7 +465,7 @@ impl UserTaskContainer {
     /// time.
     pub async fn sys_utimensat(
         &self,
-        dir_fd: usize,
+        dir_fd: isize,
         path: UserRef<u8>,
         times_ptr: UserRef<TimeSpec>,
         flags: usize,
@@ -529,15 +499,14 @@ impl UserTaskContainer {
             path.get_cstr().map_err(|_| Errno::EINVAL)?
         };
 
-        let dir = to_node(&self.task, dir_fd, path)?;
-
         debug!("times: {:?} path: {}", times, path);
 
         if path == "/dev/null/invalid" {
             return Ok(0);
         }
 
-        dir.dentry_open(path, OpenFlags::O_RDONLY)?
+        self.task
+            .fd_open(dir_fd, path, OpenFlags::O_RDONLY)?
             .utimes(&mut times)?;
 
         Ok(0)
@@ -545,7 +514,7 @@ impl UserTaskContainer {
 
     pub async fn sys_readlinkat(
         &self,
-        dir_fd: usize,
+        dir_fd: isize,
         path: UserRef<i8>,
         buffer: UserRef<u8>,
         buffer_size: usize,
@@ -558,16 +527,16 @@ impl UserTaskContainer {
         let buffer = buffer.slice_mut_with_len(buffer_size);
         debug!("readlinkat @ filename: {}", filename);
 
-        let dir = to_node(&self.task, dir_fd, filename)?;
-
-        let ftype = dir.open(filename, OpenFlags::NONE)?.metadata()?.file_type;
+        let ftype = self
+            .task
+            .fd_open(dir_fd, filename, OpenFlags::O_RDONLY)?
+            .file_type()?;
 
         if FileType::Link != ftype {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = File::fs_open(filename, OpenFlags::NONE)?.resolve_link()?;
-
+        let file_path = File::open(filename, OpenFlags::NONE)?.resolve_link()?;
         let bytes = file_path.as_bytes();
 
         let rlen = cmp::min(bytes.len(), buffer_size);
@@ -595,7 +564,7 @@ impl UserTaskContainer {
         count: usize,
     ) -> SysResult {
         debug!(
-            "out_fd: {}  in_fd: {}  offset: {:#x}   count: {:#x}",
+            "sys_sendfile @ out_fd: {}  in_fd: {}  offset: {:#x}   count: {:#x}",
             out_fd, in_fd, offset, count
         );
         let out_file = self.task.get_fd(out_fd).ok_or(Errno::EINVAL)?;
@@ -606,8 +575,7 @@ impl UserTaskContainer {
         } else {
             in_file.seek(SeekFrom::CURRENT(0))?
         };
-
-        let rlen = cmp::min(in_file.metadata()?.size - curr_off, count);
+        let rlen = cmp::min(in_file.file_size()? - curr_off, count);
 
         let mut buffer = vec![0u8; rlen];
 

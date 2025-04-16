@@ -211,6 +211,7 @@ checksum = "371a22bb791074c597c250202eb46293e301ee49a2bc3b1a4f47839ed74796e9"
 name = "fs"
 version = "0.1.0"
 dependencies = [
+ "bitflags 2.9.0",
  "devfs",
  "devices",
  "ext4_rs",

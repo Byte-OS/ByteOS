@@ -368,8 +368,14 @@ impl UserTaskContainer {
             }
             Sysno::setgroups => Ok(0),
             Sysno::renameat2 => {
-                self.sys_renameat2(args[0], args[1].into(), args[2], args[3].into(), args[4])
-                    .await
+                self.sys_renameat2(
+                    args[0] as _,
+                    args[1].into(),
+                    args[2] as _,
+                    args[3].into(),
+                    args[4],
+                )
+                .await
             }
             #[cfg(not(any(target_arch = "x86_64")))]
             Sysno::clone => {
