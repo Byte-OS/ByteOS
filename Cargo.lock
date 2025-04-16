@@ -142,6 +142,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "sync",
+ "syscalls",
  "vfscore",
 ]
 
@@ -219,6 +220,7 @@ dependencies = [
  "procfs",
  "ramfs",
  "sync",
+ "syscalls",
  "vfscore",
 ]
 
@@ -573,6 +575,7 @@ version = "0.1.0"
 dependencies = [
  "log",
  "sync",
+ "syscalls",
  "vfscore",
 ]
 
@@ -593,6 +596,7 @@ dependencies = [
  "polyhal",
  "runtime",
  "sync",
+ "syscalls",
  "vfscore",
 ]
 
@@ -799,6 +803,7 @@ version = "0.1.0"
 dependencies = [
  "bitflags 2.9.0",
  "downcast-rs",
+ "syscalls",
 ]
 
 [[package]]

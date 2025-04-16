@@ -6,7 +6,8 @@ use alloc::{
     vec::Vec,
 };
 use sync::{LazyInit, Mutex};
-use vfscore::{INodeInterface, OpenFlags, VfsError};
+use syscalls::Errno;
+use vfscore::{INodeInterface, OpenFlags};
 
 pub struct DentryNode {
     pub filename: String,
@@ -38,7 +39,7 @@ impl DentryNode {
     /// Mount a fs to DentryTree, return Some if successfully mounted.
     /// path: The mounted path.
     /// node: fs root directory node.
-    pub fn mount(path: String, node: Arc<dyn INodeInterface>) -> Result<(), VfsError> {
+    pub fn mount(path: String, node: Arc<dyn INodeInterface>) -> Result<(), Errno> {
         let paths = path.split("/").into_iter();
         let mut dentry = DENTRY_TREE.lock().clone();
 
@@ -81,7 +82,7 @@ impl DentryNode {
         Ok(())
     }
 
-    pub fn unmount(_path: String) -> Result<(), VfsError> {
+    pub fn unmount(_path: String) -> Result<(), Errno> {
         todo!("unmount in dentry node");
     }
 
@@ -132,7 +133,7 @@ pub fn dentry_open(
     mut dentry: Arc<DentryNode>,
     path: &str,
     flags: OpenFlags,
-) -> Result<Arc<DentryNode>, VfsError> {
+) -> Result<Arc<DentryNode>, Errno> {
     if path.starts_with("/") {
         dentry = DENTRY_TREE.lock().clone();
     }
@@ -145,22 +146,8 @@ pub fn dentry_open(
         };
         if let Some(new_dentry) = new_dentry {
             dentry = new_dentry;
-        } else if flags.contains(OpenFlags::O_CREAT) {
-            // is not the last item
-            let node = if path_peeker.peek().is_some() || flags.contains(OpenFlags::O_DIRECTORY) {
-                dentry.node.mkdir(filename)?
-            } else {
-                dentry.node.touch(filename)?
-            };
-            let new_dentry = Arc::new(DentryNode::new(
-                filename.to_string(),
-                node,
-                Arc::downgrade(&dentry),
-            ));
-            dentry.children.lock().push(new_dentry.clone());
-            dentry = new_dentry;
         } else {
-            return Err(VfsError::FileNotFound);
+            return Err(Errno::ENOENT);
         }
     }
     Ok(dentry)

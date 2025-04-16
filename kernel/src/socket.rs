@@ -5,6 +5,7 @@ use fs::INodeInterface;
 use lose_net_stack::net_trait::SocketInterface;
 use polyhal::debug_console::DebugConsole;
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::{Metadata, PollEvent, VfsResult};
 
 use crate::syscall::NET_SERVER;
@@ -82,7 +83,7 @@ impl Socket {
         log::warn!("try to recv data from {}", self.inner.get_local().unwrap());
         match self.inner.recv_from() {
             Ok((data, remote)) => Ok((data, remote)),
-            Err(_err) => Err(vfscore::VfsError::Blocking),
+            Err(_err) => Err(Errno::EWOULDBLOCK),
         }
     }
 
@@ -165,7 +166,7 @@ impl INodeInterface for Socket {
                 Ok((recv_data, _)) => {
                     data = recv_data;
                 }
-                Err(_err) => return Err(vfscore::VfsError::Blocking),
+                Err(_err) => return Err(Errno::EWOULDBLOCK),
             }
         }
         let rlen = cmp::min(data.len(), buffer.len());
@@ -188,7 +189,7 @@ impl INodeInterface for Socket {
                 self.options.lock().wsize += len;
                 Ok(len)
             }
-            Err(_err) => Err(vfscore::VfsError::NotWriteable),
+            Err(_err) => Err(Errno::EPERM),
         }
     }
 

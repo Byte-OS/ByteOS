@@ -11,7 +11,7 @@ devfs = { workspace = true }
 procfs = { workspace = true }
 ramfs = { workspace = true }
 vfscore = { workspace = true }
-
+syscalls = { workspace = true }
 sync = { workspace = true }
 devices = { workspace = true }
 

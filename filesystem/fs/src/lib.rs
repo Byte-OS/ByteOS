@@ -23,6 +23,7 @@ use devices::get_blk_devices;
 use procfs::ProcFS;
 use ramfs::RamFs;
 use sync::LazyInit;
+use syscalls::Errno;
 use vfscore::{FileSystem, VfsResult};
 
 pub mod dentry;
@@ -41,7 +42,7 @@ pub type File = Arc<dyn INodeInterface>;
 
 pub use vfscore::{
     FileType, INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode,
-    TimeSpec, VfsError, UTIME_NOW, UTIME_OMIT,
+    TimeSpec, UTIME_NOW, UTIME_OMIT,
 };
 pub static FILESYSTEMS: LazyInit<Vec<Arc<dyn FileSystem>>> = LazyInit::new();
 
@@ -136,7 +137,7 @@ impl<'a> Future for WaitBlockingRead<'a> {
         match file.readat(offset, *buffer) {
             Ok(rsize) => Poll::Ready(Ok(rsize)),
             Err(err) => {
-                if let VfsError::Blocking = err {
+                if let Errno::EWOULDBLOCK = err {
                     Poll::Pending
                 } else {
                     Poll::Ready(Err(err))
@@ -159,7 +160,7 @@ impl<'a> Future for WaitBlockingWrite<'a> {
         match file.writeat(offset, *buffer) {
             Ok(wsize) => Poll::Ready(Ok(wsize)),
             Err(err) => {
-                if let VfsError::Blocking = err {
+                if let Errno::EWOULDBLOCK = err {
                     Poll::Pending
                 } else {
                     Poll::Ready(Err(err))

@@ -3,7 +3,6 @@ use crate::syscall::types::mm::{MSyncFlags, MapFlags, MmapProt, ProtFlags};
 use crate::tasks::{MemArea, MemType};
 use crate::user::UserTaskContainer;
 use crate::utils::useref::UserRef;
-use crate::utils::vfs::from_vfs;
 use devices::PAGE_SIZE;
 use log::debug;
 use polyhal::VirtAddr;
@@ -124,7 +123,7 @@ impl UserTaskContainer {
 
         if let Some(file) = file {
             let buffer = UserRef::<u8>::from(addr).slice_mut_with_len(len);
-            file.readat(off, buffer).map_err(from_vfs)?;
+            file.readat(off, buffer)?;
         }
         Ok(addr.into())
     }

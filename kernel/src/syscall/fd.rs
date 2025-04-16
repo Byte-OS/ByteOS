@@ -5,7 +5,7 @@ use crate::syscall::types::fd::{FcntlCmd, AT_CWD};
 use crate::tasks::{FileItem, UserTask};
 use crate::user::UserTaskContainer;
 use crate::utils::time::{current_nsec, current_timespec};
-use crate::utils::{useref::UserRef, vfs::from_vfs};
+use crate::utils::useref::UserRef;
 use alloc::{string::String, sync::Arc};
 use bit_field::BitArray;
 use core::cmp;
@@ -62,7 +62,6 @@ impl UserTaskContainer {
             .ok_or(Errno::EBADF)?
             .async_read(buffer)
             .await
-            .map_err(from_vfs)
     }
 
     pub async fn sys_write(&self, fd: usize, buf_ptr: VirtAddr, count: usize) -> SysResult {
@@ -75,7 +74,7 @@ impl UserTaskContainer {
         // if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
         //     yield_now().await;
         // }
-        file.async_write(buffer).await.map_err(from_vfs)
+        file.async_write(buffer).await
     }
 
     pub async fn sys_readv(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
@@ -88,7 +87,7 @@ impl UserTaskContainer {
 
         for io in iov {
             let buffer = UserRef::<u8>::from(io.base).slice_mut_with_len(io.len);
-            rsize += file.read(buffer).map_err(from_vfs)?;
+            rsize += file.read(buffer)?;
         }
 
         Ok(rsize)
@@ -104,7 +103,7 @@ impl UserTaskContainer {
 
         for io in iov {
             let buffer = UserRef::<u8>::from(io.base).slice_mut_with_len(io.len);
-            wsize += file.write(buffer).map_err(from_vfs)?;
+            wsize += file.write(buffer)?;
         }
 
         Ok(wsize)
@@ -128,8 +127,7 @@ impl UserTaskContainer {
             return Err(Errno::EEXIST);
         }
 
-        dir.dentry_open(path, OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY)
-            .map_err(from_vfs)?;
+        dir.dentry_open(path, OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY)?;
         // let path_str = rebuild_path(path);
         // let paths: Vec<&str> = path_str.split("/").collect();
         // let mut pfile = dir.inner.clone();
@@ -159,11 +157,9 @@ impl UserTaskContainer {
 
         let old_path = oldpath.get_cstr().map_err(|_| Errno::EINVAL)?;
         let old_dir = to_node(&self.task, olddir_fd, old_path)?;
-        let old_file = old_dir
-            .dentry_open(old_path, OpenFlags::empty())
-            .map_err(from_vfs)?;
+        let old_file = old_dir.dentry_open(old_path, OpenFlags::empty())?;
 
-        let old_file_type = old_file.metadata().map_err(from_vfs)?.file_type;
+        let old_file_type = old_file.metadata()?.file_type;
         let new_path = newpath.get_cstr().map_err(|_| Errno::EINVAL)?;
         let new_dir = to_node(&self.task, newdir_fd, new_path)?;
         if old_file_type == FileType::File {
@@ -171,13 +167,13 @@ impl UserTaskContainer {
                 .dentry_open(new_path, OpenFlags::O_CREAT)
                 .expect("can't find new file");
             // TODO: Check the file exists
-            let file_size = old_file.metadata().map_err(from_vfs)?.size;
+            let file_size = old_file.metadata()?.size;
             let mut buffer = vec![0u8; file_size];
-            old_file.read(&mut buffer).map_err(from_vfs)?;
-            new_file.write(&buffer).map_err(from_vfs)?;
-            new_file.truncate(buffer.len()).map_err(from_vfs)?;
+            old_file.read(&mut buffer)?;
+            new_file.write(&buffer)?;
+            new_file.truncate(buffer.len())?;
         } else if old_file_type == FileType::Directory {
-            new_dir.mkdir(new_path).map_err(from_vfs)?;
+            new_dir.mkdir(new_path)?;
         } else {
             panic!("can't handle the file: {:?} now", old_file_type);
         }
@@ -203,9 +199,9 @@ impl UserTaskContainer {
         );
         let flags = OpenFlags::from_bits_truncate(flags);
         let dir = to_node(&self.task, dir_fd, path)?;
-        let file = dir.dentry_open(path, flags).map_err(from_vfs)?;
+        let file = dir.dentry_open(path, flags)?;
 
-        file.remove_self().map_err(from_vfs)?;
+        file.remove_self()?;
         Ok(0)
     }
 
@@ -227,7 +223,7 @@ impl UserTaskContainer {
             fd as isize, filename, flags, mode
         );
         let dir = to_node(&self.task, fd, filename)?;
-        let file = dir.dentry_open(filename, flags).map_err(from_vfs)?;
+        let file = dir.dentry_open(filename, flags)?;
         let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         self.task.set_fd(fd, file);
         debug!("sys_openat @ ret fd: {}", fd);
@@ -258,8 +254,7 @@ impl UserTaskContainer {
             fd as isize, filename, open_flags, mode
         );
         let dir = to_node(&self.task, fd, filename)?;
-        let _node =
-            dentry_open(dir.dentry.clone().unwrap(), filename, open_flags).map_err(from_vfs)?;
+        let _node = dentry_open(dir.dentry.clone().unwrap(), filename, open_flags)?;
         Ok(0)
     }
 
@@ -268,7 +263,7 @@ impl UserTaskContainer {
         let stat_ref = stat_ptr.get_mut();
 
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
-        file.stat(stat_ref).map_err(from_vfs)?;
+        file.stat(stat_ref)?;
         stat_ref.mode |= StatMode::OWNER_MASK;
         if let Ok(metadata) = file.metadata() {
             stat_ref.ino = metadata.filename.as_ptr() as _;
@@ -294,11 +289,9 @@ impl UserTaskContainer {
         let stat = stat_ptr.get_mut();
 
         let dir = to_node(&self.task, dir_fd, path)?;
-        dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)
-            .map_err(from_vfs)?
+        dentry_open(dir.dentry.clone().unwrap(), &path, OpenFlags::NONE)?
             .node
-            .stat(stat)
-            .map_err(from_vfs)?;
+            .stat(stat)?;
         stat.mode |= StatMode::OWNER_MASK;
         Ok(0)
     }
@@ -324,10 +317,7 @@ impl UserTaskContainer {
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
-        FileItem::fs_open(path, OpenFlags::NONE)
-            .map_err(from_vfs)?
-            .statfs(statfs)
-            .map_err(from_vfs)?;
+        FileItem::fs_open(path, OpenFlags::NONE)?.statfs(statfs)?;
         Ok(0)
     }
 
@@ -362,7 +352,7 @@ impl UserTaskContainer {
         let buffer = ptr.slice_mut_with_len(len);
 
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
-        file.readat(offset, buffer).map_err(from_vfs)
+        file.readat(offset, buffer)
     }
 
     pub async fn sys_pwrite(
@@ -381,7 +371,6 @@ impl UserTaskContainer {
             .get_fd(fd)
             .ok_or(Errno::EBADF)?
             .writeat(offset, buffer)
-            .map_err(from_vfs)
     }
 
     pub async fn sys_mount(
@@ -400,8 +389,8 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = FileItem::fs_open(special, OpenFlags::NONE).map_err(from_vfs)?;
-        dev_node.mount(dir).map_err(from_vfs)?;
+        let dev_node = FileItem::fs_open(special, OpenFlags::NONE)?;
+        dev_node.mount(dir)?;
         Ok(0)
     }
 
@@ -415,7 +404,7 @@ impl UserTaskContainer {
                 // dev.node.umount().map_err(from_vfs)?;
             }
             false => {
-                DentryNode::unmount(String::from(special)).map_err(from_vfs)?;
+                DentryNode::unmount(String::from(special))?;
             }
         };
 
@@ -431,7 +420,7 @@ impl UserTaskContainer {
         let file = self.task.get_fd(fd).unwrap();
 
         let buffer = buf_ptr.slice_mut_with_len(len);
-        file.getdents(buffer).map_err(from_vfs)
+        file.getdents(buffer)
     }
 
     pub fn sys_lseek(&self, fd: usize, offset: usize, whence: usize) -> SysResult {
@@ -447,11 +436,7 @@ impl UserTaskContainer {
             _ => return Err(Errno::EINVAL),
         };
 
-        self.task
-            .get_fd(fd)
-            .ok_or(Errno::EBADF)?
-            .seek(seek_from)
-            .map_err(from_vfs)
+        self.task.get_fd(fd).ok_or(Errno::EBADF)?.seek(seek_from)
     }
 
     pub async fn sys_ioctl(
@@ -552,10 +537,8 @@ impl UserTaskContainer {
             return Ok(0);
         }
 
-        dir.dentry_open(path, OpenFlags::O_RDONLY)
-            .map_err(from_vfs)?
-            .utimes(&mut times)
-            .map_err(from_vfs)?;
+        dir.dentry_open(path, OpenFlags::O_RDONLY)?
+            .utimes(&mut times)?;
 
         Ok(0)
     }
@@ -577,21 +560,13 @@ impl UserTaskContainer {
 
         let dir = to_node(&self.task, dir_fd, filename)?;
 
-        let ftype = dir
-            .open(filename, OpenFlags::NONE)
-            .map_err(from_vfs)?
-            .metadata()
-            .map_err(from_vfs)?
-            .file_type;
+        let ftype = dir.open(filename, OpenFlags::NONE)?.metadata()?.file_type;
 
         if FileType::Link != ftype {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = FileItem::fs_open(filename, OpenFlags::NONE)
-            .map_err(from_vfs)?
-            .resolve_link()
-            .map_err(from_vfs)?;
+        let file_path = FileItem::fs_open(filename, OpenFlags::NONE)?.resolve_link()?;
 
         let bytes = file_path.as_bytes();
 
@@ -629,20 +604,20 @@ impl UserTaskContainer {
         let curr_off = if offset != 0 {
             offset
         } else {
-            in_file.seek(SeekFrom::CURRENT(0)).map_err(from_vfs)?
+            in_file.seek(SeekFrom::CURRENT(0))?
         };
 
-        let rlen = cmp::min(in_file.metadata().map_err(from_vfs)?.size - curr_off, count);
+        let rlen = cmp::min(in_file.metadata()?.size - curr_off, count);
 
         let mut buffer = vec![0u8; rlen];
 
         if offset == 0 {
-            in_file.read(&mut buffer).map_err(from_vfs)?;
+            in_file.read(&mut buffer)?;
             self.task.set_fd(in_fd, in_file);
         } else {
-            in_file.readat(offset, &mut buffer).map_err(from_vfs)?;
+            in_file.readat(offset, &mut buffer)?;
         }
-        out_file.write(&buffer).map_err(from_vfs)
+        out_file.write(&buffer)
     }
 
     /// TODO: improve it.
@@ -876,7 +851,7 @@ impl UserTaskContainer {
             return Err(Errno::EPERM);
         }
         let file = self.task.get_fd(fields).ok_or(Errno::EINVAL)?;
-        file.truncate(len).map_err(from_vfs)?;
+        file.truncate(len)?;
         Ok(0)
     }
 
@@ -978,13 +953,11 @@ impl UserTaskContainer {
         let out_file = self.task.get_fd(fd_out).ok_or(Errno::EBADF)?;
         let mut buffer = vec![0u8; len];
         let rsize = if off_in.is_valid() {
-            let rsize = in_file
-                .readat(*off_in.get_ref(), &mut buffer)
-                .map_err(from_vfs)?;
+            let rsize = in_file.readat(*off_in.get_ref(), &mut buffer)?;
             *off_in.get_mut() += rsize;
             rsize
         } else {
-            in_file.read(&mut buffer).map_err(from_vfs)?
+            in_file.read(&mut buffer)?
         };
 
         if rsize == 0 {
@@ -992,11 +965,9 @@ impl UserTaskContainer {
         }
 
         if off_out.is_valid() {
-            *off_out.get_mut() += out_file
-                .writeat(*off_out.get_ref(), &mut buffer[..rsize])
-                .map_err(from_vfs)?;
+            *off_out.get_mut() += out_file.writeat(*off_out.get_ref(), &mut buffer[..rsize])?;
         } else {
-            out_file.write(&buffer[..rsize]).map_err(from_vfs)?;
+            out_file.write(&buffer[..rsize])?;
         }
 
         Ok(rsize)

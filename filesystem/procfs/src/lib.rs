@@ -10,7 +10,8 @@ use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
 use interrupts::Interrupts;
 use meminfo::MemInfo;
 use mounts::Mounts;
-use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, StatMode, VfsError, VfsResult};
+use syscalls::Errno;
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, StatMode, VfsResult};
 
 pub struct ProcFS {
     root: Arc<ProcDir>,
@@ -60,7 +61,7 @@ impl INodeInterface for DevDirContainer {
             .map
             .get(name)
             .map(|x| x.clone())
-            .ok_or(VfsError::FileNotFound)
+            .ok_or(Errno::ENOENT)
     }
 
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
