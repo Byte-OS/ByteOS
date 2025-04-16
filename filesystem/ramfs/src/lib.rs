@@ -11,8 +11,7 @@ use runtime::frame::{frame_alloc, FrameTracker};
 use sync::Mutex;
 use syscalls::Errno;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, OpenFlags, Stat, StatMode, TimeSpec,
-    VfsResult, UTIME_OMIT,
+    DirEntry, FileSystem, FileType, INodeInterface, Stat, StatMode, TimeSpec, VfsResult, UTIME_OMIT,
 };
 
 pub struct RamFs {
@@ -30,7 +29,7 @@ impl RamFs {
 }
 
 impl FileSystem for RamFs {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
+    fn root_dir(&self) -> Arc<dyn INodeInterface> {
         Arc::new(RamDir {
             inner: self.root.clone(),
         })
@@ -109,45 +108,7 @@ impl RamDir {
 }
 
 impl INodeInterface for RamDir {
-    fn open(&self, name: &str, flags: vfscore::OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
-        let file = self
-            .inner
-            .children
-            .lock()
-            .iter()
-            .find(|x| x.filename() == name)
-            .map(|x| x.to_inode());
-        if file.is_none() && flags.contains(OpenFlags::O_CREAT) {
-            if flags.contains(OpenFlags::O_DIRECTORY) {
-                let new_inner = Arc::new(RamDirInner {
-                    name: String::from(name),
-                    children: Mutex::new(Vec::new()),
-                });
-                self.inner
-                    .children
-                    .lock()
-                    .push(FileContainer::Dir(new_inner.clone()));
-                Ok(Arc::new(RamDir::new(new_inner)))
-            } else {
-                let new_inner = Arc::new(RamFileInner {
-                    name: String::from(name),
-                    // content: Mutex::new(Vec::new()),
-                    times: Mutex::new([Default::default(); 3]),
-                    len: Mutex::new(0),
-                    pages: Mutex::new(vec![]),
-                });
-                self.inner
-                    .children
-                    .lock()
-                    .push(FileContainer::File(new_inner.clone()));
-                Ok(Arc::new(RamFile::new(new_inner)))
-            }
-        } else {
-            file.ok_or(Errno::ENOENT)?
-        }
-    }
-
-    fn mkdir(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+    fn mkdir(&self, name: &str) -> VfsResult<()> {
         // Find file, return VfsError::AlreadyExists if file exists
         self.inner
             .children
@@ -161,16 +122,51 @@ impl INodeInterface for RamDir {
             children: Mutex::new(Vec::new()),
         });
 
-        let new_dir = Arc::new(RamDir {
-            inner: new_inner.clone(),
-        });
-
         self.inner
             .children
             .lock()
             .push(FileContainer::Dir(new_inner));
 
-        Ok(new_dir)
+        Ok(())
+    }
+
+    fn lookup(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+        self.inner
+            .children
+            .lock()
+            .iter()
+            .find(|x| x.filename() == name)
+            .map(|x| x.to_inode())
+            .ok_or(Errno::ENOENT)?
+    }
+
+    fn create(&self, name: &str, ty: FileType) -> VfsResult<()> {
+        if ty == FileType::Directory {
+            let new_inner = Arc::new(RamDirInner {
+                name: String::from(name),
+                children: Mutex::new(Vec::new()),
+            });
+            self.inner
+                .children
+                .lock()
+                .push(FileContainer::Dir(new_inner.clone()));
+            Ok(())
+        } else if ty == FileType::File {
+            let new_inner = Arc::new(RamFileInner {
+                name: String::from(name),
+                // content: Mutex::new(Vec::new()),
+                times: Mutex::new([Default::default(); 3]),
+                len: Mutex::new(0),
+                pages: Mutex::new(vec![]),
+            });
+            self.inner
+                .children
+                .lock()
+                .push(FileContainer::File(new_inner.clone()));
+            Ok(())
+        } else {
+            unimplemented!("")
+        }
     }
 
     fn rmdir(&self, name: &str) -> VfsResult<()> {
@@ -237,16 +233,6 @@ impl INodeInterface for RamDir {
 
     fn unlink(&self, name: &str) -> VfsResult<()> {
         self.remove(name)
-    }
-
-    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        Ok(Metadata {
-            filename: &self.inner.name,
-            inode: 0,
-            file_type: FileType::Directory,
-            size: 0,
-            childrens: self.inner.children.lock().len(),
-        })
     }
 
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
@@ -402,17 +388,6 @@ impl INodeInterface for RamFile {
         Ok(())
     }
 
-    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        Ok(Metadata {
-            filename: &self.inner.name,
-            inode: 0,
-            file_type: FileType::File,
-            // size: self.inner.content.lock().len(),
-            size: *self.inner.len.lock(),
-            childrens: 0,
-        })
-    }
-
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         log::debug!("stat ramfs");
         // stat.ino = 1; // TODO: convert path to number(ino)
@@ -448,10 +423,6 @@ impl INodeInterface for RamFile {
 }
 
 impl INodeInterface for RamLink {
-    fn metadata(&self) -> VfsResult<Metadata> {
-        self.link_file.metadata()
-    }
-
     fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         // self.link_file.stat(stat)
         stat.ino = self as *const RamLink as u64;

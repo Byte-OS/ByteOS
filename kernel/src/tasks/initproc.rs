@@ -6,10 +6,7 @@ use alloc::{
 };
 use devices::utils::get_char;
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
-use fs::{
-    dentry::{dentry_open, dentry_root, DentryNode},
-    get_filesystem, FileType, OpenFlags,
-};
+use fs::{file::File, FileType, OpenFlags};
 use log::debug;
 use polyhal::{debug_console::DebugConsole, instruction::shutdown};
 use vfscore::INodeInterface;
@@ -46,7 +43,7 @@ async fn command(cmd: &str) {
         true => String::from(filename),
         false => String::from("/") + filename,
     };
-    match dentry_open(dentry_root(), &filename, OpenFlags::O_RDONLY) {
+    match File::open(&filename, OpenFlags::O_RDONLY) {
         Ok(_) => {
             info!("exec: {}", filename);
             let mut args_extend = vec![filename.as_str()];
@@ -82,7 +79,7 @@ pub async fn initproc() {
     // command("busybox sh netperf_testcode.sh").await;
 
     // command("busybox echo run busybox_testcode.sh").await;
-    // command("busybox sh busybox_testcode.sh").await;
+    command("busybox sh busybox_testcode.sh").await;
 
     // command("busybox echo run libctest_testcode.sh").await;
     // command("busybox sh libctest_testcode.sh").await;
@@ -92,7 +89,7 @@ pub async fn initproc() {
 
     // command("busybox init").await;
     // command("busybox sh").await;
-    command("busybox sh init.sh").await;
+    // command("busybox sh init.sh").await;
 
     // command("busybox echo run cyclic_testcode.sh").await;
     // command("busybox sh cyclictest_testcode.sh").await;

@@ -2,11 +2,13 @@ use super::{types::sys::Rusage, SysResult};
 use crate::{
     syscall::{
         time::WaitUntilsec,
-        types::{fd::FutexFlags, task::CloneFlags, time::TimeVal},
+        types::{
+            fd::{FutexFlags, AT_CWD},
+            task::CloneFlags,
+            time::TimeVal,
+        },
     },
-    tasks::{
-        exec::exec_with_process, futex_requeue, futex_wake, File, UserTask, WaitFutex, WaitPid,
-    },
+    tasks::{exec::exec_with_process, futex_requeue, futex_wake, UserTask, WaitFutex, WaitPid},
     user::{entry::user_entry, UserTaskContainer},
     utils::{time::current_nsec, useref::UserRef},
 };
@@ -31,12 +33,10 @@ impl UserTaskContainer {
     pub async fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
         let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_chdir @ path: {}", path);
-        let now_file = self.task.pcb.lock().curr_dir.clone();
-        let new_dir = now_file.dentry_open(path, OpenFlags::O_DIRECTORY)?;
-
-        match new_dir.metadata().unwrap().file_type {
+        let new_dir = self.task.fd_open(AT_CWD, path, OpenFlags::O_RDONLY)?;
+        match new_dir.file_type()? {
             fs::FileType::Directory => {
-                self.task.pcb.lock().curr_dir = new_dir;
+                self.task.pcb.lock().curr_dir = Arc::new(new_dir);
                 Ok(0)
             }
             _ => Err(Errno::ENOTDIR),
@@ -99,8 +99,15 @@ impl UserTaskContainer {
             self.task.exit(0);
             return Ok(0);
         }
-        let _exec_file = File::fs_open(filename, OpenFlags::O_RDONLY)?;
-        exec_with_process(self.task.clone(), filename.to_string(), args, envp).await?;
+        let curr_dir = self.task.pcb.lock().curr_dir.clone();
+        exec_with_process(
+            self.task.clone(),
+            Some(curr_dir),
+            filename.to_string(),
+            args,
+            envp,
+        )
+        .await?;
         self.task.before_run();
         Ok(0)
     }

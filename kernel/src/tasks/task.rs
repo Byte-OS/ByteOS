@@ -1,32 +1,38 @@
 use super::{
-    filetable::{rlimits_new, File, FileTable},
+    filetable::{rlimits_new, FileTable},
     memset::{MemSet, MemType},
     shm::MapedSharedMemory,
     SignalList,
 };
 use crate::{
-    syscall::types::time::{ProcessTimer, TMS},
+    syscall::types::{
+        fd::AT_CWD,
+        time::{ProcessTimer, TMS},
+    },
     tasks::{
         futex_wake,
         memset::{MapTrack, MemArea},
     },
 };
 use alloc::{
+    borrow::ToOwned,
     collections::BTreeMap,
+    string::String,
     sync::{Arc, Weak},
     vec::Vec,
 };
 use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
-use fs::INodeInterface;
+use fs::{file::File, INodeInterface};
 use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
-use vfscore::OpenFlags;
+use syscalls::Errno;
+use vfscore::{OpenFlags, VfsResult};
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
@@ -82,10 +88,14 @@ impl UserTask {
         // initialize memset
         let memset = MemSet::new(vec![]);
 
+        let curr_dir = File::open(work_dir, OpenFlags::O_DIRECTORY)
+            .map(Arc::new)
+            .expect("dont' have the home dir");
+
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: File::fs_open(work_dir, OpenFlags::all()).expect("dont' have the home dir"),
+            curr_dir,
             heap: 0,
             children: Vec::new(),
             entry: 0,
@@ -319,6 +329,7 @@ impl UserTask {
         pcb.children.push(new_task.clone());
         new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
+
         // cow fork
         pcb.memset.iter().for_each(|x| {
             let map_area = x.clone();
@@ -459,6 +470,32 @@ impl UserTask {
         } else {
             index
         }
+    }
+
+    pub fn fd_open(&self, fd: isize, filename: &str, flags: OpenFlags) -> VfsResult<File> {
+        let parent = match fd {
+            AT_CWD => self.pcb.lock().curr_dir.clone(),
+            _ => self
+                .pcb
+                .lock()
+                .fd_table
+                .get(fd as usize)
+                .cloned()
+                .flatten()
+                .ok_or(Errno::EBADF)?,
+        };
+        let path = format!("{}/{}", parent.path, filename);
+        let mut paths: Vec<String> = Vec::new();
+        for x in path.split("/").into_iter() {
+            match x {
+                "." | "" => {}
+                ".." => {
+                    let _ = paths.pop();
+                }
+                filename => paths.push(filename.to_owned()),
+            }
+        }
+        File::open(&paths.join("/"), flags)
     }
 }
 

@@ -47,7 +47,7 @@ bitflags::bitflags! {
         const MAP_ANONYOMUS = 0x8;
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, Default)]
     pub struct StatMode: u32 {
         const NULL  = 0;
         /// Type
@@ -138,15 +138,6 @@ pub enum SeekFrom {
     END(isize),
 }
 
-#[derive(Debug, Clone)]
-pub struct Metadata<'a> {
-    pub filename: &'a str,
-    pub inode: usize,
-    pub file_type: FileType,
-    pub size: usize,
-    pub childrens: usize,
-}
-
 pub struct DirEntry {
     pub filename: String,
     pub len: usize,
@@ -154,7 +145,7 @@ pub struct DirEntry {
 }
 
 pub trait FileSystem: Send + Sync {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface>;
+    fn root_dir(&self) -> Arc<dyn INodeInterface>;
     fn name(&self) -> &str;
     fn flush(&self) -> VfsResult<()> {
         Ok(())
@@ -177,7 +168,7 @@ impl TimeSpec {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg(not(target_arch = "x86_64"))]
 pub struct Stat {
     pub dev: u64,        // 设备号
@@ -198,7 +189,7 @@ pub struct Stat {
 }
 
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[cfg(target_arch = "x86_64")]
 pub struct Stat {
     pub dev: u64,       // 设备号
@@ -249,10 +240,6 @@ pub struct PollFd {
 }
 
 pub trait INodeInterface: DowncastSync + Send + Sync {
-    fn metadata(&self) -> VfsResult<Metadata> {
-        Err(Errno::EPERM)
-    }
-
     fn readat(&self, _offset: usize, _buffer: &mut [u8]) -> VfsResult<usize> {
         Err(Errno::ENOENT)
     }
@@ -261,7 +248,11 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(Errno::ENOENT)
     }
 
-    fn mkdir(&self, _name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+    fn create(&self, _name: &str, _ty: FileType) -> VfsResult<()> {
+        Err(Errno::ENOTDIR)
+    }
+
+    fn mkdir(&self, _name: &str) -> VfsResult<()> {
         Err(Errno::EEXIST)
     }
 
@@ -278,10 +269,6 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
     }
 
     fn lookup(&self, _name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        Err(Errno::ENOENT)
-    }
-
-    fn open(&self, _name: &str, _flags: OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
         Err(Errno::ENOENT)
     }
 

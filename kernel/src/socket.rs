@@ -1,12 +1,12 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use fs::INodeInterface;
+use fs::{INodeInterface, StatMode};
 use lose_net_stack::net_trait::SocketInterface;
 use polyhal::debug_console::DebugConsole;
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{Metadata, PollEvent, VfsResult};
+use vfscore::{PollEvent, VfsResult};
 
 use crate::syscall::NET_SERVER;
 
@@ -136,16 +136,6 @@ impl Socket {
 }
 
 impl INodeInterface for Socket {
-    fn metadata(&self) -> VfsResult<Metadata> {
-        Ok(Metadata {
-            filename: "",
-            inode: 0,
-            file_type: vfscore::FileType::Socket,
-            size: 0,
-            childrens: 0,
-        })
-    }
-
     fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut data = self.buf.lock().clone();
         // let rlen;
@@ -205,5 +195,10 @@ impl INodeInterface for Socket {
             res |= PollEvent::POLLIN;
         }
         Ok(res)
+    }
+
+    fn stat(&self, stat: &mut fs::Stat) -> VfsResult<()> {
+        stat.mode = StatMode::SOCKET;
+        Ok(())
     }
 }
