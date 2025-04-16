@@ -5,7 +5,7 @@ use crate::{
         types::{fd::FutexFlags, task::CloneFlags, time::TimeVal},
     },
     tasks::{
-        exec::exec_with_process, futex_requeue, futex_wake, FileItem, UserTask, WaitFutex, WaitPid,
+        exec::exec_with_process, futex_requeue, futex_wake, File, UserTask, WaitFutex, WaitPid,
     },
     user::{entry::user_entry, UserTaskContainer},
     utils::{time::current_nsec, useref::UserRef},
@@ -99,7 +99,7 @@ impl UserTaskContainer {
             self.task.exit(0);
             return Ok(0);
         }
-        let _exec_file = FileItem::fs_open(filename, OpenFlags::O_RDONLY)?;
+        let _exec_file = File::fs_open(filename, OpenFlags::O_RDONLY)?;
         exec_with_process(self.task.clone(), filename.to_string(), args, envp).await?;
         self.task.before_run();
         Ok(0)

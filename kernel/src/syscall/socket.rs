@@ -1,6 +1,6 @@
 use super::SysResult;
 use crate::socket::{self, NetType};
-use crate::tasks::FileItem;
+use crate::tasks::File;
 use crate::user::socket_pair::create_socket_pair;
 use crate::user::UserTaskContainer;
 use crate::utils::useref::UserRef;
@@ -71,7 +71,7 @@ impl UserTaskContainer {
         );
         let net_type = NetType::from_usize(net_type).ok_or(Errno::EINVAL)?;
         let socket = Socket::new(domain, net_type);
-        self.task.set_fd(fd, FileItem::new_dev(socket));
+        self.task.set_fd(fd, File::new_dev(socket));
         Ok(fd)
     }
 
@@ -90,11 +90,11 @@ impl UserTaskContainer {
 
         let socket = create_socket_pair();
         let rx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
-        self.task.set_fd(rx_fd, FileItem::new_dev(socket.clone()));
+        self.task.set_fd(rx_fd, File::new_dev(socket.clone()));
         fds[0] = rx_fd as u32;
 
         let tx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
-        self.task.set_fd(tx_fd, FileItem::new_dev(socket.clone()));
+        self.task.set_fd(tx_fd, File::new_dev(socket.clone()));
         fds[1] = tx_fd as u32;
 
         Ok(0)
@@ -133,16 +133,14 @@ impl UserTaskContainer {
             NetType::STEAM => {
                 if net_server.tcp_is_used(port) {
                     let sock = socket.reuse(port);
-                    self.task
-                        .set_fd(socket_fd, FileItem::new_dev(Arc::new(sock)));
+                    self.task.set_fd(socket_fd, File::new_dev(Arc::new(sock)));
                     return Ok(0);
                 }
             }
             NetType::DGRAME => {
                 if net_server.udp_is_used(port) {
                     let sock = socket.reuse(port);
-                    self.task
-                        .set_fd(socket_fd, FileItem::new_dev(Arc::new(sock)));
+                    self.task.set_fd(socket_fd, File::new_dev(Arc::new(sock)));
                     return Ok(0);
                 }
             }
@@ -193,7 +191,7 @@ impl UserTaskContainer {
             if let Ok(new_socket) = socket.inner.accept() {
                 self.task.set_fd(
                     fd,
-                    FileItem::new_dev(Socket::new_with_inner(
+                    File::new_dev(Socket::new_with_inner(
                         socket.domain,
                         socket.net_type,
                         new_socket,
@@ -483,7 +481,7 @@ impl UserTaskContainer {
                 sa.family = 2;
                 sa.in_port = new_socket.get_remote().unwrap().port();
                 sa.addr = new_socket.get_remote().unwrap().ip().clone();
-                let new_file = FileItem::new_dev(Socket::new_with_inner(
+                let new_file = File::new_dev(Socket::new_with_inner(
                     socket.domain,
                     socket.net_type,
                     new_socket,

@@ -1,5 +1,5 @@
 use super::{
-    filetable::{rlimits_new, FileItem, FileTable},
+    filetable::{rlimits_new, File, FileTable},
     memset::{MemSet, MemType},
     shm::MapedSharedMemory,
     SignalList,
@@ -19,7 +19,7 @@ use alloc::{
 use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
-use fs::File;
+use fs::INodeInterface;
 use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
@@ -33,7 +33,7 @@ pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 pub struct ProcessControlBlock {
     pub memset: MemSet,
     pub fd_table: FileTable,
-    pub curr_dir: Arc<FileItem>,
+    pub curr_dir: Arc<File>,
     pub heap: usize,
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
@@ -85,8 +85,7 @@ impl UserTask {
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: FileItem::fs_open(work_dir, OpenFlags::all())
-                .expect("dont' have the home dir"),
+            curr_dir: File::fs_open(work_dir, OpenFlags::all()).expect("dont' have the home dir"),
             heap: 0,
             children: Vec::new(),
             entry: 0,
@@ -146,7 +145,7 @@ impl UserTask {
         vaddr: VirtAddr,
         mtype: MemType,
         count: usize,
-        file: Option<File>,
+        file: Option<Arc<dyn INodeInterface>>,
         offset: usize,
         start: usize,
         len: usize,
@@ -421,7 +420,7 @@ impl UserTask {
         VirtAddr::new(max(map_last, shm_last))
     }
 
-    pub fn get_fd(&self, index: usize) -> Option<Arc<FileItem>> {
+    pub fn get_fd(&self, index: usize) -> Option<Arc<File>> {
         let pcb = self.pcb.lock();
         match index >= pcb.rlimits[7] {
             true => None,
@@ -429,7 +428,7 @@ impl UserTask {
         }
     }
 
-    pub fn set_fd(&self, index: usize, value: Arc<FileItem>) {
+    pub fn set_fd(&self, index: usize, value: Arc<File>) {
         let mut pcb = self.pcb.lock();
         match index >= pcb.rlimits[7] {
             true => {}

@@ -15,23 +15,23 @@ use vfscore::{
 };
 
 const FILE_MAX: usize = 255;
-const FD_NONE: Option<Arc<FileItem>> = Option::None;
+const FD_NONE: Option<Arc<File>> = Option::None;
 
 #[derive(Clone)]
-pub struct FileTable(pub Vec<Option<Arc<FileItem>>>);
+pub struct FileTable(pub Vec<Option<Arc<File>>>);
 
 impl FileTable {
     pub fn new() -> Self {
-        let mut file_table: Vec<Option<Arc<FileItem>>> = vec![FD_NONE; FILE_MAX];
+        let mut file_table: Vec<Option<Arc<File>>> = vec![FD_NONE; FILE_MAX];
         file_table[..3].fill(Some(
-            FileItem::fs_open("/dev/ttyv0", OpenFlags::O_RDWR).expect("can't read tty file"),
+            File::fs_open("/dev/ttyv0", OpenFlags::O_RDWR).expect("can't read tty file"),
         ));
         Self(file_table)
     }
 }
 
 impl Deref for FileTable {
-    type Target = Vec<Option<Arc<FileItem>>>;
+    type Target = Vec<Option<Arc<File>>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -68,7 +68,7 @@ impl Default for FileOptions {
     }
 }
 
-pub struct FileItem {
+pub struct File {
     pub inner: Arc<dyn INodeInterface>,
     pub dentry: Option<Arc<DentryNode>>,
     pub options: FileOptions,
@@ -76,7 +76,7 @@ pub struct FileItem {
     pub flags: Mutex<OpenFlags>,
 }
 
-impl<'a> FileItem {
+impl<'a> File {
     pub fn new(
         inner: Arc<dyn INodeInterface>,
         dentry: Option<Arc<DentryNode>>,
@@ -148,7 +148,7 @@ impl<'a> FileItem {
         }
         assert!(self.dentry.is_some());
         dentry_open(self.dentry.clone().unwrap(), path, flags.clone()).map(|x| {
-            Arc::new(FileItem {
+            Arc::new(File {
                 inner: x.node.clone(),
                 dentry: Some(x),
                 offset: Mutex::new(0),
@@ -216,7 +216,7 @@ impl<'a> FileItem {
     }
 }
 
-impl FileItem {
+impl File {
     pub fn mkdir(&self, name: &str) -> Result<Arc<dyn INodeInterface>, Errno> {
         self.inner.mkdir(name)
     }
@@ -319,7 +319,7 @@ impl FileItem {
     }
 }
 
-impl FileItem {
+impl File {
     pub fn readat(&self, offset: usize, buffer: &mut [u8]) -> Result<usize, Errno> {
         self.inner.readat(offset, buffer)
     }

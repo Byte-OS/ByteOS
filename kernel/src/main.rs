@@ -33,7 +33,7 @@ mod tasks;
 mod user;
 mod utils;
 
-use crate::tasks::{current_user_task, FileItem};
+use crate::tasks::{current_user_task, File};
 use crate::user::task_ilegal;
 use core::hint::spin_loop;
 use devices::{self, get_int_device, PAGE_SIZE, VIRT_ADDR_START};
@@ -183,7 +183,7 @@ fn main(hart_id: usize) {
     // initialize filesystem
     fs::init();
     {
-        FileItem::fs_open("/var", OpenFlags::O_DIRECTORY)
+        File::fs_open("/var", OpenFlags::O_DIRECTORY)
             .expect("can't open /var")
             .mkdir("tmp")
             .expect("can't create tmp dir");

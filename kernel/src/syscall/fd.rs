@@ -2,7 +2,7 @@ use super::types::fd::IoVec;
 use super::types::poll::{EpollEvent, EpollFile};
 use super::SysResult;
 use crate::syscall::types::fd::{FcntlCmd, AT_CWD};
-use crate::tasks::{FileItem, UserTask};
+use crate::tasks::{File, UserTask};
 use crate::user::UserTaskContainer;
 use crate::utils::time::{current_nsec, current_timespec};
 use crate::utils::useref::UserRef;
@@ -21,9 +21,9 @@ use polyhal::VirtAddr;
 use syscalls::Errno;
 use vfscore::FileType;
 
-pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<FileItem>, Errno> {
+pub fn to_node(task: &Arc<UserTask>, fd: usize, path: &str) -> Result<Arc<File>, Errno> {
     if path.len() > 0 && path.starts_with("/") {
-        return Ok(FileItem::root());
+        return Ok(File::root());
     }
     const NEW_AT_CWD: u32 = AT_CWD as u32;
     match fd as u32 {
@@ -317,7 +317,7 @@ impl UserTaskContainer {
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
-        FileItem::fs_open(path, OpenFlags::NONE)?.statfs(statfs)?;
+        File::fs_open(path, OpenFlags::NONE)?.statfs(statfs)?;
         Ok(0)
     }
 
@@ -327,11 +327,11 @@ impl UserTaskContainer {
 
         let (rx, tx) = create_pipe();
         let rx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
-        self.task.set_fd(rx_fd, FileItem::new_dev(rx));
+        self.task.set_fd(rx_fd, File::new_dev(rx));
         fds[0] = rx_fd as u32;
 
         let tx_fd = self.task.alloc_fd().ok_or(Errno::ENFILE)?;
-        self.task.set_fd(tx_fd, FileItem::new_dev(tx));
+        self.task.set_fd(tx_fd, File::new_dev(tx));
         fds[1] = tx_fd as u32;
 
         debug!("sys_pipe2 ret: {} {}", rx_fd as u32, tx_fd as u32);
@@ -389,7 +389,7 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = FileItem::fs_open(special, OpenFlags::NONE)?;
+        let dev_node = File::fs_open(special, OpenFlags::NONE)?;
         dev_node.mount(dir)?;
         Ok(0)
     }
@@ -566,7 +566,7 @@ impl UserTaskContainer {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = FileItem::fs_open(filename, OpenFlags::NONE)?.resolve_link()?;
+        let file_path = File::fs_open(filename, OpenFlags::NONE)?.resolve_link()?;
 
         let bytes = file_path.as_bytes();
 
@@ -859,7 +859,7 @@ impl UserTaskContainer {
         debug!("sys_epoll_create @ flags: {:#x}", flags);
         let file = Arc::new(EpollFile::new(flags));
         let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
-        self.task.set_fd(fd, FileItem::new_dev(file));
+        self.task.set_fd(fd, File::new_dev(file));
         Ok(fd)
     }
 
