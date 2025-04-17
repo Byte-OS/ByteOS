@@ -141,6 +141,15 @@ pub async fn exec_with_process(
         Some(dir) => format!("{}/{}", dir.path(), path),
         None => path,
     };
+    let mut paths = Vec::new();
+    path.split("/")
+        .into_iter()
+        .filter(|&x| x != "" && x != ".")
+        .for_each(|x| {
+            paths.push(x);
+        });
+    let path = String::from("/") + &paths.join("/");
+
     let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
     user_task.page_table.restore();

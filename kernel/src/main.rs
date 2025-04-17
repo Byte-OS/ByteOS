@@ -207,12 +207,12 @@ fn main(hart_id: usize) {
     IRQ::int_enable();
 
     // cache task with task templates
-    // tasks::exec::cache_task_template("./busybox").expect("can't cache task");
-    // tasks::exec::cache_task_template("./runtest.exe").expect("can't cache task");
-    // tasks::exec::cache_task_template("entry-static.exe").expect("can't cache task");
-    // tasks::exec::cache_task_template("libc.so").expect("can't cache task");
-    // tasks::exec::cache_task_template("./lua").expect("can't cache task");
-    // tasks::exec::cache_task_template("lmbench_all").expect("can't cache task");
+    tasks::exec::cache_task_template("/busybox").expect("can't cache task");
+    tasks::exec::cache_task_template("/runtest.exe").expect("can't cache task");
+    tasks::exec::cache_task_template("/entry-static.exe").expect("can't cache task");
+    tasks::exec::cache_task_template("/libc.so").expect("can't cache task");
+    tasks::exec::cache_task_template("/lua").expect("can't cache task");
+    // tasks::exec::cache_task_template("/lmbench_all").expect("can't cache task");
 
     // init kernel threads and async executor
     tasks::init();
