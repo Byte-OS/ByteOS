@@ -93,9 +93,6 @@ impl UserTaskContainer {
             if cx_ref[TrapFrameArgs::SYSCALL] == Sysno::rt_sigreturn.id() as _ {
                 return UserTaskControlFlow::Break;
             }
-
-            debug!("syscall num: {}", cx_ref[TrapFrameArgs::SYSCALL]);
-            // sepc += 4, let it can go to next command.
             cx_ref.syscall_ok();
             let result = self
                 .syscall(cx_ref[TrapFrameArgs::SYSCALL], cx_ref.args())

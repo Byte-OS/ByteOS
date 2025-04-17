@@ -309,13 +309,7 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<UserTask> = self.clone();
-        let work_dir = parent_task
-            .clone()
-            .pcb
-            .lock()
-            .curr_dir
-            .path()
-            .expect("can't get parent work dir in the cow_fork");
+        let work_dir = parent_task.clone().pcb.lock().curr_dir.path();
         let new_task = Self::new(Arc::downgrade(&parent_task), &work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
@@ -484,7 +478,7 @@ impl UserTask {
                 .flatten()
                 .ok_or(Errno::EBADF)?,
         };
-        let path = format!("{}/{}", parent.path, filename);
+        let path = format!("{}/{}", parent.path(), filename);
         let mut paths: Vec<String> = Vec::new();
         for x in path.split("/").into_iter() {
             match x {

@@ -35,9 +35,6 @@ pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
 pub fn cache_task_template(path: &str) -> Result<(), Errno> {
     let file = File::open(path, OpenFlags::O_RDONLY)?;
-    // let file = dentry_open(dentry_root(), path, OpenFlags::O_RDONLY)?
-    //     .node
-    //     .clone();
     let file_size = file.file_size()?;
     let frame_paddr = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
     let buffer = frame_paddr.as_ref().unwrap()[0].slice_mut_with_len(file_size);
@@ -139,7 +136,11 @@ pub async fn exec_with_process(
     envp: Vec<String>,
 ) -> Result<Arc<UserTask>, Errno> {
     // copy args, avoid free before pushing.
-    let path = String::from(path);
+    // let path = String::from(path);
+    let path = match curr_dir.clone() {
+        Some(dir) => format!("{}/{}", dir.path(), path),
+        None => path,
+    };
     let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
     user_task.page_table.restore();
@@ -176,7 +177,6 @@ pub async fn exec_with_process(
         let file = File::open(&path, OpenFlags::O_RDONLY)
             .map(Arc::new)?
             .clone();
-        debug!("file: {:#x?}", file.path);
         let file_size = file.file_size()?;
         let frame_ppn = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
         let buffer = frame_ppn.as_ref().unwrap()[0].slice_mut_with_len(file_size);

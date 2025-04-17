@@ -1,173 +1,3 @@
-// use core::fmt::Debug;
-
-// use alloc::{
-//     string::{String, ToString},
-//     sync::{Arc, Weak},
-//     vec::Vec,
-// };
-// use sync::{LazyInit, Mutex};
-// use syscalls::Errno;
-// use vfscore::{INodeInterface, OpenFlags};
-
-// pub struct DentryNode {
-//     pub filename: String,
-//     pub node: Arc<dyn INodeInterface>,
-//     pub parent: Weak<DentryNode>,
-//     pub children: Mutex<Vec<Arc<DentryNode>>>,
-// }
-
-// impl Debug for DentryNode {
-//     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-//         f.debug_struct("DentryNode")
-//             .field("filename", &self.filename)
-//             .field("parent", &self.parent)
-//             .field("children", &self.children)
-//             .finish()
-//     }
-// }
-
-// impl DentryNode {
-//     pub fn new(filename: String, node: Arc<dyn INodeInterface>, parent: Weak<DentryNode>) -> Self {
-//         Self {
-//             filename,
-//             node,
-//             parent,
-//             children: Mutex::new(Vec::new()),
-//         }
-//     }
-
-//     /// Mount a fs to DentryTree, return Some if successfully mounted.
-//     /// path: The mounted path.
-//     /// node: fs root directory node.
-//     pub fn mount(path: String, node: Arc<dyn INodeInterface>) -> Result<(), Errno> {
-//         let paths = path.split("/").into_iter();
-//         let mut dentry = DENTRY_TREE.lock().clone();
-
-//         for x in paths {
-//             dentry = match x {
-//                 "." | "" => dentry,
-//                 ".." => dentry.parent.upgrade().unwrap_or(dentry),
-//                 filename => {
-//                     let finded = dentry
-//                         .children
-//                         .lock()
-//                         .iter()
-//                         .find(|x| x.filename == *filename)
-//                         .cloned();
-//                     log::debug!("open: {}", filename);
-//                     match finded {
-//                         Some(new_dentry) => new_dentry,
-//                         None => dentry.node.open(filename, OpenFlags::NONE).map(|x| {
-//                             Arc::new(DentryNode::new(
-//                                 filename.to_string(),
-//                                 x,
-//                                 Arc::downgrade(&dentry),
-//                             ))
-//                         })?,
-//                     }
-//                 }
-//             }
-//         }
-//         dentry
-//             .parent
-//             .upgrade()
-//             .unwrap()
-//             .children
-//             .lock()
-//             .push(Arc::new(DentryNode::new(
-//                 dentry.filename.clone(),
-//                 node,
-//                 dentry.parent.clone(),
-//             )));
-//         Ok(())
-//     }
-
-//     pub fn unmount(_path: String) -> Result<(), Errno> {
-//         todo!("unmount in dentry node");
-//     }
-
-//     pub fn open(self: Arc<DentryNode>, name: &str, flags: OpenFlags) -> Option<Arc<DentryNode>> {
-//         let mut children = self.children.lock();
-//         if let Some(dnode) = children.iter().find(|x| x.filename == name) {
-//             Some(dnode.clone())
-//         } else {
-//             match self.node.open(name, flags) {
-//                 Ok(node) => {
-//                     // add node to dentry node children.
-//                     let child_dentry = Arc::new(DentryNode::new(
-//                         name.to_string(),
-//                         node,
-//                         Arc::downgrade(&self),
-//                     ));
-//                     children.push(child_dentry.clone());
-//                     Some(child_dentry)
-//                 }
-//                 Err(_) => None,
-//             }
-//         }
-//     }
-
-//     pub fn path(&self) -> String {
-//         if let Some(_) = self.parent.upgrade() {
-//             let mut path = String::from("/") + &self.filename.clone();
-//             let mut pd = self.parent.clone();
-//             while let Some(parent) = pd.upgrade()
-//                 && parent.filename != "/"
-//             {
-//                 path = String::from("/") + &parent.filename + &path;
-//                 pd = parent.parent.clone();
-//             }
-//             path
-//         } else {
-//             String::from("/")
-//         }
-//     }
-// }
-
-// pub static DENTRY_TREE: LazyInit<Mutex<Arc<DentryNode>>> = LazyInit::new();
-
-// /// dentry_open function will open the dentry node by path and dentry.
-// /// path should will be rebuild.
-// /// flags not be used at now.
-// pub fn dentry_open(
-//     mut dentry: Arc<DentryNode>,
-//     path: &str,
-//     flags: OpenFlags,
-// ) -> Result<Arc<DentryNode>, Errno> {
-//     if path.starts_with("/") {
-//         dentry = DENTRY_TREE.lock().clone();
-//     }
-//     let mut path_peeker = path.split("/").peekable();
-//     while let Some(filename) = path_peeker.next() {
-//         let new_dentry = match filename {
-//             "." | "" => Some(dentry.clone()),
-//             ".." => Some(dentry.parent.upgrade().unwrap_or(dentry.clone())),
-//             x => dentry.clone().open(x, flags.clone()),
-//         };
-//         if let Some(new_dentry) = new_dentry {
-//             dentry = new_dentry;
-//         } else {
-//             return Err(Errno::ENOENT);
-//         }
-//     }
-//     Ok(dentry)
-// }
-
-// /// dentry_init will initialize the dentry tree.
-// /// but root node can't be modified more than once.
-// pub fn dentry_init(root_node: Arc<dyn INodeInterface>) {
-//     log::info!("Initialize dentry tree by root node");
-//     DENTRY_TREE.init_by(Mutex::new(Arc::new(DentryNode::new(
-//         String::from("/"),
-//         root_node,
-//         Weak::new(),
-//     ))))
-// }
-
-// pub fn dentry_root() -> Arc<DentryNode> {
-//     DENTRY_TREE.lock().clone()
-// }
-
 use alloc::{
     borrow::ToOwned,
     string::{String, ToString},
@@ -177,6 +7,8 @@ use alloc::{
 use sync::Mutex;
 use vfscore::{FileSystem, INodeInterface, VfsResult};
 
+pub static MOUNTED_FS: Mutex<Vec<(String, DEntryNode)>> = Mutex::new(Vec::new());
+
 #[derive(Clone)]
 pub struct DEntryNode {
     pub fs: Arc<dyn FileSystem>,
@@ -184,14 +16,23 @@ pub struct DEntryNode {
 }
 
 impl DEntryNode {
+    #[inline]
     pub fn node(&self) -> Arc<dyn INodeInterface> {
-        // self.fs.root_dir()
         self.node.clone()
     }
 }
 
-pub static MOUNTED_FS: Mutex<Vec<(String, DEntryNode)>> = Mutex::new(Vec::new());
-
+/// 获取挂载的文件系统和挂载后的路径
+///
+/// # Arguments
+///
+/// - `path`  需要搜索的路径
+///
+/// # Returns
+///
+/// - [DEntryNode] `path` 对应挂载的文件系统
+/// - [String]     `path` 减去挂载路径后的路径
+///
 pub fn get_mounted(path: String) -> (DEntryNode, String) {
     let mounted = MOUNTED_FS.lock();
     let finded = mounted
@@ -205,14 +46,27 @@ pub fn get_mounted(path: String) -> (DEntryNode, String) {
     )
 }
 
+/// 挂载文件系统
+///
+/// # Arguments
+///
+/// - `fs`   需要挂载的文件系统
+/// - `path` 文件系统挂载的路径
 pub fn mount_fs(fs: Arc<dyn FileSystem>, path: &str) {
     assert!(path.starts_with("/"));
+    info!("SYSTEM FS mount {} @ {}", fs.name(), path);
     let node = fs.root_dir();
     MOUNTED_FS
         .lock()
         .push((path.to_owned(), DEntryNode { fs, node }));
 }
 
+/// 取消挂载文件系统
+///
+/// # Arguments
+///
+/// - `path` 需要取消挂载的路径
 pub fn umount(path: &str) -> VfsResult<()> {
-    todo!("umount fs")
+    MOUNTED_FS.lock().retain(|x| x.0 != path);
+    Ok(())
 }

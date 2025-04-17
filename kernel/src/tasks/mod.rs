@@ -48,8 +48,8 @@ pub async fn handle_net() {
 pub fn init() {
     DEFAULT_EXECUTOR.init(get_cpu_num());
     thread::spawn_blank(initproc());
-    #[cfg(feature = "net")]
-    thread::spawn_blank(KernelTask::new(handle_net()));
+    // #[cfg(feature = "net")]
+    // thread::spawn_blank(KernelTask::new(handle_net()));
 }
 
 pub fn run_tasks() {

@@ -9,7 +9,7 @@ use vfscore::{
 
 pub struct File {
     pub inner: Arc<dyn INodeInterface>,
-    pub path: String,
+    path: String,
     pub offset: Mutex<usize>,
     pub flags: Mutex<OpenFlags>,
 }
@@ -61,16 +61,6 @@ impl<'a> File {
         })
     }
 
-    // /// Get root directory FileItem.
-    // pub fn root() -> Arc<Self> {
-    //     let dentry = dentry_root();
-    //     Self::new(
-    //         dentry.node.clone(),
-    //         Some(dentry),
-    //         FileOptions::R | FileOptions::W,
-    //     )
-    // }
-
     pub fn new_dev(inner: Arc<dyn INodeInterface>) -> Arc<Self> {
         Arc::new(Self {
             inner,
@@ -92,48 +82,6 @@ impl<'a> File {
         self.inner.clone()
     }
 
-    // pub fn fs_open(path: &str, open_flags: OpenFlags) -> Result<Arc<Self>, Errno> {
-    //     if open_flags.contains(OpenFlags::O_WRONLY)
-    //         || open_flags.contains(OpenFlags::O_RDWR)
-    //         || open_flags.contains(OpenFlags::O_ACCMODE)
-    //     {
-    //         options = options.union(FileOptions::W);
-    //     }
-    //     let dentry_node = dentry::dentry_open(dentry_root(), path, OpenFlags::NONE)?;
-    //     let offset = if open_flags.contains(OpenFlags::O_APPEND) {
-    //         dentry_node.node.metadata()?.size
-    //     } else {
-    //         0
-    //     };
-    //     Ok(Arc::new(Self {
-    //         inner: dentry_node.node.clone(),
-    //         options,
-    //         dentry: Some(dentry_node),
-    //         offset: Mutex::new(offset),
-    //         flags: Mutex::new(open_flags),
-    //     }))
-    // }
-
-    // pub fn dentry_open(&self, path: &str, flags: OpenFlags) -> Result<Arc<Self>, Errno> {
-    //     let mut options = FileOptions::R | FileOptions::X;
-    //     if flags.contains(OpenFlags::O_WRONLY)
-    //         || flags.contains(OpenFlags::O_RDWR)
-    //         || flags.contains(OpenFlags::O_ACCMODE)
-    //     {
-    //         options = options.union(FileOptions::W);
-    //     }
-    //     assert!(self.dentry.is_some());
-    //     dentry_open(self.dentry.clone().unwrap(), path, flags.clone()).map(|x| {
-    //         Arc::new(File {
-    //             inner: x.node.clone(),
-    //             dentry: Some(x),
-    //             offset: Mutex::new(0),
-    //             flags: Mutex::new(flags.clone()),
-    //             options,
-    //         })
-    //     })
-    // }
-
     #[inline(always)]
     fn check_writeable(&self) -> Result<(), Errno> {
         let flags = self.flags.lock().clone();
@@ -144,14 +92,9 @@ impl<'a> File {
         }
     }
 
-    pub fn path(&self) -> Result<String, Errno> {
-        Ok(self.path.clone())
-        // Ok(&self.path)
-        // dentry_open(dentry, path, flags)
-        // match &self.dentry {
-        //     Some(dentry) => Ok(dentry.path()),
-        //     None => Err(Errno::ENOENT),
-        // }
+    #[inline]
+    pub fn path(&self) -> String {
+        self.path.clone()
     }
 
     pub fn file_size(&self) -> VfsResult<usize> {
@@ -229,20 +172,6 @@ impl File {
         todo!("Move the file? to other location")
     }
 
-    // pub fn remove_self(&self) -> Result<(), Errno> {
-    //     match &self.dentry {
-    //         Some(dentry) => {
-    //             let filename = &dentry.filename;
-    //             if let Some(parent) = dentry.parent.upgrade() {
-    //                 parent.node.remove(filename)?;
-    //                 parent.children.lock().retain(|x| &x.filename != filename);
-    //             }
-    //             Ok(())
-    //         }
-    //         None => Err(Errno::ENOENT),
-    //     }
-    // }
-
     pub fn read_dir(&self) -> Result<Vec<DirEntry>, Errno> {
         self.inner.read_dir()
     }
@@ -256,11 +185,6 @@ impl File {
     }
 
     pub fn truncate(&self, size: usize) -> Result<(), Errno> {
-        // self.check_writeable()?;
-        // let mut offset = self.offset.lock();
-        // if *offset > size {
-        //     *offset = size;
-        // }
         self.inner.truncate(size)
     }
 

@@ -1,7 +1,7 @@
 use super::types::fd::IoVec;
 use super::types::poll::{EpollEvent, EpollFile};
 use super::SysResult;
-use crate::syscall::types::fd::{FcntlCmd, AT_CWD};
+use crate::syscall::types::fd::FcntlCmd;
 use crate::user::UserTaskContainer;
 use crate::utils::time::{current_nsec, current_timespec};
 use crate::utils::useref::UserRef;
@@ -20,6 +20,9 @@ use num_traits::FromPrimitive;
 use polyhal::VirtAddr;
 use syscalls::Errno;
 use vfscore::FileType;
+
+#[cfg(target_arch = "x86_64")]
+use crate::syscall::types::fd::AT_CWD;
 
 impl UserTaskContainer {
     pub async fn sys_dup(&self, fd: usize) -> SysResult {
@@ -60,17 +63,12 @@ impl UserTaskContainer {
         );
         let buffer = buf_ptr.slice_with_len(count);
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
-        // if let Ok(_) = file.get_bare_file().downcast_arc::<Socket>() {
-        //     yield_now().await;
-        // }
         file.async_write(buffer).await
     }
 
     pub async fn sys_readv(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
         debug!("sys_readv @ fd: {}, iov: {}, iocnt: {}", fd, iov, iocnt);
-
         let mut rsize = 0;
-
         let iov = iov.slice_mut_with_len(iocnt);
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
 
@@ -85,9 +83,7 @@ impl UserTaskContainer {
     pub async fn sys_writev(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
         debug!("sys_writev @ fd: {}, iov: {}, iocnt: {}", fd, iov, iocnt);
         let mut wsize = 0;
-
         let iov = iov.slice_mut_with_len(iocnt);
-
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
 
         for io in iov {
@@ -100,7 +96,6 @@ impl UserTaskContainer {
 
     pub async fn sys_close(&self, fd: usize) -> SysResult {
         debug!("[task {}] sys_close @ fd: {}", self.tid, fd as isize);
-
         self.task.clear_fd(fd);
         Ok(0)
     }
@@ -361,7 +356,7 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = File::open(special, OpenFlags::NONE)?;
+        let dev_node = File::open(special, OpenFlags::O_RDONLY)?;
         dev_node.mount(dir)?;
         Ok(0)
     }
@@ -536,7 +531,7 @@ impl UserTaskContainer {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = File::open(filename, OpenFlags::NONE)?.resolve_link()?;
+        let file_path = File::open(filename, OpenFlags::O_RDONLY)?.resolve_link()?;
         let bytes = file_path.as_bytes();
 
         let rlen = cmp::min(bytes.len(), buffer_size);

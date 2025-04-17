@@ -75,11 +75,13 @@ pub async fn initproc() {
     // command("busybox echo run time-test").await;
     // command("time-test").await;
 
+    // command("busybox sh basic/run-all.sh").await;
+
     // command("busybox echo run netperf_testcode.sh").await;
     // command("busybox sh netperf_testcode.sh").await;
 
     // command("busybox echo run busybox_testcode.sh").await;
-    command("busybox sh busybox_testcode.sh").await;
+    // command("busybox sh busybox_testcode.sh").await;
 
     // command("busybox echo run libctest_testcode.sh").await;
     // command("busybox sh libctest_testcode.sh").await;
@@ -102,7 +104,7 @@ pub async fn initproc() {
     // kill_all_tasks().await;
 
     // command("busybox echo run iozone_testcode.sh").await;
-    // command("busybox sh iozone_testcode.sh").await;
+    command("busybox sh iozone_testcode.sh").await;
 
     // command("busybox echo run lmbench_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;
