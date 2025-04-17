@@ -1,11 +1,9 @@
 #![no_std]
 #![feature(let_chains)]
 
-#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate log;
-#[macro_use]
 extern crate bitflags;
 
 pub mod dentry;
@@ -46,7 +44,6 @@ pub fn build_devfs() -> Arc<DevFS> {
 
 pub fn init() {
     info!("fs module initialized");
-
     // TODO: Identify the filesystem at the device.
     if get_blk_devices().len() > 0 {
         #[cfg(root_fs = "fat32")]

@@ -33,9 +33,8 @@ impl Driver for RamDiskBlock {
 
 impl BlkDriver for RamDiskBlock {
     fn read_blocks(&self, sector_offset: usize, buf: &mut [u8]) {
-        assert_eq!(buf.len(), 0x200);
-        let rlen = buf.len();
-        if (sector_offset * 0x200 + rlen) >= self.size {
+        assert_eq!(buf.len() % 0x200, 0);
+        if (sector_offset * 0x200 + buf.len()) >= self.size {
             panic!("can't out of ramdisk range")
         };
         unsafe {
@@ -48,9 +47,8 @@ impl BlkDriver for RamDiskBlock {
     }
 
     fn write_blocks(&self, sector_idx: usize, buf: &[u8]) {
-        assert_eq!(buf.len(), 0x200);
-        let wlen = buf.len();
-        if (sector_idx * 0x200 + wlen) >= self.size {
+        assert_eq!(buf.len() % 0x200, 0);
+        if (sector_idx * 0x200 + buf.len()) >= self.size {
             panic!("can't out of ramdisk range")
         };
         unsafe {

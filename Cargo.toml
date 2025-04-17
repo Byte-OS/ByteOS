@@ -49,9 +49,9 @@ logging = { path = "crates/logging" }
 signal = { path = "crates/signal" }
 sync = { path = "crates/sync" }
 
-polyhal = { version = "0.2.1", features = ["logger", "trap"] }
-polyhal-boot = { version = "0.2.1" }
-polyhal-trap = { version = "0.2.1" }
+polyhal = { version = "0.2.3", features = ["logger", "trap"] }
+polyhal-boot = { version = "0.2.3" }
+polyhal-trap = { version = "0.2.3" }
 fdt-parser = { version = "0.4.12" }
 
 syscalls = { git = "https://github.com/jasonwhite/syscalls.git", default-features = false }

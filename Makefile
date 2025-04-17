@@ -35,8 +35,10 @@ FS_IMG  := mount.img
 features:= 
 QEMU_EXEC += -m 1G\
 			-nographic \
-			-smp $(SMP) \
-			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
+			-smp $(SMP)
+ifeq ($(QEMU_LOG), on)
+QEMU_EXEC += -D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
+endif
 
 TESTCASE := testcase-$(ARCH)
 ifeq ($(NVME), on)
@@ -69,7 +71,7 @@ fs-img:
 	@echo "TESTCASE: $(TESTCASE)"
 	@echo "ROOT_FS: $(ROOT_FS)"
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=64
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=96
 	sync
 ifeq ($(ROOT_FS), fat32)
 	mkfs.vfat -F 32 $(FS_IMG)

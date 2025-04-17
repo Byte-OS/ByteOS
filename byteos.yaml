@@ -12,7 +12,7 @@ bin:
   riscv64-qemu:
     target: "riscv64gc-unknown-none-elf"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a,kramdisk"
+      driver: "kramdisk"
   riscv64-vf2:
     target: "riscv64imac-unknown-none-elf"
     configs:
@@ -21,15 +21,15 @@ bin:
   x86_64-qemu:
     target: "x86_64-unknown-none"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a"
+      driver: "kvirtio,kramdisk"
   x86_64-generic:
     target: "x86_64-unknown-none"
     configs:
-      driver: "kramdisk,kgoldfish-rtc,ns16550a"
+      driver: "kramdisk"
   aarch64-qemu:
     target: "aarch64-unknown-none-softfloat"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a,kramdisk"
+      driver: "kramdisk"
   loongarch64-qemu:
     target: "loongarch64-unknown-none"
     configs:

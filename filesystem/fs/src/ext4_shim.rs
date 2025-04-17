@@ -26,7 +26,7 @@ pub struct Ext4DiskWrapper {
 
 impl Ext4DiskWrapper {
     /// Create a new disk.
-    pub fn new(blk_id: usize) -> Self {
+    pub const fn new(blk_id: usize) -> Self {
         Self {
             block_id: 0,
             offset: 0,
@@ -35,120 +35,41 @@ impl Ext4DiskWrapper {
     }
 
     /// Get the position of the cursor.
+    #[inline]
     pub fn position(&self) -> u64 {
         (self.block_id * BLOCK_SIZE + self.offset) as u64
     }
 
     /// Set the position of the cursor.
+    #[inline]
     pub fn set_position(&mut self, pos: u64) {
         self.block_id = pos as usize / BLOCK_SIZE;
         self.offset = pos as usize % BLOCK_SIZE;
-    }
-
-    /// Read within one block, returns the number of bytes read.
-    pub fn read_one(&mut self, buf: &mut [u8]) -> Result<usize, i32> {
-        // info!("block id: {}", self.block_id);
-        let read_size = if self.offset == 0 && buf.len() >= BLOCK_SIZE {
-            // whole block
-            get_blk_device(self.blk_id)
-                .expect("can't find block device")
-                .read_blocks(self.block_id, &mut buf[0..BLOCK_SIZE]);
-            self.block_id += 1;
-            BLOCK_SIZE
-        } else {
-            // partial block
-            let mut data = [0u8; BLOCK_SIZE];
-            let start = self.offset;
-            let count = buf.len().min(BLOCK_SIZE - self.offset);
-            if start > BLOCK_SIZE {
-                info!("block size: {} start {}", BLOCK_SIZE, start);
-            }
-
-            get_blk_device(self.blk_id)
-                .expect("can't find block device")
-                .read_blocks(self.block_id, &mut data);
-            buf[..count].copy_from_slice(&data[start..start + count]);
-
-            self.offset += count;
-            if self.offset >= BLOCK_SIZE {
-                self.block_id += 1;
-                self.offset -= BLOCK_SIZE;
-            }
-            count
-        };
-        Ok(read_size)
-    }
-
-    /// Write within one block, returns the number of bytes written.
-    pub fn write_one(&mut self, buf: &[u8]) -> Result<usize, i32> {
-        let write_size = if self.offset == 0 && buf.len() >= BLOCK_SIZE {
-            // whole block
-            get_blk_device(self.blk_id)
-                .expect("can't find block device")
-                .write_blocks(self.block_id, &buf[0..BLOCK_SIZE]);
-            self.block_id += 1;
-            BLOCK_SIZE
-        } else {
-            // partial block
-            let mut data = [0u8; BLOCK_SIZE];
-            let start = self.offset;
-            let count = buf.len().min(BLOCK_SIZE - self.offset);
-
-            get_blk_device(self.blk_id)
-                .expect("can't find block device")
-                .read_blocks(self.block_id, &mut data);
-            data[start..start + count].copy_from_slice(&buf[..count]);
-            get_blk_device(self.blk_id)
-                .expect("can't find block device")
-                .write_blocks(self.block_id, &data);
-
-            self.offset += count;
-            if self.offset >= BLOCK_SIZE {
-                self.block_id += 1;
-                self.offset -= BLOCK_SIZE;
-            }
-            count
-        };
-        Ok(write_size)
     }
 }
 
 impl KernelDevOp for Ext4DiskWrapper {
     type DevType = Self;
 
-    fn write(dev: &mut Self::DevType, mut buf: &[u8]) -> Result<usize, i32> {
-        let mut write_len = 0;
-        while !buf.is_empty() {
-            match dev.write_one(buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    buf = &buf[n..];
-                    write_len += n;
-                }
-                Err(_e) => return Err(-1),
-            }
-        }
-        Ok(write_len)
+    fn write(dev: &mut Self::DevType, buf: &[u8]) -> Result<usize, i32> {
+        assert!(dev.offset % BLOCK_SIZE == 0);
+        get_blk_device(0)
+            .expect("can't find block device")
+            .write_blocks(dev.block_id, buf);
+        dev.block_id += buf.len() / BLOCK_SIZE;
+        Ok(buf.len())
     }
 
-    fn read(dev: &mut Self::DevType, mut buf: &mut [u8]) -> Result<usize, i32> {
-        let mut read_len = 0;
-        while !buf.is_empty() {
-            match dev.read_one(buf) {
-                Ok(0) => break,
-                Ok(n) => {
-                    let tmp = buf;
-                    buf = &mut tmp[n..];
-                    read_len += n;
-                }
-                Err(_e) => return Err(-1),
-            }
-        }
-        Ok(read_len)
+    fn read(dev: &mut Self::DevType, buf: &mut [u8]) -> Result<usize, i32> {
+        assert!(dev.offset % BLOCK_SIZE == 0);
+        get_blk_device(0)
+            .expect("can't find block device")
+            .read_blocks(dev.block_id, buf);
+        dev.block_id += buf.len() / BLOCK_SIZE;
+        Ok(buf.len())
     }
 
     fn seek(dev: &mut Self::DevType, off: i64, whence: i32) -> Result<i64, i32> {
-        // let size = dev.size();
         let size = get_blk_device(dev.blk_id)
             .expect("can't seek to device")
             .capacity();
@@ -169,10 +90,7 @@ impl KernelDevOp for Ext4DiskWrapper {
         Ok(new_pos)
     }
 
-    fn flush(_dev: &mut Self::DevType) -> Result<usize, i32>
-    where
-        Self: Sized,
-    {
+    fn flush(_dev: &mut Self::DevType) -> Result<usize, i32> {
         todo!()
     }
 }
@@ -377,7 +295,6 @@ impl INodeInterface for Ext4FileWrapper {
         if fpath.is_empty() {
             return Ok(());
         }
-
         let mut file = self.inner.lock();
         if file.check_inode_exist(fpath, ext4_type.clone()) {
             Ok(())

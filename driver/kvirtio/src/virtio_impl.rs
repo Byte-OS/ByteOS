@@ -13,7 +13,7 @@ unsafe impl Hal for HalImpl {
         let trackers = frame_alloc_much(pages).expect("can't alloc page in virtio");
         let paddr = trackers[0].0;
         let vaddr = NonNull::new(paddr.get_mut_ptr()).unwrap();
-        trace!("alloc DMA: paddr={:#x}, pages={}", paddr.raw(), pages);
+        trace!("alloc DMA: paddr={:#x}, pages={:?}", paddr.raw(), trackers);
         VIRTIO_CONTAINER.lock().extend(trackers.into_iter());
         (paddr.raw(), vaddr)
     }

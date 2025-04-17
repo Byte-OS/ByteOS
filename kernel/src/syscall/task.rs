@@ -47,7 +47,7 @@ impl UserTaskContainer {
         debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
         let buffer = buf_ptr.slice_mut_with_len(size);
         let curr_path = self.task.pcb.lock().curr_dir.clone();
-        let path = curr_path.path()?;
+        let path = curr_path.path();
         let bytes = path.as_bytes();
         let len = cmp::min(bytes.len(), size);
         buffer[..len].copy_from_slice(&bytes[..len]);
@@ -432,8 +432,8 @@ impl UserTaskContainer {
         let rusage = usage_ptr.get_mut();
 
         let tms = self.task.inner_map(|inner| inner.tms);
-        let stime = Time::from_raw(tms.stime as _);
-        let utime = Time::from_raw(tms.utime as _);
+        let stime = Time::new(tms.stime as _);
+        let utime = Time::new(tms.utime as _);
         rusage.ru_stime = TimeVal {
             sec: stime.to_usec() / 1000_000,
             usec: stime.to_usec() % 1000_000,
