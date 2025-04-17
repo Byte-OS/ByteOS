@@ -223,11 +223,6 @@ impl UserTask {
         Some(ppn)
     }
 
-    // pub fn get_cx_ptr(&self) -> *mut Context {
-    //     // (&mut self.tcb.read().cx) as *mut Context
-    //     unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx as _ }
-    // }
-
     pub fn force_cx_ref(&self) -> &'static mut TrapFrame {
         unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx }
     }
