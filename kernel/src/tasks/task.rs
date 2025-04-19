@@ -15,16 +15,14 @@ use crate::{
     },
 };
 use alloc::{
-    borrow::ToOwned,
     collections::BTreeMap,
-    string::String,
     sync::{Arc, Weak},
     vec::Vec,
 };
 use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
-use fs::{file::File, INodeInterface};
+use fs::{file::File, pathbuf::PathBuf, INodeInterface};
 use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
@@ -83,7 +81,7 @@ impl UserTask {
 }
 
 impl UserTask {
-    pub fn new(parent: Weak<UserTask>, work_dir: &str) -> Arc<Self> {
+    pub fn new(parent: Weak<UserTask>, work_dir: PathBuf) -> Arc<Self> {
         let task_id = task_id_alloc();
         // initialize memset
         let memset = MemSet::new(vec![]);
@@ -304,8 +302,8 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<UserTask> = self.clone();
-        let work_dir = parent_task.clone().pcb.lock().curr_dir.path();
-        let new_task = Self::new(Arc::downgrade(&parent_task), &work_dir);
+        let work_dir = parent_task.clone().pcb.lock().curr_dir.path_buf();
+        let new_task = Self::new(Arc::downgrade(&parent_task), work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
         let mut new_pcb = new_task.pcb.lock();
@@ -462,29 +460,28 @@ impl UserTask {
     }
 
     pub fn fd_open(&self, fd: isize, filename: &str, flags: OpenFlags) -> VfsResult<File> {
-        let parent = match fd {
-            AT_CWD => self.pcb.lock().curr_dir.clone(),
-            _ => self
-                .pcb
-                .lock()
-                .fd_table
-                .get(fd as usize)
-                .cloned()
-                .flatten()
-                .ok_or(Errno::EBADF)?,
-        };
-        let path = format!("{}/{}", parent.path(), filename);
-        let mut paths: Vec<String> = Vec::new();
-        for x in path.split("/").into_iter() {
-            match x {
-                "." | "" => {}
-                ".." => {
-                    let _ = paths.pop();
-                }
-                filename => paths.push(filename.to_owned()),
-            }
+        let path = self.fd_resolve(fd, filename)?;
+        File::open(path, flags)
+    }
+
+    #[inline]
+    pub fn fd_resolve(&self, fd: isize, filename: &str) -> VfsResult<PathBuf> {
+        if filename.starts_with("/") {
+            Ok(filename.into())
+        } else {
+            let parent = match fd {
+                AT_CWD => self.pcb.lock().curr_dir.clone(),
+                _ => self
+                    .pcb
+                    .lock()
+                    .fd_table
+                    .get(fd as usize)
+                    .cloned()
+                    .flatten()
+                    .ok_or(Errno::EBADF)?,
+            };
+            Ok(parent.path_buf().join(filename))
         }
-        File::open(&paths.join("/"), flags)
     }
 }
 

@@ -21,6 +21,7 @@ pub use async_ops::{
 use devices::get_net_device;
 use exec::exec_with_process;
 use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
+use fs::pathbuf::PathBuf;
 pub use memset::{MapTrack, MemArea, MemType};
 use polyhal::common::get_cpu_num;
 pub use shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
@@ -62,7 +63,7 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
     task.before_run();
     exec_with_process(
         task.clone(),
-        None,
+        PathBuf::new(),
         String::from(filename),
         args.into_iter().map(String::from).collect(),
         envp.into_iter().map(String::from).collect(),

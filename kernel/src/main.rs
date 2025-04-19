@@ -184,34 +184,21 @@ fn main(hart_id: usize) {
     // initialize filesystem
     fs::init();
     {
-        File::open("/var", OpenFlags::O_DIRECTORY)
+        File::open("/var".into(), OpenFlags::O_DIRECTORY)
             .expect("can't open /var")
             .mkdir("tmp")
             .expect("can't create tmp dir");
-
-        // Initialize the Dentry node.
-        // dentry::dentry_init(rootfs);
-        // FileItem::fs_open("/bin", OpenFlags::O_DIRECTORY)
-        //     .expect("can't open /bin")
-        //     .link(
-        //         "sleep",
-        //         FileItem::fs_open("busybox", OpenFlags::NONE)
-        //             .expect("not hava busybox file")
-        //             .inner
-        //             .clone(),
-        //     )
-        //     .expect("can't link busybox to /bin/sleep");
     }
 
     // enable interrupts
     IRQ::int_enable();
 
     // cache task with task templates
-    tasks::exec::cache_task_template("/busybox").expect("can't cache task");
-    tasks::exec::cache_task_template("/runtest.exe").expect("can't cache task");
-    tasks::exec::cache_task_template("/entry-static.exe").expect("can't cache task");
-    tasks::exec::cache_task_template("/libc.so").expect("can't cache task");
-    tasks::exec::cache_task_template("/lua").expect("can't cache task");
+    tasks::exec::cache_task_template("/busybox".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/runtest.exe".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/entry-static.exe".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/libc.so".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/lua".into()).expect("can't cache task");
     // tasks::exec::cache_task_template("/lmbench_all").expect("can't cache task");
 
     // init kernel threads and async executor

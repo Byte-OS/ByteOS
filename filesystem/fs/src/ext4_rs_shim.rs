@@ -1,15 +1,8 @@
-use alloc::{
-    string::{String, ToString},
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{sync::Arc, vec::Vec};
 use devices::get_blk_device;
-
-use sync::Mutex;
 use syscalls::Errno;
 use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Metadata, OpenFlags, StatFS, StatMode,
-    TimeSpec, VfsResult,
+    DirEntry, FileSystem, FileType, INodeInterface, StatFS, StatMode, TimeSpec, VfsResult,
 };
 
 use ext4_rs::*;
@@ -61,7 +54,6 @@ impl BlockDevice for Ext4Disk {
     }
 
     fn write_offset(&self, offset: usize, buf: &[u8]) {
-        // log::info!("write_offset: {:x?} buf_len{:x?}", offset, buf.len());
         let device = get_blk_device(self.device_id).unwrap();
 
         let start_block_id = offset / 512;
@@ -72,7 +64,7 @@ impl BlockDevice for Ext4Disk {
         let bytes_to_write = buf.len();
         let mut total_bytes_written = 0;
 
-        for i in 0..((bytes_to_write + 511) / 512) {
+        for i in 0..bytes_to_write.div_ceil(512) {
             // round up to cover partial blocks
             let current_block_id = start_block_id + i;
             let mut data = [0u8; 512];
@@ -110,7 +102,7 @@ pub struct Ext4FileSystem {
 }
 
 impl FileSystem for Ext4FileSystem {
-    fn root_dir(&'static self) -> Arc<dyn INodeInterface> {
+    fn root_dir(&self) -> Arc<dyn INodeInterface> {
         self.root.clone()
     }
 
@@ -125,7 +117,7 @@ unsafe impl Send for Ext4FileSystem {}
 impl Ext4FileSystem {
     pub fn new(device_id: usize) -> Arc<Self> {
         let disk = Arc::new(Ext4Disk::new(device_id));
-        let ext4 = Ext4::open(disk);
+        let ext4 = Arc::new(Ext4::open(disk));
 
         let root = Arc::new(Ext4FileWrapper::load_root(ext4.clone()));
         Arc::new(Self {
@@ -137,35 +129,31 @@ impl Ext4FileSystem {
 }
 
 pub struct Ext4FileWrapper {
-    inner: Mutex<Ext4File>,
+    inode: u32,
     ext4: Arc<Ext4>,
-    file_type: FileType,
-    file_name: String,
 }
 
 impl Ext4FileWrapper {
     fn load_root(ext4: Arc<Ext4>) -> Self {
-        let mut ext4_file = Ext4File::new();
-        let _ = ext4.ext4_open(&mut ext4_file, "/", "r", false);
-
-        Self {
-            inner: Mutex::new(ext4_file),
-            ext4,
-            file_type: FileType::Directory,
-            file_name: "/".to_string(),
-        }
+        // let inode = ext4.ext4_dir_open("/").unwrap();
+        let inode = 2;
+        log::debug!("root inode: {}", inode);
+        Self { inode, ext4 }
     }
 }
 
 impl INodeInterface for Ext4FileWrapper {
-    fn open(&self, path: &str, flags: vfscore::OpenFlags) -> VfsResult<Arc<dyn INodeInterface>> {
-        let mut ext4_file = Ext4File::new();
-
-        let mut create = false;
-
-        if flags.contains(OpenFlags::O_CREAT) {
-            create = true;
-        };
+    fn lookup(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
+        log::debug!("lookup file: {}", name);
+        self.ext4
+            .dir_get_entries(self.inode)
+            .iter()
+            .find(|x| &x.name[..x.name_len as usize] == name.as_bytes());
+        let mut inode = self.inode;
+        let inode = self
+            .ext4
+            .generic_open(name, &mut inode, false, 0, &mut 0)
+            .map_err(|x| Errno::new(x.error() as _))?;
         // let mut parse_flags: &str;
         // match flags {
         //     OpenFlags::O_RDONLY => parse_flags = "r",
@@ -177,87 +165,42 @@ impl INodeInterface for Ext4FileWrapper {
         //     _ => parse_flags = "r+",
         // };
 
-        let r = self.ext4.ext4_open(&mut ext4_file, path, "r+", create);
-
-        if let Err(e) = r {
-            match e.error() {
-                Errnum::ENOENT => Err(Errno::ENOENT),
-                Errnum::EALLOCFIAL => Err(Errno::EADDRINUSE),
-                Errnum::ELINKFIAL => Err(Errno::EAFNOSUPPORT),
-
-                _ => Err(Errno::EIO),
-            }
-        } else {
-            Ok(Arc::new(Ext4FileWrapper {
-                inner: Mutex::new(ext4_file),
-                ext4: self.ext4.clone(),
-                file_type: self.file_type,
-                file_name: String::from(path),
-            }))
-        }
-    }
-
-    fn mkdir(&self, path: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        let _ = self.ext4.ext4_dir_mk(path);
-        let mut ext4_file = Ext4File::new();
-
-        let _ = self.ext4.ext4_open(&mut ext4_file, path, "w", false);
-
         Ok(Arc::new(Ext4FileWrapper {
-            inner: Mutex::new(ext4_file),
             ext4: self.ext4.clone(),
-            file_type: FileType::Directory,
-            file_name: String::from(path),
+            inode,
         }))
     }
 
-    fn metadata(&self) -> VfsResult<vfscore::Metadata> {
-        if self.file_name == "/" {
-            return Ok(Metadata {
-                filename: "/",
-                // root
-                inode: 2 as usize,
-                // dir
-                file_type: FileType::Directory,
-                size: 0,
-                childrens: 0,
-            });
-        }
+    fn mkdir(&self, path: &str) -> VfsResult<()> {
+        // todo!("mkdir ");
+        log::debug!("self inode: {}  create {}", self.inode, path);
+        let mut inode = self.inode;
+        let mut name_off = 0;
+        // self.ext4
+        //     .generic_open(
+        //         path,
+        //         &mut inode,
+        //         true,
+        //         InodeFileType::S_IFDIR.bits(),
+        //         &mut name_off,
+        //     )
+        //     .map_err(map_ext4_err)?;
+        // self.ext4.dir_mk(path).map_err(map_ext4_err)?;
+        self.ext4
+            .create(self.inode, path, InodeFileType::S_IFDIR.bits())
+            .map_err(map_ext4_err)?;
+        log::debug!("mkdir done");
+        Ok(())
+    }
 
-        let mut ext4_file = Ext4File::new();
-        let _ = self
-            .ext4
-            .ext4_open(&mut ext4_file, &self.file_name, "r+", false);
-
-        Ok(Metadata {
-            filename: &self.file_name,
-            inode: ext4_file.inode as usize,
-            file_type: self.file_type,
-            size: ext4_file.fsize as _,
-            childrens: 0,
-        })
+    fn create(&self, _name: &str, _ty: FileType) -> VfsResult<()> {
+        panic!("create")
     }
 
     fn readat(&self, offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
-        let mut ext4_file = self.inner.lock();
-
-        ext4_file.fpos = offset;
-
-        let read_len = buffer.len();
-        let mut read_cnt = 0;
-
-        let r = self
-            .ext4
-            .ext4_file_read(&mut ext4_file, buffer, read_len, &mut read_cnt);
-
-        if let Err(e) = r {
-            match e.error() {
-                Errnum::EINVAL => Err(Errno::EINVAL),
-                _ => Err(Errno::EIO),
-            }
-        } else {
-            Ok(ext4_file.fpos - offset)
-        }
+        self.ext4
+            .read_at(self.inode, offset, buffer)
+            .map_err(map_ext4_err)
     }
 
     fn writeat(&self, _offset: usize, _buffer: &[u8]) -> VfsResult<usize> {
@@ -273,32 +216,29 @@ impl INodeInterface for Ext4FileWrapper {
     }
 
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
-        let ext4file = self.inner.lock();
-        let mut inode_num = ext4file.inode;
-        if inode_num == 0 && self.file_name == "/" {
-            inode_num = 2;
-        }
-        let v: Vec<Ext4DirEntry> = self.ext4.read_dir_entry(inode_num as _);
+        todo!("readdir")
+        // let ext4file = self.inner.lock();
+        // let mut inode_num = ext4file.inode;
+        // if inode_num == 0 && self.file_name == "/" {
+        //     inode_num = 2;
+        // }
+        // let v: Vec<Ext4DirEntry> = self.ext4.read_dir_entry(inode_num as _);
 
-        let mut entries = Vec::new();
+        // let mut entries = Vec::new();
 
-        for i in v.iter() {
-            let file_type =
-                map_ext4_type(unsafe { DirEntryType::from_bits(i.inner.inode_type).unwrap() });
+        // for i in v.iter() {
+        //     let file_type =
+        //         map_ext4_type(unsafe { DirEntryType::from_bits(i.inner.inode_type).unwrap() });
 
-            let entry = DirEntry {
-                filename: i.get_name(),
-                len: i.entry_len as usize,
-                file_type,
-            };
+        //     let entry = DirEntry {
+        //         filename: i.get_name(),
+        //         len: i.entry_len as usize,
+        //         file_type,
+        //     };
 
-            entries.push(entry);
-        }
-        Ok(entries)
-    }
-
-    fn lookup(&self, _name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        todo!("ext4 loopup")
+        //     entries.push(entry);
+        // }
+        // Ok(entries)
     }
 
     fn truncate(&self, _size: usize) -> VfsResult<()> {
@@ -313,7 +253,7 @@ impl INodeInterface for Ext4FileWrapper {
         Err(Errno::EPERM)
     }
 
-    fn sym_link(&self, _name: &str, _src: &str) -> VfsResult<()> {
+    fn symlink(&self, _name: &str, _src: &str) -> VfsResult<()> {
         Err(Errno::EPERM)
     }
 
@@ -323,17 +263,21 @@ impl INodeInterface for Ext4FileWrapper {
 
     fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
         stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = match self.file_type {
-            FileType::File => StatMode::FILE,
-            FileType::Directory => StatMode::DIR,
-            FileType::Device => StatMode::BLOCK,
-            FileType::Socket => StatMode::SOCKET,
-            FileType::Link => StatMode::LINK,
+        let inodeif = self.ext4.get_inode_ref(self.inode);
+        stat.mode = match inodeif.inode.file_type() {
+            InodeFileType::S_IFREG => StatMode::FILE,
+            InodeFileType::S_IFDIR => StatMode::DIR,
+            InodeFileType::S_IFBLK => StatMode::BLOCK,
+            InodeFileType::S_IFSOCK => StatMode::SOCKET,
+            InodeFileType::S_IFLNK => StatMode::LINK,
+            InodeFileType::S_IFCHR => StatMode::CHAR,
+            InodeFileType::S_IFIFO => StatMode::FIFO,
+            _ => unreachable!(),
         };
         stat.nlink = 1;
         stat.uid = 0;
         stat.gid = 0;
-        stat.size = self.inner.lock().fsize as _;
+        stat.size = inodeif.inode.size();
         stat.blksize = 4096;
         stat.blocks = 0;
         stat.rdev = 0; // TODO: add device id
@@ -364,14 +308,7 @@ impl INodeInterface for Ext4FileWrapper {
     }
 }
 
-pub fn map_ext4_type(value: DirEntryType) -> FileType {
-    match value {
-        DirEntryType::EXT4_DE_REG_FILE => FileType::File,
-        DirEntryType::EXT4_DE_DIR => FileType::Directory,
-        DirEntryType::EXT4_DE_CHRDEV => FileType::Device,
-        DirEntryType::EXT4_DE_BLKDEV => FileType::Device,
-        DirEntryType::EXT4_DE_SOCK => FileType::Socket,
-        DirEntryType::EXT4_DE_SYMLINK => FileType::Link,
-        _ => FileType::File,
-    }
+#[inline(always)]
+pub fn map_ext4_err(err: Ext4Error) -> Errno {
+    Errno::new(err.error() as _)
 }

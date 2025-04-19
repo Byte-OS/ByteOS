@@ -7,5 +7,4 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
-virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "61ece50" }
 devices = { workspace = true }

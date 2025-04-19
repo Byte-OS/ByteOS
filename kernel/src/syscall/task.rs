@@ -102,7 +102,7 @@ impl UserTaskContainer {
         let curr_dir = self.task.pcb.lock().curr_dir.clone();
         exec_with_process(
             self.task.clone(),
-            Some(curr_dir),
+            curr_dir.path_buf(),
             filename.to_string(),
             args,
             envp,

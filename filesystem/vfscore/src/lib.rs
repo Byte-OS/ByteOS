@@ -84,7 +84,7 @@ bitflags::bitflags! {
         const MAP_ANONYOMUS = 0x8;
     }
 
-    #[derive(Debug, Default)]
+    #[derive(Debug, Default, PartialEq)]
     pub struct StatMode: u32 {
         const NULL  = 0;
         /// Type
@@ -166,6 +166,21 @@ pub enum FileType {
     Device,
     Socket,
     Link,
+}
+
+impl From<StatMode> for FileType {
+    fn from(value: StatMode) -> Self {
+        match value.intersection(StatMode::TYPE_MASK) {
+            StatMode::SOCKET => FileType::Socket,
+            StatMode::LINK => FileType::Link,
+            StatMode::FILE => FileType::File,
+            StatMode::BLOCK => FileType::Device,
+            StatMode::DIR => FileType::Directory,
+            StatMode::CHAR => FileType::Device,
+            StatMode::FIFO => FileType::Device,
+            _ => unreachable!(),
+        }
+    }
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -329,7 +344,7 @@ pub trait INodeInterface: DowncastSync + Send + Sync {
         Err(Errno::EPERM)
     }
 
-    fn sym_link(&self, _name: &str, _src: &str) -> VfsResult<()> {
+    fn symlink(&self, _name: &str, _src: &str) -> VfsResult<()> {
         Err(Errno::EPERM)
     }
 

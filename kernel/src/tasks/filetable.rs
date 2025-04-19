@@ -13,7 +13,7 @@ impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<Arc<File>>> = vec![FD_NONE; FILE_MAX];
         file_table[..3].fill(Some(
-            File::open("/dev/ttyv0", OpenFlags::O_RDWR)
+            File::open("/dev/ttyv0".into(), OpenFlags::O_RDWR)
                 .map(Arc::new)
                 .expect("can't read tty file"),
         ));
