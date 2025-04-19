@@ -1,58 +1,44 @@
 SHELL := /bin/bash
-BOARD:= qemu
-BIN   :=
-byteos = $(shell kbuild $(1) byteos.yaml $(BIN) $(2))
-byteos_config = $(call byteos,config,get_cfg $(1))
-byteos_env = $(call byteos,config,get_env $(1))
-byteos_meta = $(call byteos,config,get_meta $(1))
-byteos_triple = $(call byteos,config,get_triple $(1))
+include scripts/config.mk
+export BOARD := qemu
+export ROOT_MANIFEST_DIR := $(shell pwd)
+SMP := 1
 NVME := off
 NET  := off
-LOG  := error
 RELEASE := release
-QEMU_EXEC ?= 
 GDB  ?= gdb-multiarch
-ARCH := $(call byteos_triple,arch)
-ROOT_FS := $(call byteos_config,root_fs)
-TARGET := $(call byteos_meta,target)
+KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
+KERNEL_BIN = target/$(TARGET)/$(RELEASE)/kernel.bin
 
 BUS  := device
+QEMU_EXEC := qemu-system-$(ARCH) 
 ifeq ($(ARCH), x86_64)
-  QEMU_EXEC += qemu-system-x86_64 \
-				-machine q35 \
-				-kernel $(KERNEL_ELF) \
-				-cpu IvyBridge-v2
+  QEMU_EXEC += -machine q35 \
+				-cpu IvyBridge-v2 \
+				-kernel $(KERNEL_ELF)
   BUS := pci
 else ifeq ($(ARCH), riscv64)
-  QEMU_EXEC += qemu-system-$(ARCH) \
-				-machine virt \
-				-bios $(SBI) \
+  QEMU_EXEC += -machine virt \
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), aarch64)
-  QEMU_EXEC += qemu-system-$(ARCH) \
-				-cpu cortex-a72 \
+  QEMU_EXEC += -cpu cortex-a72 \
 				-machine virt \
 				-kernel $(KERNEL_BIN)
 else ifeq ($(ARCH), loongarch64)
-  QEMU_EXEC += qemu-system-$(ARCH) -kernel $(KERNEL_ELF)
+  QEMU_EXEC += -kernel $(KERNEL_ELF)
   BUS := pci
 else
-  $(error "ARCH" must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
+  $(error "ARCH"($(ARCH)) must be one of "x86_64", "riscv64", "aarch64" or "loongarch64")
 endif
 
-KERNEL_ELF = target/$(TARGET)/$(RELEASE)/kernel
-KERNEL_BIN = target/$(TARGET)/$(RELEASE)/kernel.bin
-BIN_FILE = byteos.bin
-# SBI	:= tools/rustsbi-qemu.bin
 FS_IMG  := mount.img
-SBI := tools/opensbi-$(BOARD).bin
 features:= 
-K210-SERIALPORT	= /dev/ttyUSB0
-K210-BURNER	= tools/k210/kflash.py
 QEMU_EXEC += -m 1G\
 			-nographic \
-			-smp 1 \
-			-D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
+			-smp $(SMP)
+ifeq ($(QEMU_LOG), on)
+QEMU_EXEC += -D qemu.log -d in_asm,int,pcall,cpu_reset,guest_errors
+endif
 
 TESTCASE := testcase-$(ARCH)
 ifeq ($(NVME), on)
@@ -69,23 +55,23 @@ QEMU_EXEC += -netdev user,id=net0,hostfwd=tcp::6379-:6379,hostfwd=tcp::2222-:222
 features += net
 endif
 
-ifeq ($(BOARD), k210)
-SBI = tools/rustsbi-k210.bin
-features += k210
-endif
-
 all: build
+test: 
+	@echo $(TARGET)
+	@echo $(PLATFORM)
+	@echo $(ARCH)
+	@echo $(ROOT_FS)
+	@echo $(CONFIGS)
+
 offline:
-	RUST_BACKTRACE=1 LOG=$(LOG) cargo build $(BUILD_ARGS) --features "$(features)" --offline
-#	cp $(SBI) sbi-qemu
-#	cp $(KERNEL_ELF) kernel-qemu
+	cargo build --features "$(features)" --offline
 	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary os.bin
 
 fs-img:
 	@echo "TESTCASE: $(TESTCASE)"
 	@echo "ROOT_FS: $(ROOT_FS)"
 	rm -f $(FS_IMG)
-	dd if=/dev/zero of=$(FS_IMG) bs=1M count=128
+	dd if=/dev/zero of=$(FS_IMG) bs=1M count=96
 	sync
 ifeq ($(ROOT_FS), fat32)
 	mkfs.vfat -F 32 $(FS_IMG)
@@ -97,7 +83,7 @@ else ifeq ($(ROOT_FS), ext4_rs)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/
 else 
-	mkfs.ext4  -F -O ^metadata_csum_seed $(FS_IMG)
+	mkfs.ext4 -b 4096 -F -O ^metadata_csum_seed $(FS_IMG)
 	mkdir mount/ -p
 	sudo mount $(FS_IMG) mount/
 endif
@@ -106,7 +92,7 @@ endif
 	sudo umount $(FS_IMG)
 
 build:
-	kbuild build byteos.yaml $(BIN)
+	cargo build --target $(TARGET) --features "$(features)" --release
 	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 
 justbuild: fs-img build 
@@ -114,29 +100,11 @@ justbuild: fs-img build
 run: fs-img build
 	time $(QEMU_EXEC)
 
-fdt:
-	@qemu-system-riscv64 -M 128m -machine virt,dumpdtb=virt.out
-	fdtdump virt.out
-
 justrun: fs-img
-	rust-objcopy --binary-architecture=$(ARCH) $(KERNEL_ELF) --strip-all -O binary $(KERNEL_BIN)
 	$(QEMU_EXEC)
 
 tftp-build: build
-	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
 	sudo ./tftp-burn.sh
-
-k210-build: build
-	rust-objcopy --binary-architecture=riscv64 $(KERNEL_ELF) --strip-all -O binary $(BIN_FILE)
-	@cp $(SBI) $(SBI).copy
-	@dd if=$(BIN_FILE) of=$(SBI).copy bs=131072 seek=1
-	@mv $(SBI).copy $(BIN_FILE)
-
-flash: k210-build
-	(which $(K`210-BURNER)) || (cd tools && git clone https://github.com/sipeed/kflash.py.git k210)
-	@sudo chmod 777 $(K210-SERIALPORT)
-	python3 $(K210-BURNER) -p $(K210-SERIALPORT) -b 1500000 $(BIN_FILE)
-	python3 -m serial.tools.miniterm --eol LF --dtr 0 --rts 0 --filter direct $(K210-SERIALPORT) 115200
 
 debug: fs-img build
 	@tmux new-session -d \
@@ -160,7 +128,6 @@ gdb:
 
 addr2line:
 	addr2line -sfipe $(KERNEL_ELF) | rustfilt
-
 
 iso: build
 	cp $(KERNEL_ELF) tools/iso/example

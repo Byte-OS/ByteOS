@@ -4,8 +4,7 @@ use alloc::{sync::Arc, vec::Vec};
 use executor::AsyncTask;
 use polyhal::time::Time;
 use sync::Mutex;
-
-use crate::syscall::consts::LinuxError;
+use syscalls::Errno;
 
 use super::{
     current_user_task,
@@ -30,7 +29,7 @@ impl Future for NextTick {
 pub struct WaitPid(pub Arc<UserTask>, pub isize);
 
 impl Future for WaitPid {
-    type Output = Result<Arc<UserTask>, LinuxError>;
+    type Output = Result<Arc<UserTask>, Errno>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let inner = self.0.pcb.lock();
@@ -71,7 +70,7 @@ pub fn in_futex(futex_table: Arc<Mutex<FutexTable>>, task_id: usize) -> bool {
 pub struct WaitFutex(pub Arc<Mutex<FutexTable>>, pub usize);
 
 impl Future for WaitFutex {
-    type Output = Result<usize, LinuxError>;
+    type Output = Result<usize, Errno>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let signal = current_user_task().tcb.read().signal.clone();
@@ -83,7 +82,7 @@ impl Future for WaitFutex {
                         .values_mut()
                         .find(|x| x.contains(&self.1))
                         .map(|x| x.retain(|x| *x != self.1));
-                    Poll::Ready(Err(LinuxError::EINTR))
+                    Poll::Ready(Err(Errno::EINTR))
                 } else {
                     Poll::Pending
                 }

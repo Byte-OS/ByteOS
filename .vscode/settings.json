@@ -1,6 +1,12 @@
 {
-    "rust-analyzer.check.allTargets": false,
-    "rust-analyzer.check.extraArgs": [],
-    "rust-analyzer.procMacro.enable": true,
-    "deno.enable": true
+  "rust-analyzer.check.allTargets": false,
+  "rust-analyzer.check.extraArgs": [],
+  "rust-analyzer.procMacro.enable": true,
+  "rust-analyzer.cargo.target": "x86_64-unknown-none",
+  "rust-analyzer.cargo.extraEnv": {
+    "RUSTFLAGS": "-Clink-arg=-no-pie --cfg=root_fs=\"ext4\"",
+    "BOARD": "qemu",
+    "ROOT_MANIFEST_DIR": "${workspaceFolder}"
+  },
+  "deno.enable": true
 }

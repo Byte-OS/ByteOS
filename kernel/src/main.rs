@@ -1,67 +1,73 @@
 #![no_main]
 #![no_std]
-#![feature(exclusive_range_pattern)]
 #![feature(extract_if)]
-#![feature(ip_in_core)]
 #![feature(async_closure)]
 #![feature(let_chains)]
-#![feature(panic_info_message)]
-#![feature(stdsimd)]
 
 // include modules drivers
 // mod drivers;
 include!(concat!(env!("OUT_DIR"), "/drivers.rs"));
 
 #[macro_use]
-extern crate logging;
-#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate bitflags;
 #[macro_use]
 extern crate log;
+#[macro_use]
+extern crate polyhal;
+#[macro_use]
+extern crate cfg_if;
 
-mod epoll;
-// mod modules;
+extern crate polyhal_boot;
+extern crate polyhal_trap;
+
+#[macro_use]
+mod logging;
+
+mod consts;
 mod panic;
 mod socket;
 mod syscall;
 mod tasks;
 mod user;
+mod utils;
 
-use core::sync::atomic::{AtomicBool, Ordering};
-
-use devices::{self, get_int_device, VIRT_ADDR_START};
+use crate::tasks::current_user_task;
+use crate::user::task_ilegal;
+use core::hint::spin_loop;
+use devices::{self, get_int_device, PAGE_SIZE, VIRT_ADDR_START};
 use executor::current_task;
-use frame_allocator::{self, frame_alloc_persist, frame_unalloc};
-use polyhal::addr::{PhysPage, VirtPage};
-use polyhal::common::{get_fdt, get_mem_areas, PageAlloc};
+use fs::file::File;
+use polyhal::common::PageAlloc;
 use polyhal::irq::IRQ;
-use polyhal::trap::TrapType;
-use polyhal::trapframe::{TrapFrame, TrapFrameArgs};
+use polyhal::mem::{get_fdt, get_mem_areas};
+use polyhal::{va, PhysAddr};
+use polyhal_trap::trap::TrapType;
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use runtime::frame::{frame_alloc_persist, frame_unalloc};
 use tasks::UserTask;
 use user::user_cow_int;
 use vfscore::OpenFlags;
-
-use crate::tasks::{current_user_task, FileItem};
-use crate::user::task_ilegal;
 
 pub struct PageAllocImpl;
 
 impl PageAlloc for PageAllocImpl {
     #[inline]
-    fn alloc(&self) -> PhysPage {
+    fn alloc(&self) -> PhysAddr {
         unsafe { frame_alloc_persist().expect("can't alloc frame") }
     }
 
     #[inline]
-    fn dealloc(&self, ppn: PhysPage) {
-        unsafe { frame_unalloc(ppn) }
-        ppn.drop_clear();
+    fn dealloc(&self, paddr: PhysAddr) {
+        unsafe {
+            frame_unalloc(paddr);
+            paddr.clear_len(PAGE_SIZE);
+        }
     }
 }
 
-#[polyhal::arch_interrupt]
+#[export_name = "_interrupt_for_arch"]
 /// Handle kernel interrupt
 fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
     match trap_type {
@@ -84,7 +90,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
                         task.pcb.force_unlock();
                     }
                 }
-                user_cow_int(task, cx_ref, addr);
+                user_cow_int(task, cx_ref, va!(addr));
             } else {
                 panic!("page fault: {:#x?}", trap_type);
             }
@@ -94,11 +100,9 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
                 return;
             }
             let task = current_user_task();
-            let vpn = VirtPage::from_addr(addr);
             warn!(
-                "illegal instruction fault @ {:#x} vpn: {} ppn: {:?}",
+                "illegal instruction fault @ {:#x} paddr: {:?}",
                 addr,
-                vpn,
                 task.page_table.translate(addr.into()),
             );
             warn!("the fault occurs @ {:#x}", cx_ref[TrapFrameArgs::SEPC]);
@@ -109,7 +113,7 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
                 task.page_table
                     .translate(cx_ref[TrapFrameArgs::SEPC].into())
             );
-            task_ilegal(&task, cx_ref[TrapFrameArgs::SEPC], cx_ref);
+            task_ilegal(&task, va!(cx_ref[TrapFrameArgs::SEPC]), cx_ref);
             // panic!("illegal Instruction")
             // let signal = task.tcb.read().signal.clone();
             // if signal.has_sig(SignalFlags::SIGSEGV) {
@@ -135,106 +139,84 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
 }
 
 /// The kernel entry
-#[polyhal::arch_entry]
 fn main(hart_id: usize) {
-    static BOOT_CORE_FLAGS: AtomicBool = AtomicBool::new(false);
     IRQ::int_disable();
     // Ensure this is the first core
-    if BOOT_CORE_FLAGS
-        .compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed)
-        .is_ok()
+    runtime::init();
+
+    let str = include_str!("banner.txt");
+    println!("{}", str);
+
+    polyhal::common::init(&PageAllocImpl);
+    get_mem_areas().cloned().for_each(|(start, size)| {
+        info!("memory area: {:#x} - {:#x}", start, start + size);
+        runtime::frame::add_frame_map(start, start + size);
+    });
+
+    println!("run kernel @ hart {}", hart_id);
+
+    extern "C" {
+        fn _start();
+        fn _end();
+    }
+    info!(
+        "program size: {}KB",
+        (_start as usize - _end as usize) / 1024
+    );
+
+    // Boot all application core.
+    // polyhal::multicore::MultiCore::boot_all();
+
+    devices::prepare_drivers();
+
+    if let Ok(fdt) = get_fdt() {
+        for node in fdt.all_nodes() {
+            devices::try_to_add_device(&node);
+        }
+    }
+
+    // get devices and init
+    devices::regist_devices_irq();
+
+    // TODO: test ebreak
+    // Instruction::ebreak();
+
+    // initialize filesystem
+    fs::init();
     {
-        extern "C" {
-            fn start();
-            fn end();
-        }
+        File::open("/var".into(), OpenFlags::O_DIRECTORY)
+            .expect("can't open /var")
+            .mkdir("tmp")
+            .expect("can't create tmp dir");
+    }
 
-        allocator::init();
+    // enable interrupts
+    IRQ::int_enable();
 
-        let str = include_str!("banner.txt");
-        println!("{}", str);
+    // cache task with task templates
+    tasks::exec::cache_task_template("/busybox".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/runtest.exe".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/entry-static.exe".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/libc.so".into()).expect("can't cache task");
+    tasks::exec::cache_task_template("/lua".into()).expect("can't cache task");
+    // tasks::exec::cache_task_template("/lmbench_all").expect("can't cache task");
 
-        // initialize logging module
-        // logging::init(option_env!("LOG"));
+    // init kernel threads and async executor
+    tasks::init();
+    log::info!("run tasks");
+    // loop { arch::wfi() }
+    tasks::run_tasks();
 
-        polyhal::common::init(&PageAllocImpl);
-        get_mem_areas().into_iter().for_each(|(start, size)| {
-            info!("memory area: {:#x} - {:#x}", start, start + size);
-            frame_allocator::add_frame_map(start, start + size);
-        });
+    println!("Task All Finished!");
+}
 
-        println!("run kernel @ hart {}", hart_id);
-
-        info!("program size: {}KB", (end as usize - start as usize) / 1024);
-
-        // Boot all application core.
-        // polyhal::multicore::MultiCore::boot_all();
-
-        devices::prepare_drivers();
-
-        if let Some(fdt) = get_fdt() {
-            for node in fdt.all_nodes() {
-                devices::try_to_add_device(&node);
-            }
-        }
-
-        // get devices and init
-        devices::regist_devices_irq();
-
-        // TODO: test ebreak
-        // Instruction::ebreak();
-
-        // initialize filesystem
-        fs::init();
-        {
-            FileItem::fs_open("/var", OpenFlags::O_DIRECTORY)
-                .expect("can't open /var")
-                .mkdir("tmp")
-                .expect("can't create tmp dir");
-
-            // Initialize the Dentry node.
-            // dentry::dentry_init(rootfs);
-            // FileItem::fs_open("/bin", OpenFlags::O_DIRECTORY)
-            //     .expect("can't open /bin")
-            //     .link(
-            //         "sleep",
-            //         FileItem::fs_open("busybox", OpenFlags::NONE)
-            //             .expect("not hava busybox file")
-            //             .inner
-            //             .clone(),
-            //     )
-            //     .expect("can't link busybox to /bin/sleep");
-        }
-
-        // enable interrupts
-        IRQ::int_enable();
-
-        // cache task with task templates
-        // crate::syscall::cache_task_template("/bin/busybox").expect("can't cache task");
-        // crate::syscall::cache_task_template("./busybox").expect("can't cache task");
-        // crate::syscall::cache_task_template("busybox").expect("can't cache task");
-        // crate::syscall::cache_task_template("./runtest.exe").expect("can't cache task");
-        // crate::syscall::cache_task_template("entry-static.exe").expect("can't cache task");
-        // crate::syscall::cache_task_template("libc.so").expect("can't cache task");
-        // crate::syscall::cache_task_template("lmbench_all").expect("can't cache task");
-
-        // loop {
-        //     info!("3");
-        // }
-
-        // init kernel threads and async executor
-        tasks::init();
-        log::info!("run tasks");
-        // loop { arch::wfi() }
-        tasks::run_tasks();
-
-        println!("Task All Finished!");
-    } else {
-        println!("run kernel @ hart {}", hart_id);
-
-        IRQ::int_enable();
-        // loop { arch::wfi() }
-        tasks::run_tasks();
-        info!("shutdown ap core");
+fn secondary(hart_id: usize) {
+    println!("run kernel @ hart {}", hart_id);
+    // loop { arch::wfi() }
+    // tasks::run_tasks();
+    loop {
+        spin_loop();
     }
 }
+
+polyhal_boot::define_entry!(main, secondary);

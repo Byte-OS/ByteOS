@@ -1,18 +1,16 @@
-use polyhal::trap::{run_user_task, EscapeReason};
-use polyhal::trapframe::{TrapFrame, TrapFrameArgs};
-use polyhal::{MappingFlags, Time};
+use crate::tasks::UserTaskControlFlow;
+use crate::tasks::{MapTrack, MemType, UserTask};
+use crate::utils::hexdump;
 use ::signal::SignalFlags;
 use alloc::sync::Arc;
+use devices::PAGE_SIZE;
 use executor::{AsyncTask, TaskId};
-use frame_allocator::frame_alloc;
 use log::{debug, warn};
-use polyhal::addr::VirtPage;
-
-use crate::tasks::{MapTrack, MemType, UserTask};
-use crate::{
-    syscall::consts::SYS_SIGRETURN,
-    tasks::{hexdump, UserTaskControlFlow},
-};
+use polyhal::{MappingFlags, Time, VirtAddr};
+use polyhal_trap::trap::{run_user_task, EscapeReason};
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use runtime::frame::frame_alloc;
+use syscalls::Sysno;
 
 pub mod entry;
 pub mod signal;
@@ -26,19 +24,18 @@ pub struct UserTaskContainer {
 /// Copy on write.
 /// call this function when trigger store/instruction page fault.
 /// copy page or remap page.
-pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, addr: usize) {
-    let vpn = VirtPage::from_addr(addr);
+pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, vaddr: VirtAddr) {
     warn!(
-        "store/instruction page fault @ {:#x} vaddr: {:#x} paddr: {:?} task_id: {}",
+        "store/instruction page fault @ {:#x} vaddr: {} paddr: {:?} task_id: {}",
         cx_ref[TrapFrameArgs::SEPC],
-        addr,
-        task.page_table.translate(addr.into()),
+        vaddr,
+        task.page_table.translate(vaddr),
         task.get_task_id()
     );
     let mut pcb = task.pcb.lock();
-    let area = pcb.memset.iter_mut().find(|x| x.contains(addr));
+    let area = pcb.memset.iter_mut().find(|x| x.contains(vaddr.raw()));
     if let Some(area) = area {
-        let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
+        let finded = area.mtrackers.iter_mut().find(|x| x.vaddr == vaddr.floor());
         let ppn = match finded {
             Some(map_track) => {
                 if area.mtype == MemType::Shared {
@@ -48,24 +45,27 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, addr: usize) {
                 // tips: this finded will consume a strong count.
                 debug!("strong count: {}", Arc::strong_count(&map_track.tracker));
                 if Arc::strong_count(&map_track.tracker) > 1 {
-                    let src_ppn = map_track.tracker.0;
-                    let dst_ppn = frame_alloc().expect("can't alloc @ user page fault");
-                    dst_ppn.0.copy_value_from_another(src_ppn);
-                    map_track.tracker = Arc::new(dst_ppn);
+                    let src = map_track.tracker.0;
+                    let dst = frame_alloc().expect("can't alloc @ user page fault");
+                    unsafe {
+                        dst.0
+                            .get_mut_ptr::<u8>()
+                            .copy_from_nonoverlapping(src.get_ptr(), PAGE_SIZE);
+                    }
+                    map_track.tracker = Arc::new(dst);
                 }
                 map_track.tracker.0
             }
             None => {
                 let tracker = Arc::new(frame_alloc().expect("can't alloc frame in cow_fork_int"));
                 let mtracker = MapTrack {
-                    vpn,
+                    vaddr: vaddr.floor(),
                     tracker,
                     rwx: 0b111,
                 };
-                // mtracker.tracker.0.get_buffer().fill(0);
-                let offset = vpn.to_addr() + area.offset - area.start;
+                let offset = vaddr.floor().raw() + area.offset - area.start;
                 if let Some(file) = &area.file {
-                    file.readat(offset, mtracker.tracker.0.get_buffer())
+                    file.readat(offset, mtracker.tracker.0.slice_mut_with_len(PAGE_SIZE))
                         .expect("can't read file in cow_fork_int");
                 }
                 let ppn = mtracker.tracker.0;
@@ -75,7 +75,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, addr: usize) {
         };
 
         drop(pcb);
-        task.map(ppn, vpn, MappingFlags::URWX);
+        task.map(ppn, vaddr.floor(), MappingFlags::URWX);
     } else {
         task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
     }
@@ -90,17 +90,15 @@ impl UserTaskContainer {
                 .inner_map(|inner| inner.tms.utime += (Time::now().raw() - ustart) as u64);
 
             let sstart = Time::now().raw();
-            if cx_ref[TrapFrameArgs::SYSCALL] == SYS_SIGRETURN {
+            if cx_ref[TrapFrameArgs::SYSCALL] == Sysno::rt_sigreturn.id() as _ {
                 return UserTaskControlFlow::Break;
             }
-
-            debug!("syscall num: {}", cx_ref[TrapFrameArgs::SYSCALL]);
-            // sepc += 4, let it can go to next command.
             cx_ref.syscall_ok();
             let result = self
                 .syscall(cx_ref[TrapFrameArgs::SYSCALL], cx_ref.args())
                 .await
-                .map_or_else(|e| -e.code(), |x| x as isize) as usize;
+                .map_or_else(|e| -e.into_raw() as isize, |x| x as isize)
+                as usize;
 
             debug!(
                 "[task {}] syscall result: {}",
@@ -130,12 +128,11 @@ impl UserTaskContainer {
     }
 }
 
-pub fn task_ilegal(task: &Arc<UserTask>, addr: usize, cx_ref: &mut TrapFrame) {
-    let vpn = VirtPage::from_addr(addr);
+pub fn task_ilegal(task: &Arc<UserTask>, vaddr: VirtAddr, cx_ref: &mut TrapFrame) {
     let mut pcb = task.pcb.lock();
-    let area = pcb.memset.iter_mut().find(|x| x.contains(addr));
+    let area = pcb.memset.iter_mut().find(|x| x.contains(vaddr.raw()));
     if let Some(area) = area {
-        let finded = area.mtrackers.iter_mut().find(|x| x.vpn == vpn);
+        let finded = area.mtrackers.iter_mut().find(|x| x.vaddr == vaddr);
         match finded {
             Some(_) => {
                 cx_ref[TrapFrameArgs::SEPC] += 2;
@@ -144,8 +141,8 @@ pub fn task_ilegal(task: &Arc<UserTask>, addr: usize, cx_ref: &mut TrapFrame) {
                 task.tcb.write().signal.add_signal(SignalFlags::SIGILL);
                 unsafe {
                     hexdump(
-                        core::slice::from_raw_parts_mut(vpn.to_addr() as _, 0x1000),
-                        vpn.to_addr(),
+                        core::slice::from_raw_parts_mut(vaddr.raw() as _, 0x1000),
+                        vaddr.raw(),
                     );
                 }
             }
@@ -154,8 +151,8 @@ pub fn task_ilegal(task: &Arc<UserTask>, addr: usize, cx_ref: &mut TrapFrame) {
         task.tcb.write().signal.add_signal(SignalFlags::SIGILL);
         unsafe {
             hexdump(
-                core::slice::from_raw_parts_mut(vpn.to_addr() as _, 0x1000),
-                vpn.to_addr(),
+                core::slice::from_raw_parts_mut(vaddr.raw() as _, 0x1000),
+                vaddr.raw(),
             );
         }
     }

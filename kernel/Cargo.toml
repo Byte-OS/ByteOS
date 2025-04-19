@@ -13,35 +13,40 @@ serde = "1.0.136"
 serde_derive = "1.0.136"
 
 [dependencies]
-allocator = { git = "https://github.com/Byte-OS/allocator.git", rev = "c6ce949146d5feab1d406502b19b035f5d392c35"}
-frame_allocator = { git = "https://github.com/Byte-OS/bit_frame_allocator.git" }
-logging = { git = "https://github.com/Byte-OS/logging.git", features = []}
 log = "0.4"
-devices = { git = "https://github.com/Byte-OS/devices.git" }
-hal = { git = "https://github.com/Byte-OS/hal.git" }
-polyhal = { git = "https://github.com/Byte-OS/polyhal.git", features = ["trap", "graphic", "logger"]}
-fs = { git = "https://github.com/Byte-OS/fs.git" }
-fdt = "0.1.5"
-executor = { git = "https://github.com/Byte-OS/executor.git" }
+devices = { workspace = true }
+executor = { workspace = true }
+polyhal = { workspace = true }
+polyhal-boot = { workspace = true }
+polyhal-trap = { workspace = true }
 xmas-elf = "0.9.0"
-sync = { git = "https://github.com/Byte-OS/sync.git" }
+signal = { workspace = true }
+sync = { workspace = true }
 bitflags = "2.0.2"
-signal = { git = "https://github.com/Byte-OS/signal.git" }
 bit_field = "0.10.1"
-lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "bb99460", features = ["log"]}
-# lose-net-stack = { path = "../../lose-net-stack", features = ["log"]}
-vfscore = { git = "https://github.com/Byte-OS/vfscore.git" }
+lose-net-stack = { git = "https://github.com/byte-os/lose-net-stack", rev = "bb99460", features = [
+    "log",
+] }
 async-recursion = "1.1.0"
-futures-lite = { version = "1.13.0", default-features = false, features=["alloc"] }
-# backtrace = { path = "../crates/backtrace" }
+futures-lite = { version = "1.13.0", default-features = false, features = [
+    "alloc",
+] }
 hashbrown = "0.14"
 cfg-if = "1.0.0"
 
-num-traits = { version = "0.2", default-features = false}
+num-traits = { version = "0.2", default-features = false }
 num-derive = "0.4"
 
-kvirtio = { git = "https://github.com/Byte-OS/driver-kvirtio.git" }
-kgoldfish-rtc = { git = "https://github.com/Byte-OS/driver-kgoldfish-rtc.git" }
-kramdisk = { git = "https://github.com/Byte-OS/kramdisk.git" }
-general-plic = { git = "https://github.com/Byte-OS/driver-general-plic.git" }
-ns16550a = { git = "https://github.com/Byte-OS/driver-ns16550a.git" }
+syscalls = { workspace = true }
+runtime = { workspace = true }
+
+# filesystem
+fs = { workspace = true }
+vfscore = { workspace = true }
+
+# drivers
+kvirtio = { workspace = true }
+kgoldfish-rtc = { workspace = true }
+kramdisk = { workspace = true }
+general-plic = { workspace = true }
+ns16550a = { workspace = true }

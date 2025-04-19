@@ -2,6 +2,7 @@ use core::cmp;
 
 use alloc::{collections::VecDeque, sync::Arc};
 use sync::Mutex;
+use syscalls::Errno;
 use vfscore::{INodeInterface, PollEvent, VfsResult};
 
 pub struct SocketPair {
@@ -12,7 +13,7 @@ impl INodeInterface for SocketPair {
     fn writeat(&self, _offset: usize, buffer: &[u8]) -> VfsResult<usize> {
         let mut queue = self.inner.lock();
         if queue.len() > 0x50000 {
-            Err(vfscore::VfsError::Blocking)
+            Err(Errno::EWOULDBLOCK)
         } else {
             let wlen = buffer.len();
             queue.extend(buffer.iter());
@@ -31,7 +32,7 @@ impl INodeInterface for SocketPair {
                 buffer[i] = x;
             });
         if rlen == 0 {
-            Err(vfscore::VfsError::Blocking)
+            Err(Errno::EWOULDBLOCK)
         } else {
             Ok(rlen)
         }

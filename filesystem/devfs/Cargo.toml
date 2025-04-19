@@ -1,0 +1,16 @@
+[package]
+name = "devfs"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+vfscore = { workspace = true }
+devices = { workspace = true }
+log = "0.4"
+sync = { workspace = true }
+bitflags = "2.0.2"
+num-traits = { version = "0.2", default-features = false }
+num-derive = "0.4"
+syscalls = { workspace = true }

@@ -1,0 +1,17 @@
+[package]
+name = "devices"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[features]
+
+[dependencies]
+polyhal = { workspace = true }
+fdt-parser = { workspace = true }
+linkme = { version = "0.3.22", features = ["used_linker"] }
+log = "0.4"
+sync = { workspace = true }
+timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }
+runtime = { workspace = true }

@@ -1,17 +1,16 @@
-import { Command, CommandOptions } from "https://deno.land/x/cliffy@v1.0.0-rc.4/command/mod.ts";
+import { Command } from "https://deno.land/x/cliffy@v1.0.0-rc.4/command/mod.ts";
 import { globalArgType } from "./cli-types.ts";
-import { KernelBuilder } from "./kernel.ts";
+import { platform } from "./platform.ts";
+import { Cargo } from "./cargo.ts";
 
-class QemuRunner {
-    arch: string;
+class QemuRunner extends Cargo {
     bus: string = "device";
-    builder: KernelBuilder;
 
-    constructor(options: CommandOptions<globalArgType>, builder: KernelBuilder) {
-        this.arch = options.arch;
-        this.builder = builder;
-        if(this.arch == "x86_64" || this.arch == "loongarch64")
+    constructor() {
+        super()
+        if (platform.arch == "x86_64" || platform.arch == "loongarch64") {
             this.bus = "pci";
+        }
     }
 
     getQemuArchExec(): string[] {
@@ -19,62 +18,61 @@ class QemuRunner {
             x86_64: [
                 "-machine",
                 "q35",
-                "-kernel",
-                this.builder.elfPath,
                 "-cpu",
-                "IvyBridge-v2"
+                "IvyBridge-v2",
+                "-kernel",
+                this.getTargetPath(),
             ],
             riscv64: [
                 "-machine",
                 "virt",
                 "-kernel",
-                this.builder.binPath
+                this.getBinPath()
             ],
             aarch64: [
-                "-cpu", 
+                "-cpu",
                 "cortex-a72",
                 "-machine",
                 "virt",
                 "-kernel",
-                this.builder.binPath
+                this.getBinPath()
             ],
             loongarch64: [
                 "-kernel",
-                this.builder.elfPath
+                this.getTargetPath()
             ]
-        }[this.arch] ?? [];
+        }[platform.arch] ?? [];
     }
 
     async run() {
-        const qemuCommand = new Deno.Command(`qemu-system-${this.arch}`, {
+        const qemuCommand = new Deno.Command(`qemu-system-${platform.arch}`, {
             args: [
                 ...this.getQemuArchExec(),
                 "-m",
                 "1G",
                 "-nographic",
-                "-smp", 
+                "-smp",
                 "1",
-                "-D", 
+                "-D",
                 "qemu.log",
                 "-d",
                 "in_asm,int,pcall,cpu_reset,guest_errors",
-    
+
                 "-drive",
                 "file=mount.img,if=none,format=raw,id=x0",
                 "-device",
-                "virtio-blk-device,drive=x0"
+                `virtio-blk-${this.bus},drive=x0`
             ]
         });
         await qemuCommand.spawn().status;
     }
 }
 
-async function runQemu(options: CommandOptions<globalArgType>) {
-    const builder = new KernelBuilder(options.arch);
-    await builder.buildElf();
-    await builder.convertBin();
+async function runQemu() {
+    const cargo = new Cargo();
+    await cargo.build();
 
-    const runner = new QemuRunner(options, builder);
+    const runner = new QemuRunner();
     await runner.run();
 }
 
