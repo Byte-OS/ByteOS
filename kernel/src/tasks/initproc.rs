@@ -39,16 +39,11 @@ async fn command(cmd: &str) {
     let mut args: Vec<&str> = cmd.split(" ").filter(|x| *x != "").collect();
     debug!("cmd: {}  args: {:?}", cmd, args);
     let filename = args.drain(..1).last().unwrap();
-    let filename = match filename.starts_with("/") {
-        true => String::from(filename),
-        false => String::from("/") + filename,
-    };
-    match File::open(&filename, OpenFlags::O_RDONLY) {
+    match File::open(filename.into(), OpenFlags::O_RDONLY) {
         Ok(_) => {
             info!("exec: {}", filename);
-            let mut args_extend = vec![filename.as_str()];
+            let mut args_extend = vec![filename];
             args_extend.extend(args.into_iter());
-            // args.into_iter().for_each(|x| args_extend.push(x));
             let task_id = add_user_task(&filename, args_extend, Vec::new()).await;
             let task = tid2task(task_id).unwrap();
             loop {
@@ -85,7 +80,18 @@ pub async fn initproc() {
 
     // command("busybox echo run libctest_testcode.sh").await;
     // command("busybox sh libctest_testcode.sh").await;
+    // command("runtest.exe -w entry-static.exe utime").await;
+    // command("busybox ln -s /busybox /bin/cat").await;
+    // command("./bin/cat libctest_testcode.sh").await;
+    // command("busybox ls -l /bin").await;
+    // command("busybox ln -s /busybox /bin/ln").await;
+    // command("busybox ln -s /busybox /bin/wget").await;
+    // command("busybox ln -s /busybox /bin/xz").await;
+    // command("busybox ls -l /bin").await;
+    // command("busybox sh init.sh").await;
+    // command("busybox ls -l /bin").await;
 
+    command("busybox sh").await;
     // command("busybox echo run lua_testcode.sh").await;
     // command("busybox sh lua_testcode.sh").await;
 
@@ -104,7 +110,7 @@ pub async fn initproc() {
     // kill_all_tasks().await;
 
     // command("busybox echo run iozone_testcode.sh").await;
-    command("busybox sh iozone_testcode.sh").await;
+    // command("busybox sh iozone_testcode.sh ").await;
 
     // command("busybox echo run lmbench_testcode.sh").await;
     // command("busybox sh lmbench_testcode.sh").await;

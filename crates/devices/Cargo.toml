@@ -13,6 +13,5 @@ fdt-parser = { workspace = true }
 linkme = { version = "0.3.22", features = ["used_linker"] }
 log = "0.4"
 sync = { workspace = true }
-virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "61ece50" }
 timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }
 runtime = { workspace = true }

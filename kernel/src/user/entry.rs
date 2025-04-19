@@ -24,7 +24,6 @@ impl UserTaskContainer {
         let mut pcb = self.task.pcb.lock();
         let timer = &mut pcb.timer[0];
         if timer.next > timer.last {
-            log::error!("awake timer");
             let now = current_timeval();
             if now >= timer.next {
                 self.task

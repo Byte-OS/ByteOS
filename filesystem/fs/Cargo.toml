@@ -17,7 +17,7 @@ sync = { workspace = true }
 devices = { workspace = true }
 
 [target.'cfg(root_fs = "ext4_rs")'.dependencies]
-ext4_rs = { git = "https://github.com/yuoo655/ext4_rs.git", rev = "04286c7" }
+ext4_rs = "1.3.1"
 
 [target.'cfg(root_fs = "ext4")'.dependencies]
 lwext4_rust = { git = "https://github.com/Azure-stars/lwext4_rust.git", default-features = false, rev = "ee5131c" }

@@ -7,7 +7,7 @@ use alloc::{
 use core::iter::zip;
 use devices::get_blk_device;
 use lwext4_rust::{
-    bindings::{O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY},
+    bindings::{ext4_fsymlink, ext4_readlink, O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY},
     Ext4BlockWrapper, Ext4File, InodeTypes, KernelDevOp,
 };
 use sync::Mutex;
@@ -238,6 +238,42 @@ impl INodeInterface for Ext4FileWrapper {
         self.unlink(name)
     }
 
+    fn symlink(&self, name: &str, src: &str) -> VfsResult<()> {
+        let fpath = self.path_deal_with(name);
+        let fpath = fpath.as_str();
+        if fpath.is_empty() {
+            return Ok(());
+        }
+        let mut file = Ext4File::new(fpath, InodeTypes::EXT4_DE_SYMLINK);
+        if file.check_inode_exist(fpath, InodeTypes::EXT4_DE_SYMLINK) {
+            return Err(Errno::EEXIST);
+        }
+        let c_fpath = CString::new(fpath).unwrap();
+        let c_src = CString::new(src).unwrap();
+        unsafe {
+            Errno::from_ret(ext4_fsymlink(c_src.into_raw(), c_fpath.into_raw()) as _)?;
+        }
+        Ok(())
+    }
+
+    fn resolve_link(&self) -> VfsResult<String> {
+        let file = self.inner.lock();
+        let path = file.get_path();
+        let path = path.to_str().unwrap();
+        let mut buffer = [0u8; 100];
+        let mut rsize = 0;
+        unsafe {
+            Errno::from_ret(ext4_readlink(
+                path.as_ptr() as _,
+                buffer.as_mut_ptr() as _,
+                buffer.len() as _,
+                &mut rsize,
+            ) as _)?;
+        }
+        let str = String::from_utf8_lossy(&buffer[..rsize]);
+        Ok(str.to_string())
+    }
+
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
         let iters = self
             .inner
@@ -277,6 +313,11 @@ impl INodeInterface for Ext4FileWrapper {
             Ok(Arc::new(Ext4FileWrapper::new(
                 fpath,
                 InodeTypes::EXT4_DE_REG_FILE,
+            )))
+        } else if file.check_inode_exist(&fpath, InodeTypes::EXT4_DE_SYMLINK) {
+            Ok(Arc::new(Ext4FileWrapper::new(
+                fpath,
+                InodeTypes::EXT4_DE_SYMLINK,
             )))
         } else {
             Err(Errno::ENOENT)
@@ -336,27 +377,29 @@ impl INodeInterface for Ext4FileWrapper {
 
     fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
         let mut file = self.inner.lock();
-        if self.file_type != FileType::Directory {
+        // TODO: 读取其他文件的信息
+        if self.file_type == FileType::File {
             let path = file.get_path();
             let path = path.to_str().unwrap();
             file.file_open(path, O_RDONLY).map_err(map_ext4_err)?;
         }
 
-        stat.ino = 1; // TODO: convert path to number(ino)
-        stat.mode = match self.file_type {
-            FileType::File => StatMode::FILE,
-            FileType::Directory => StatMode::DIR,
-            FileType::Device => StatMode::BLOCK,
-            FileType::Socket => StatMode::SOCKET,
-            FileType::Link => StatMode::LINK,
-        }; // TODO: add access mode
+        stat.ino = 1; // TODO: 获取真正的 INode
+        stat.mode = match file.get_type() {
+            InodeTypes::EXT4_DE_REG_FILE => StatMode::FILE,
+            InodeTypes::EXT4_DE_DIR => StatMode::DIR,
+            InodeTypes::EXT4_DE_BLKDEV => StatMode::BLOCK,
+            InodeTypes::EXT4_DE_SOCK => StatMode::SOCKET,
+            InodeTypes::EXT4_DE_SYMLINK => StatMode::LINK,
+            _ => unreachable!(),
+        };
         stat.nlink = 1;
         stat.uid = 0;
         stat.gid = 0;
         stat.size = file.file_size();
         stat.blksize = 512;
         stat.blocks = 0;
-        stat.rdev = 0; // TODO: add device id
+        stat.rdev = 0;
         stat.atime.nsec = 0;
         stat.atime.sec = 0;
         stat.ctime.nsec = 0;
@@ -364,7 +407,7 @@ impl INodeInterface for Ext4FileWrapper {
         stat.mtime.nsec = 0;
         stat.mtime.sec = 0;
 
-        if self.file_type != FileType::Directory {
+        if self.file_type == FileType::File {
             let _ = file.file_close();
         }
         Ok(())

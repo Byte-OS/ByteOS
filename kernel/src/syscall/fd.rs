@@ -2,6 +2,7 @@ use super::types::fd::IoVec;
 use super::types::poll::{EpollEvent, EpollFile};
 use super::SysResult;
 use crate::syscall::types::fd::FcntlCmd;
+use crate::syscall::types::fd::AT_CWD;
 use crate::user::UserTaskContainer;
 use crate::utils::time::{current_nsec, current_timespec};
 use crate::utils::useref::UserRef;
@@ -20,9 +21,6 @@ use num_traits::FromPrimitive;
 use polyhal::VirtAddr;
 use syscalls::Errno;
 use vfscore::FileType;
-
-#[cfg(target_arch = "x86_64")]
-use crate::syscall::types::fd::AT_CWD;
 
 impl UserTaskContainer {
     pub async fn sys_dup(&self, fd: usize) -> SysResult {
@@ -284,7 +282,7 @@ impl UserTaskContainer {
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
-        File::open(path, OpenFlags::O_RDONLY)?.statfs(statfs)?;
+        File::open(path.into(), OpenFlags::O_RDONLY)?.statfs(statfs)?;
         Ok(0)
     }
 
@@ -356,7 +354,7 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = File::open(special, OpenFlags::O_RDONLY)?;
+        let dev_node = File::open(special.into(), OpenFlags::O_RDONLY)?;
         dev_node.mount(dir)?;
         Ok(0)
     }
@@ -370,7 +368,7 @@ impl UserTaskContainer {
                 // let dev = dentry_open(dentry_root(), special, OpenFlags::NONE).map_err(from_vfs)?;
                 // dev.node.umount().map_err(from_vfs)?;
             }
-            false => umount(special)?,
+            false => umount(special.into())?,
         };
 
         Ok(0)
@@ -488,18 +486,19 @@ impl UserTaskContainer {
             }
         };
 
-        let path = if !path.is_valid() {
-            ""
-        } else {
-            path.get_cstr().map_err(|_| Errno::EINVAL)?
-        };
-
-        debug!("times: {:?} path: {}", times, path);
-
-        if path == "/dev/null/invalid" {
+        if !path.is_valid() {
+            self.task
+                .get_fd(dir_fd as _)
+                .ok_or(Errno::EBADF)?
+                .utimes(&mut times)?;
             return Ok(0);
         }
 
+        let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
+        debug!("times: {:?} path: {}", times, path);
+        if path == "/dev/null/invalid" {
+            return Ok(0);
+        }
         self.task
             .fd_open(dir_fd, path, OpenFlags::O_RDONLY)?
             .utimes(&mut times)?;
@@ -531,7 +530,7 @@ impl UserTaskContainer {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = File::open(filename, OpenFlags::O_RDONLY)?.resolve_link()?;
+        let file_path = File::open(filename.into(), OpenFlags::O_RDONLY)?.resolve_link()?;
         let bytes = file_path.as_bytes();
 
         let rlen = cmp::min(bytes.len(), buffer_size);
@@ -934,5 +933,20 @@ impl UserTaskContainer {
         }
 
         Ok(rsize)
+    }
+
+    pub async fn sys_symlinkat(
+        &self,
+        target: UserRef<i8>,
+        newdir_fd: isize,
+        linkpath: UserRef<i8>,
+    ) -> SysResult {
+        log::debug!("sys_symlinkat @ target {target} newdir_fd: {newdir_fd} {linkpath}");
+        let target = target.get_cstr().map_err(|_| Errno::EINVAL)?;
+        let linkpath = linkpath.get_cstr().map_err(|_| Errno::EINVAL)?;
+        let file = self.task.fd_resolve(newdir_fd, linkpath)?;
+        let dir = File::open(file.dir(), OpenFlags::O_DIRECTORY)?;
+        dir.symlink(&file.filename(), target)?;
+        Ok(0)
     }
 }

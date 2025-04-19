@@ -1,6 +1,8 @@
 #![no_std]
 #![feature(let_chains)]
 
+#[allow(unused_imports)]
+#[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate log;
@@ -14,6 +16,7 @@ mod ext4_shim;
 #[cfg(root_fs = "fat32")]
 mod fatfs_shim;
 pub mod file;
+pub mod pathbuf;
 pub mod pipe;
 
 use alloc::sync::Arc;
@@ -27,6 +30,7 @@ use dentry::mount_fs;
 use devfs::{DevDir, DevFS};
 use devices::get_blk_devices;
 use file::File;
+use pathbuf::PathBuf;
 use procfs::ProcFS;
 use ramfs::RamFs;
 use syscalls::Errno;
@@ -69,7 +73,7 @@ pub fn init() {
         // create monnt point dev, tmp
         // let fs = &filesystems[0].0;
         // let rootfs = filesystems[0].0.root_dir();
-        let rootfs = File::open("/", OpenFlags::O_RDONLY).unwrap();
+        let rootfs = File::open(PathBuf::new(), OpenFlags::O_RDONLY).unwrap();
         rootfs.mkdir("dev").expect("can't create devfs dir");
         // dev.mkdir("shm").expect("can't create shm dir");
         rootfs.mkdir("tmp").expect("can't create tmp dir");

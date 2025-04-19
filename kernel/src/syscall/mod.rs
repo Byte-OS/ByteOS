@@ -59,6 +59,10 @@ impl UserTaskContainer {
                 self.sys_unlinkat(args[0] as _, args[1].into(), args[2] as _)
                     .await
             }
+            Sysno::symlinkat => {
+                self.sys_symlinkat(args[0].into(), args[1] as _, args[2].into())
+                    .await
+            }
             Sysno::fstat => self.sys_fstat(args[0] as _, args[1].into()).await,
             Sysno::wait4 => {
                 self.sys_wait4(args[0] as _, args[1].into(), args[2] as _)
@@ -438,6 +442,11 @@ impl UserTaskContainer {
             #[cfg(target_arch = "x86_64")]
             Sysno::readlink => {
                 self.sys_readlink(args[0].into(), args[1].into(), args[2])
+                    .await
+            }
+            #[cfg(target_arch = "x86_64")]
+            Sysno::symlink => {
+                self.sys_symlinkat(args[0].into(), AT_CWD, args[1].into())
                     .await
             }
             #[cfg(target_arch = "x86_64")]

@@ -12,7 +12,7 @@ bin:
   riscv64-qemu:
     target: "riscv64gc-unknown-none-elf"
     configs:
-      driver: "kramdisk"
+      driver: "kvirtio"
   riscv64-vf2:
     target: "riscv64imac-unknown-none-elf"
     configs:
@@ -21,7 +21,7 @@ bin:
   x86_64-qemu:
     target: "x86_64-unknown-none"
     configs:
-      driver: "kvirtio,kramdisk"
+      driver: "kvirtio"
   x86_64-generic:
     target: "x86_64-unknown-none"
     configs:

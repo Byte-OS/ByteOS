@@ -2,12 +2,6 @@
 
 ## How to use this project
 
-Install build package.
-
-```shell
-cargo install --git https://github.com/Byte-OS/cargo-byteos
-```
-
 Run with make file.
 
 ```shell
@@ -19,18 +13,6 @@ make PLATFORM=aarch64-qemu run
 make PLATFORM=x86_64-qemu run
 # loongarch64
 make PLATFORM=loongarch64-qemu run
-```
-
-You can find available modules using the following command.
-
-```shell
-byteos patch list
-
-# Download and patch in Cargo.toml
-byteos patch add arch
-
-# remove patch and delete folder
-byteos patch remove arch
 ```
 
 ## byteos.yaml

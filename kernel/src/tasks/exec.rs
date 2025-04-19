@@ -15,14 +15,14 @@ use alloc::{
 use async_recursion::async_recursion;
 use core::ops::{Add, Mul};
 use devices::{frame_alloc_much, FrameTracker, PAGE_SIZE};
-use fs::{file::File, OpenFlags};
+use fs::{file::File, pathbuf::PathBuf, OpenFlags};
 use polyhal::MappingFlags;
 use sync::Mutex;
 use syscalls::Errno;
 use xmas_elf::program::{SegmentData, Type};
 
 pub struct TaskCacheTemplate {
-    name: String,
+    name: PathBuf,
     entry: usize,
     maps: Vec<MemArea>,
     base: usize,
@@ -33,8 +33,8 @@ pub struct TaskCacheTemplate {
 }
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
-pub fn cache_task_template(path: &str) -> Result<(), Errno> {
-    let file = File::open(path, OpenFlags::O_RDONLY)?;
+pub fn cache_task_template(path: PathBuf) -> Result<(), Errno> {
+    let file = File::open(path.clone(), OpenFlags::O_RDONLY)?;
     let file_size = file.file_size()?;
     let frame_paddr = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
     let buffer = frame_paddr.as_ref().unwrap()[0].slice_mut_with_len(file_size);
@@ -114,7 +114,7 @@ pub fn cache_task_template(path: &str) -> Result<(), Errno> {
                 })
             });
         TASK_CACHES.lock().push(TaskCacheTemplate {
-            name: path.to_string(),
+            name: path,
             entry: entry_point,
             maps,
             base,
@@ -130,25 +130,14 @@ pub fn cache_task_template(path: &str) -> Result<(), Errno> {
 #[async_recursion(Sync)]
 pub async fn exec_with_process(
     task: Arc<UserTask>,
-    curr_dir: Option<Arc<File>>,
+    curr_dir: PathBuf,
     path: String,
     args: Vec<String>,
     envp: Vec<String>,
 ) -> Result<Arc<UserTask>, Errno> {
     // copy args, avoid free before pushing.
     // let path = String::from(path);
-    let path = match curr_dir.clone() {
-        Some(dir) => format!("{}/{}", dir.path(), path),
-        None => path,
-    };
-    let mut paths = Vec::new();
-    path.split("/")
-        .into_iter()
-        .filter(|&x| x != "" && x != ".")
-        .for_each(|x| {
-            paths.push(x);
-        });
-    let path = String::from("/") + &paths.join("/");
+    let path = curr_dir.join(&path);
 
     let user_task = task.clone();
     user_task.pcb.lock().memset.clear();
@@ -161,7 +150,7 @@ pub async fn exec_with_process(
             user_task.clone(),
             args,
             cache_task.base,
-            &path,
+            &path.path(),
             cache_task.entry,
             cache_task.ph_count,
             cache_task.ph_entry_size,
@@ -183,7 +172,7 @@ pub async fn exec_with_process(
     } else {
         drop(caches);
         // TODO: 运行程序的时候，判断当前的路径
-        let file = File::open(&path, OpenFlags::O_RDONLY)
+        let file = File::open(path.clone(), OpenFlags::O_RDONLY)
             .map(Arc::new)?
             .clone();
         let file_size = file.file_size()?;
@@ -241,7 +230,7 @@ pub async fn exec_with_process(
             user_task.clone(),
             args,
             base,
-            &path,
+            &path.path(),
             entry_point,
             elf_header.pt2.ph_count() as usize,
             elf_header.pt2.ph_entry_size() as usize,

@@ -36,7 +36,6 @@ unsafe impl Hal for HalImpl {
     }
 
     unsafe fn mmio_phys_to_virt(paddr: PhysAddr, _size: usize) -> NonNull<u8> {
-        warn!("phys to virt");
         NonNull::new((usize::from(paddr) | VIRT_ADDR_START) as *mut u8).unwrap()
     }
 

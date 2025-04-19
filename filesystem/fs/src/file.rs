@@ -1,48 +1,32 @@
-use crate::{dentry::get_mounted, WaitBlockingRead, WaitBlockingWrite};
-use alloc::{borrow::ToOwned, string::String, sync::Arc, vec::Vec};
+use crate::{dentry::get_mounted, pathbuf::PathBuf, WaitBlockingRead, WaitBlockingWrite};
+use alloc::{string::String, sync::Arc, vec::Vec};
 use sync::Mutex;
 use syscalls::Errno;
 use vfscore::{
     DirEntry, Dirent64, FileType, INodeInterface, OpenFlags, PollEvent, SeekFrom, Stat, StatFS,
-    StatMode, TimeSpec, VfsResult,
+    TimeSpec, VfsResult,
 };
 
 pub struct File {
     pub inner: Arc<dyn INodeInterface>,
-    path: String,
+    path_buf: PathBuf,
     pub offset: Mutex<usize>,
     pub flags: Mutex<OpenFlags>,
 }
 
 impl<'a> File {
-    pub fn open(path: &str, flags: OpenFlags) -> VfsResult<File> {
-        let fullpath = if path.starts_with("..") {
-            path.trim_start_matches("..").to_owned()
-        } else if path.starts_with(".") {
-            path.trim_start_matches(".").to_owned()
-        } else if path.starts_with("/") {
-            path.to_owned()
-        } else {
-            String::from("/") + path
-        };
-        log::warn!("original path: {}", path);
-        let (de, path) = get_mounted(fullpath.clone());
-        log::warn!("mounted path: {} name: {}", path, de.fs.name());
+    pub fn open(path_buf: PathBuf, flags: OpenFlags) -> VfsResult<File> {
+        let (de, path) = get_mounted(&path_buf);
         let mut file = de.node().clone();
 
-        let paths = path.split("/").into_iter().filter(|x| *x != "");
-        let len = paths.clone().count();
-        if len > 0 {
-            let filename = paths.clone().last().unwrap();
-            for x in paths.take(len - 1) {
-                file = match x {
-                    "." | "" => file,
-                    filename => file.lookup(filename)?,
-                }
+        if path.levels() > 0 {
+            for name in path.dir().iter() {
+                file = file.lookup(name)?;
             }
+
             if flags.contains(OpenFlags::O_CREAT) {
                 file.create(
-                    filename,
+                    &path.filename(),
                     if flags.contains(OpenFlags::O_DIRECTORY) {
                         FileType::Directory
                     } else {
@@ -50,12 +34,12 @@ impl<'a> File {
                     },
                 )?;
             }
-            file = file.lookup(filename)?;
+            file = file.lookup(&path.filename())?;
         }
 
         Ok(Self {
             inner: file,
-            path: fullpath,
+            path_buf,
             offset: Mutex::new(0),
             flags: Mutex::new(flags),
         })
@@ -65,17 +49,14 @@ impl<'a> File {
         Arc::new(Self {
             inner,
             offset: Mutex::new(0),
-            path: String::new(),
+            path_buf: PathBuf::new(),
             flags: Mutex::new(OpenFlags::O_RDWR),
         })
     }
 
     pub fn remove_self(&self) -> VfsResult<()> {
-        // TODO: 更加细化 remove self
-        assert!(!self.path.ends_with("/"));
-        let (dir, name) = self.path.rsplit_once("/").unwrap();
-        let dir = Self::open(dir, OpenFlags::O_DIRECTORY)?;
-        dir.remove(name)
+        let dir = Self::open(self.path_buf.dir(), OpenFlags::O_DIRECTORY)?;
+        dir.remove(&self.path_buf.filename())
     }
 
     pub fn get_bare_file(&self) -> Arc<dyn INodeInterface> {
@@ -94,7 +75,11 @@ impl<'a> File {
 
     #[inline]
     pub fn path(&self) -> String {
-        self.path.clone()
+        self.path_buf.path()
+    }
+
+    pub fn path_buf(&self) -> PathBuf {
+        self.path_buf.clone()
     }
 
     pub fn file_size(&self) -> VfsResult<usize> {
@@ -106,13 +91,7 @@ impl<'a> File {
     pub fn file_type(&self) -> VfsResult<FileType> {
         let mut stat = Stat::default();
         self.inner.stat(&mut stat)?;
-        if stat.mode.contains(StatMode::SOCKET) {
-            Ok(FileType::Socket)
-        } else if stat.mode.contains(StatMode::DIR) {
-            Ok(FileType::Directory)
-        } else {
-            Ok(FileType::File)
-        }
+        Ok(stat.mode.into())
     }
 
     pub fn getdents(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
@@ -208,6 +187,11 @@ impl File {
         self.inner.stat(stat)?;
         stat.dev = 0;
         Ok(())
+    }
+
+    #[inline]
+    pub fn symlink(&self, name: &str, target: &str) -> Result<(), Errno> {
+        self.inner.symlink(name, target)
     }
 
     pub fn mount(&self, path: &str) -> Result<(), Errno> {

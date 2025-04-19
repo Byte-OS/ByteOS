@@ -1,13 +1,10 @@
-use alloc::{
-    borrow::ToOwned,
-    string::{String, ToString},
-    sync::Arc,
-    vec::Vec,
-};
+use alloc::{sync::Arc, vec::Vec};
 use sync::Mutex;
 use vfscore::{FileSystem, INodeInterface, VfsResult};
 
-pub static MOUNTED_FS: Mutex<Vec<(String, DEntryNode)>> = Mutex::new(Vec::new());
+use crate::pathbuf::PathBuf;
+
+pub static MOUNTED_FS: Mutex<Vec<(PathBuf, DEntryNode)>> = Mutex::new(Vec::new());
 
 #[derive(Clone)]
 pub struct DEntryNode {
@@ -33,17 +30,14 @@ impl DEntryNode {
 /// - [DEntryNode] `path` 对应挂载的文件系统
 /// - [String]     `path` 减去挂载路径后的路径
 ///
-pub fn get_mounted(path: String) -> (DEntryNode, String) {
+pub fn get_mounted(path: &PathBuf) -> (DEntryNode, PathBuf) {
     let mounted = MOUNTED_FS.lock();
     let finded = mounted
         .iter()
         .rev()
         .find(|x| path.starts_with(&x.0))
         .unwrap();
-    (
-        finded.1.clone(),
-        path.trim_start_matches(&finded.0).to_string(),
-    )
+    (finded.1.clone(), path.trim_start(&finded.0))
 }
 
 /// 挂载文件系统
@@ -53,12 +47,10 @@ pub fn get_mounted(path: String) -> (DEntryNode, String) {
 /// - `fs`   需要挂载的文件系统
 /// - `path` 文件系统挂载的路径
 pub fn mount_fs(fs: Arc<dyn FileSystem>, path: &str) {
-    assert!(path.starts_with("/"));
+    let path = PathBuf::from(path);
     info!("SYSTEM FS mount {} @ {}", fs.name(), path);
     let node = fs.root_dir();
-    MOUNTED_FS
-        .lock()
-        .push((path.to_owned(), DEntryNode { fs, node }));
+    MOUNTED_FS.lock().push((path, DEntryNode { fs, node }));
 }
 
 /// 取消挂载文件系统
@@ -66,7 +58,7 @@ pub fn mount_fs(fs: Arc<dyn FileSystem>, path: &str) {
 /// # Arguments
 ///
 /// - `path` 需要取消挂载的路径
-pub fn umount(path: &str) -> VfsResult<()> {
+pub fn umount(path: PathBuf) -> VfsResult<()> {
     MOUNTED_FS.lock().retain(|x| x.0 != path);
     Ok(())
 }

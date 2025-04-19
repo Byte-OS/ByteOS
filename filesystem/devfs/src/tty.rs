@@ -37,7 +37,6 @@ impl INodeInterface for Tty {
             }
             Ok(rlen)
         } else {
-            // VfsError::Blocking
             if let Some(c) = get_char() {
                 buffer[0] = c as u8;
                 Ok(1)

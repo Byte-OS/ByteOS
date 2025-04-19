@@ -31,7 +31,7 @@ dependencies = [
  "cfg-if",
  "once_cell",
  "version_check",
- "zerocopy",
+ "zerocopy 0.7.32",
 ]
 
 [[package]]
@@ -115,12 +115,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "byteorder"
-version = "1.4.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "14c189c53d098945499cdfa7ecc63567cf3886b3332b312a5b4585d8d3a6a610"
-
-[[package]]
 name = "cfg-if"
 version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -157,7 +151,6 @@ dependencies = [
  "runtime",
  "sync",
  "timestamp",
- "virtio-drivers",
 ]
 
 [[package]]
@@ -173,6 +166,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "361a90feb7004eca4019fb28352a9465666b24f840f5c3cddf0ff13920590b89"
 
 [[package]]
+name = "embedded-io"
+version = "0.6.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "edd0f118536f44f5ccd48bcb8b111bdc3de888b58c74639dfb034a357d0f206d"
+
+[[package]]
+name = "enumn"
+version = "0.1.14"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2f9ed6b3789237c8a0c1c505af1c7eb2c560df6186f01b098c3a1064ea532f38"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "executor"
 version = "0.1.0"
 dependencies = [
@@ -185,8 +195,9 @@ dependencies = [
 
 [[package]]
 name = "ext4_rs"
-version = "1.0.0"
-source = "git+https://github.com/yuoo655/ext4_rs.git?rev=04286c7#04286c79da45154a7e007a7ef73bcbe5cad073e1"
+version = "1.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61361204b28ca92b18b5e9590b9cf3444e2f73f9957472e978712690136d8742"
 dependencies = [
  "bitflags 2.9.0",
  "log",
@@ -310,7 +321,6 @@ version = "0.1.0"
 dependencies = [
  "devices",
  "log",
- "virtio-drivers",
 ]
 
 [[package]]
@@ -483,9 +493,9 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "polyhal"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c24e928f5d21b8197342ca984f3a9524b1c41e3e0696030f9499729283d2895"
+checksum = "c4f34837744a59676f7c502abe54f2e75466f6b31d45429cd02d4f270ea033d2"
 dependencies = [
  "aarch64-cpu",
  "acpi",
@@ -507,6 +517,7 @@ dependencies = [
  "sbi-rt",
  "spin 0.10.0",
  "tock-registers",
+ "uart_16550",
  "x2apic",
  "x86",
  "x86_64",
@@ -514,9 +525,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-boot"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "aa2b9d546aa90bec074772abf79adb60e9ed5b2ea22c1507a2a03cf18649b7f6"
+checksum = "4d3f9ac631917327b321260ceeba9b9920602f64d87d56b0401c5f633888b310"
 dependencies = [
  "aarch64-cpu",
  "cfg-if",
@@ -532,9 +543,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-macro"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a86a463e0130dc7688cf31dadea1a83398cb7c26ecf6520b2d422c51931cfef6"
+checksum = "70a48cdaccc605de7cbd4c7a492a0ece51e4583909e175be49a998edc19ef328"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -543,9 +554,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-trap"
-version = "0.2.3"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8e4dcb726045fca059bd9b5147ad5c2f51f4016c39cd286ea0a87bf17e9a7f40"
+checksum = "957265ad450775f227a0c390c4724d9301a8248c8897c0986f4ebed0ee03b015"
 dependencies = [
  "aarch64-cpu",
  "bitflags 2.9.0",
@@ -563,9 +574,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.78"
+version = "1.0.95"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e2422ad645d89c99f8f3e6b88a9fdeca7fabeac836b1002371c4367c8f984aae"
+checksum = "02b3e5e68a3a1a02aad3ec490a98007cbc13c37cbe84a3cd7b8e406d76e7f778"
 dependencies = [
  "unicode-ident",
 ]
@@ -745,9 +756,9 @@ checksum = "a2eb9349b6444b326872e140eb1cf5e7c522154d69e7a0ffb0fb81c06b37543f"
 
 [[package]]
 name = "syn"
-version = "2.0.48"
+version = "2.0.100"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0f3531638e407dfc0814761abb7c00a5b54992b849452a0646b7f65c9f770f3f"
+checksum = "b09a44accad81e1ba1cd74a32461ba89dee89095ba17b32f5d03683b1b1fc2a0"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -767,6 +778,26 @@ version = "0.6.18"
 source = "git+https://github.com/jasonwhite/syscalls.git#92624de3dee33427fde46da083809d7e86a721ec"
 
 [[package]]
+name = "thiserror"
+version = "2.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "567b8a2dae586314f7be2a752ec7474332959c6460e02bde30d702a66d488708"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.12"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7f7cf42b4507d8ea322120659672cf1b9dbb93f8f2d4ecfd6e51350ff5b17a1d"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "timestamp"
 version = "0.1.0"
 source = "git+https://github.com/Byte-OS/timestamp.git#0394ccfa14db1912047a0a3e7e1c38b027856165"
@@ -784,6 +815,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f4f7f0dd8d50a853a531c426359045b1998f04219d88799810762cd4ad314234"
 dependencies = [
  "serde",
+]
+
+[[package]]
+name = "uart_16550"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e492212ac378a5e00da953718dafb1340d9fbaf4f27d6f3c5cab03d931d1c049"
+dependencies = [
+ "bitflags 2.9.0",
+ "rustversion",
+ "x86",
 ]
 
 [[package]]
@@ -809,12 +851,16 @@ dependencies = [
 
 [[package]]
 name = "virtio-drivers"
-version = "0.7.1"
-source = "git+https://github.com/rcore-os/virtio-drivers?rev=61ece50#61ece509c40f32c03378a7a037ef9863ed5deba7"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bd4fd93e64b9eb17127b3f65e6e4c704d8c0607cc1e1bb7fb129777faf5371b"
 dependencies = [
  "bitflags 2.9.0",
+ "embedded-io",
+ "enumn",
  "log",
- "zerocopy",
+ "thiserror",
+ "zerocopy 0.8.24",
 ]
 
 [[package]]
@@ -880,8 +926,16 @@ version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74d4d3961e53fa4c9a25a8637fc2bfaf2595b3d3ae34875568a5cf64787716be"
 dependencies = [
- "byteorder",
- "zerocopy-derive",
+ "zerocopy-derive 0.7.32",
+]
+
+[[package]]
+name = "zerocopy"
+version = "0.8.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2586fea28e186957ef732a5f8b3be2da217d65c5969d4b1e17f973ebbe876879"
+dependencies = [
+ "zerocopy-derive 0.8.24",
 ]
 
 [[package]]
@@ -889,6 +943,17 @@ name = "zerocopy-derive"
 version = "0.7.32"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9ce1b18ccd8e73a9321186f97e46f9f04b778851177567b1975109d26a08d2a6"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "zerocopy-derive"
+version = "0.8.24"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a996a8f63c5c4448cd959ac1bab0aaa3306ccfd060472f85943ee0750f0169be"
 dependencies = [
  "proc-macro2",
  "quote",
