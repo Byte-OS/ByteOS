@@ -1,11 +1,12 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use fs::INodeInterface;
+use fs::{INodeInterface, StatMode};
 use lose_net_stack::net_trait::SocketInterface;
 use polyhal::debug_console::DebugConsole;
 use sync::Mutex;
-use vfscore::{Metadata, PollEvent, VfsResult};
+use syscalls::Errno;
+use vfscore::{PollEvent, VfsResult};
 
 use crate::syscall::NET_SERVER;
 
@@ -82,7 +83,7 @@ impl Socket {
         log::warn!("try to recv data from {}", self.inner.get_local().unwrap());
         match self.inner.recv_from() {
             Ok((data, remote)) => Ok((data, remote)),
-            Err(_err) => Err(vfscore::VfsError::Blocking),
+            Err(_err) => Err(Errno::EWOULDBLOCK),
         }
     }
 
@@ -135,16 +136,6 @@ impl Socket {
 }
 
 impl INodeInterface for Socket {
-    fn metadata(&self) -> VfsResult<Metadata> {
-        Ok(Metadata {
-            filename: "",
-            inode: 0,
-            file_type: vfscore::FileType::Socket,
-            size: 0,
-            childrens: 0,
-        })
-    }
-
     fn readat(&self, _offset: usize, buffer: &mut [u8]) -> VfsResult<usize> {
         let mut data = self.buf.lock().clone();
         // let rlen;
@@ -165,7 +156,7 @@ impl INodeInterface for Socket {
                 Ok((recv_data, _)) => {
                     data = recv_data;
                 }
-                Err(_err) => return Err(vfscore::VfsError::Blocking),
+                Err(_err) => return Err(Errno::EWOULDBLOCK),
             }
         }
         let rlen = cmp::min(data.len(), buffer.len());
@@ -188,7 +179,7 @@ impl INodeInterface for Socket {
                 self.options.lock().wsize += len;
                 Ok(len)
             }
-            Err(_err) => Err(vfscore::VfsError::NotWriteable),
+            Err(_err) => Err(Errno::EPERM),
         }
     }
 
@@ -204,5 +195,10 @@ impl INodeInterface for Socket {
             res |= PollEvent::POLLIN;
         }
         Ok(res)
+    }
+
+    fn stat(&self, stat: &mut fs::Stat) -> VfsResult<()> {
+        stat.mode = StatMode::SOCKET;
+        Ok(())
     }
 }

@@ -1,38 +1,43 @@
-use core::{mem::size_of, ops::Add};
-
+use super::{
+    filetable::{rlimits_new, FileTable},
+    memset::{MemSet, MemType},
+    shm::MapedSharedMemory,
+    SignalList,
+};
+use crate::{
+    syscall::types::{
+        fd::AT_CWD,
+        time::{ProcessTimer, TMS},
+    },
+    tasks::{
+        futex_wake,
+        memset::{MapTrack, MemArea},
+    },
+};
 use alloc::{
     collections::BTreeMap,
     sync::{Arc, Weak},
     vec::Vec,
 };
+use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
-use frame_allocator::{ceil_div, frame_alloc_much};
-use fs::File;
+use fs::{file::File, pathbuf::PathBuf, INodeInterface};
 use log::debug;
-use polyhal::{addr::{PhysPage, VirtAddr, VirtPage}, trapframe::{TrapFrame, TrapFrameArgs}, MappingFlags, MappingSize, PageTableWrapper};
+use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use runtime::frame::{alignup, frame_alloc_much};
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
-use vfscore::OpenFlags;
-
-use crate::tasks::{
-    futex_wake,
-    memset::{MapTrack, MemArea},
-};
-
-use super::{
-    filetable::{rlimits_new, FileItem, FileTable},
-    memset::{MemSet, MemType},
-    shm::MapedSharedMemory,
-    ProcessTimer, SignalList, TMS,
-};
+use syscalls::Errno;
+use vfscore::{OpenFlags, VfsResult};
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
 pub struct ProcessControlBlock {
     pub memset: MemSet,
     pub fd_table: FileTable,
-    pub curr_dir: Arc<FileItem>,
+    pub curr_dir: Arc<File>,
     pub heap: usize,
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
@@ -76,16 +81,19 @@ impl UserTask {
 }
 
 impl UserTask {
-    pub fn new(parent: Weak<UserTask>, work_dir: &str) -> Arc<Self> {
+    pub fn new(parent: Weak<UserTask>, work_dir: PathBuf) -> Arc<Self> {
         let task_id = task_id_alloc();
         // initialize memset
         let memset = MemSet::new(vec![]);
 
+        let curr_dir = File::open(work_dir, OpenFlags::O_DIRECTORY)
+            .map(Arc::new)
+            .expect("dont' have the home dir");
+
         let inner = ProcessControlBlock {
             memset,
             fd_table: FileTable::new(),
-            curr_dir: FileItem::fs_open(work_dir, OpenFlags::all())
-                .expect("dont' have the home dir"),
+            curr_dir,
             heap: 0,
             children: Vec::new(),
             entry: 0,
@@ -126,48 +134,52 @@ impl UserTask {
         f(&mut self.pcb.lock())
     }
 
-    pub fn map(&self, ppn: PhysPage, vpn: VirtPage, flags: MappingFlags) {
+    #[inline]
+    pub fn map(&self, paddr: PhysAddr, vaddr: VirtAddr, flags: MappingFlags) {
+        assert_eq!(paddr.raw() % PAGE_SIZE, 0);
+        assert_eq!(vaddr.raw() % PAGE_SIZE, 0);
         // self.page_table.map(ppn, vpn, flags, 3);
         self.page_table
-            .map_page(vpn, ppn, flags, MappingSize::Page4KB);
+            .map_page(vaddr, paddr, flags, MappingSize::Page4KB);
     }
 
-    pub fn frame_alloc(&self, vpn: VirtPage, mtype: MemType, count: usize) -> Option<PhysPage> {
-        self.map_frames(vpn, mtype, count, None, 0, vpn.to_addr(), count * PAGE_SIZE)
+    #[inline]
+    pub fn frame_alloc(&self, vaddr: VirtAddr, mtype: MemType, count: usize) -> Option<PhysAddr> {
+        self.map_frames(vaddr, mtype, count, None, 0, vaddr.raw(), count * PAGE_SIZE)
     }
 
     pub fn map_frames(
         &self,
-        vpn: VirtPage,
+        vaddr: VirtAddr,
         mtype: MemType,
         count: usize,
-        file: Option<File>,
+        file: Option<Arc<dyn INodeInterface>>,
         offset: usize,
         start: usize,
         len: usize,
-    ) -> Option<PhysPage> {
+    ) -> Option<PhysAddr> {
         assert!(count > 0, "can't alloc count = 0 in user_task frame_alloc");
         // alloc trackers and map vpn
         let trackers: Vec<_> = frame_alloc_much(count)?
             .into_iter()
             .enumerate()
             .map(|(i, x)| {
-                let vpn = match vpn.to_addr() == 0 {
-                    true => vpn,
-                    false => vpn.add(i),
+                let vaddr = match vaddr.raw() == 0 {
+                    true => vaddr,
+                    false => va!(vaddr.raw() + i * PAGE_SIZE),
                 };
                 MapTrack {
-                    vpn,
+                    vaddr,
                     tracker: Arc::new(x),
                     rwx: 0,
                 }
             })
             .collect();
-        if vpn.to_addr() != 0 {
+        if vaddr.raw() != 0 {
             debug!(
-                "map {:#x} @ {:#x} size: {:#x} flags: {:?}",
-                vpn.to_addr(),
-                trackers[0].tracker.0.to_addr(),
+                "map {:?} @ {:#x} size: {:#x} flags: {:?}",
+                vaddr,
+                trackers[0].tracker.raw(),
                 count * PAGE_SIZE,
                 MappingFlags::URWX
             );
@@ -175,8 +187,8 @@ impl UserTask {
             trackers
                 .clone()
                 .iter()
-                .filter(|x| x.vpn.to_addr() != 0)
-                .for_each(|x| self.map(x.tracker.0, x.vpn, MappingFlags::URWX));
+                .filter(|x| x.vaddr.raw() != 0)
+                .for_each(|x| self.map(x.tracker.0, x.vaddr, MappingFlags::URWX));
         }
         let mut inner = self.pcb.lock();
         let ppn = trackers[0].tracker.0;
@@ -209,29 +221,19 @@ impl UserTask {
         Some(ppn)
     }
 
-    // pub fn get_cx_ptr(&self) -> *mut Context {
-    //     // (&mut self.tcb.read().cx) as *mut Context
-    //     unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx as _ }
-    // }
-
     pub fn force_cx_ref(&self) -> &'static mut TrapFrame {
         unsafe { &mut self.tcb.as_mut_ptr().as_mut().unwrap().cx }
     }
 
-    pub fn sbrk(&self, incre: isize) -> usize {
-        let inner = self.pcb.lock();
-        let curr_page = inner.heap / PAGE_SIZE;
-        let after_page = (inner.heap as isize + incre) as usize / PAGE_SIZE;
-        drop(inner);
-        // need alloc frame page
-        if after_page > curr_page {
-            for i in curr_page..after_page {
-                self.frame_alloc(VirtPage::new(i + 1), MemType::CodeSection, 1);
-            }
-        }
-        let mut inner = self.pcb.lock();
-        inner.heap = (inner.heap as isize + incre) as usize;
-        inner.heap
+    pub fn sbrk(&self, addr: usize) -> usize {
+        let curr_page = self.pcb.lock().heap.div_ceil(PAGE_SIZE);
+        let after_page = addr.div_ceil(PAGE_SIZE);
+        // 如果需要申请内存
+        (curr_page..after_page).for_each(|i| {
+            self.frame_alloc(va!(i * PAGE_SIZE), MemType::CodeSection, 1);
+        });
+        self.pcb.lock().heap = addr;
+        addr
     }
 
     pub fn heap(&self) -> usize {
@@ -271,7 +273,7 @@ impl UserTask {
                         .tcb
                         .write()
                         .signal
-                        .add_signal(SignalFlags::from_usize(exit_signal as usize));
+                        .add_signal(SignalFlags::from_num(exit_signal as _));
                 } else {
                     parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
                 }
@@ -300,14 +302,8 @@ impl UserTask {
         // mmap or text section.
         // and then we can implement COW(copy on write).
         let parent_task: Arc<UserTask> = self.clone();
-        let work_dir = parent_task
-            .clone()
-            .pcb
-            .lock()
-            .curr_dir
-            .path()
-            .expect("can't get parent work dir in the cow_fork");
-        let new_task = Self::new(Arc::downgrade(&parent_task), &work_dir);
+        let work_dir = parent_task.clone().pcb.lock().curr_dir.path_buf();
+        let new_task = Self::new(Arc::downgrade(&parent_task), work_dir);
         let mut new_tcb_writer = new_task.tcb.write();
         // clone fd_table and clone heap
         let mut new_pcb = new_task.pcb.lock();
@@ -320,12 +316,13 @@ impl UserTask {
         pcb.children.push(new_task.clone());
         new_pcb.shms = pcb.shms.clone();
         drop(new_pcb);
+
         // cow fork
         pcb.memset.iter().for_each(|x| {
             let map_area = x.clone();
             map_area.mtrackers.iter().for_each(|x| {
-                new_task.map(x.tracker.0, x.vpn, MappingFlags::URX);
-                self.map(x.tracker.0, x.vpn, MappingFlags::URX);
+                new_task.map(x.tracker.0, x.vaddr, MappingFlags::URX);
+                self.map(x.tracker.0, x.vaddr, MappingFlags::URX);
             });
             new_task.pcb.lock().memset.push(map_area);
         });
@@ -333,11 +330,7 @@ impl UserTask {
         // copy shm and map them
         pcb.shms.iter().for_each(|x| {
             x.mem.trackers.iter().enumerate().for_each(|(i, tracker)| {
-                new_task.map(
-                    tracker.0,
-                    VirtPage::from_addr(x.start).add(i),
-                    MappingFlags::URWX,
-                );
+                new_task.map(tracker.0, va!(x.start + i * PAGE_SIZE), MappingFlags::URWX);
             });
         });
         new_task
@@ -389,8 +382,7 @@ impl UserTask {
 
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
-        let sp = tcb.cx[TrapFrameArgs::SP] - ceil_div(len + 1, ULEN) * ULEN;
-
+        let sp = tcb.cx[TrapFrameArgs::SP] - alignup(len + 1, ULEN);
         VirtAddr::from(sp)
             .slice_mut_with_len(len)
             .copy_from_slice(buffer);
@@ -416,29 +408,17 @@ impl UserTask {
             .memset
             .iter()
             .filter(|x| x.mtype != MemType::Stack)
-            .fold(0, |acc, x| {
-                if acc > x.start + x.len {
-                    acc
-                } else {
-                    x.start + x.len
-                }
-            });
-        let shm_last = self.pcb.lock().shms.iter().fold(0, |acc, v| {
-            if v.start + v.size > acc {
-                v.start + v.size
-            } else {
-                acc
-            }
-        });
-
-        VirtAddr::new(if map_last > shm_last {
-            map_last
-        } else {
-            shm_last
-        })
+            .fold(0, |acc, x| max(acc, x.start + x.len));
+        let shm_last = self
+            .pcb
+            .lock()
+            .shms
+            .iter()
+            .fold(0, |acc, v| max(v.start + v.size, acc));
+        VirtAddr::new(max(map_last, shm_last))
     }
 
-    pub fn get_fd(&self, index: usize) -> Option<Arc<FileItem>> {
+    pub fn get_fd(&self, index: usize) -> Option<Arc<File>> {
         let pcb = self.pcb.lock();
         match index >= pcb.rlimits[7] {
             true => None,
@@ -446,7 +426,7 @@ impl UserTask {
         }
     }
 
-    pub fn set_fd(&self, index: usize, value: Arc<FileItem>) {
+    pub fn set_fd(&self, index: usize, value: Arc<File>) {
         let mut pcb = self.pcb.lock();
         match index >= pcb.rlimits[7] {
             true => {}
@@ -476,6 +456,31 @@ impl UserTask {
             Some(pcb.fd_table.0.len() - 1)
         } else {
             index
+        }
+    }
+
+    pub fn fd_open(&self, fd: isize, filename: &str, flags: OpenFlags) -> VfsResult<File> {
+        let path = self.fd_resolve(fd, filename)?;
+        File::open(path, flags)
+    }
+
+    #[inline]
+    pub fn fd_resolve(&self, fd: isize, filename: &str) -> VfsResult<PathBuf> {
+        if filename.starts_with("/") {
+            Ok(filename.into())
+        } else {
+            let parent = match fd {
+                AT_CWD => self.pcb.lock().curr_dir.clone(),
+                _ => self
+                    .pcb
+                    .lock()
+                    .fd_table
+                    .get(fd as usize)
+                    .cloned()
+                    .flatten()
+                    .ok_or(Errno::EBADF)?,
+            };
+            Ok(parent.path_buf().join(filename))
         }
     }
 }
@@ -526,7 +531,7 @@ impl AsyncTask for UserTask {
                     .tcb
                     .write()
                     .signal
-                    .add_signal(SignalFlags::from_usize(exit_signal as usize));
+                    .add_signal(SignalFlags::from_num(exit_signal as usize));
             } else {
                 parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
             }

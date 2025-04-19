@@ -2,7 +2,9 @@ use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use executor::AsyncTask;
 use log::warn;
-use polyhal::{addr::VirtPage, trapframe::{TrapFrame, TrapFrameArgs}};
+use polyhal::va;
+use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use syscalls::Errno;
 use xmas_elf::{
     program::Type,
     sections::SectionData,
@@ -10,20 +12,20 @@ use xmas_elf::{
     ElfFile,
 };
 
-use crate::syscall::consts::{elf, LinuxError};
-use crate::tasks::memset::MemType;
+use crate::{consts::USER_STACK_INIT_SIZE, tasks::memset::MemType};
+use crate::{consts::USER_STACK_TOP, syscall::types::elf::elf};
 
 use super::task::UserTask;
 
 pub trait ElfExtra {
-    fn get_ph_addr(&self) -> Result<u64, LinuxError>;
+    fn get_ph_addr(&self) -> Result<u64, Errno>;
     fn dynsym(&self) -> Result<&[DynEntry64], &'static str>;
-    fn relocate(&self, base: usize) -> Result<Vec<(usize, usize)>, &str>;
+    fn relocate(&self, base: usize) -> Result<usize, &str>;
 }
 
 impl ElfExtra for ElfFile<'_> {
     // 获取elf加载需要的内存大小
-    fn get_ph_addr(&self) -> Result<u64, LinuxError> {
+    fn get_ph_addr(&self) -> Result<u64, Errno> {
         if let Some(phdr) = self
             .program_iter()
             .find(|ph| ph.get_type() == Ok(Type::Phdr))
@@ -38,7 +40,7 @@ impl ElfExtra for ElfFile<'_> {
             Ok(elf_addr.virtual_addr() + self.header.pt2.ph_offset())
         } else {
             warn!("elf: no phdr found, tls might not work");
-            Err(LinuxError::EBADF)
+            Err(Errno::EBADF)
         }
     }
 
@@ -54,8 +56,7 @@ impl ElfExtra for ElfFile<'_> {
         }
     }
 
-    fn relocate(&self, base: usize) -> Result<Vec<(usize, usize)>, &str> {
-        let mut res = vec![];
+    fn relocate(&self, base: usize) -> Result<usize, &str> {
         let data = self
             .find_section_by_name(".rela.dyn")
             .ok_or(".rela.dyn not found")?
@@ -78,30 +79,19 @@ impl ElfExtra for ElfFile<'_> {
             match entry.get_type() {
                 REL_GOT | REL_PLT | R_RISCV_64 | R_AARCH64_GLOBAL_DATA => {
                     let dynsym = &dynsym[entry.get_symbol_table_index() as usize];
-                    let symval = if dynsym.shndx() == 0 {
+                    if dynsym.shndx() == 0 {
                         let name = dynsym.get_name(self)?;
                         panic!("need to find symbol: {:?}", name);
                     } else {
                         base + dynsym.value() as usize
                     };
-                    let value = symval + entry.get_addend() as usize;
-                    let addr = base + entry.get_offset() as usize;
-                    // vmar.write_memory(addr, &value.to_ne_bytes())
-                    // .map_err(|_| "Invalid Vmar")?;
-                    res.push((addr, value))
                 }
-                REL_RELATIVE | R_RISCV_RELATIVE | R_AARCH64_RELATIVE => {
-                    let value = base + entry.get_addend() as usize;
-                    let addr = base + entry.get_offset() as usize;
-                    // vmar.write_memory(addr, &value.to_ne_bytes())
-                    // .map_err(|_| "Invalid Vmar")?;
-                    res.push((addr, value))
-                }
+                REL_RELATIVE | R_RISCV_RELATIVE | R_AARCH64_RELATIVE => {}
                 t => unimplemented!("unknown type: {}", t),
             }
         }
         // panic!("STOP");
-        Ok(res)
+        Ok(base)
     }
 }
 
@@ -115,10 +105,13 @@ pub fn init_task_stack(
     ph_entry_size: usize,
     ph_addr: usize,
     heap_bottom: usize,
-    tls: usize,
 ) {
     // map stack
-    user_task.frame_alloc(VirtPage::from_addr(0x7ffe0000), MemType::Stack, 32);
+    user_task.frame_alloc(
+        va!(USER_STACK_TOP - USER_STACK_INIT_SIZE),
+        MemType::Stack,
+        USER_STACK_INIT_SIZE / PAGE_SIZE,
+    );
     log::debug!(
         "[task {}] entry: {:#x}",
         user_task.get_task_id(),
@@ -132,9 +125,8 @@ pub fn init_task_stack(
     let mut tcb = user_task.tcb.write();
 
     tcb.cx = TrapFrame::new();
-    tcb.cx[TrapFrameArgs::SP] = 0x8000_0000; // stack top;
+    tcb.cx[TrapFrameArgs::SP] = USER_STACK_TOP; // stack top;
     tcb.cx[TrapFrameArgs::SEPC] = base + entry_point;
-    tcb.cx[TrapFrameArgs::TLS] = tls;
 
     drop(tcb);
 
@@ -160,13 +152,10 @@ pub fn init_task_stack(
     let mut auxv = BTreeMap::new();
     auxv.insert(elf::AT_PLATFORM, user_task.push_str("riscv"));
     auxv.insert(elf::AT_EXECFN, user_task.push_str(path));
-    // auxv.insert(elf::AT_PHNUM, elf_header.pt2.ph_count() as usize);
     auxv.insert(elf::AT_PHNUM, ph_count);
     auxv.insert(elf::AT_PAGESZ, PAGE_SIZE);
     auxv.insert(elf::AT_ENTRY, base + entry_point);
-    // auxv.insert(elf::AT_PHENT, elf_header.pt2.ph_entry_size() as usize);
     auxv.insert(elf::AT_PHENT, ph_entry_size);
-    // auxv.insert(elf::AT_PHDR, base + elf.get_ph_addr().unwrap_or(0) as usize);
     auxv.insert(elf::AT_PHDR, base + ph_addr);
     auxv.insert(elf::AT_GID, 0);
     auxv.insert(elf::AT_EGID, 0);

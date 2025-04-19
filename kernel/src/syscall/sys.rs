@@ -1,11 +1,9 @@
-use log::{debug, warn};
-
-use crate::{
-    syscall::consts::{Rlimit, UTSname},
-    user::UserTaskContainer,
+use super::{
+    types::sys::{Rlimit, UTSname},
+    SysResult,
 };
-
-use super::{consts::UserRef, SysResult};
+use crate::{user::UserTaskContainer, utils::useref::UserRef};
+use log::{debug, warn};
 
 impl UserTaskContainer {
     pub async fn sys_uname(&self, uts_ptr: UserRef<UTSname>) -> SysResult {
@@ -148,11 +146,12 @@ impl UserTaskContainer {
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
-        use crate::syscall::consts::{ArchPrctlCode, LinuxError};
+        use super::types::sys::ArchPrctlCode;
         use num_traits::FromPrimitive;
-        use polyhal::trapframe::TrapFrameArgs;
+        use polyhal_trap::trapframe::TrapFrameArgs;
+        use syscalls::Errno;
 
-        let arch_prctl_code = FromPrimitive::from_usize(code).ok_or(LinuxError::EINVAL)?;
+        let arch_prctl_code = FromPrimitive::from_usize(code).ok_or(Errno::EINVAL)?;
         debug!(
             "sys_arch_prctl @ code: {:?}, addr: {:#x}",
             arch_prctl_code, addr
@@ -162,7 +161,7 @@ impl UserTaskContainer {
             ArchPrctlCode::ARCH_SET_FS => cx_ref[TrapFrameArgs::TLS] = addr,
             _ => {
                 error!("arch prctl: {:#x?}", arch_prctl_code);
-                return Err(LinuxError::EPERM);
+                return Err(Errno::EPERM);
             }
         }
         Ok(0)

@@ -1,10 +1,9 @@
-
 global:
   configs:
     board: "qemu"
     # Available are fat32, ext4 and ext4_rs.
     # root_fs: "fat32"
-    root_fs: "ext4_rs"
+    root_fs: "ext4"
   env:
     HEAP_SIZE: "0x0180_0000"
     MOUNT_IMG_PATH: "mount.img"
@@ -13,7 +12,7 @@ bin:
   riscv64-qemu:
     target: "riscv64gc-unknown-none-elf"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a"
+      driver: "kvirtio"
   riscv64-vf2:
     target: "riscv64imac-unknown-none-elf"
     configs:
@@ -22,23 +21,21 @@ bin:
   x86_64-qemu:
     target: "x86_64-unknown-none"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a"
+      driver: "kvirtio"
   x86_64-generic:
     target: "x86_64-unknown-none"
     configs:
-      driver: "kramdisk,kgoldfish-rtc,ns16550a"
+      driver: "kramdisk"
   aarch64-qemu:
     target: "aarch64-unknown-none-softfloat"
     configs:
-      driver: "kvirtio,kgoldfish-rtc,ns16550a"
+      driver: "kramdisk"
   loongarch64-qemu:
     target: "loongarch64-unknown-none"
-    build_std: "core,alloc"
     configs:
       driver: "kramdisk"
   loongarch64-2k1000:
     target: "loongarch64-unknown-none"
-    build_std: "core,alloc"
     configs:
       driver: "kramdisk"
       board: "2k1000"

@@ -1,19 +1,12 @@
-use core::ops::Add;
-
+use super::SysResult;
 use crate::tasks::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
+use crate::user::UserTaskContainer;
 use alloc::{sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
-use frame_allocator::{ceil_div, frame_alloc_much, FrameTracker};
 use log::debug;
-use polyhal::{addr::{VirtAddr, VirtPage}, MappingFlags};
-
-use crate::user::UserTaskContainer;
-
-use super::{consts::LinuxError, SysResult};
-
-// #define IPC_CREAT  01000
-// #define IPC_EXCL   02000
-// #define IPC_NOWAIT 04000
+use polyhal::{va, MappingFlags};
+use runtime::frame::{frame_alloc_much, FrameTracker};
+use syscalls::Errno;
 
 impl UserTaskContainer {
     pub async fn sys_shmget(&self, mut key: usize, size: usize, shmflg: usize) -> SysResult {
@@ -29,7 +22,7 @@ impl UserTaskContainer {
             return Ok(key);
         }
         if shmflg & 01000 > 0 {
-            let shm: Vec<Arc<FrameTracker>> = frame_alloc_much(ceil_div(size, PAGE_SIZE))
+            let shm: Vec<Arc<FrameTracker>> = frame_alloc_much(size.div_ceil(PAGE_SIZE))
                 .expect("can't alloc page in shm")
                 .into_iter()
                 .map(Arc::new)
@@ -39,7 +32,7 @@ impl UserTaskContainer {
                 .insert(key, Arc::new(SharedMemory::new(shm)));
             return Ok(key);
         }
-        Err(LinuxError::ENOENT)
+        Err(Errno::ENOENT)
     }
 
     pub async fn sys_shmat(&self, shmid: usize, shmaddr: usize, shmflg: usize) -> SysResult {
@@ -47,21 +40,20 @@ impl UserTaskContainer {
             "sys_shmat @ shmid: {}, shmaddr: {}, shmflg: {:#o}",
             shmid, shmaddr, shmflg
         );
-        let addr = self.task.get_last_free_addr();
+        let vaddr = self.task.get_last_free_addr();
 
-        let addr = if shmaddr == 0 {
-            if usize::from(addr) >= 0x4000_0000 {
-                addr
+        let vaddr = if shmaddr == 0 {
+            if vaddr >= va!(0x4000_0000) {
+                vaddr
             } else {
-                VirtAddr::from(0x4000_0000)
+                va!(0x4000_0000)
             }
         } else {
-            VirtAddr::new(shmaddr)
+            va!(shmaddr)
         };
-        let vpn = VirtPage::from(addr);
         let trackers = SHARED_MEMORY.lock().get(&shmid).cloned();
         if trackers.is_none() {
-            return Err(LinuxError::ENOENT);
+            return Err(Errno::ENOENT);
         }
         trackers
             .as_ref()
@@ -70,17 +62,18 @@ impl UserTaskContainer {
             .iter()
             .enumerate()
             .for_each(|(i, x)| {
-                debug!("map {:?} @ {:?}", vpn.add(i), x.0);
-                self.task.map(x.0, vpn.add(i), MappingFlags::URWX);
+                debug!("map {:?} @ {:?}", vaddr.raw() + i * PAGE_SIZE, x.0);
+                self.task
+                    .map(x.0, vaddr + i * PAGE_SIZE, MappingFlags::URWX);
             });
         let size = trackers.as_ref().unwrap().trackers.len() * PAGE_SIZE;
         self.task.pcb.lock().shms.push(MapedSharedMemory {
             key: shmid,
             mem: trackers.unwrap(),
-            start: addr.addr(),
+            start: vaddr.raw(),
             size,
         });
-        Ok(addr.addr())
+        Ok(vaddr.raw())
     }
 
     pub async fn sys_shmctl(&self, shmid: usize, cmd: usize, arg: usize) -> SysResult {
@@ -93,6 +86,6 @@ impl UserTaskContainer {
             }
             return Ok(0);
         }
-        Err(LinuxError::EPERM)
+        Err(Errno::EPERM)
     }
 }

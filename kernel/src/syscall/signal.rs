@@ -1,13 +1,11 @@
 use executor::yield_now;
 use log::debug;
 use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
+use syscalls::Errno;
 
-use crate::{tasks::WaitSignal, user::UserTaskContainer};
+use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
 
-use super::{
-    consts::{LinuxError, UserRef},
-    SysResult,
-};
+use super::SysResult;
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。
@@ -77,7 +75,7 @@ impl UserTaskContainer {
             "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
             self.tid, how, set, oldset
         );
-        let how = SigMaskHow::from_usize(how).ok_or(LinuxError::EINVAL)?;
+        let how = SigMaskHow::from_usize(how).ok_or(Errno::EINVAL)?;
         let mut tcb = self.task.tcb.write();
         if oldset.is_valid() {
             let sigmask = oldset.get_mut();
@@ -104,7 +102,7 @@ impl UserTaskContainer {
         act: UserRef<SigAction>,
         oldact: UserRef<SigAction>,
     ) -> SysResult {
-        let signal = SignalFlags::from_usize(sig);
+        let signal = SignalFlags::from_num(sig);
         debug!(
             "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
             signal, act, oldact

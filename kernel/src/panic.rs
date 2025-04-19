@@ -22,11 +22,11 @@ fn panic_handler(info: &PanicInfo) -> ! {
     println!(
         "\x1b[1;31m[Core {}] panic: '{}'\x1b[0m",
         hart_id(),
-        info.message().unwrap()
+        info.message()
     );
     // backtrace();
     println!("!TEST FINISH!");
     // loop {}
-    
+
     shutdown();
 }

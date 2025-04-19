@@ -1,26 +1,27 @@
+use super::{
+    types::time::{ITimerVal, TimeVal, TMS},
+    SysResult,
+};
+use crate::{
+    tasks::WaitHandleAbleSignal,
+    user::UserTaskContainer,
+    utils::{
+        time::{current_nsec, current_timeval},
+        useref::UserRef,
+    },
+};
 use core::{
     future::Future,
     ops::Add,
     pin::Pin,
     task::{Context, Poll},
 };
-
 use executor::select;
 use fs::TimeSpec;
-pub use hal::current_nsec;
-use hal::{ITimerVal, TimeVal};
 use log::{debug, warn};
 use polyhal::time::Time;
+use syscalls::Errno;
 
-use crate::{
-    tasks::{WaitHandleAbleSignal, TMS},
-    user::UserTaskContainer,
-};
-
-use super::{
-    consts::{LinuxError, UserRef},
-    SysResult,
-};
 impl UserTaskContainer {
     pub async fn sys_gettimeofday(
         &self,
@@ -31,7 +32,7 @@ impl UserTaskContainer {
             "sys_gettimeofday @ tv_ptr: {}, timezone: {:#x}",
             tv_ptr, timezone_ptr
         );
-        *tv_ptr.get_mut() = TimeVal::now();
+        *tv_ptr.get_mut() = current_timeval();
         Ok(0)
     }
 
@@ -55,7 +56,7 @@ impl UserTaskContainer {
         .await
         {
             executor::Either::Right(_) => Ok(0),
-            executor::Either::Left(_) => Err(LinuxError::EINTR),
+            executor::Either::Left(_) => Err(Errno::EINTR),
         };
         if rem_ptr.is_valid() {
             *rem_ptr.get_mut() = Default::default();
@@ -90,7 +91,7 @@ impl UserTaskContainer {
                 warn!("CLOCK_THREAD_CPUTIME_ID not implemented");
                 0
             }
-            _ => return Err(LinuxError::EINVAL),
+            _ => return Err(Errno::EINVAL),
         };
 
         *times_ptr.get_mut() = TimeSpec {
@@ -132,7 +133,7 @@ impl UserTaskContainer {
             if times_ptr.is_valid() {
                 let new_timer = times_ptr.get_ref();
                 pcb.timer[0].timer = *new_timer;
-                pcb.timer[0].next = TimeVal::now().add(pcb.timer[0].timer.value);
+                pcb.timer[0].next = current_timeval().add(pcb.timer[0].timer.value);
                 if new_timer.value.sec == 0 && new_timer.value.usec == 0 {
                     pcb.timer[0].next = Default::default();
                     pcb.timer[0].last = Default::default();
@@ -140,7 +141,7 @@ impl UserTaskContainer {
             }
             Ok(0)
         } else {
-            Err(LinuxError::EPERM)
+            Err(Errno::EPERM)
         }
     }
 
