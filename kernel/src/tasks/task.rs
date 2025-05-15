@@ -14,19 +14,18 @@ use crate::{
         memset::{MapTrack, MemArea},
     },
 };
+use addr::{va, PAddr, VAddr, PAGE_SIZE};
 use alloc::{
     collections::BTreeMap,
     sync::{Arc, Weak},
     vec::Vec,
 };
 use core::{cmp::max, mem::size_of};
-use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
 use log::debug;
-use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
-use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
+use sel4_hal::{MappingFlags, TrapFrame, TrapFrameArgs};
 use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use syscalls::Errno;
@@ -135,7 +134,7 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn map(&self, paddr: PhysAddr, vaddr: VirtAddr, flags: MappingFlags) {
+    pub fn map(&self, paddr: PAddr, vaddr: VAddr, flags: MappingFlags) {
         assert_eq!(paddr.raw() % PAGE_SIZE, 0);
         assert_eq!(vaddr.raw() % PAGE_SIZE, 0);
         // self.page_table.map(ppn, vpn, flags, 3);
@@ -144,20 +143,20 @@ impl UserTask {
     }
 
     #[inline]
-    pub fn frame_alloc(&self, vaddr: VirtAddr, mtype: MemType, count: usize) -> Option<PhysAddr> {
+    pub fn frame_alloc(&self, vaddr: VAddr, mtype: MemType, count: usize) -> Option<PAddr> {
         self.map_frames(vaddr, mtype, count, None, 0, vaddr.raw(), count * PAGE_SIZE)
     }
 
     pub fn map_frames(
         &self,
-        vaddr: VirtAddr,
+        vaddr: VAddr,
         mtype: MemType,
         count: usize,
         file: Option<Arc<dyn INodeInterface>>,
         offset: usize,
         start: usize,
         len: usize,
-    ) -> Option<PhysAddr> {
+    ) -> Option<PAddr> {
         assert!(count > 0, "can't alloc count = 0 in user_task frame_alloc");
         // alloc trackers and map vpn
         let trackers: Vec<_> = frame_alloc_much(count)?
@@ -248,7 +247,7 @@ impl UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self
                 .page_table
-                .translate(VirtAddr::from(uaddr))
+                .translate(VAddr::new(uaddr))
                 .expect("can't find a valid addr")
                 .0;
             unsafe {
@@ -383,7 +382,7 @@ impl UserTask {
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
         let sp = tcb.cx[TrapFrameArgs::SP] - alignup(len + 1, ULEN);
-        VirtAddr::from(sp)
+        VAddr::new(sp)
             .slice_mut_with_len(len)
             .copy_from_slice(buffer);
         tcb.cx[TrapFrameArgs::SP] = sp;
@@ -396,12 +395,12 @@ impl UserTask {
         const ULEN: usize = size_of::<usize>();
         let sp = tcb.cx[TrapFrameArgs::SP] - ULEN;
 
-        *VirtAddr::from(sp).get_mut_ref() = num;
+        *VAddr::new(sp).get_mut_ref() = num;
         tcb.cx[TrapFrameArgs::SP] = sp;
         sp
     }
 
-    pub fn get_last_free_addr(&self) -> VirtAddr {
+    pub fn get_last_free_addr(&self) -> VAddr {
         let map_last = self
             .pcb
             .lock()
@@ -415,7 +414,7 @@ impl UserTask {
             .shms
             .iter()
             .fold(0, |acc, v| max(v.start + v.size, acc));
-        VirtAddr::new(max(map_last, shm_last))
+        VAddr::new(max(map_last, shm_last))
     }
 
     pub fn get_fd(&self, index: usize) -> Option<Arc<File>> {
@@ -506,7 +505,7 @@ impl AsyncTask for UserTask {
             debug!("write addr: {:#x}", uaddr);
             let addr = self
                 .page_table
-                .translate(VirtAddr::from(uaddr))
+                .translate(VAddr::new(uaddr))
                 .expect("can't find a valid addr")
                 .0;
             unsafe {

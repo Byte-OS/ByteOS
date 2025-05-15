@@ -98,6 +98,7 @@ pub trait InputDriver: Driver {
 
 pub trait UartDriver: Driver {
     fn put(&self, c: u8);
+    fn puts(&self, bytes: &[u8]);
     fn get(&self) -> Option<u8>;
 }
 

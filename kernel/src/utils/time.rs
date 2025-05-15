@@ -1,5 +1,4 @@
 use fs::TimeSpec;
-use polyhal::Time;
 
 use crate::syscall::types::time::TimeVal;
 
@@ -7,7 +6,7 @@ use crate::syscall::types::time::TimeVal;
 pub fn current_nsec() -> usize {
     // devices::RTC_DEVICES.lock()[0].read() as usize
     // arch::time_to_usec(arch::get_time()) * 1000
-    Time::now().to_nsec()
+    common::arch::get_curr_ns()
 }
 
 pub fn current_timeval() -> TimeVal {

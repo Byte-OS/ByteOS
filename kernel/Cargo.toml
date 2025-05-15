@@ -1,5 +1,5 @@
 [package]
-name = "kernel"
+name = "byteos"
 version = "0.1.0"
 edition = "2021"
 
@@ -16,9 +16,6 @@ serde_derive = "1.0.136"
 log = "0.4"
 devices = { workspace = true }
 executor = { workspace = true }
-polyhal = { workspace = true }
-polyhal-boot = { workspace = true }
-polyhal-trap = { workspace = true }
 xmas-elf = "0.9.0"
 signal = { workspace = true }
 sync = { workspace = true }
@@ -44,9 +41,9 @@ runtime = { workspace = true }
 fs = { workspace = true }
 vfscore = { workspace = true }
 
-# drivers
-kvirtio = { workspace = true }
-kgoldfish-rtc = { workspace = true }
-kramdisk = { workspace = true }
-general-plic = { workspace = true }
-ns16550a = { workspace = true }
+sel4-runtime = { workspace = true }
+sel4 = { workspace = true }
+srv-iface = { workspace = true, features = ["uart-ipc"] }
+common = { workspace = true }
+addr = { workspace = true }
+sel4-hal = { workspace = true }

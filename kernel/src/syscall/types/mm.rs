@@ -1,5 +1,3 @@
-use polyhal::MappingFlags;
-
 bitflags! {
     // MAP Flags
     #[derive(Debug)]
@@ -46,20 +44,4 @@ bitflags! {
         const PROT_EXEC = 4;
     }
 
-}
-
-impl Into<MappingFlags> for MmapProt {
-    fn into(self) -> MappingFlags {
-        let mut res = MappingFlags::empty();
-        if self.contains(Self::PROT_READ) {
-            res |= MappingFlags::R;
-        }
-        if self.contains(Self::PROT_WRITE) {
-            res |= MappingFlags::W;
-        }
-        if self.contains(Self::PROT_EXEC) {
-            res |= MappingFlags::X;
-        }
-        res
-    }
 }

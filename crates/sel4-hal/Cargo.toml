@@ -1,0 +1,7 @@
+[package]
+name = "sel4-hal"
+version = "0.1.0"
+edition.workspace = true
+
+[dependencies]
+bitflags = "2.9.0"

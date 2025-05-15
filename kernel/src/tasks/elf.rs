@@ -1,9 +1,8 @@
+use addr::{va, PAGE_SIZE};
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
-use devices::PAGE_SIZE;
 use executor::AsyncTask;
 use log::warn;
-use polyhal::va;
-use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
+use sel4_hal::{TrapFrame, TrapFrameArgs};
 use syscalls::Errno;
 use xmas_elf::{
     program::Type,

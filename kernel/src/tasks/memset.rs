@@ -1,12 +1,11 @@
+use addr::{VAddr, PAGE_SIZE};
 use alloc::{sync::Arc, vec::Vec};
 use core::{
     cmp::min,
     fmt::Debug,
     ops::{Deref, DerefMut},
 };
-use devices::PAGE_SIZE;
 use fs::INodeInterface;
-use polyhal::{PageTable, VirtAddr};
 use runtime::frame::FrameTracker;
 
 /// Memory set for storing the memory and its map relation.
@@ -66,7 +65,7 @@ pub enum MemType {
 
 #[derive(Clone)]
 pub struct MapTrack {
-    pub vaddr: VirtAddr,
+    pub vaddr: VAddr,
     pub tracker: Arc<FrameTracker>,
     pub rwx: u8,
 }
@@ -149,7 +148,7 @@ impl MemArea {
                 mtype: self.mtype,
                 mtrackers: self
                     .mtrackers
-                    .extract_if(|x| new_area_range.contains(&x.vaddr.raw()))
+                    .extract_if(.., |x| new_area_range.contains(&x.vaddr.raw()))
                     .collect(),
                 file: self.file.clone(),
                 start: end,
@@ -191,7 +190,7 @@ impl MemArea {
         // drop the sub memory area pages.
         let new_self_rang = self.start..self.start + self.len;
         self.mtrackers
-            .extract_if(|x| !new_self_rang.contains(&x.vaddr.raw()))
+            .extract_if(.., |x| !new_self_rang.contains(&x.vaddr.raw()))
             .for_each(|x| pt.unmap_page(x.vaddr));
         None
     }

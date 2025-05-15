@@ -3,10 +3,10 @@
 #[macro_use]
 extern crate alloc;
 
+use addr::PAGE_SIZE;
 use alloc::{string::String, sync::Arc, vec::Vec};
 use core::cmp::{self, min};
 use core::ops::Add;
-use polyhal::pagetable::PAGE_SIZE;
 use runtime::frame::{frame_alloc, FrameTracker};
 use sync::Mutex;
 use syscalls::Errno;
@@ -176,7 +176,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .extract_if(|x| match x {
+            .extract_if(.., |x| match x {
                 FileContainer::Dir(x) => x.name == name,
                 _ => false,
             })
@@ -219,7 +219,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .extract_if(|x| match x {
+            .extract_if(.., |x| match x {
                 FileContainer::File(x) => x.name == name,
                 FileContainer::Dir(_) => false,
                 FileContainer::Link(x) => x.name == name,

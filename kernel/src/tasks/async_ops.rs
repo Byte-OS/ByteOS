@@ -1,8 +1,8 @@
 use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
+use common::arch::get_curr_ms;
 use executor::AsyncTask;
-use polyhal::time::Time;
 use sync::Mutex;
 use syscalls::Errno;
 
@@ -17,7 +17,7 @@ impl Future for NextTick {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        let curr = Time::now().to_msec();
+        let curr = get_curr_ms();
         if curr < self.0 {
             Poll::Pending
         } else {

@@ -16,6 +16,15 @@ syscalls = { workspace = true }
 sync = { workspace = true }
 devices = { workspace = true }
 
+# reL4
+common = { workspace = true }
+config = { workspace = true }
+spin = { workspace = true }
+virtio-drivers = { git = "https://github.com/rcore-os/virtio-drivers", rev = "61ece50", default-features = false }
+linkme = { version = "0.3.22", features = ["used_linker"] }
+lwext4_rust = { git = "https://github.com/Azure-stars/lwext4_rust.git", default-features = false, rev = "ee5131c" }
+
+
 [target.'cfg(root_fs = "ext4_rs")'.dependencies]
 ext4_rs = "1.3.1"
 

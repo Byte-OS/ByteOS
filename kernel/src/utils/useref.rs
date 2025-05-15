@@ -3,25 +3,25 @@ use core::{
     marker::PhantomData,
 };
 
-use polyhal::VirtAddr;
+use addr::{va, VAddr};
 
 #[derive(Clone, Copy)]
 pub struct UserRef<T> {
-    addr: VirtAddr,
+    addr: VAddr,
     r#type: PhantomData<T>,
 }
 
 impl<T> From<usize> for UserRef<T> {
     fn from(value: usize) -> Self {
         Self {
-            addr: value.into(),
+            addr: va!(value),
             r#type: PhantomData,
         }
     }
 }
 
-impl<T> From<VirtAddr> for UserRef<T> {
-    fn from(value: VirtAddr) -> Self {
+impl<T> From<VAddr> for UserRef<T> {
+    fn from(value: VAddr) -> Self {
         Self {
             addr: value,
             r#type: PhantomData,

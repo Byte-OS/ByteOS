@@ -1,5 +1,6 @@
 #![no_std]
 #![feature(let_chains)]
+#![feature(used_with_arg)]
 
 #[allow(unused_imports)]
 #[macro_use]
@@ -18,6 +19,7 @@ mod fatfs_shim;
 pub mod file;
 pub mod pathbuf;
 pub mod pipe;
+pub mod virtio;
 
 use alloc::sync::Arc;
 use core::{

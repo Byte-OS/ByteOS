@@ -8,10 +8,9 @@ edition = "2021"
 [features]
 
 [dependencies]
-polyhal = { workspace = true }
-fdt-parser = { workspace = true }
 linkme = { version = "0.3.22", features = ["used_linker"] }
 log = "0.4"
 sync = { workspace = true }
 timestamp = { git = "https://github.com/Byte-OS/timestamp.git" }
 runtime = { workspace = true }
+srv-iface = { workspace = true }

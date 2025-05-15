@@ -9,22 +9,17 @@ mod signal;
 mod task;
 
 use self::initproc::initproc;
-use crate::{consts::USER_WORK_DIR, syscall::NET_SERVER, user::entry::user_entry};
+use crate::consts::USER_WORK_DIR;
 use alloc::{
     string::String,
     sync::Weak,
     {sync::Arc, vec::Vec},
 };
-pub use async_ops::{
-    futex_requeue, futex_wake, WaitFutex, WaitHandleAbleSignal, WaitPid, WaitSignal,
-};
-use devices::get_net_device;
+pub use async_ops::futex_wake;
 use exec::exec_with_process;
-use executor::{current_task, thread, yield_now, AsyncTask, TaskId, DEFAULT_EXECUTOR};
+use executor::{current_task, thread, AsyncTask, TaskId, DEFAULT_EXECUTOR};
 use fs::pathbuf::PathBuf;
-pub use memset::{MapTrack, MemArea, MemType};
-use polyhal::common::get_cpu_num;
-pub use shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
+pub use memset::MemType;
 pub use signal::SignalList;
 pub use task::UserTask;
 
@@ -33,21 +28,8 @@ pub enum UserTaskControlFlow {
     Break,
 }
 
-#[allow(dead_code)]
-pub async fn handle_net() {
-    let mut buffer = vec![0u8; 2048];
-    // #[cfg(feature = "net")]
-    loop {
-        let res = get_net_device(0).recv(&mut buffer);
-        if let Ok(rlen) = res {
-            NET_SERVER.analysis_net_data(&buffer[..rlen]);
-        }
-        yield_now().await;
-    }
-}
-
 pub fn init() {
-    DEFAULT_EXECUTOR.init(get_cpu_num());
+    DEFAULT_EXECUTOR.init();
     thread::spawn_blank(initproc());
     // #[cfg(feature = "net")]
     // thread::spawn_blank(KernelTask::new(handle_net()));

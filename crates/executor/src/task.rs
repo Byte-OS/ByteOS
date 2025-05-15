@@ -3,7 +3,7 @@ use core::{future::Future, pin::Pin};
 use alloc::{boxed::Box, sync::Arc};
 use downcast_rs::{impl_downcast, DowncastSync};
 
-use crate::{boot_page_table, TaskId};
+use crate::TaskId;
 
 /// Default is kernel task
 pub const TYPE_KERNEL_TASK: u8 = 0;
@@ -60,9 +60,7 @@ impl AsyncTask for BlankKernelTask {
 
     /// before run switch to kernel page table.
     /// maybe I don't need to do this.
-    fn before_run(&self) {
-        boot_page_table().change();
-    }
+    fn before_run(&self) {}
 
     /// Get task type.
     fn get_task_type(&self) -> TaskType {

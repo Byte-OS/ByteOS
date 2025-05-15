@@ -2,15 +2,9 @@ use alloc::{
     collections::VecDeque,
     sync::{Arc, Weak},
     task::Wake,
-    vec::Vec,
 };
-use core::{
-    sync::atomic::{AtomicBool, Ordering},
-    task::{Context, Poll},
-};
+use core::task::{Context, Poll};
 use hashbrown::HashMap;
-use log::info;
-use polyhal::{hart_id, PageTable};
 use sync::{LazyInit, Mutex};
 
 use crate::task::{AsyncTask, AsyncTaskItem, PinedFuture};
@@ -21,37 +15,20 @@ pub static TASK_MAP: LazyInit<Mutex<HashMap<usize, Weak<dyn AsyncTask>>>> = Lazy
 /// FIFO task queue, Items will be pushed to the end of the queue after being called.
 pub(crate) static TASK_QUEUE: Mutex<VecDeque<AsyncTaskItem>> = Mutex::new(VecDeque::new());
 /// wake queue, not use at current.
+pub(crate) static CURRENT_TASK: LazyInit<Mutex<Arc<dyn AsyncTask>>> = LazyInit::new();
 
 pub static DEFAULT_EXECUTOR: Executor = Executor::new();
 
-static BOOT_PAGE: LazyInit<PageTable> = LazyInit::new();
-
-pub struct Executor {
-    cores: LazyInit<Vec<Mutex<Option<Arc<dyn AsyncTask>>>>>,
-    inited: AtomicBool,
-}
+pub struct Executor {}
 
 impl Executor {
     pub const fn new() -> Self {
-        Executor {
-            cores: LazyInit::new(),
-            inited: AtomicBool::new(false),
-        }
+        Executor {}
     }
 
-    pub fn init(&self, cores: usize) {
-        let mut core_container = Vec::with_capacity(cores);
-        (0..cores).for_each(|_| core_container.push(Mutex::new(None)));
-        self.cores.init_by(core_container);
-
+    pub fn init(&self) {
         // Init TaskMAP with new empty hash map
         TASK_MAP.init_by(Mutex::new(HashMap::new()));
-        if !BOOT_PAGE.is_init() {
-            BOOT_PAGE.init_by(PageTable::current());
-        }
-
-        // Finish initializing
-        self.inited.store(true, Ordering::SeqCst);
     }
 
     pub fn spawn(&mut self, task: Arc<dyn AsyncTask>, future: PinedFuture) {
@@ -59,13 +36,6 @@ impl Executor {
     }
 
     pub fn run(&self) {
-        info!("fetch atomic data: {}", self.inited.load(Ordering::SeqCst));
-        info!(
-            "fetch atomic data not: {}",
-            self.inited.load(Ordering::SeqCst)
-        );
-        // Waiting for executor's initialisation finish.
-        while !self.inited.load(Ordering::SeqCst) {}
         loop {
             self.run_ready_task();
             self.hlt_if_idle();
@@ -77,7 +47,6 @@ impl Executor {
         if let Some(task_item) = task {
             let AsyncTaskItem { task, mut future } = task_item;
             task.before_run();
-            *self.cores[hart_id()].lock() = Some(task.clone());
             // Create Waker
             let waker = Arc::new(Waker {
                 task_id: task.get_task_id(),
@@ -132,14 +101,5 @@ pub fn release_task(tid: usize) {
 
 #[inline]
 pub fn current_task() -> Arc<dyn AsyncTask> {
-    // CURRENT_TASK.lock().as_ref().map(|x| x.clone()).unwrap()
-    DEFAULT_EXECUTOR.cores[hart_id()]
-        .lock()
-        .as_ref()
-        .map(|x| x.clone())
-        .unwrap()
-}
-
-pub fn boot_page_table() -> PageTable {
-    *BOOT_PAGE
+    CURRENT_TASK.lock().clone()
 }

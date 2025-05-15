@@ -8,22 +8,11 @@ use devices::utils::get_char;
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
 use fs::{file::File, FileType, OpenFlags};
 use log::debug;
-use polyhal::{debug_console::DebugConsole, instruction::shutdown};
 use vfscore::INodeInterface;
 
 use crate::tasks::add_user_task;
 
 use super::UserTask;
-
-fn clear() {
-    DebugConsole::putchar(0x1b);
-    DebugConsole::putchar(0x5b);
-    DebugConsole::putchar(0x48);
-    DebugConsole::putchar(0x1b);
-    DebugConsole::putchar(0x5b);
-    DebugConsole::putchar(0x32);
-    DebugConsole::putchar(0x4a);
-}
 
 async fn kill_all_tasks() {
     TASK_MAP.lock().values().into_iter().for_each(|task| {
@@ -127,18 +116,4 @@ pub async fn initproc() {
 
     // switch_to_kernel_page_table();
     println!("!TEST FINISH!");
-
-    // Shutdown if there just have blankkernel task.
-    if TASK_MAP
-        .lock()
-        .values()
-        .find(|x| {
-            x.upgrade()
-                .map(|x| x.get_task_type() != TaskType::BlankKernel)
-                .unwrap_or(false)
-        })
-        .is_none()
-    {
-        shutdown();
-    }
 }
