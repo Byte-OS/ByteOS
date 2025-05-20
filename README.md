@@ -1,3 +1,4 @@
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/oscomp/byteos)
 # ByteOS
 
 ## How to use this project
