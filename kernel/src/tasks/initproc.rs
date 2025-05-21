@@ -5,7 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use devices::utils::get_char;
-use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
+use executor::{current_task, release_task, tid2task, yield_now, TASK_MAP};
 use fs::{file::File, FileType, OpenFlags};
 use log::debug;
 use vfscore::INodeInterface;
@@ -13,16 +13,6 @@ use vfscore::INodeInterface;
 use crate::tasks::add_user_task;
 
 use super::UserTask;
-
-async fn kill_all_tasks() {
-    TASK_MAP.lock().values().into_iter().for_each(|task| {
-        task.upgrade().inspect(|x| {
-            if x.get_task_type() == TaskType::MonolithicTask {
-                x.exit(100)
-            }
-        });
-    });
-}
 
 async fn command(cmd: &str) {
     let mut args: Vec<&str> = cmd.split(" ").filter(|x| *x != "").collect();

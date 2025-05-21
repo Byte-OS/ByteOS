@@ -1,15 +1,13 @@
 use crate::tasks::UserTaskControlFlow;
-use crate::tasks::{MapTrack, MemType, UserTask};
+use crate::tasks::{MemType, UserTask};
 use crate::utils::hexdump;
 use ::signal::SignalFlags;
+use addr::{VAddr, PAGE_SIZE};
 use alloc::sync::Arc;
-use devices::PAGE_SIZE;
 use executor::{AsyncTask, TaskId};
 use log::{debug, warn};
-use polyhal::{MappingFlags, Time, VirtAddr};
-use polyhal_trap::trap::{run_user_task, EscapeReason};
-use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::frame_alloc;
+use sel4_hal::{MappingFlags, TrapFrame, TrapFrameArgs};
 use syscalls::Sysno;
 
 pub mod entry;
@@ -24,11 +22,11 @@ pub struct UserTaskContainer {
 /// Copy on write.
 /// call this function when trigger store/instruction page fault.
 /// copy page or remap page.
-pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, vaddr: VirtAddr) {
+pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, vaddr: VAddr) {
     warn!(
-        "store/instruction page fault @ {:#x} vaddr: {} paddr: {:?} task_id: {}",
+        "store/instruction page fault @ {:#x} vaddr: {:#x} paddr: {:?} task_id: {}",
         cx_ref[TrapFrameArgs::SEPC],
-        vaddr,
+        vaddr.raw(),
         task.page_table.translate(vaddr),
         task.get_task_id()
     );
@@ -128,7 +126,7 @@ impl UserTaskContainer {
     }
 }
 
-pub fn task_ilegal(task: &Arc<UserTask>, vaddr: VirtAddr, cx_ref: &mut TrapFrame) {
+pub fn task_ilegal(task: &Arc<UserTask>, vaddr: VAddr, cx_ref: &mut TrapFrame) {
     let mut pcb = task.pcb.lock();
     let area = pcb.memset.iter_mut().find(|x| x.contains(vaddr.raw()));
     if let Some(area) = area {

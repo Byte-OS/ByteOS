@@ -40,7 +40,7 @@ impl Add<usize> for PAddr {
 }
 
 #[repr(C)]
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct VAddr(usize);
 
 impl VAddr {

@@ -1,3 +1,4 @@
+use sel4_hal::TrapFrame;
 use signal::SigProcMask;
 
 bitflags! {
@@ -128,23 +129,25 @@ cfg_if! {
             pub __reserved: usize,
         }
 
-        // impl SignalUserContext {
-        //     pub fn pc(&self) -> usize {
-        //         self.pc
-        //     }
+        impl SignalUserContext {
+            pub fn pc(&self) -> usize {
+                self.pc
+            }
 
-        //     pub fn set_pc(&mut self, v: usize) {
-        //         self.pc = v;
-        //     }
+            pub fn set_pc(&mut self, v: usize) {
+                self.pc = v;
+            }
 
-        //     pub fn store_ctx(&mut self, ctx: &TrapFrame) {
-        //         self.regs = ctx.regs;
-        //     }
+            pub fn store_ctx(&mut self, ctx: &TrapFrame) {
+                // self.regs = ctx.regs;
+                todo!("store_ctx");
+            }
 
-        //     pub fn restore_ctx(&self, ctx: &mut TrapFrame) {
-        //         ctx.regs = self.regs;
-        //     }
-        // }
+            pub fn restore_ctx(&self, ctx: &mut TrapFrame) {
+                // ctx.regs = self.regs;
+                todo!("restore_ctx");
+            }
+        }
     } else if #[cfg(target_arch = "loongarch64")] {
         #[repr(C)]
         #[derive(Debug, Clone)]

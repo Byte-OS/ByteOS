@@ -1,9 +1,9 @@
 use alloc::boxed::Box;
 use async_recursion::async_recursion;
-use executor::{boot_page_table, yield_now, AsyncTask};
+use executor::{yield_now, AsyncTask};
 use futures_lite::future;
 use log::debug;
-use polyhal_trap::trapframe::TrapFrame;
+use sel4_hal::TrapFrame;
 use signal::SignalFlags;
 
 use crate::{
@@ -115,7 +115,6 @@ impl UserTaskContainer {
         }
 
         debug!("exit_task: {}", self.task.get_task_id());
-        boot_page_table().change();
     }
 }
 

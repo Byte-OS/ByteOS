@@ -31,8 +31,6 @@ pub enum UserTaskControlFlow {
 pub fn init() {
     DEFAULT_EXECUTOR.init();
     thread::spawn_blank(initproc());
-    // #[cfg(feature = "net")]
-    // thread::spawn_blank(KernelTask::new(handle_net()));
 }
 
 pub fn run_tasks() {
@@ -53,7 +51,7 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
     .await
     .expect("can't add task to excutor");
     curr_task.before_run();
-    thread::spawn(task.clone(), user_entry());
+    // thread::spawn(task.clone(), user_entry());
 
     task.get_task_id()
 }

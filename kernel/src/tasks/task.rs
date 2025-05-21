@@ -21,7 +21,7 @@ use alloc::{
     vec::Vec,
 };
 use core::{cmp::max, mem::size_of};
-use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
+use executor::{release_task, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
 use log::debug;
 use runtime::frame::{alignup, frame_alloc_much};
@@ -491,10 +491,6 @@ impl AsyncTask for UserTask {
 
     fn get_task_id(&self) -> TaskId {
         self.task_id
-    }
-
-    fn get_task_type(&self) -> TaskType {
-        TaskType::MonolithicTask
     }
 
     #[inline]
