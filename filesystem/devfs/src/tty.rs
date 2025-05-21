@@ -1,9 +1,8 @@
 use core::cmp;
 
 use alloc::collections::VecDeque;
-use bitflags::bitflags;
 use devices::utils::{get_char, puts};
-use libc_types::{ioctl::TermIoctlCmd, poll::PollEvent, termios::Termios};
+use libc_types::{ioctl::TermIoctlCmd, poll::PollEvent, termios::Termios, types::WinSize};
 use sync::Mutex;
 use syscalls::Errno;
 use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
@@ -20,7 +19,12 @@ impl Tty {
             buffer: Mutex::new(VecDeque::new()),
             termios: Default::default(),
             pgid: Default::default(),
-            winsize: Default::default(),
+            winsize: Mutex::new(WinSize {
+                row: 24,
+                col: 140,
+                xpixel: 0,
+                ypixel: 0,
+            }),
         }
     }
 }
@@ -126,46 +130,5 @@ impl INodeInterface for Tty {
             _ => Err(Errno::EPERM),
         }
         // Err(VfsError::NotSupported)
-    }
-}
-
-bitflags! {
-    pub struct LocalModes : u32 {
-        const ISIG = 0o000001;
-        const ICANON = 0o000002;
-        const ECHO = 0o000010;
-        const ECHOE = 0o000020;
-        const ECHOK = 0o000040;
-        const ECHONL = 0o000100;
-        const NOFLSH = 0o000200;
-        const TOSTOP = 0o000400;
-        const IEXTEN = 0o100000;
-        const XCASE = 0o000004;
-        const ECHOCTL = 0o001000;
-        const ECHOPRT = 0o002000;
-        const ECHOKE = 0o004000;
-        const FLUSHO = 0o010000;
-        const PENDIN = 0o040000;
-        const EXTPROC = 0o200000;
-    }
-}
-
-#[repr(C)]
-#[derive(Clone, Copy)]
-pub struct WinSize {
-    ws_row: u16,
-    ws_col: u16,
-    xpixel: u16,
-    ypixel: u16,
-}
-
-impl Default for WinSize {
-    fn default() -> Self {
-        Self {
-            ws_row: 24,
-            ws_col: 140,
-            xpixel: 0,
-            ypixel: 0,
-        }
     }
 }

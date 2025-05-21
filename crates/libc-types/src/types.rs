@@ -119,3 +119,19 @@ impl TimeSpec {
         self.sec * 1_000_000_000 + self.nsec
     }
 }
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+/// 终端窗口大小结构体
+///
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/alltypes.h.in#L80>
+pub struct WinSize {
+    /// 窗口的行数（以字符为单位）
+    pub row: u16,
+    /// 窗口的列数（以字符为单位）
+    pub col: u16,
+    /// 窗口的宽度（以像素为单位）
+    pub xpixel: u16,
+    /// 窗口的高度（以像素为单位）
+    pub ypixel: u16,
+}
