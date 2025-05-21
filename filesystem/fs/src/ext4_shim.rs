@@ -6,15 +6,14 @@ use alloc::{
 };
 use core::iter::zip;
 use devices::get_blk_device;
+use libc_types::types::{StatFS, TimeSpec};
 use lwext4_rust::{
     bindings::{ext4_fsymlink, ext4_readlink, O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY},
     Ext4BlockWrapper, Ext4File, InodeTypes, KernelDevOp,
 };
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, StatFS, StatMode, TimeSpec, VfsResult,
-};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, StatMode, VfsResult};
 
 const BLOCK_SIZE: usize = 0x200;
 

@@ -13,9 +13,12 @@ use alloc::{
 };
 use core::cmp;
 use executor::{select, thread, tid2task, yield_now, AsyncTask};
-use fs::TimeSpec;
 use libc_types::{
-    fcntl::AT_FDCWD, futex::FutexFlags, resource::Rusage, sched::CloneFlags, types::TimeVal,
+    fcntl::AT_FDCWD,
+    futex::FutexFlags,
+    resource::Rusage,
+    sched::CloneFlags,
+    types::{TimeSpec, TimeVal},
 };
 use log::{debug, warn};
 use polyhal::Time;

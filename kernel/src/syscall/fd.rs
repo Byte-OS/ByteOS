@@ -9,15 +9,12 @@ use core::cmp;
 use executor::yield_now;
 use fs::dentry::umount;
 use fs::file::File;
-use fs::{
-    pipe::create_pipe, OpenFlags, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW,
-};
+use fs::{pipe::create_pipe, OpenFlags, SeekFrom, Stat, StatMode, UTIME_NOW};
 use libc_types::epoll::{EpollCtl, EpollEvent};
 use libc_types::fcntl::{FcntlCmd, AT_FDCWD};
-use libc_types::poll::PollEvent;
-use libc_types::types::IoVec;
+use libc_types::poll::{PollEvent, PollFd};
+use libc_types::types::{IoVec, StatFS, TimeSpec};
 use log::debug;
-use num_traits::FromPrimitive;
 use polyhal::VirtAddr;
 use syscalls::Errno;
 use vfscore::FileType;

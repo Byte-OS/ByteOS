@@ -8,7 +8,10 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use downcast_rs::{impl_downcast, DowncastSync};
-use libc_types::poll::PollEvent;
+use libc_types::{
+    poll::PollEvent,
+    types::{StatFS, TimeSpec},
+};
 use syscalls::Errno;
 
 #[cfg(any(
@@ -190,19 +193,6 @@ pub trait FileSystem: Send + Sync {
 pub type VfsResult<T> = core::result::Result<T, Errno>;
 
 #[repr(C)]
-#[derive(Default, Clone, Copy, Debug)]
-pub struct TimeSpec {
-    pub sec: usize,  /* 秒 */
-    pub nsec: usize, /* 纳秒, 范围在0~999999999 */
-}
-
-impl TimeSpec {
-    pub fn to_nsec(&self) -> usize {
-        self.sec * 1_000_000_000 + self.nsec
-    }
-}
-
-#[repr(C)]
 #[derive(Debug, Default)]
 #[cfg(not(target_arch = "x86_64"))]
 pub struct Stat {
@@ -242,36 +232,6 @@ pub struct Stat {
     pub atime: TimeSpec, // 最后访问时间
     pub mtime: TimeSpec, // 最后修改时间
     pub ctime: TimeSpec, // 最后创建时间
-}
-
-#[repr(C)]
-pub struct StatFS {
-    pub ftype: u64,   // 文件系统的类型
-    pub bsize: u64,   // 经优化后的传输块的大小
-    pub blocks: u64,  // 文件系统数据块总数
-    pub bfree: u64,   // 可用块数
-    pub bavail: u64,  // 普通用户能够获得的块数
-    pub files: u64,   // 文件结点总数
-    pub ffree: u64,   // 可用文件结点数
-    pub fsid: u64,    // 文件系统标识
-    pub namelen: u64, // 文件名的最大长度
-}
-
-#[repr(C)]
-pub struct Dirent64 {
-    pub ino: u64,      // 索引结点号
-    pub off: i64,      // 到下一个dirent的偏移
-    pub reclen: u16,   // 当前dirent的长度
-    pub ftype: u8,     // 文件类型
-    pub name: [u8; 0], // 文件名
-}
-
-#[repr(C)]
-#[derive(Debug, Clone)]
-pub struct PollFd {
-    pub fd: u32,
-    pub events: PollEvent,
-    pub revents: PollEvent,
 }
 
 pub trait INodeInterface: DowncastSync + Send + Sync {

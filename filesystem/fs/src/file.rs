@@ -1,12 +1,12 @@
 use crate::{dentry::get_mounted, pathbuf::PathBuf, WaitBlockingRead, WaitBlockingWrite};
 use alloc::{string::String, sync::Arc, vec::Vec};
-use libc_types::poll::PollEvent;
+use libc_types::{
+    poll::PollEvent,
+    types::{Dirent64, StatFS, TimeSpec},
+};
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{
-    DirEntry, Dirent64, FileType, INodeInterface, OpenFlags, SeekFrom, Stat, StatFS, TimeSpec,
-    VfsResult,
-};
+use vfscore::{DirEntry, FileType, INodeInterface, OpenFlags, SeekFrom, Stat, VfsResult};
 
 pub struct File {
     pub inner: Arc<dyn INodeInterface>,

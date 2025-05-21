@@ -35,8 +35,7 @@ use ramfs::RamFs;
 use syscalls::Errno;
 use vfscore::VfsResult;
 pub use vfscore::{
-    FileType, INodeInterface, OpenFlags, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
-    UTIME_NOW, UTIME_OMIT,
+    FileType, INodeInterface, OpenFlags, SeekFrom, Stat, StatMode, UTIME_NOW, UTIME_OMIT,
 };
 
 pub fn build_devfs() -> Arc<DevFS> {

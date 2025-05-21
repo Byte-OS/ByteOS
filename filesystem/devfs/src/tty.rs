@@ -3,9 +3,7 @@ use core::cmp;
 use alloc::collections::VecDeque;
 use bitflags::bitflags;
 use devices::utils::{get_char, puts};
-use libc_types::poll::PollEvent;
-use num_derive::FromPrimitive;
-use num_traits::FromPrimitive;
+use libc_types::{ioctl::TermIoctlCmd, poll::PollEvent, termios::Termios};
 use sync::Mutex;
 use syscalls::Errno;
 use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
@@ -86,40 +84,40 @@ impl INodeInterface for Tty {
     }
 
     fn ioctl(&self, command: usize, arg: usize) -> VfsResult<usize> {
-        let cmd = FromPrimitive::from_usize(command).ok_or(Errno::EINVAL)?;
+        let cmd = TermIoctlCmd::try_from(command as u32).map_err(|_| Errno::EINVAL)?;
         match cmd {
-            TeletypeCommand::TCGETS | TeletypeCommand::TCGETA => {
+            TermIoctlCmd::TCGETS | TermIoctlCmd::TCGETA => {
                 unsafe {
                     (arg as *mut Termios).write_volatile(*self.termios.lock());
                 }
                 Ok(0)
             }
-            TeletypeCommand::TCSETS | TeletypeCommand::TCSETSW | TeletypeCommand::TCSETSF => {
+            TermIoctlCmd::TCSETS | TermIoctlCmd::TCSETSW | TermIoctlCmd::TCSETSF => {
                 // copy_from_user(token, argp as *const Termios, &mut inner.termios);
                 unsafe { *self.termios.lock() = *(arg as *mut Termios).as_mut().unwrap() }
                 Ok(0)
             }
-            TeletypeCommand::TIOCGPGRP => match unsafe { (arg as *mut u32).as_mut() } {
+            TermIoctlCmd::TIOCGPGRP => match unsafe { (arg as *mut u32).as_mut() } {
                 Some(pgid) => {
                     *pgid = *self.pgid.lock();
                     Ok(0)
                 }
                 None => Err(Errno::EINVAL),
             },
-            TeletypeCommand::TIOCSPGRP => match unsafe { (arg as *mut u32).as_mut() } {
+            TermIoctlCmd::TIOCSPGRP => match unsafe { (arg as *mut u32).as_mut() } {
                 Some(pgid) => {
                     *self.pgid.lock() = *pgid;
                     Ok(0)
                 }
                 None => Err(Errno::EINVAL),
             },
-            TeletypeCommand::TIOCGWINSZ => {
+            TermIoctlCmd::TIOCGWINSZ => {
                 unsafe {
                     *(arg as *mut WinSize).as_mut().unwrap() = *self.winsize.lock();
                 }
                 Ok(0)
             }
-            TeletypeCommand::TIOCSWINSZ => {
+            TermIoctlCmd::TIOCSWINSZ => {
                 unsafe {
                     *self.winsize.lock() = *(arg as *mut WinSize).as_mut().unwrap();
                 }
@@ -128,64 +126,6 @@ impl INodeInterface for Tty {
             _ => Err(Errno::EPERM),
         }
         // Err(VfsError::NotSupported)
-    }
-}
-
-#[repr(C)]
-#[derive(Clone, Copy, Debug)]
-/// The termios functions describe a general terminal interface that
-/// is provided to control asynchronous communications ports.
-pub struct Termios {
-    /// input modes
-    pub iflag: u32,
-    /// ouput modes
-    pub oflag: u32,
-    /// control modes
-    pub cflag: u32,
-    /// local modes
-    pub lflag: u32,
-    pub line: u8,
-    /// terminal special characters.
-    pub cc: [u8; 21],
-    pub ispeed: u32,
-    pub ospeed: u32,
-}
-
-impl Default for Termios {
-    fn default() -> Self {
-        Termios {
-            // IMAXBEL | IUTF8 | IXON | IXANY | ICRNL | BRKINT
-            iflag: 0o66402,
-            // OPOST | ONLCR
-            oflag: 0o5,
-            // HUPCL | CREAD | CSIZE | EXTB
-            cflag: 0o2277,
-            // IEXTEN | ECHOTCL | ECHOKE ECHO | ECHOE | ECHOK | ISIG | ICANON
-            lflag: 0o105073,
-            line: 0,
-            cc: [
-                3,   // VINTR Ctrl-C
-                28,  // VQUIT
-                127, // VERASE
-                21,  // VKILL
-                4,   // VEOF Ctrl-D
-                0,   // VTIME
-                1,   // VMIN
-                0,   // VSWTC
-                17,  // VSTART
-                19,  // VSTOP
-                26,  // VSUSP Ctrl-Z
-                255, // VEOL
-                18,  // VREPAINT
-                15,  // VDISCARD
-                23,  // VWERASE
-                22,  // VLNEXT
-                255, // VEOL2
-                0, 0, 0, 0,
-            ],
-            ispeed: 0,
-            ospeed: 0,
-        }
     }
 }
 
@@ -208,53 +148,6 @@ bitflags! {
         const PENDIN = 0o040000;
         const EXTPROC = 0o200000;
     }
-}
-
-#[allow(non_camel_case_types)]
-#[derive(Debug, Eq, PartialEq, FromPrimitive)]
-#[repr(u32)]
-pub enum TeletypeCommand {
-    // For struct termios
-    /// Gets the current serial port settings.
-    TCGETS = 0x5401,
-    /// Sets the serial port settings immediately.
-    TCSETS = 0x5402,
-    /// Sets the serial port settings after allowing the input and output buffers to drain/empty.
-    TCSETSW = 0x5403,
-    /// Sets the serial port settings after flushing the input and output buffers.
-    TCSETSF = 0x5404,
-
-    /// For struct termio
-    /// Gets the current serial port settings.
-    TCGETA = 0x5405,
-    /// Sets the serial port settings immediately.
-    TCSETA = 0x5406,
-    /// Sets the serial port settings after allowing the input and output buffers to drain/empty.
-    TCSETAW = 0x5407,
-    /// Sets the serial port settings after flushing the input and output buffers.
-    TCSETAF = 0x5408,
-
-    /// Get the process group ID of the foreground process group on this terminal.
-    TIOCGPGRP = 0x540F,
-    /// Set the foreground process group ID of this terminal.
-    TIOCSPGRP = 0x5410,
-
-    /// Get window size.
-    TIOCGWINSZ = 0x5413,
-    /// Set window size.
-    TIOCSWINSZ = 0x5414,
-
-    /// Non-cloexec
-    FIONCLEX = 0x5450,
-    /// Cloexec
-    FIOCLEX = 0x5451,
-
-    /// rustc using pipe and ioctl pipe file with this request id
-    /// for non-blocking/blocking IO control setting
-    FIONBIO = 0x5421,
-
-    /// Read time
-    RTC_RD_TIME = 0x80247009,
 }
 
 #[repr(C)]

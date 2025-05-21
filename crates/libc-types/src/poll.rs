@@ -41,3 +41,17 @@ bitflags! {
         const NVAL = 0x020;
     }
 }
+
+#[repr(C)]
+#[derive(Debug, Clone)]
+/// 用于 poll 系统调用的文件描述符结构体
+///
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/poll.h#L31>
+pub struct PollFd {
+    /// 文件描述符（File Descriptor），要监视的对象
+    pub fd: u32,
+    /// 期望监听的事件（如可读、可写等），由用户设置
+    pub events: PollEvent,
+    /// 实际发生的事件，由内核填写
+    pub revents: PollEvent,
+}
