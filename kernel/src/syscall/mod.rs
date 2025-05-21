@@ -9,11 +9,12 @@ mod time;
 pub mod types;
 
 use fs::OpenFlags;
+#[cfg(target_arch = "x86_64")]
+use libc_types::fcntl::AT_FDCWD;
 pub use socket::NET_SERVER;
 use syscalls::{Errno, Sysno};
 
 use log::warn;
-use types::fd::AT_CWD;
 
 use crate::user::UserTaskContainer;
 
@@ -418,9 +419,9 @@ impl UserTaskContainer {
             #[cfg(target_arch = "x86_64")]
             Sysno::rename => {
                 self.sys_renameat2(
-                    AT_CWD,
+                    AT_FDCWD,
                     args[0].into(),
-                    AT_CWD,
+                    AT_FDCWD,
                     args[1].into(),
                     OpenFlags::O_RDWR.bits(),
                 )
@@ -446,7 +447,7 @@ impl UserTaskContainer {
             }
             #[cfg(target_arch = "x86_64")]
             Sysno::symlink => {
-                self.sys_symlinkat(args[0].into(), AT_CWD, args[1].into())
+                self.sys_symlinkat(args[0].into(), AT_FDCWD, args[1].into())
                     .await
             }
             #[cfg(target_arch = "x86_64")]

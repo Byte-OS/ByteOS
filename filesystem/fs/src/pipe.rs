@@ -4,9 +4,10 @@ use alloc::{
     collections::VecDeque,
     sync::{Arc, Weak},
 };
+use libc_types::poll::PollEvent;
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{INodeInterface, PollEvent, StatMode, VfsResult};
+use vfscore::{INodeInterface, StatMode, VfsResult};
 
 // pipe sender, just can write.
 pub struct PipeSender(Arc<Mutex<VecDeque<u8>>>);
@@ -26,10 +27,8 @@ impl INodeInterface for PipeSender {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLOUT) {
-            if self.0.lock().len() <= 0x50000 {
-                res |= PollEvent::POLLOUT;
-            }
+        if events.contains(PollEvent::OUT) && self.0.lock().len() <= 0x50000 {
+            res |= PollEvent::OUT;
         }
         Ok(res)
     }
@@ -52,11 +51,8 @@ impl INodeInterface for PipeReceiver {
         let rlen = cmp::min(queue.len(), buffer.len());
         queue
             .drain(..rlen)
-            .enumerate()
-            .into_iter()
-            .for_each(|(i, x)| {
-                buffer[i] = x;
-            });
+            .zip(buffer.iter_mut())
+            .for_each(|(src, dst)| *dst = src);
         if rlen == 0 && Weak::strong_count(&self.sender) > 0 {
             Err(Errno::EWOULDBLOCK)
         } else {
@@ -66,17 +62,18 @@ impl INodeInterface for PipeReceiver {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLIN) {
+        if events.contains(PollEvent::IN) {
             if self.queue.lock().len() > 0 {
-                res |= PollEvent::POLLIN;
+                res |= PollEvent::IN;
             } else if Weak::strong_count(&self.sender) == 0 {
-                res |= PollEvent::POLLERR;
+                res |= PollEvent::ERR;
             }
         }
-        if events.contains(PollEvent::POLLERR) {
-            if self.queue.lock().len() == 0 && Weak::strong_count(&self.sender) == 0 {
-                res |= PollEvent::POLLERR;
-            }
+        if events.contains(PollEvent::ERR)
+            && self.queue.lock().len() == 0
+            && Weak::strong_count(&self.sender) == 0
+        {
+            res |= PollEvent::ERR;
         }
         Ok(res)
     }

@@ -22,12 +22,12 @@ pub fn init() {
     unsafe {
         HEAP_ALLOCATOR
             .lock()
-            .init(HEAP.as_mut_ptr() as usize, HEAP_SIZE);
+            .init(&raw mut HEAP as usize, HEAP_SIZE);
 
         info!(
             "kernel HEAP init: {:#x} - {:#x}  size: {:#x}",
-            HEAP.as_ptr() as usize,
-            HEAP.as_ptr() as usize + HEAP_SIZE,
+            &raw const HEAP as usize,
+            &raw const HEAP as usize + HEAP_SIZE,
             HEAP_SIZE
         );
     }

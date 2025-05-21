@@ -1,0 +1,8 @@
+[package]
+name = "libc-types"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+bitflags = "2.0.2"
+num_enum = { version = "0.7.3", default-features = false }

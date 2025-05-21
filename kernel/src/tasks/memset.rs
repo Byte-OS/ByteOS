@@ -149,7 +149,7 @@ impl MemArea {
                 mtype: self.mtype,
                 mtrackers: self
                     .mtrackers
-                    .extract_if(|x| new_area_range.contains(&x.vaddr.raw()))
+                    .extract_if(.., |x| new_area_range.contains(&x.vaddr.raw()))
                     .collect(),
                 file: self.file.clone(),
                 start: end,
@@ -191,7 +191,7 @@ impl MemArea {
         // drop the sub memory area pages.
         let new_self_rang = self.start..self.start + self.len;
         self.mtrackers
-            .extract_if(|x| !new_self_rang.contains(&x.vaddr.raw()))
+            .extract_if(.., |x| !new_self_rang.contains(&x.vaddr.raw()))
             .for_each(|x| pt.unmap_page(x.vaddr));
         None
     }

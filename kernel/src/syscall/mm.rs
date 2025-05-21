@@ -1,9 +1,10 @@
 use super::SysResult;
-use crate::syscall::types::mm::{MSyncFlags, MapFlags, MmapProt, ProtFlags};
+use crate::syscall::types::mm::map_mprot_to_flags;
 use crate::tasks::{MemArea, MemType};
 use crate::user::UserTaskContainer;
 use crate::utils::useref::UserRef;
 use devices::PAGE_SIZE;
+use libc_types::mman::{MSyncFlags, MapFlags, MmapProt};
 use log::debug;
 use polyhal::VirtAddr;
 use runtime::frame::alignup;
@@ -55,7 +56,7 @@ impl UserTaskContainer {
             return Ok(addr.into());
         }
 
-        if flags.contains(MapFlags::MAP_FIXED) {
+        if flags.contains(MapFlags::FIXED) {
             let overlaped = self
                 .task
                 .pcb
@@ -79,7 +80,7 @@ impl UserTaskContainer {
             return Err(Errno::EINVAL);
         }
 
-        if flags.contains(MapFlags::MAP_SHARED) {
+        if flags.contains(MapFlags::SHARED) {
             match &file {
                 Some(file) => self
                     .task
@@ -100,8 +101,11 @@ impl UserTaskContainer {
                         .ok_or(Errno::EFAULT)?;
 
                     for i in 0..(len + PAGE_SIZE - 1) / PAGE_SIZE {
-                        self.task
-                            .map(paddr + i * PAGE_SIZE, addr + i * PAGE_SIZE, prot.into());
+                        self.task.map(
+                            paddr + i * PAGE_SIZE,
+                            addr + i * PAGE_SIZE,
+                            map_mprot_to_flags(prot),
+                        );
                     }
                     paddr
                 }
@@ -138,7 +142,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_mprotect(&self, start: usize, len: usize, prot: u32) -> SysResult {
-        let prot = ProtFlags::from_bits_truncate(prot);
+        let prot = MmapProt::from_bits(prot).ok_or(Errno::EINVAL)?;
         debug!(
             "sys_mprotect @ start: {:#x}, len: {:#x}, prot: {:?}",
             start, len, prot

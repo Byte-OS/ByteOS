@@ -1,8 +1,5 @@
-use super::types::fd::IoVec;
-use super::types::poll::{EpollEvent, EpollFile};
+use super::types::poll::EpollFile;
 use super::SysResult;
-use crate::syscall::types::fd::FcntlCmd;
-use crate::syscall::types::fd::AT_CWD;
 use crate::user::UserTaskContainer;
 use crate::utils::time::{current_nsec, current_timespec};
 use crate::utils::useref::UserRef;
@@ -13,9 +10,12 @@ use executor::yield_now;
 use fs::dentry::umount;
 use fs::file::File;
 use fs::{
-    pipe::create_pipe, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec,
-    UTIME_NOW,
+    pipe::create_pipe, OpenFlags, PollFd, SeekFrom, Stat, StatFS, StatMode, TimeSpec, UTIME_NOW,
 };
+use libc_types::epoll::{EpollCtl, EpollEvent};
+use libc_types::fcntl::{FcntlCmd, AT_FDCWD};
+use libc_types::poll::PollEvent;
+use libc_types::types::IoVec;
 use log::debug;
 use num_traits::FromPrimitive;
 use polyhal::VirtAddr;
@@ -153,12 +153,12 @@ impl UserTaskContainer {
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_mkdir(&self, path: UserRef<i8>, mode: usize) -> SysResult {
-        self.sys_mkdir_at(AT_CWD, path, mode).await
+        self.sys_mkdir_at(AT_FDCWD, path, mode).await
     }
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_unlink(&self, path: UserRef<i8>) -> SysResult {
-        self.sys_unlinkat(AT_CWD, path, 0).await
+        self.sys_unlinkat(AT_FDCWD, path, 0).await
     }
 
     pub async fn sys_unlinkat(&self, dir_fd: isize, path: UserRef<i8>, flags: usize) -> SysResult {
@@ -203,7 +203,7 @@ impl UserTaskContainer {
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_open(&self, path: UserRef<i8>, flags: usize, mode: usize) -> SysResult {
         // syscall_openat(axprocess::link::AT_FDCWD, path, flags, mode)
-        self.sys_openat(AT_CWD, path, flags, mode).await
+        self.sys_openat(AT_FDCWD, path, flags, mode).await
     }
 
     pub async fn sys_faccess_at(
@@ -263,12 +263,12 @@ impl UserTaskContainer {
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_stat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
-        self.sys_fstatat(AT_CWD, path, stat_ptr).await
+        self.sys_fstatat(AT_FDCWD, path, stat_ptr).await
     }
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_lstat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
-        self.sys_fstatat(AT_CWD, path, stat_ptr).await
+        self.sys_fstatat(AT_FDCWD, path, stat_ptr).await
     }
 
     pub async fn sys_statfs(
@@ -282,7 +282,7 @@ impl UserTaskContainer {
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
-        File::open(path.into(), OpenFlags::O_RDONLY)?.statfs(statfs)?;
+        File::open(path, OpenFlags::O_RDONLY)?.statfs(statfs)?;
         Ok(0)
     }
 
@@ -354,7 +354,7 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = File::open(special.into(), OpenFlags::O_RDONLY)?;
+        let dev_node = File::open(special, OpenFlags::O_RDONLY)?;
         dev_node.mount(dir)?;
         Ok(0)
     }
@@ -421,12 +421,12 @@ impl UserTaskContainer {
             .map_err(|_| Errno::ENOTTY)
     }
 
-    pub async fn sys_fcntl(&self, fd: usize, cmd: usize, arg: usize) -> SysResult {
+    pub async fn sys_fcntl(&self, fd: usize, cmd: u32, arg: usize) -> SysResult {
         debug!(
             "[task {}] fcntl: fd: {}, cmd: {:#x}, arg: {}",
             self.tid, fd, cmd, arg
         );
-        let cmd = FromPrimitive::from_usize(cmd).ok_or(Errno::EINVAL)?;
+        let cmd = FcntlCmd::try_from(cmd).map_err(|_| Errno::EINVAL)?;
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         debug!("[task {}] fcntl: {:?}", self.tid, cmd);
         match cmd {
@@ -530,7 +530,7 @@ impl UserTaskContainer {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = File::open(filename.into(), OpenFlags::O_RDONLY)?.resolve_link()?;
+        let file_path = File::open(filename, OpenFlags::O_RDONLY)?.resolve_link()?;
         let bytes = file_path.as_bytes();
 
         let rlen = cmp::min(bytes.len(), buffer_size);
@@ -547,7 +547,8 @@ impl UserTaskContainer {
         buffer: UserRef<u8>,
         buffer_size: usize,
     ) -> SysResult {
-        self.sys_readlinkat(AT_CWD, path, buffer, buffer_size).await
+        self.sys_readlinkat(AT_FDCWD, path, buffer, buffer_size)
+            .await
     }
 
     pub async fn sys_sendfile(
@@ -702,9 +703,9 @@ impl UserTaskContainer {
                         continue;
                     }
                     let file = inner.fd_table[i].clone().unwrap();
-                    match file.poll(PollEvent::POLLIN) {
+                    match file.poll(PollEvent::IN) {
                         Ok(res) => {
-                            if res.contains(PollEvent::POLLIN) {
+                            if res.contains(PollEvent::IN) {
                                 num += 1;
                                 rfds_r.set_bit(i, true);
                             } else {
@@ -726,9 +727,9 @@ impl UserTaskContainer {
                         continue;
                     }
                     let file = inner.fd_table[i].clone().unwrap();
-                    match file.poll(PollEvent::POLLOUT) {
+                    match file.poll(PollEvent::OUT) {
                         Ok(res) => {
-                            if res.contains(PollEvent::POLLOUT) {
+                            if res.contains(PollEvent::OUT) {
                                 num += 1;
                                 wfds_r.set_bit(i, true);
                             } else {
@@ -751,9 +752,9 @@ impl UserTaskContainer {
                         continue;
                     }
                     let file = inner.fd_table[i].clone().unwrap();
-                    match file.poll(PollEvent::POLLERR) {
+                    match file.poll(PollEvent::ERR) {
                         Ok(res) => {
-                            if res.contains(PollEvent::POLLERR) {
+                            if res.contains(PollEvent::ERR) {
                                 num += 1;
                                 efds_r.set_bit(i, true);
                             } else {
@@ -828,7 +829,7 @@ impl UserTaskContainer {
     pub async fn sys_epoll_ctl(
         &self,
         epfd: usize,
-        op: usize,
+        op: u8,
         fd: usize,
         event: UserRef<EpollEvent>,
     ) -> SysResult {
@@ -836,7 +837,7 @@ impl UserTaskContainer {
             "sys_epoll_ctl @ epfd: {:#x} op: {:#x} fd: {:#x} event: {:#x?}",
             epfd, op, fd, event
         );
-        let ctl = FromPrimitive::from_usize(op).ok_or(Errno::EINVAL)?;
+        let ctl = EpollCtl::try_from(op).map_err(|_| Errno::EINVAL)?;
         let epfile = self
             .task
             .get_fd(epfd)

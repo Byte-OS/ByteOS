@@ -3,11 +3,12 @@ use core::cmp;
 use alloc::collections::VecDeque;
 use bitflags::bitflags;
 use devices::utils::{get_char, puts};
+use libc_types::poll::PollEvent;
 use num_derive::FromPrimitive;
 use num_traits::FromPrimitive;
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsResult};
+use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
 pub struct Tty {
     buffer: Mutex<VecDeque<u8>>,
     termios: Mutex<Termios>,
@@ -67,19 +68,19 @@ impl INodeInterface for Tty {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLIN) {
+        if events.contains(PollEvent::IN) {
             let buf_len = self.buffer.lock().len();
             if buf_len > 0 {
-                res |= PollEvent::POLLIN;
+                res |= PollEvent::IN;
             } else {
                 if let Some(c) = get_char() {
-                    res |= PollEvent::POLLIN;
+                    res |= PollEvent::IN;
                     self.buffer.lock().push_back(c);
                 }
             }
         }
-        if events.contains(PollEvent::POLLOUT) {
-            res |= PollEvent::POLLOUT;
+        if events.contains(PollEvent::OUT) {
+            res |= PollEvent::OUT;
         }
         Ok(res)
     }

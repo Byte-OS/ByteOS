@@ -1,7 +1,6 @@
 use fs::TimeSpec;
+use libc_types::types::TimeVal;
 use polyhal::Time;
-
-use crate::syscall::types::time::TimeVal;
 
 #[inline]
 pub fn current_nsec() -> usize {

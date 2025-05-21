@@ -1,7 +1,6 @@
 #![no_main]
 #![no_std]
 #![feature(extract_if)]
-#![feature(async_closure)]
 #![feature(let_chains)]
 
 // include modules drivers
@@ -184,7 +183,7 @@ fn main(hart_id: usize) {
     // initialize filesystem
     fs::init();
     {
-        File::open("/var".into(), OpenFlags::O_DIRECTORY)
+        File::open("/var", OpenFlags::O_DIRECTORY)
             .expect("can't open /var")
             .mkdir("tmp")
             .expect("can't create tmp dir");

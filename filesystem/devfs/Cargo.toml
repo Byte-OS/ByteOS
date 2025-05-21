@@ -14,3 +14,4 @@ bitflags = "2.0.2"
 num-traits = { version = "0.2", default-features = false }
 num-derive = "0.4"
 syscalls = { workspace = true }
+libc-types = { workspace = true }

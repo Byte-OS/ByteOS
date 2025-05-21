@@ -8,6 +8,7 @@ members = [
     "crates/devices",
     "crates/executor",
     "crates/runtime",
+    "crates/libc-types",
     "crates/signal",
     "crates/sync",
 
@@ -45,13 +46,14 @@ ns16550a = { path = "driver/ns16550a" }
 devices = { path = "crates/devices" }
 executor = { path = "crates/executor" }
 runtime = { path = "crates/runtime" }
+libc-types = { path = "crates/libc-types" }
 logging = { path = "crates/logging" }
 signal = { path = "crates/signal" }
 sync = { path = "crates/sync" }
 
-polyhal = { version = "0.2.4", features = ["logger", "trap"] }
-polyhal-boot = { version = "0.2.4" }
-polyhal-trap = { version = "0.2.4" }
+polyhal = { version = "0.3.2", features = ["logger", "trap"] }
+polyhal-boot = { version = "0.3.2" }
+polyhal-trap = { version = "0.3.2" }
 fdt-parser = { version = "0.4.12" }
 
 syscalls = { git = "https://github.com/jasonwhite/syscalls.git", default-features = false }

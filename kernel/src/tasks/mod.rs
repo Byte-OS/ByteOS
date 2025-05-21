@@ -63,7 +63,7 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
     task.before_run();
     exec_with_process(
         task.clone(),
-        PathBuf::new(),
+        PathBuf::empty(),
         String::from(filename),
         args.into_iter().map(String::from).collect(),
         envp.into_iter().map(String::from).collect(),

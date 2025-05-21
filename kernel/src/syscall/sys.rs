@@ -1,8 +1,6 @@
-use super::{
-    types::sys::{Rlimit, UTSname},
-    SysResult,
-};
+use super::SysResult;
 use crate::{user::UserTaskContainer, utils::useref::UserRef};
+use libc_types::{resource::Rlimit, utsname::UTSname};
 use log::{debug, warn};
 
 impl UserTaskContainer {
@@ -146,19 +144,18 @@ impl UserTaskContainer {
 
     #[cfg(target_arch = "x86_64")]
     pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
-        use super::types::sys::ArchPrctlCode;
-        use num_traits::FromPrimitive;
+        use libc_types::others::ArchPrctlCmd;
         use polyhal_trap::trapframe::TrapFrameArgs;
         use syscalls::Errno;
 
-        let arch_prctl_code = FromPrimitive::from_usize(code).ok_or(Errno::EINVAL)?;
+        let arch_prctl_code = ArchPrctlCmd::try_from(code).map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_arch_prctl @ code: {:?}, addr: {:#x}",
             arch_prctl_code, addr
         );
         let cx_ref = self.task.force_cx_ref();
         match arch_prctl_code {
-            ArchPrctlCode::ARCH_SET_FS => cx_ref[TrapFrameArgs::TLS] = addr,
+            ArchPrctlCmd::SetFS => cx_ref[TrapFrameArgs::TLS] = addr,
             _ => {
                 error!("arch prctl: {:#x?}", arch_prctl_code);
                 return Err(Errno::EPERM);

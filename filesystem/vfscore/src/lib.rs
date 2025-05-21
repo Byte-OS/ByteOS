@@ -8,6 +8,7 @@ use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use downcast_rs::{impl_downcast, DowncastSync};
+use libc_types::poll::PollEvent;
 use syscalls::Errno;
 
 #[cfg(any(
@@ -135,24 +136,6 @@ bitflags::bitflags! {
         const OTHER_WRITE = 0o2;
         /// Execute/search permission, others.
         const OTHER_EXEC = 0o1;
-    }
-
-    #[derive(Debug, Clone, PartialEq)]
-    pub struct PollEvent: u16 {
-        const NONE = 0;
-        const POLLIN = 0x001;
-        const POLLPRI = 0x002;
-        const POLLOUT = 0x004;
-        const POLLRDNORM = 0x040;
-        const POLLRDBAND = 0x080;
-        const POLLWRNORM = 0x100;
-        const POLLWRBAND = 0x200;
-        const POLLMSG = 0x400;
-        const POLLREMOVE = 0x1000;
-        const POLLRDHUP = 0x2000;
-        const POLLERR = 0x008;
-        const POLLHUP = 0x010;
-        const POLLNVAL = 0x020;
     }
 }
 

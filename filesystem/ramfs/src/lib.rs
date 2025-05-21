@@ -176,7 +176,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .extract_if(|x| match x {
+            .extract_if(.., |x| match x {
                 FileContainer::Dir(x) => x.name == name,
                 _ => false,
             })
@@ -219,7 +219,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .extract_if(|x| match x {
+            .extract_if(.., |x| match x {
                 FileContainer::File(x) => x.name == name,
                 FileContainer::Dir(_) => false,
                 FileContainer::Link(x) => x.name == name,

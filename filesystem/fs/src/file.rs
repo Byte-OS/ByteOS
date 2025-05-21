@@ -1,10 +1,11 @@
 use crate::{dentry::get_mounted, pathbuf::PathBuf, WaitBlockingRead, WaitBlockingWrite};
 use alloc::{string::String, sync::Arc, vec::Vec};
+use libc_types::poll::PollEvent;
 use sync::Mutex;
 use syscalls::Errno;
 use vfscore::{
-    DirEntry, Dirent64, FileType, INodeInterface, OpenFlags, PollEvent, SeekFrom, Stat, StatFS,
-    TimeSpec, VfsResult,
+    DirEntry, Dirent64, FileType, INodeInterface, OpenFlags, SeekFrom, Stat, StatFS, TimeSpec,
+    VfsResult,
 };
 
 pub struct File {
@@ -14,8 +15,9 @@ pub struct File {
     pub flags: Mutex<OpenFlags>,
 }
 
-impl<'a> File {
-    pub fn open(path_buf: PathBuf, flags: OpenFlags) -> VfsResult<File> {
+impl File {
+    pub fn open<T: Into<PathBuf>>(path: T, flags: OpenFlags) -> VfsResult<File> {
+        let path_buf = path.into();
         let (de, path) = get_mounted(&path_buf);
         let mut file = de.node().clone();
 
@@ -49,7 +51,7 @@ impl<'a> File {
         Arc::new(Self {
             inner,
             offset: Mutex::new(0),
-            path_buf: PathBuf::new(),
+            path_buf: PathBuf::empty(),
             flags: Mutex::new(OpenFlags::O_RDWR),
         })
     }
@@ -126,7 +128,7 @@ impl<'a> File {
             };
             buffer[..file_bytes.len()].copy_from_slice(file_bytes);
             buffer[file_bytes.len()] = b'\0';
-            ptr = ptr + current_len;
+            ptr += current_len;
             finished = i + 1;
         }
         *self.offset.lock() = finished;
@@ -222,7 +224,7 @@ impl File {
 
     pub fn writeat(&self, offset: usize, buffer: &[u8]) -> Result<usize, Errno> {
         self.check_writeable()?;
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Ok(0);
         }
         self.inner.writeat(offset, buffer)
@@ -230,22 +232,20 @@ impl File {
 
     pub fn read(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
         let offset = *self.offset.lock();
-        self.inner.readat(offset, buffer).map(|x| {
-            *self.offset.lock() += x;
-            x
-        })
+        self.inner
+            .readat(offset, buffer)
+            .inspect(|x| *self.offset.lock() += x)
     }
 
     pub fn write(&self, buffer: &[u8]) -> Result<usize, Errno> {
         self.check_writeable()?;
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Ok(0);
         }
         let offset = *self.offset.lock();
-        self.inner.writeat(offset, buffer).map(|x| {
-            *self.offset.lock() += x;
-            x
-        })
+        self.inner
+            .writeat(offset, buffer)
+            .inspect(|x| *self.offset.lock() += x)
     }
 
     pub async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
@@ -255,24 +255,18 @@ impl File {
         } else {
             WaitBlockingRead(self.inner.clone(), buffer, offset).await
         }
-        .map(|x| {
-            *self.offset.lock() += x;
-            x
-        })
+        .inspect(|x| *self.offset.lock() += x)
     }
 
     pub async fn async_write(&self, buffer: &[u8]) -> Result<usize, Errno> {
         // self.check_writeable()?;
-        if buffer.len() == 0 {
+        if buffer.is_empty() {
             return Ok(0);
         }
         let offset = *self.offset.lock();
-        WaitBlockingWrite(self.inner.clone(), &buffer, offset)
+        WaitBlockingWrite(self.inner.clone(), buffer, offset)
             .await
-            .map(|x| {
-                *self.offset.lock() += x;
-                x
-            })
+            .inspect(|x| *self.offset.lock() += x)
     }
 
     pub fn seek(&self, seek_from: SeekFrom) -> Result<usize, Errno> {

@@ -1,9 +1,10 @@
 use core::cmp;
 
 use alloc::{collections::VecDeque, sync::Arc};
+use libc_types::poll::PollEvent;
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{INodeInterface, PollEvent, VfsResult};
+use vfscore::{INodeInterface, VfsResult};
 
 pub struct SocketPair {
     inner: Arc<Mutex<VecDeque<u8>>>,
@@ -40,14 +41,14 @@ impl INodeInterface for SocketPair {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLOUT) {
+        if events.contains(PollEvent::OUT) {
             if self.inner.lock().len() <= 0x50000 {
-                res |= PollEvent::POLLOUT;
+                res |= PollEvent::OUT;
             }
         }
-        if events.contains(PollEvent::POLLIN) {
+        if events.contains(PollEvent::IN) {
             if self.inner.lock().len() > 0 {
-                res |= PollEvent::POLLIN;
+                res |= PollEvent::IN;
             }
         }
         Ok(res)

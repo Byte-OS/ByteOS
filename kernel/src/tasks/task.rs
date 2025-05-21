@@ -5,10 +5,7 @@ use super::{
     SignalList,
 };
 use crate::{
-    syscall::types::{
-        fd::AT_CWD,
-        time::{ProcessTimer, TMS},
-    },
+    syscall::types::time::ProcessTimer,
     tasks::{
         futex_wake,
         memset::{MapTrack, MemArea},
@@ -23,6 +20,7 @@ use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
+use libc_types::{fcntl::AT_FDCWD, times::TMS};
 use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
@@ -470,7 +468,7 @@ impl UserTask {
             Ok(filename.into())
         } else {
             let parent = match fd {
-                AT_CWD => self.pcb.lock().curr_dir.clone(),
+                AT_FDCWD => self.pcb.lock().curr_dir.clone(),
                 _ => self
                     .pcb
                     .lock()

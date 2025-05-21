@@ -1,9 +1,16 @@
-use num_derive::FromPrimitive;
+//! This module provides the `libc` types for FCNTL (file control).
 
-pub const AT_CWD: isize = -100;
+use num_enum::TryFromPrimitive;
 
+/// 当前目录的文件描述符
+pub const AT_FDCWD: isize = -100;
+
+/// 文件描述符控制命令
+///
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/generic/bits/fcntl.h#L22>
+/// TODO: 根据不同的平台实现不同的命令
 #[repr(u32)]
-#[derive(Debug, Clone, PartialEq, FromPrimitive)]
+#[derive(Debug, Clone, PartialEq, TryFromPrimitive)]
 pub enum FcntlCmd {
     /// dup
     DUPFD = 0,
@@ -23,26 +30,4 @@ pub enum FcntlCmd {
     SETLKW = 7,
     /// like F_DUPFD, but additionally set the close-on-exec flag
     DUPFDCLOEXEC = 0x406,
-}
-
-#[derive(Debug, FromPrimitive)]
-#[repr(usize)]
-pub enum FutexFlags {
-    Wait = 0,
-    Wake = 1,
-    Fd = 2,
-    Requeue = 3,
-    CmpRequeue = 4,
-    WakeOp = 5,
-    LockPi = 6,
-    UnlockPi = 7,
-    TrylockPi = 8,
-    WaitBitset = 9,
-}
-
-#[repr(C)]
-#[derive(Clone)]
-pub struct IoVec {
-    pub base: usize,
-    pub len: usize,
 }
