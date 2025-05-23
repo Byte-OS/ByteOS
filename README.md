@@ -6,6 +6,8 @@
 Run with make file.
 
 ```shell
+# Get resources
+git clone https://github.com/Byte-OS/tools.git
 # riscv64
 make PLATFORM=riscv64-qemu run
 # aarch64
