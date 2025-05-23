@@ -1,28 +1,24 @@
-//! This module provides the `libc` types for aarch64.
-//!
-//!
-
 use crate::types::SigSetExtended;
 
 use super::UStack;
+
 /// 存放信号处理上下文的机器寄存器的结构体
 ///
-/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/aarch64/bits/signal.h#L18>
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/riscv64/bits/signal.h#L38>
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/riscv64/bits/signal.h#L33>
+/// 需要注意的事情是，gregs 中本应该存储 0 的寄存器 zero 存储了 PC
 #[allow(missing_docs)]
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct MContext {
-    pub fault_address: usize,
     pub gregs: [usize; 32],
-    pub sp: usize,
-    pub pc: usize,
-    pub pstate: usize,
-    pub __reserved: [u64; 66],
+    /// <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/riscv64/bits/signal.h#L11>
+    pub _fregs: [u64; 66],
 }
 
 /// 信号处理上下文的结构体
 ///
-/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/aarch64/bits/signal.h#L99>
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/riscv64/bits/signal.h#L65>
 #[repr(C)]
 #[derive(Debug, Clone)]
 pub struct UContext {

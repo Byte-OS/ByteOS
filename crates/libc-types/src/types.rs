@@ -161,7 +161,7 @@ pub struct SigSetExtended {
     /// 信号集，包含两个 64 位整数（128 位），用于存储信号的位掩码
     pub sigset: SigSet,
     /// 备用字段，通常用于对齐或扩展结构体大小
-    pub __pad: [u64; 128 / size_of::<u64>() - 2],
+    pub __pad: [u64; (128 - size_of::<SigSet>()) / size_of::<u64>()],
 }
 
 impl SigSetExtended {
@@ -169,7 +169,7 @@ impl SigSetExtended {
     pub const fn empty() -> Self {
         Self {
             sigset: SigSet::empty(),
-            __pad: [0; 128 / size_of::<u64>() - 2],
+            __pad: [0; (128 - size_of::<SigSet>()) / size_of::<u64>()],
         }
     }
 }
@@ -179,12 +179,12 @@ impl SigSetExtended {
 /// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/alltypes.h.in>
 #[repr(C)]
 #[derive(Debug, Clone, Copy)]
-pub struct SigSet([u64; 2]);
+pub struct SigSet(u64);
 
 impl SigSet {
     /// 创建一个新的空信号集（无信号被阻塞）。
     pub const fn empty() -> Self {
-        Self([0; 2])
+        Self(0)
     }
 
     /// 修改当前信号集的行为。
@@ -192,10 +192,10 @@ impl SigSet {
     /// - `how` 指定操作方式（阻塞、解除阻塞、设为新掩码）。
     /// - `mask` 是将要应用的信号集。
     pub const fn handle(&mut self, how: SigMaskHow, mask: &Self) {
-        self.0[0] = match how {
-            SigMaskHow::Block => self.0[0] | mask.0[0], // 阻塞指定信号（按位或）
-            SigMaskHow::Unblock => self.0[0] & (!mask.0[0]), // 解除阻塞（按位与非）
-            SigMaskHow::SetMask => mask.0[0],           // 设置为指定掩码
+        self.0 = match how {
+            SigMaskHow::Block => self.0 | mask.0, // 阻塞指定信号（按位或）
+            SigMaskHow::Unblock => self.0 & (!mask.0), // 解除阻塞（按位与非）
+            SigMaskHow::SetMask => mask.0,        // 设置为指定掩码
         }
     }
 
@@ -205,7 +205,7 @@ impl SigSet {
     ///
     /// - `signum`: [SignalNum] 信号
     pub const fn insert(&mut self, signum: SignalNum) {
-        self.0[0] |= signum.mask() as u64;
+        self.0 |= signum.mask();
     }
 
     /// 从信号集中移除指定信号。
@@ -214,7 +214,7 @@ impl SigSet {
     ///
     /// - `signum`: [SignalNum] 信号
     pub const fn remove(&mut self, signum: SignalNum) {
-        self.0[0] &= !(signum.mask() as u64);
+        self.0 &= !(signum.mask());
     }
 
     /// 判断指定信号是否在信号集中。
@@ -228,8 +228,7 @@ impl SigSet {
     /// - `true`： 该信号在信号集中
     /// - `false`：该信号不在信号集中
     pub const fn has(&self, signum: SignalNum) -> bool {
-        // (self.0[0] >> signum) & 1 == 0
-        self.0[0] & signum.mask() != 0
+        self.0 & signum.mask() != 0
     }
 
     /// 判断信号集是否为空。
@@ -240,8 +239,8 @@ impl SigSet {
     /// - `false`：信号集非空
     pub const fn is_empty(&self, masked: Option<Self>) -> bool {
         match masked {
-            Some(masked) => self.0[0] & !masked.0[0] == 0,
-            None => self.0[0] == 0,
+            Some(masked) => self.0 & !masked.0 == 0,
+            None => self.0 == 0,
         }
     }
 
@@ -257,12 +256,12 @@ impl SigSet {
     /// - `None`: 如果已经没有信号可以弹出，返回 [None]
     #[inline]
     pub fn pop_one(&mut self, masked: Option<Self>) -> Option<SignalNum> {
-        let set = self.0[0] & !masked.map_or(0, |m| m.0[0]);
+        let set = self.0 & !masked.map_or(0, |m| m.0);
         let sig_bit_idx = set.trailing_zeros();
         if sig_bit_idx == 64 {
             return None;
         }
-        self.0[0] &= !bit!(sig_bit_idx);
+        self.0 &= !bit!(sig_bit_idx);
         SignalNum::try_from(sig_bit_idx as u8 + 1).ok()
     }
 }

@@ -2,7 +2,7 @@
 //!
 //! MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/powerpc/bits/signal.h>
 
-// pub use crate::arch::SignalUserContext;
+pub use crate::arch::{MContext, SignalStackFlags, UContext, UStack};
 use num_enum::TryFromPrimitive;
 
 /// POSIX 标准、线程扩展与实时信号枚举定义（信号编号从 1 开始）

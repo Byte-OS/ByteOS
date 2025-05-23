@@ -62,7 +62,7 @@ impl UserTaskContainer {
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
         cx.set_pc(tcb.cx[TrapFrameArgs::SEPC]);
-        cx.sig_mask = sigaction.mask.clone();
+        cx.set_sig_mask(sigaction.mask);
         tcb.cx[TrapFrameArgs::SP] = sp;
         tcb.cx[TrapFrameArgs::SEPC] = sigaction.handler;
         tcb.cx[TrapFrameArgs::RA] = if sigaction.restorer == 0 {
