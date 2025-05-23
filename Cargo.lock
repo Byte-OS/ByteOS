@@ -319,7 +319,6 @@ dependencies = [
  "runtime",
  "serde",
  "serde_derive",
- "signal",
  "sync",
  "syscalls",
  "toml",
@@ -765,13 +764,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
-]
-
-[[package]]
-name = "signal"
-version = "0.1.0"
-dependencies = [
- "libc-types",
 ]
 
 [[package]]

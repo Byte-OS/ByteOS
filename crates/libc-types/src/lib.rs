@@ -12,10 +12,12 @@ extern crate bitflags;
 #[macro_use]
 mod utils;
 
+mod arch;
 pub mod elf;
 pub mod epoll;
 pub mod fcntl;
 pub mod futex;
+pub mod internal;
 pub mod ioctl;
 pub mod mman;
 pub mod others;

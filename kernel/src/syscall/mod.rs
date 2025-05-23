@@ -406,6 +406,8 @@ impl UserTaskContainer {
                 .await
             }
             #[cfg(any(target_arch = "x86_64"))]
+            Sysno::pause => self.sys_pause().await,
+            #[cfg(any(target_arch = "x86_64"))]
             Sysno::clone => {
                 self.sys_clone(
                     args[0] as _,

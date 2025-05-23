@@ -18,15 +18,16 @@ impl EpollFile {
     }
 
     pub fn ctl(&self, ctl: EpollCtl, fd: usize, ev: EpollEvent) {
+        let mut data_map = self.data.lock();
         match ctl {
             EpollCtl::ADD => {
-                self.data.lock().insert(fd, ev);
+                data_map.insert(fd, ev);
             }
             EpollCtl::DEL => {
-                self.data.lock().remove(&fd);
+                data_map.remove(&fd);
             }
             EpollCtl::MOD => {
-                self.data.lock().get_mut(&fd).map(|x| {
+                data_map.get_mut(&fd).map(|x| {
                     *x = ev;
                 });
             }

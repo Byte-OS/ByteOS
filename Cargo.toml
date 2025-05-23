@@ -9,7 +9,6 @@ members = [
     "crates/executor",
     "crates/runtime",
     "crates/libc-types",
-    "crates/signal",
     "crates/sync",
 
     # 文件系统
@@ -48,7 +47,6 @@ executor = { path = "crates/executor" }
 runtime = { path = "crates/runtime" }
 libc-types = { path = "crates/libc-types" }
 logging = { path = "crates/logging" }
-signal = { path = "crates/signal" }
 sync = { path = "crates/sync" }
 
 polyhal = { version = "0.3.2", features = ["logger", "trap"] }

@@ -1,15 +1,13 @@
+use super::SysResult;
+use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
 use executor::yield_now;
 use libc_types::{
+    internal::SigAction,
     signal::SignalNum,
     types::{SigMaskHow, SigSet},
 };
 use log::debug;
-use signal::SigAction;
 use syscalls::Errno;
-
-use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
-
-use super::SysResult;
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。
@@ -83,7 +81,7 @@ impl UserTaskContainer {
         let mut tcb = self.task.tcb.write();
         if oldset.is_valid() {
             let sigmask = oldset.get_mut();
-            *sigmask = tcb.sigmask;
+            *sigmask = tcb.sigmask.clone();
         }
         if set.is_valid() {
             let sigmask = set.get_mut();
@@ -112,10 +110,10 @@ impl UserTaskContainer {
             signal, act, oldact
         );
         if oldact.is_valid() {
-            *oldact.get_mut() = self.task.pcb.lock().sigaction[sig];
+            *oldact.get_mut() = self.task.pcb.lock().sigaction[sig].clone();
         }
         if act.is_valid() {
-            self.task.pcb.lock().sigaction[sig] = *act.get_mut();
+            self.task.pcb.lock().sigaction[sig] = act.get_mut().clone();
         }
         Ok(0)
     }
@@ -125,15 +123,28 @@ impl UserTaskContainer {
         loop {
             self.check_timer();
             let tcb = self.task.tcb.read();
-            if !tcb.signal.is_empty() {
+            if !tcb.signal.is_empty(None) {
                 break;
             }
             drop(tcb);
             yield_now().await;
         }
         debug!("sys_sigsuspend @ sigset: {:?}", signal);
-        // Err(LinuxError::EINTR)
-        // Err(LinuxError::EPERM)
+        Ok(0)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_pause(&self) -> SysResult {
+        debug!("sys_pause @ ");
+        loop {
+            self.check_timer();
+            let tcb = self.task.tcb.read();
+            if !tcb.signal.is_empty(None) {
+                break;
+            }
+            drop(tcb);
+            yield_now().await;
+        }
         Ok(0)
     }
 }

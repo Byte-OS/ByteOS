@@ -21,6 +21,7 @@ use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
 use libc_types::{
     fcntl::AT_FDCWD,
+    internal::SigAction,
     signal::{SignalNum, REAL_TIME_SIGNAL_NUM},
     times::TMS,
     types::SigSet,
@@ -29,7 +30,6 @@ use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
-use signal::SigAction;
 use sync::{Mutex, MutexGuard, RwLock};
 use syscalls::Errno;
 use vfscore::{OpenFlags, VfsResult};
@@ -91,6 +91,7 @@ impl UserTask {
         let curr_dir = File::open(work_dir, OpenFlags::O_DIRECTORY)
             .map(Arc::new)
             .expect("dont' have the home dir");
+        const SIGACTION: SigAction = SigAction::empty();
 
         let inner = ProcessControlBlock {
             memset,
@@ -101,7 +102,7 @@ impl UserTask {
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
-            sigaction: [SigAction::new(); 65],
+            sigaction: [SIGACTION; 65],
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
             shms: vec![],
             timer: [Default::default(); 3],

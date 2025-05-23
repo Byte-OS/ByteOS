@@ -35,7 +35,7 @@ impl UserTaskContainer {
     pub async fn check_signal(&self) {
         loop {
             let sig_mask = self.task.tcb.read().sigmask;
-            let signal = self.task.tcb.read().signal.clone().mask(sig_mask).pop_one();
+            let signal = self.task.tcb.read().signal.clone().pop_one(Some(sig_mask));
             if let Some(signal) = signal {
                 debug!("mask: {:?}", sig_mask);
                 self.handle_signal(signal).await;

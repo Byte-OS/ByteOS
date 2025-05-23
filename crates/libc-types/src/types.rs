@@ -154,6 +154,26 @@ pub enum SigMaskHow {
     SetMask = 2,
 }
 
+/// 信号处理掩码（sigset_t）
+#[repr(C)]
+#[derive(Debug, Clone)]
+pub struct SigSetExtended {
+    /// 信号集，包含两个 64 位整数（128 位），用于存储信号的位掩码
+    pub sigset: SigSet,
+    /// 备用字段，通常用于对齐或扩展结构体大小
+    pub __pad: [u64; 128 / size_of::<u64>() - 2],
+}
+
+impl SigSetExtended {
+    /// 创建一个新的空信号集（无信号被阻塞）。
+    pub const fn empty() -> Self {
+        Self {
+            sigset: SigSet::empty(),
+            __pad: [0; 128 / size_of::<u64>() - 2],
+        }
+    }
+}
+
 /// 信号处理掩码结构体
 ///
 /// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/alltypes.h.in>
@@ -164,7 +184,7 @@ pub struct SigSet([u64; 2]);
 impl SigSet {
     /// 创建一个新的空信号集（无信号被阻塞）。
     pub const fn empty() -> Self {
-        Self([0, 0])
+        Self([0; 2])
     }
 
     /// 修改当前信号集的行为。
@@ -218,33 +238,27 @@ impl SigSet {
     ///
     /// - `true`：信号集为空
     /// - `false`：信号集非空
-    pub const fn is_empty(&self) -> bool {
-        self.0[0] == 0
-    }
-
-    /// 获取信号集屏蔽后的信号集。
-    ///
-    /// # 参数
-    ///
-    /// - `self`: 当前信号集
-    /// - `rhs`: 被屏蔽的信号集，被屏蔽的信号位为 1
-    ///
-    /// # 返回
-    ///
-    /// - `Self`: 返回一个新的信号集，包含两个信号集的并集
-    pub const fn mask(&self, masked: Self) -> Self {
-        Self([self.0[0] & !masked.0[0], 0])
+    pub const fn is_empty(&self, masked: Option<Self>) -> bool {
+        match masked {
+            Some(masked) => self.0[0] & !masked.0[0] == 0,
+            None => self.0[0] == 0,
+        }
     }
 
     /// 从信号集中弹出一个信号
+    ///
+    /// # 参数
+    ///
+    /// - `masked`: 可选的信号集，用于屏蔽信号
     ///
     /// # 返回
     ///
     /// - `Some(SignalNum)`：如果信号集非空，返回一个信号
     /// - `None`: 如果已经没有信号可以弹出，返回 [None]
     #[inline]
-    pub fn pop_one(&mut self) -> Option<SignalNum> {
-        let sig_bit_idx = self.0[0].trailing_zeros();
+    pub fn pop_one(&mut self, masked: Option<Self>) -> Option<SignalNum> {
+        let set = self.0[0] & !masked.map_or(0, |m| m.0[0]);
+        let sig_bit_idx = set.trailing_zeros();
         if sig_bit_idx == 64 {
             return None;
         }
