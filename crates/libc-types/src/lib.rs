@@ -22,6 +22,7 @@ pub mod others;
 pub mod poll;
 pub mod resource;
 pub mod sched;
+pub mod signal;
 pub mod termios;
 pub mod time;
 pub mod times;

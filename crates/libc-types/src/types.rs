@@ -4,6 +4,10 @@
 
 use core::{cmp::Ordering, ops::Add};
 
+use num_enum::TryFromPrimitive;
+
+use crate::signal::SignalNum;
+
 /// IoVec structure
 ///
 /// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/alltypes.h.in#L78>
@@ -115,7 +119,7 @@ pub struct TimeSpec {
 
 impl TimeSpec {
     /// 将 TimeSpec 转换为纳秒（nanoseconds）
-    pub fn to_nsec(&self) -> usize {
+    pub const fn to_nsec(&self) -> usize {
         self.sec * 1_000_000_000 + self.nsec
     }
 }
@@ -134,4 +138,117 @@ pub struct WinSize {
     pub xpixel: u16,
     /// 窗口的高度（以像素为单位）
     pub ypixel: u16,
+}
+
+/// 信号屏蔽操作方式（用于 `sigprocmask` 或类似接口）
+///
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/signal.h#L30>
+#[repr(u8)]
+#[derive(Debug, Clone, Copy, TryFromPrimitive)]
+pub enum SigMaskHow {
+    /// 阻塞指定信号（将信号加入进程的阻塞信号集）。
+    Block = 0,
+    /// 解除阻塞指定信号（将信号从阻塞信号集中移除）。
+    Unblock = 1,
+    /// 设置阻塞信号集为指定的信号集（替换整个信号集）。
+    SetMask = 2,
+}
+
+/// 信号处理掩码结构体
+///
+/// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/alltypes.h.in>
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct SigSet([u64; 2]);
+
+impl SigSet {
+    /// 创建一个新的空信号集（无信号被阻塞）。
+    pub const fn empty() -> Self {
+        Self([0, 0])
+    }
+
+    /// 修改当前信号集的行为。
+    ///
+    /// - `how` 指定操作方式（阻塞、解除阻塞、设为新掩码）。
+    /// - `mask` 是将要应用的信号集。
+    pub const fn handle(&mut self, how: SigMaskHow, mask: &Self) {
+        self.0[0] = match how {
+            SigMaskHow::Block => self.0[0] | mask.0[0], // 阻塞指定信号（按位或）
+            SigMaskHow::Unblock => self.0[0] & (!mask.0[0]), // 解除阻塞（按位与非）
+            SigMaskHow::SetMask => mask.0[0],           // 设置为指定掩码
+        }
+    }
+
+    /// 将指定信号添加到信号集中。
+    ///
+    /// # 参数
+    ///
+    /// - `signum`: [SignalNum] 信号
+    pub const fn insert(&mut self, signum: SignalNum) {
+        self.0[0] |= signum.mask() as u64;
+    }
+
+    /// 从信号集中移除指定信号。
+    ///
+    /// # 参数
+    ///
+    /// - `signum`: [SignalNum] 信号
+    pub const fn remove(&mut self, signum: SignalNum) {
+        self.0[0] &= !(signum.mask() as u64);
+    }
+
+    /// 判断指定信号是否在信号集中。
+    ///
+    /// # 参数
+    ///
+    /// - `signum`: [SignalNum] 信号
+    ///
+    /// # 返回
+    ///
+    /// - `true`： 该信号在信号集中
+    /// - `false`：该信号不在信号集中
+    pub const fn has(&self, signum: SignalNum) -> bool {
+        // (self.0[0] >> signum) & 1 == 0
+        self.0[0] & signum.mask() != 0
+    }
+
+    /// 判断信号集是否为空。
+    ///
+    /// # 返回
+    ///
+    /// - `true`：信号集为空
+    /// - `false`：信号集非空
+    pub const fn is_empty(&self) -> bool {
+        self.0[0] == 0
+    }
+
+    /// 获取信号集屏蔽后的信号集。
+    ///
+    /// # 参数
+    ///
+    /// - `self`: 当前信号集
+    /// - `rhs`: 被屏蔽的信号集，被屏蔽的信号位为 1
+    ///
+    /// # 返回
+    ///
+    /// - `Self`: 返回一个新的信号集，包含两个信号集的并集
+    pub const fn mask(&self, masked: Self) -> Self {
+        Self([self.0[0] & !masked.0[0], 0])
+    }
+
+    /// 从信号集中弹出一个信号
+    ///
+    /// # 返回
+    ///
+    /// - `Some(SignalNum)`：如果信号集非空，返回一个信号
+    /// - `None`: 如果已经没有信号可以弹出，返回 [None]
+    #[inline]
+    pub fn pop_one(&mut self) -> Option<SignalNum> {
+        let sig_bit_idx = self.0[0].trailing_zeros();
+        if sig_bit_idx == 64 {
+            return None;
+        }
+        self.0[0] &= !bit!(sig_bit_idx);
+        SignalNum::try_from(sig_bit_idx as u8 + 1).ok()
+    }
 }

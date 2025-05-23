@@ -1,18 +1,16 @@
-use core::mem::size_of;
-
-use executor::AsyncTask;
-use log::debug;
-use polyhal_trap::trapframe::TrapFrameArgs;
-use signal::SignalFlags;
-
 use crate::syscall::types::signal::SignalUserContext;
 use crate::tasks::{current_user_task, UserTaskControlFlow};
 use crate::utils::useref::UserRef;
+use core::mem::size_of;
+use executor::AsyncTask;
+use libc_types::signal::SignalNum;
+use log::debug;
+use polyhal_trap::trapframe::TrapFrameArgs;
 
 use super::UserTaskContainer;
 
 impl UserTaskContainer {
-    pub async fn handle_signal(&self, signal: SignalFlags) {
+    pub async fn handle_signal(&self, signal: SignalNum) {
         debug!(
             "handle signal: {:?} task_id: {}",
             signal,
@@ -21,7 +19,7 @@ impl UserTaskContainer {
 
         // if the signal is SIGKILL, then exit the task immediately.
         // the SIGKILL can't be catched and be ignored.
-        if signal == SignalFlags::SIGKILL {
+        if signal == SignalNum::KILL {
             self.task.exit_with_signal(signal.num());
         }
 
@@ -33,7 +31,7 @@ impl UserTaskContainer {
         // SIG_ERR = -1, SIG_DEF(default) = 0, SIG_IGN = 1(ignore)
         if sigaction.handler == 0 {
             match signal {
-                SignalFlags::SIGCANCEL | SignalFlags::SIGSEGV | SignalFlags::SIGILL => {
+                SignalNum::CANCEL | SignalNum::SEGV | SignalNum::ILL => {
                     current_user_task().exit_with_signal(signal.num());
                 }
                 _ => {}

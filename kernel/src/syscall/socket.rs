@@ -200,7 +200,7 @@ impl UserTaskContainer {
                 break;
             }
 
-            if self.task.tcb.read().signal.has_signal() {
+            if !self.task.tcb.read().signal.is_empty() {
                 return Err(Errno::EINTR);
             }
 

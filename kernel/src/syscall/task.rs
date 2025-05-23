@@ -18,12 +18,12 @@ use libc_types::{
     futex::FutexFlags,
     resource::Rusage,
     sched::CloneFlags,
+    signal::SignalNum,
     types::{TimeSpec, TimeVal},
 };
 use log::{debug, warn};
 use polyhal::Time;
 use polyhal_trap::trapframe::TrapFrameArgs;
-use signal::SignalFlags;
 use syscalls::Errno;
 use vfscore::OpenFlags;
 
@@ -381,6 +381,7 @@ impl UserTaskContainer {
 
     pub async fn sys_tkill(&self, tid: usize, signum: usize) -> SysResult {
         debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
+        let target_signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
         let mut child = self.task.inner_map(|x| {
             x.threads
                 .iter()
@@ -397,11 +398,10 @@ impl UserTaskContainer {
 
         match child {
             Some(child) => {
-                let target_signal = SignalFlags::from_num(signum);
                 let child_task = child.upgrade().unwrap();
                 let mut child_tcb = child_task.tcb.write();
-                if !child_tcb.signal.has_sig(target_signal.clone()) {
-                    child_tcb.signal.add_signal(target_signal);
+                if !child_tcb.signal.has(target_signal) {
+                    child_tcb.signal.insert(target_signal);
                 } else {
                     if let Some(index) = target_signal.real_time_index() {
                         child_tcb.signal_queue[index] += 1;
@@ -455,7 +455,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_kill(&self, pid: usize, signum: usize) -> SysResult {
-        let signal = SignalFlags::from_num(signum);
+        let signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
         debug!(
             "[task {}] sys_kill @ pid: {}, signum: {:?}",
             self.tid, pid, signal
@@ -466,8 +466,7 @@ impl UserTaskContainer {
             None => Err(Errno::ESRCH),
         }?;
 
-        user_task.tcb.write().signal.add_signal(signal.clone());
-
+        user_task.tcb.write().signal.insert(signal);
         yield_now().await;
 
         Ok(0)

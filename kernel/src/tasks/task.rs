@@ -2,7 +2,6 @@ use super::{
     filetable::{rlimits_new, FileTable},
     memset::{MemSet, MemType},
     shm::MapedSharedMemory,
-    SignalList,
 };
 use crate::{
     syscall::types::time::ProcessTimer,
@@ -20,12 +19,17 @@ use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
-use libc_types::{fcntl::AT_FDCWD, times::TMS};
+use libc_types::{
+    fcntl::AT_FDCWD,
+    signal::{SignalNum, REAL_TIME_SIGNAL_NUM},
+    times::TMS,
+    types::SigSet,
+};
 use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
-use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
+use signal::SigAction;
 use sync::{Mutex, MutexGuard, RwLock};
 use syscalls::Errno;
 use vfscore::{OpenFlags, VfsResult};
@@ -51,10 +55,10 @@ pub struct ProcessControlBlock {
 
 pub struct ThreadControlBlock {
     pub cx: TrapFrame,
-    pub sigmask: SigProcMask,
+    pub sigmask: SigSet,
     pub clear_child_tid: usize,
     pub set_child_tid: usize,
-    pub signal: SignalList,
+    pub signal: SigSet,
     pub signal_queue: [usize; REAL_TIME_SIGNAL_NUM], // a queue for real time signals
     pub exit_signal: u8,
     pub thread_exit_code: Option<u32>,
@@ -107,10 +111,10 @@ impl UserTask {
 
         let tcb = RwLock::new(ThreadControlBlock {
             cx: TrapFrame::new(),
-            sigmask: SigProcMask::new(),
+            sigmask: SigSet::empty(),
             clear_child_tid: 0,
             set_child_tid: 0,
-            signal: SignalList::new(),
+            signal: SigSet::empty(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
             thread_exit_code: Option::None,
@@ -267,13 +271,18 @@ impl UserTask {
 
             if let Some(parent) = self.parent.read().upgrade() {
                 if exit_signal != 0 {
+                    // parent
+                    //     .tcb
+                    //     .write()
+                    //     .signal
+                    //     .add_signal(SignalNum::from_num(exit_signal as _));
                     parent
                         .tcb
                         .write()
                         .signal
-                        .add_signal(SignalFlags::from_num(exit_signal as _));
+                        .insert(SignalNum::try_from(exit_signal).unwrap());
                 } else {
-                    parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                    parent.tcb.write().signal.insert(SignalNum::CHLD);
                 }
             }
         }
@@ -349,7 +358,7 @@ impl UserTask {
             sigmask: parent_tcb.sigmask.clone(),
             clear_child_tid: 0,
             set_child_tid: 0,
-            signal: SignalList::new(),
+            signal: SigSet::empty(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
             thread_exit_code: Option::None,
@@ -529,9 +538,9 @@ impl AsyncTask for UserTask {
                     .tcb
                     .write()
                     .signal
-                    .add_signal(SignalFlags::from_num(exit_signal as usize));
+                    .insert(SignalNum::try_from(exit_signal).unwrap());
             } else {
-                parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                parent.tcb.write().signal.insert(SignalNum::CHLD);
             }
         } else {
             self.pcb.lock().children.clear();

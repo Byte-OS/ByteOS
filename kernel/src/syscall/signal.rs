@@ -1,6 +1,10 @@
 use executor::yield_now;
+use libc_types::{
+    signal::SignalNum,
+    types::{SigMaskHow, SigSet},
+};
 use log::debug;
-use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
+use signal::SigAction;
 use syscalls::Errno;
 
 use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
@@ -67,15 +71,15 @@ impl UserTaskContainer {
 
     pub async fn sys_sigprocmask(
         &self,
-        how: usize,
-        set: UserRef<SigProcMask>,
-        oldset: UserRef<SigProcMask>,
+        how: u8,
+        set: UserRef<SigSet>,
+        oldset: UserRef<SigSet>,
     ) -> SysResult {
         debug!(
             "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
             self.tid, how, set, oldset
         );
-        let how = SigMaskHow::from_usize(how).ok_or(Errno::EINVAL)?;
+        let how = SigMaskHow::try_from(how).map_err(|_| Errno::EINVAL)?;
         let mut tcb = self.task.tcb.write();
         if oldset.is_valid() {
             let sigmask = oldset.get_mut();
@@ -102,7 +106,7 @@ impl UserTaskContainer {
         act: UserRef<SigAction>,
         oldact: UserRef<SigAction>,
     ) -> SysResult {
-        let signal = SignalFlags::from_num(sig);
+        let signal = SignalNum::from_num(sig);
         debug!(
             "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
             signal, act, oldact
@@ -115,13 +119,13 @@ impl UserTaskContainer {
         }
         Ok(0)
     }
-    pub async fn sys_sigsuspend(&self, sigset: UserRef<SignalFlags>) -> SysResult {
+    pub async fn sys_sigsuspend(&self, sigset: UserRef<SignalNum>) -> SysResult {
         let signal = sigset.get_ref();
         debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
         loop {
             self.check_timer();
             let tcb = self.task.tcb.read();
-            if tcb.signal.has_signal() {
+            if !tcb.signal.is_empty() {
                 break;
             }
             drop(tcb);

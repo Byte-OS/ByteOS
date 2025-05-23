@@ -1,5 +1,5 @@
+use libc_types::types::SigSet;
 use polyhal_trap::trapframe::TrapFrame;
-use signal::SigProcMask;
 
 bitflags! {
     #[derive(Debug, Clone)]
@@ -27,8 +27,8 @@ cfg_if! {
             pub link: usize,           // 1
             pub stack: SignalStack,    // 2
             pub gregs: [usize; 32],
-            pub sig_mask: SigProcMask, // sigmask
-            pub _pad: [u64; 16],       // sigmask extend
+            pub sig_mask: SigSet, // sigmask
+            pub _pad: [u64; 15],       // sigmask extend
             pub __fpregs_mem: [u64; 64]
         }
 
@@ -88,8 +88,8 @@ cfg_if! {
             pub flags: usize,          // 0
             pub link: usize,           // 1
             pub stack: SignalStack,    // 2
-            pub sig_mask: SigProcMask, // 5
-            pub _pad: [u64; 16],       // mask
+            pub sig_mask: SigSet, // 5
+            pub _pad: [u64; 15],       // mask
             // pub context: Context,       // pc offset = 22 - 6=16
             pub gregs: [usize; 32],
             pub fpstate: [usize; 66],
@@ -119,8 +119,8 @@ cfg_if! {
             pub flags: usize,          // 0
             pub link: usize,           // 1
             pub stack: SignalStack,    // 2
-            pub sig_mask: SigProcMask, // 5
-            pub _pad: [u64; 16],       // mask
+            pub sig_mask: SigSet, // 5
+            pub _pad: [u64; 15],       // mask
             pub fault_address: usize,
             pub regs: [usize; 31],
             pub sp: usize,
@@ -153,8 +153,8 @@ cfg_if! {
             pub flags: usize,          // 0
             pub link: usize,           // 1
             pub stack: SignalStack,    // 2
-            pub sig_mask: SigProcMask, // 5
-            pub _pad: [u64; 2],       // mask
+            pub sig_mask: SigSet, // 5
+            pub _pad: [u64; 1],       // mask
             pub pc: usize,
             pub gregs: [usize; 32],
             pub gflags: u32,

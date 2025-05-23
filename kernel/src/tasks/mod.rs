@@ -5,7 +5,6 @@ mod filetable;
 mod initproc;
 mod memset;
 mod shm;
-mod signal;
 mod task;
 
 use self::initproc::initproc;
@@ -25,7 +24,6 @@ use fs::pathbuf::PathBuf;
 pub use memset::{MapTrack, MemArea, MemType};
 use polyhal::common::get_cpu_num;
 pub use shm::{MapedSharedMemory, SharedMemory, SHARED_MEMORY};
-pub use signal::SignalList;
 pub use task::UserTask;
 
 pub enum UserTaskControlFlow {
