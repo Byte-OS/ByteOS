@@ -1,10 +1,10 @@
 use crate::tasks::UserTaskControlFlow;
 use crate::tasks::{MapTrack, MemType, UserTask};
 use crate::utils::hexdump;
-use ::signal::SignalFlags;
 use alloc::sync::Arc;
 use devices::PAGE_SIZE;
 use executor::{AsyncTask, TaskId};
+use libc_types::signal::SignalNum;
 use log::{debug, warn};
 use polyhal::{MappingFlags, Time, VirtAddr};
 use polyhal_trap::trap::{run_user_task, EscapeReason};
@@ -39,7 +39,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, vaddr: VirtAddr
         let ppn = match finded {
             Some(map_track) => {
                 if area.mtype == MemType::Shared {
-                    task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+                    task.tcb.write().signal.insert(SignalNum::SEGV);
                     return;
                 }
                 // tips: this finded will consume a strong count.
@@ -77,7 +77,7 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, vaddr: VirtAddr
         drop(pcb);
         task.map(ppn, vaddr.floor(), MappingFlags::URWX);
     } else {
-        task.tcb.write().signal.add_signal(SignalFlags::SIGSEGV);
+        task.tcb.write().signal.insert(SignalNum::SEGV);
     }
 }
 
@@ -138,7 +138,7 @@ pub fn task_ilegal(task: &Arc<UserTask>, vaddr: VirtAddr, cx_ref: &mut TrapFrame
                 cx_ref[TrapFrameArgs::SEPC] += 2;
             }
             None => {
-                task.tcb.write().signal.add_signal(SignalFlags::SIGILL);
+                task.tcb.write().signal.insert(SignalNum::ILL);
                 unsafe {
                     hexdump(
                         core::slice::from_raw_parts_mut(vaddr.raw() as _, 0x1000),
@@ -148,7 +148,7 @@ pub fn task_ilegal(task: &Arc<UserTask>, vaddr: VirtAddr, cx_ref: &mut TrapFrame
             }
         };
     } else {
-        task.tcb.write().signal.add_signal(SignalFlags::SIGILL);
+        task.tcb.write().signal.insert(SignalNum::ILL);
         unsafe {
             hexdump(
                 core::slice::from_raw_parts_mut(vaddr.raw() as _, 0x1000),

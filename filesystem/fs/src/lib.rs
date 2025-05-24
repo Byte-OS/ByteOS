@@ -9,10 +9,6 @@ extern crate log;
 extern crate bitflags;
 
 pub mod dentry;
-#[cfg(root_fs = "ext4_rs")]
-mod ext4_rs_shim;
-#[cfg(root_fs = "ext4")]
-mod ext4_shim;
 #[cfg(root_fs = "fat32")]
 mod fatfs_shim;
 pub mod file;
@@ -24,21 +20,18 @@ use core::{
     future::Future,
     pin::Pin,
     task::{Context, Poll},
-    usize,
 };
 use dentry::mount_fs;
 use devfs::{DevDir, DevFS};
 use devices::get_blk_devices;
 use file::File;
+use libc_types::fcntl::OpenFlags;
 use pathbuf::PathBuf;
 use procfs::ProcFS;
 use ramfs::RamFs;
 use syscalls::Errno;
 use vfscore::VfsResult;
-pub use vfscore::{
-    FileType, INodeInterface, OpenFlags, PollEvent, PollFd, SeekFrom, Stat, StatFS, StatMode,
-    TimeSpec, UTIME_NOW, UTIME_OMIT,
-};
+pub use vfscore::{FileType, INodeInterface, SeekFrom};
 
 pub fn build_devfs() -> Arc<DevFS> {
     let dev_dir = DevDir::new();
@@ -49,13 +42,13 @@ pub fn build_devfs() -> Arc<DevFS> {
 pub fn init() {
     info!("fs module initialized");
     // TODO: Identify the filesystem at the device.
-    if get_blk_devices().len() > 0 {
+    if !get_blk_devices().is_empty() {
         #[cfg(root_fs = "fat32")]
         mount_fs(fatfs_shim::Fat32FileSystem::new(0), "/");
         #[cfg(root_fs = "ext4")]
-        mount_fs(ext4_shim::Ext4FileSystem::new(0), "/");
+        mount_fs(ext4fs::Ext4FileSystem::new(0), "/");
         #[cfg(root_fs = "ext4_rs")]
-        mount_fs(ext4_rs_shim::Ext4FileSystem::new(0), "/");
+        mount_fs(ext4rsfs::Ext4FileSystem::new(0), "/");
     } else {
         mount_fs(RamFs::new(), "/");
     }
@@ -73,7 +66,7 @@ pub fn init() {
         // create monnt point dev, tmp
         // let fs = &filesystems[0].0;
         // let rootfs = filesystems[0].0.root_dir();
-        let rootfs = File::open(PathBuf::new(), OpenFlags::O_RDONLY).unwrap();
+        let rootfs = File::open(PathBuf::empty(), OpenFlags::RDONLY).unwrap();
         rootfs.mkdir("dev").expect("can't create devfs dir");
         // dev.mkdir("shm").expect("can't create shm dir");
         rootfs.mkdir("tmp").expect("can't create tmp dir");
@@ -94,7 +87,7 @@ impl<'a> Future for WaitBlockingRead<'a> {
         let offset = self.2;
         let file = self.0.clone();
         let buffer = &mut self.1;
-        match file.readat(offset, *buffer) {
+        match file.readat(offset, buffer) {
             Ok(rsize) => Poll::Ready(Ok(rsize)),
             Err(err) => {
                 if let Errno::EWOULDBLOCK = err {
@@ -117,7 +110,7 @@ impl<'a> Future for WaitBlockingWrite<'a> {
         let file = self.0.clone();
         let buffer = &self.1;
 
-        match file.writeat(offset, *buffer) {
+        match file.writeat(offset, buffer) {
             Ok(wsize) => Poll::Ready(Ok(wsize)),
             Err(err) => {
                 if let Errno::EWOULDBLOCK = err {

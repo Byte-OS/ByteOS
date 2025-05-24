@@ -1,11 +1,13 @@
-use executor::yield_now;
-use log::debug;
-use signal::{SigAction, SigMaskHow, SigProcMask, SignalFlags};
-use syscalls::Errno;
-
-use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
-
 use super::SysResult;
+use crate::{tasks::WaitSignal, user::UserTaskContainer, utils::useref::UserRef};
+use executor::yield_now;
+use libc_types::{
+    internal::SigAction,
+    signal::SignalNum,
+    types::{SigMaskHow, SigSet},
+};
+use log::debug;
+use syscalls::Errno;
 
 /*
  * 忽略信号：不采取任何操作、有两个信号不能被忽略：SIGKILL和SIGSTOP。
@@ -67,19 +69,19 @@ impl UserTaskContainer {
 
     pub async fn sys_sigprocmask(
         &self,
-        how: usize,
-        set: UserRef<SigProcMask>,
-        oldset: UserRef<SigProcMask>,
+        how: u8,
+        set: UserRef<SigSet>,
+        oldset: UserRef<SigSet>,
     ) -> SysResult {
         debug!(
             "[task {}] sys_sigprocmask @ how: {:#x}, set: {}, oldset: {}",
             self.tid, how, set, oldset
         );
-        let how = SigMaskHow::from_usize(how).ok_or(Errno::EINVAL)?;
+        let how = SigMaskHow::try_from(how).map_err(|_| Errno::EINVAL)?;
         let mut tcb = self.task.tcb.write();
         if oldset.is_valid() {
             let sigmask = oldset.get_mut();
-            *sigmask = tcb.sigmask;
+            *sigmask = tcb.sigmask.clone();
         }
         if set.is_valid() {
             let sigmask = set.get_mut();
@@ -102,34 +104,47 @@ impl UserTaskContainer {
         act: UserRef<SigAction>,
         oldact: UserRef<SigAction>,
     ) -> SysResult {
-        let signal = SignalFlags::from_num(sig);
+        let signal = SignalNum::from_num(sig);
         debug!(
             "sys_sigaction @ sig: {:?}, act: {}, oldact: {}",
             signal, act, oldact
         );
         if oldact.is_valid() {
-            *oldact.get_mut() = self.task.pcb.lock().sigaction[sig];
+            *oldact.get_mut() = self.task.pcb.lock().sigaction[sig].clone();
         }
         if act.is_valid() {
-            self.task.pcb.lock().sigaction[sig] = *act.get_mut();
+            self.task.pcb.lock().sigaction[sig] = act.get_mut().clone();
         }
         Ok(0)
     }
-    pub async fn sys_sigsuspend(&self, sigset: UserRef<SignalFlags>) -> SysResult {
+    pub async fn sys_sigsuspend(&self, sigset: UserRef<SignalNum>) -> SysResult {
         let signal = sigset.get_ref();
         debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
         loop {
             self.check_timer();
             let tcb = self.task.tcb.read();
-            if tcb.signal.has_signal() {
+            if !tcb.signal.is_empty(None) {
                 break;
             }
             drop(tcb);
             yield_now().await;
         }
         debug!("sys_sigsuspend @ sigset: {:?}", signal);
-        // Err(LinuxError::EINTR)
-        // Err(LinuxError::EPERM)
+        Ok(0)
+    }
+
+    #[cfg(target_arch = "x86_64")]
+    pub async fn sys_pause(&self) -> SysResult {
+        debug!("sys_pause @ ");
+        loop {
+            self.check_timer();
+            let tcb = self.task.tcb.read();
+            if !tcb.signal.is_empty(None) {
+                break;
+            }
+            drop(tcb);
+            yield_now().await;
+        }
         Ok(0)
     }
 }

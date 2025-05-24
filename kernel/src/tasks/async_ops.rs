@@ -52,9 +52,9 @@ impl Future for WaitSignal {
     type Output = ();
 
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        match self.0.tcb.read().signal.has_signal() {
-            true => Poll::Ready(()),
-            false => Poll::Pending,
+        match self.0.tcb.read().signal.is_empty(None) {
+            false => Poll::Ready(()),
+            true => Poll::Pending,
         }
     }
 }
@@ -76,7 +76,7 @@ impl Future for WaitFutex {
         let signal = current_user_task().tcb.read().signal.clone();
         match in_futex(self.0.clone(), self.1) {
             true => {
-                if signal.has_signal() {
+                if !signal.is_empty(None) {
                     self.0
                         .lock()
                         .values_mut()
@@ -100,7 +100,7 @@ impl Future for WaitHandleAbleSignal {
     fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let task = &self.0;
         let sig_mask = task.tcb.read().sigmask;
-        let has_signal = task.tcb.read().signal.mask(sig_mask).has_signal();
+        let has_signal = !task.tcb.read().signal.is_empty(Some(sig_mask));
 
         match has_signal {
             true => Poll::Ready(()),

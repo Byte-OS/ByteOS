@@ -1,13 +1,6 @@
-use super::{types::sys::Rusage, SysResult};
+use super::SysResult;
 use crate::{
-    syscall::{
-        time::WaitUntilsec,
-        types::{
-            fd::{FutexFlags, AT_CWD},
-            task::CloneFlags,
-            time::TimeVal,
-        },
-    },
+    syscall::time::WaitUntilsec,
     tasks::{exec::exec_with_process, futex_requeue, futex_wake, UserTask, WaitFutex, WaitPid},
     user::{entry::user_entry, UserTaskContainer},
     utils::{time::current_nsec, useref::UserRef},
@@ -20,20 +13,24 @@ use alloc::{
 };
 use core::cmp;
 use executor::{select, thread, tid2task, yield_now, AsyncTask};
-use fs::TimeSpec;
+use libc_types::{
+    fcntl::{OpenFlags, AT_FDCWD},
+    futex::FutexFlags,
+    resource::Rusage,
+    sched::CloneFlags,
+    signal::SignalNum,
+    types::{TimeSpec, TimeVal},
+};
 use log::{debug, warn};
-use num_traits::FromPrimitive;
 use polyhal::Time;
 use polyhal_trap::trapframe::TrapFrameArgs;
-use signal::SignalFlags;
 use syscalls::Errno;
-use vfscore::OpenFlags;
 
 impl UserTaskContainer {
     pub async fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
         let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_chdir @ path: {}", path);
-        let new_dir = self.task.fd_open(AT_CWD, path, OpenFlags::O_RDONLY)?;
+        let new_dir = self.task.fd_open(AT_FDCWD, path, OpenFlags::RDONLY)?;
         match new_dir.file_type()? {
             fs::FileType::Directory => {
                 self.task.pcb.lock().curr_dir = Arc::new(new_dir);
@@ -324,7 +321,7 @@ impl UserTaskContainer {
             self.tid, uaddr_ptr, op, value, value2, uaddr2, value3
         );
         let uaddr = uaddr_ptr.get_mut();
-        let flags = FromPrimitive::from_usize(op).ok_or(Errno::EINVAL)?;
+        let flags = FutexFlags::try_from(op).map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_futex @ uaddr: {:#x} flags: {:?} value: {}",
             uaddr, flags, value
@@ -383,6 +380,7 @@ impl UserTaskContainer {
 
     pub async fn sys_tkill(&self, tid: usize, signum: usize) -> SysResult {
         debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
+        let target_signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
         let mut child = self.task.inner_map(|x| {
             x.threads
                 .iter()
@@ -399,11 +397,10 @@ impl UserTaskContainer {
 
         match child {
             Some(child) => {
-                let target_signal = SignalFlags::from_num(signum);
                 let child_task = child.upgrade().unwrap();
                 let mut child_tcb = child_task.tcb.write();
-                if !child_tcb.signal.has_sig(target_signal.clone()) {
-                    child_tcb.signal.add_signal(target_signal);
+                if !child_tcb.signal.has(target_signal) {
+                    child_tcb.signal.insert(target_signal);
                 } else {
                     if let Some(index) = target_signal.real_time_index() {
                         child_tcb.signal_queue[index] += 1;
@@ -434,11 +431,11 @@ impl UserTaskContainer {
         let tms = self.task.inner_map(|inner| inner.tms);
         let stime = Time::new(tms.stime as _);
         let utime = Time::new(tms.utime as _);
-        rusage.ru_stime = TimeVal {
+        rusage.stime = TimeVal {
             sec: stime.to_usec() / 1000_000,
             usec: stime.to_usec() % 1000_000,
         };
-        rusage.ru_utime = TimeVal {
+        rusage.utime = TimeVal {
             sec: utime.to_usec() / 1000_000,
             usec: utime.to_usec() % 1000_000,
         };
@@ -457,7 +454,7 @@ impl UserTaskContainer {
     }
 
     pub async fn sys_kill(&self, pid: usize, signum: usize) -> SysResult {
-        let signal = SignalFlags::from_num(signum);
+        let signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
         debug!(
             "[task {}] sys_kill @ pid: {}, signum: {:?}",
             self.tid, pid, signal
@@ -468,8 +465,7 @@ impl UserTaskContainer {
             None => Err(Errno::ESRCH),
         }?;
 
-        user_task.tcb.write().signal.add_signal(signal.clone());
-
+        user_task.tcb.write().signal.insert(signal);
         yield_now().await;
 
         Ok(0)

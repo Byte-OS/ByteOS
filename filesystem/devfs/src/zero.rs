@@ -1,4 +1,5 @@
-use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
+use libc_types::types::{Stat, StatMode};
+use vfscore::{INodeInterface, VfsResult};
 
 pub struct Zero;
 

@@ -9,6 +9,7 @@ use core::net::{Ipv4Addr, SocketAddrV4};
 use devices::get_net_device;
 use executor::yield_now;
 use fs::file::File;
+use libc_types::fcntl::OpenFlags;
 use log::{debug, warn};
 use lose_net_stack::connection::NetServer;
 use lose_net_stack::net_trait::NetInterface;
@@ -16,7 +17,6 @@ use lose_net_stack::results::NetServerError;
 use lose_net_stack::MacAddress;
 use sync::Lazy;
 use syscalls::Errno;
-use vfscore::OpenFlags;
 
 type Socket = socket::Socket;
 
@@ -200,7 +200,7 @@ impl UserTaskContainer {
                 break;
             }
 
-            if self.task.tcb.read().signal.has_signal() {
+            if !self.task.tcb.read().signal.is_empty(None) {
                 return Err(Errno::EINTR);
             }
 
@@ -265,7 +265,7 @@ impl UserTaskContainer {
             match res {
                 Ok(r) => break r,
                 Err(_) => {
-                    if file.flags.lock().contains(OpenFlags::O_NONBLOCK) {
+                    if file.flags.lock().contains(OpenFlags::NONBLOCK) {
                         return Err(Errno::EAGAIN);
                     }
                     yield_now().await
@@ -489,7 +489,7 @@ impl UserTaskContainer {
                 *new_file.flags.lock() = flags;
                 self.task.set_fd(fd, new_file);
                 break Ok(fd);
-            } else if file.flags.lock().contains(OpenFlags::O_NONBLOCK) {
+            } else if file.flags.lock().contains(OpenFlags::NONBLOCK) {
                 break Err(Errno::EAGAIN);
             }
             yield_now().await;

@@ -8,5 +8,11 @@
     "BOARD": "qemu",
     "ROOT_MANIFEST_DIR": "${workspaceFolder}"
   },
+  "rust-analyzer.check.targets": [
+    "riscv64gc-unknown-none-elf",
+    "aarch64-unknown-none-softfloat",
+    "x86_64-unknown-none",
+    "loongarch64-unknown-none"
+  ],
   "deno.enable": true
 }

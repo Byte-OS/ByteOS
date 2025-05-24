@@ -1,12 +1,16 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use fs::{INodeInterface, StatMode};
+use fs::INodeInterface;
+use libc_types::{
+    poll::PollEvent,
+    types::{Stat, StatMode},
+};
 use lose_net_stack::net_trait::SocketInterface;
 use polyhal::debug_console::DebugConsole;
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{PollEvent, VfsResult};
+use vfscore::VfsResult;
 
 use crate::syscall::NET_SERVER;
 
@@ -185,19 +189,19 @@ impl INodeInterface for Socket {
 
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLOUT)
+        if events.contains(PollEvent::OUT)
             && !self.inner.is_closed().unwrap()
             && self.inner.get_remote().is_ok()
         {
-            res |= PollEvent::POLLOUT;
+            res |= PollEvent::OUT;
         }
-        if self.inner.readable().unwrap() && events.contains(PollEvent::POLLIN) {
-            res |= PollEvent::POLLIN;
+        if self.inner.readable().unwrap() && events.contains(PollEvent::IN) {
+            res |= PollEvent::IN;
         }
         Ok(res)
     }
 
-    fn stat(&self, stat: &mut fs::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.mode = StatMode::SOCKET;
         Ok(())
     }

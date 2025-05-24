@@ -8,7 +8,7 @@ members = [
     "crates/devices",
     "crates/executor",
     "crates/runtime",
-    "crates/signal",
+    "crates/libc-types",
     "crates/sync",
 
     # 文件系统
@@ -17,6 +17,8 @@ members = [
     "filesystem/procfs",
     "filesystem/ramfs",
     "filesystem/vfscore",
+    "filesystem/ext4fs",
+    "filesystem/ext4rsfs",
 
     # 驱动
     "driver/general-plic",
@@ -45,13 +47,13 @@ ns16550a = { path = "driver/ns16550a" }
 devices = { path = "crates/devices" }
 executor = { path = "crates/executor" }
 runtime = { path = "crates/runtime" }
+libc-types = { path = "crates/libc-types" }
 logging = { path = "crates/logging" }
-signal = { path = "crates/signal" }
 sync = { path = "crates/sync" }
 
-polyhal = { version = "0.2.4", features = ["logger", "trap"] }
-polyhal-boot = { version = "0.2.4" }
-polyhal-trap = { version = "0.2.4" }
+polyhal = { version = "0.3.2", features = ["logger", "trap"] }
+polyhal-boot = { version = "0.3.2" }
+polyhal-trap = { version = "0.3.2" }
 fdt-parser = { version = "0.4.12" }
 
 syscalls = { git = "https://github.com/jasonwhite/syscalls.git", default-features = false }

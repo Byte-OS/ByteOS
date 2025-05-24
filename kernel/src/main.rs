@@ -1,7 +1,6 @@
 #![no_main]
 #![no_std]
 #![feature(extract_if)]
-#![feature(async_closure)]
 #![feature(let_chains)]
 
 // include modules drivers
@@ -39,6 +38,7 @@ use core::hint::spin_loop;
 use devices::{self, get_int_device, PAGE_SIZE, VIRT_ADDR_START};
 use executor::current_task;
 use fs::file::File;
+use libc_types::fcntl::OpenFlags;
 use polyhal::common::PageAlloc;
 use polyhal::irq::IRQ;
 use polyhal::mem::{get_fdt, get_mem_areas};
@@ -48,7 +48,6 @@ use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{frame_alloc_persist, frame_unalloc};
 use tasks::UserTask;
 use user::user_cow_int;
-use vfscore::OpenFlags;
 
 pub struct PageAllocImpl;
 
@@ -184,7 +183,7 @@ fn main(hart_id: usize) {
     // initialize filesystem
     fs::init();
     {
-        File::open("/var".into(), OpenFlags::O_DIRECTORY)
+        File::open("/var", OpenFlags::DIRECTORY)
             .expect("can't open /var")
             .mkdir("tmp")
             .expect("can't create tmp dir");

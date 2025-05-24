@@ -15,7 +15,8 @@ use alloc::{
 use async_recursion::async_recursion;
 use core::ops::{Add, Mul};
 use devices::{frame_alloc_much, FrameTracker, PAGE_SIZE};
-use fs::{file::File, pathbuf::PathBuf, OpenFlags};
+use fs::{file::File, pathbuf::PathBuf};
+use libc_types::fcntl::OpenFlags;
 use polyhal::MappingFlags;
 use sync::Mutex;
 use syscalls::Errno;
@@ -34,7 +35,7 @@ pub struct TaskCacheTemplate {
 pub static TASK_CACHES: Mutex<Vec<TaskCacheTemplate>> = Mutex::new(Vec::new());
 
 pub fn cache_task_template(path: PathBuf) -> Result<(), Errno> {
-    let file = File::open(path.clone(), OpenFlags::O_RDONLY)?;
+    let file = File::open(path.clone(), OpenFlags::RDONLY)?;
     let file_size = file.file_size()?;
     let frame_paddr = frame_alloc_much(file_size.div_ceil(PAGE_SIZE));
     let buffer = frame_paddr.as_ref().unwrap()[0].slice_mut_with_len(file_size);
@@ -172,7 +173,7 @@ pub async fn exec_with_process(
     } else {
         drop(caches);
         // TODO: 运行程序的时候，判断当前的路径
-        let file = File::open(path.clone(), OpenFlags::O_RDONLY)
+        let file = File::open(path.clone(), OpenFlags::RDONLY)
             .map(Arc::new)?
             .clone();
         let file_size = file.file_size()?;

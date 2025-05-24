@@ -9,3 +9,4 @@ edition = "2021"
 bitflags = "2.0.2"
 downcast-rs = { version = "1.2.0", default-features = false }
 syscalls = { workspace = true }
+libc-types = { workspace = true }

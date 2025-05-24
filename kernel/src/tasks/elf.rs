@@ -1,6 +1,7 @@
 use alloc::{collections::BTreeMap, string::String, sync::Arc, vec::Vec};
 use devices::PAGE_SIZE;
 use executor::AsyncTask;
+use libc_types::elf::AuxType;
 use log::warn;
 use polyhal::va;
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
@@ -12,8 +13,8 @@ use xmas_elf::{
     ElfFile,
 };
 
+use crate::consts::USER_STACK_TOP;
 use crate::{consts::USER_STACK_INIT_SIZE, tasks::memset::MemType};
-use crate::{consts::USER_STACK_TOP, syscall::types::elf::elf};
 
 use super::task::UserTask;
 
@@ -150,26 +151,26 @@ pub fn init_task_stack(
 
     let random_ptr = user_task.push_arr(&[0u8; 16]);
     let mut auxv = BTreeMap::new();
-    auxv.insert(elf::AT_PLATFORM, user_task.push_str("riscv"));
-    auxv.insert(elf::AT_EXECFN, user_task.push_str(path));
-    auxv.insert(elf::AT_PHNUM, ph_count);
-    auxv.insert(elf::AT_PAGESZ, PAGE_SIZE);
-    auxv.insert(elf::AT_ENTRY, base + entry_point);
-    auxv.insert(elf::AT_PHENT, ph_entry_size);
-    auxv.insert(elf::AT_PHDR, base + ph_addr);
-    auxv.insert(elf::AT_GID, 0);
-    auxv.insert(elf::AT_EGID, 0);
-    auxv.insert(elf::AT_UID, 0);
-    auxv.insert(elf::AT_EUID, 0);
-    auxv.insert(elf::AT_SECURE, 0);
-    auxv.insert(elf::AT_RANDOM, random_ptr);
+    auxv.insert(AuxType::Platform, user_task.push_str("riscv"));
+    auxv.insert(AuxType::ExecFn, user_task.push_str(path));
+    auxv.insert(AuxType::Phnum, ph_count);
+    auxv.insert(AuxType::PageSize, PAGE_SIZE);
+    auxv.insert(AuxType::Entry, base + entry_point);
+    auxv.insert(AuxType::Phent, ph_entry_size);
+    auxv.insert(AuxType::Phdr, base + ph_addr);
+    auxv.insert(AuxType::GID, 0);
+    auxv.insert(AuxType::EGID, 0);
+    auxv.insert(AuxType::UID, 0);
+    auxv.insert(AuxType::EUID, 0);
+    auxv.insert(AuxType::Secure, 0);
+    auxv.insert(AuxType::Random, random_ptr);
 
     // auxv top
     user_task.push_num(0);
     // TODO: push auxv
     auxv.iter().for_each(|(key, v)| {
         user_task.push_num(*v);
-        user_task.push_num(*key);
+        user_task.push_num(*key as usize);
     });
 
     user_task.push_num(0);

@@ -6,13 +6,13 @@ extern crate alloc;
 use alloc::{string::String, sync::Arc, vec::Vec};
 use core::cmp::{self, min};
 use core::ops::Add;
+use libc_types::consts::UTIME_OMIT;
+use libc_types::types::{Stat, StatMode, TimeSpec};
 use polyhal::pagetable::PAGE_SIZE;
 use runtime::frame::{frame_alloc, FrameTracker};
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Stat, StatMode, TimeSpec, VfsResult, UTIME_OMIT,
-};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsResult};
 
 pub struct RamFs {
     root: Arc<RamDirInner>,
@@ -176,7 +176,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .extract_if(|x| match x {
+            .extract_if(.., |x| match x {
                 FileContainer::Dir(x) => x.name == name,
                 _ => false,
             })
@@ -219,7 +219,7 @@ impl INodeInterface for RamDir {
             .inner
             .children
             .lock()
-            .extract_if(|x| match x {
+            .extract_if(.., |x| match x {
                 FileContainer::File(x) => x.name == name,
                 FileContainer::Dir(_) => false,
                 FileContainer::Link(x) => x.name == name,
@@ -411,7 +411,7 @@ impl INodeInterface for RamFile {
         Ok(())
     }
 
-    fn utimes(&self, times: &mut [vfscore::TimeSpec]) -> VfsResult<()> {
+    fn utimes(&self, times: &mut [TimeSpec]) -> VfsResult<()> {
         if times[0].nsec != UTIME_OMIT {
             self.inner.times.lock()[1] = times[0];
         }

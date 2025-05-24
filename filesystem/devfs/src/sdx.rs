@@ -1,7 +1,8 @@
 use alloc::{string::String, vec::Vec};
+use libc_types::types::{Stat, StatMode};
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{INodeInterface, StatMode};
+use vfscore::INodeInterface;
 
 pub struct Sdx {
     device_id: usize,
@@ -41,7 +42,7 @@ impl INodeInterface for Sdx {
         }
     }
 
-    fn stat(&self, stat: &mut vfscore::Stat) -> vfscore::VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> vfscore::VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::CHAR; // TODO: add access mode

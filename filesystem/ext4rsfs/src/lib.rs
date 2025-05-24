@@ -1,9 +1,13 @@
+#![no_std]
+
+#[macro_use]
+extern crate alloc;
+
 use alloc::{sync::Arc, vec::Vec};
 use devices::get_blk_device;
+use libc_types::types::{Stat, StatFS, StatMode, TimeSpec};
 use syscalls::Errno;
-use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, StatFS, StatMode, TimeSpec, VfsResult,
-};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsResult};
 
 use ext4_rs::*;
 
@@ -261,7 +265,7 @@ impl INodeInterface for Ext4FileWrapper {
         Ok(())
     }
 
-    fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.ino = 1; // TODO: convert path to number(ino)
         let inodeif = self.ext4.get_inode_ref(self.inode);
         stat.mode = match inodeif.inode.file_type() {

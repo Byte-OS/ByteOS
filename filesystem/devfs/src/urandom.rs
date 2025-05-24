@@ -1,4 +1,8 @@
-use vfscore::{INodeInterface, PollEvent, Stat, StatMode, VfsResult};
+use libc_types::{
+    poll::PollEvent,
+    types::{Stat, StatMode},
+};
+use vfscore::{INodeInterface, VfsResult};
 
 pub struct Urandom;
 
@@ -26,10 +30,10 @@ impl INodeInterface for Urandom {
         Ok(())
     }
 
-    fn poll(&self, events: vfscore::PollEvent) -> VfsResult<vfscore::PollEvent> {
+    fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
-        if events.contains(PollEvent::POLLIN) {
-            res |= PollEvent::POLLIN;
+        if events.contains(PollEvent::IN) {
+            res |= PollEvent::IN;
         }
         Ok(res)
     }

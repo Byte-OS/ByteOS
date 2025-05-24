@@ -10,3 +10,4 @@ vfscore = { workspace = true }
 sync = { workspace = true }
 log = "0.4"
 syscalls = { workspace = true }
+libc-types = { workspace = true }

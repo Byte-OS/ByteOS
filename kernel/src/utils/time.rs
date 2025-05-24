@@ -1,7 +1,5 @@
-use fs::TimeSpec;
+use libc_types::types::{TimeSpec, TimeVal};
 use polyhal::Time;
-
-use crate::syscall::types::time::TimeVal;
 
 #[inline]
 pub fn current_nsec() -> usize {
@@ -10,6 +8,7 @@ pub fn current_nsec() -> usize {
     Time::now().to_nsec()
 }
 
+#[inline]
 pub fn current_timeval() -> TimeVal {
     let ns = current_nsec();
     TimeVal {
@@ -18,11 +17,12 @@ pub fn current_timeval() -> TimeVal {
     }
 }
 
+#[inline]
 pub fn current_timespec() -> TimeSpec {
     let ns = current_nsec();
 
     TimeSpec {
         sec: ns / 1_000_000_000,
-        nsec: (ns % 1_000_000_000) / 1000,
+        nsec: (ns % 1_000_000_000),
     }
 }

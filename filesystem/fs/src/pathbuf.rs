@@ -18,24 +18,24 @@ impl From<PathBuf> for String {
 
 impl From<String> for PathBuf {
     fn from(value: String) -> Self {
-        Self::new().join(&value)
+        Self::empty().join(&value)
     }
 }
 
 impl From<&str> for PathBuf {
     fn from(value: &str) -> Self {
-        Self::new().join(value)
+        Self::empty().join(value)
     }
 }
 
 impl PathBuf {
-    pub const fn new() -> Self {
+    pub const fn empty() -> Self {
         Self(Vec::new())
     }
 
     pub fn join(&self, path: &str) -> Self {
         let mut pb = if path.starts_with("/") {
-            PathBuf::new()
+            PathBuf::empty()
         } else {
             self.clone()
         };

@@ -1,3 +1,7 @@
+#![no_std]
+
+extern crate alloc;
+
 use alloc::{
     ffi::CString,
     string::{String, ToString},
@@ -6,15 +10,14 @@ use alloc::{
 };
 use core::iter::zip;
 use devices::get_blk_device;
+use libc_types::types::{Stat, StatFS, StatMode, TimeSpec};
 use lwext4_rust::{
-    bindings::{ext4_fsymlink, ext4_readlink, O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY},
     Ext4BlockWrapper, Ext4File, InodeTypes, KernelDevOp,
+    bindings::{O_CREAT, O_RDONLY, O_RDWR, O_TRUNC, O_WRONLY, ext4_fsymlink, ext4_readlink},
 };
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, StatFS, StatMode, TimeSpec, VfsResult,
-};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsResult};
 
 const BLOCK_SIZE: usize = 0x200;
 
@@ -106,7 +109,6 @@ unsafe impl Send for Ext4FileSystem {}
 impl Ext4FileSystem {
     pub fn new(blk_id: usize) -> Arc<Self> {
         let disk = Ext4DiskWrapper::new(blk_id);
-        info!("Got position:{}", disk.position());
         let inner = Ext4BlockWrapper::<Ext4DiskWrapper>::new(disk)
             .expect("failed to initialize EXT4 filesystem");
         let root = Arc::new(Ext4FileWrapper::new("/", InodeTypes::EXT4_DE_DIR));
@@ -375,7 +377,7 @@ impl INodeInterface for Ext4FileWrapper {
         Ok(())
     }
 
-    fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         let mut file = self.inner.lock();
         // TODO: 读取其他文件的信息
         if self.file_type == FileType::File {

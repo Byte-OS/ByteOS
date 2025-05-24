@@ -6,7 +6,8 @@ use alloc::{
 };
 use devices::utils::get_char;
 use executor::{current_task, release_task, task::TaskType, tid2task, yield_now, TASK_MAP};
-use fs::{file::File, FileType, OpenFlags};
+use fs::{file::File, FileType};
+use libc_types::fcntl::OpenFlags;
 use log::debug;
 use polyhal::{debug_console::DebugConsole, instruction::shutdown};
 use vfscore::INodeInterface;
@@ -39,7 +40,7 @@ async fn command(cmd: &str) {
     let mut args: Vec<&str> = cmd.split(" ").filter(|x| *x != "").collect();
     debug!("cmd: {}  args: {:?}", cmd, args);
     let filename = args.drain(..1).last().unwrap();
-    match File::open(filename.into(), OpenFlags::O_RDONLY) {
+    match File::open(filename, OpenFlags::RDONLY) {
         Ok(_) => {
             info!("exec: {}", filename);
             let mut args_extend = vec![filename];

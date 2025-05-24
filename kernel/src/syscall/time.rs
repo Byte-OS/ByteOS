@@ -1,7 +1,4 @@
-use super::{
-    types::time::{ITimerVal, TimeVal, TMS},
-    SysResult,
-};
+use super::SysResult;
 use crate::{
     tasks::WaitHandleAbleSignal,
     user::UserTaskContainer,
@@ -17,7 +14,11 @@ use core::{
     task::{Context, Poll},
 };
 use executor::select;
-use fs::TimeSpec;
+use libc_types::{
+    time::ITimerVal,
+    times::TMS,
+    types::{TimeSpec, TimeVal},
+};
 use log::{debug, warn};
 use polyhal::time::Time;
 use syscalls::Errno;

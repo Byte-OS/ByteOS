@@ -2,9 +2,9 @@ use alloc::boxed::Box;
 use async_recursion::async_recursion;
 use executor::{boot_page_table, yield_now, AsyncTask};
 use futures_lite::future;
+use libc_types::signal::SignalNum;
 use log::debug;
 use polyhal_trap::trapframe::TrapFrame;
-use signal::SignalFlags;
 
 use crate::{
     tasks::{current_user_task, UserTaskControlFlow},
@@ -26,11 +26,7 @@ impl UserTaskContainer {
         if timer.next > timer.last {
             let now = current_timeval();
             if now >= timer.next {
-                self.task
-                    .tcb
-                    .write()
-                    .signal
-                    .add_signal(SignalFlags::SIGALRM);
+                self.task.tcb.write().signal.has(SignalNum::ALRM);
                 timer.last = timer.next;
             }
         }
@@ -39,24 +35,17 @@ impl UserTaskContainer {
     pub async fn check_signal(&self) {
         loop {
             let sig_mask = self.task.tcb.read().sigmask;
-            let signal = self
-                .task
-                .tcb
-                .read()
-                .signal
-                .clone()
-                .mask(sig_mask)
-                .try_get_signal();
+            let signal = self.task.tcb.read().signal.clone().pop_one(Some(sig_mask));
             if let Some(signal) = signal {
                 debug!("mask: {:?}", sig_mask);
-                self.handle_signal(signal.clone()).await;
+                self.handle_signal(signal).await;
                 let mut tcb = self.task.tcb.write();
-                tcb.signal.remove_signal(signal.clone());
+                tcb.signal.remove(signal);
                 // check if it is a real time signal
                 if let Some(index) = signal.real_time_index()
                     && tcb.signal_queue[index] > 0
                 {
-                    tcb.signal.add_signal(signal.clone());
+                    tcb.signal.insert(signal);
                     tcb.signal_queue[index] -= 1;
                 }
             } else {

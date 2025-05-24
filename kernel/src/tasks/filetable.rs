@@ -1,7 +1,7 @@
 use alloc::{sync::Arc, vec::Vec};
 use core::ops::{Deref, DerefMut};
 use fs::file::File;
-use vfscore::OpenFlags;
+use libc_types::fcntl::OpenFlags;
 
 const FILE_MAX: usize = 255;
 const FD_NONE: Option<Arc<File>> = Option::None;
@@ -13,7 +13,7 @@ impl FileTable {
     pub fn new() -> Self {
         let mut file_table: Vec<Option<Arc<File>>> = vec![FD_NONE; FILE_MAX];
         file_table[..3].fill(Some(
-            File::open("/dev/ttyv0".into(), OpenFlags::O_RDWR)
+            File::open("/dev/ttyv0", OpenFlags::RDWR)
                 .map(Arc::new)
                 .expect("can't read tty file"),
         ));

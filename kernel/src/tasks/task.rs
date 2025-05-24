@@ -2,13 +2,9 @@ use super::{
     filetable::{rlimits_new, FileTable},
     memset::{MemSet, MemType},
     shm::MapedSharedMemory,
-    SignalList,
 };
 use crate::{
-    syscall::types::{
-        fd::AT_CWD,
-        time::{ProcessTimer, TMS},
-    },
+    syscall::types::time::ProcessTimer,
     tasks::{
         futex_wake,
         memset::{MapTrack, MemArea},
@@ -23,14 +19,20 @@ use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
+use libc_types::{
+    fcntl::{OpenFlags, AT_FDCWD},
+    internal::SigAction,
+    signal::{SignalNum, REAL_TIME_SIGNAL_NUM},
+    times::TMS,
+    types::SigSet,
+};
 use log::debug;
 use polyhal::{va, MappingFlags, MappingSize, PageTableWrapper, PhysAddr, VirtAddr};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
-use signal::{SigAction, SigProcMask, SignalFlags, REAL_TIME_SIGNAL_NUM};
 use sync::{Mutex, MutexGuard, RwLock};
 use syscalls::Errno;
-use vfscore::{OpenFlags, VfsResult};
+use vfscore::VfsResult;
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
@@ -53,10 +55,10 @@ pub struct ProcessControlBlock {
 
 pub struct ThreadControlBlock {
     pub cx: TrapFrame,
-    pub sigmask: SigProcMask,
+    pub sigmask: SigSet,
     pub clear_child_tid: usize,
     pub set_child_tid: usize,
-    pub signal: SignalList,
+    pub signal: SigSet,
     pub signal_queue: [usize; REAL_TIME_SIGNAL_NUM], // a queue for real time signals
     pub exit_signal: u8,
     pub thread_exit_code: Option<u32>,
@@ -86,9 +88,10 @@ impl UserTask {
         // initialize memset
         let memset = MemSet::new(vec![]);
 
-        let curr_dir = File::open(work_dir, OpenFlags::O_DIRECTORY)
+        let curr_dir = File::open(work_dir, OpenFlags::DIRECTORY)
             .map(Arc::new)
             .expect("dont' have the home dir");
+        const SIGACTION: SigAction = SigAction::empty();
 
         let inner = ProcessControlBlock {
             memset,
@@ -99,7 +102,7 @@ impl UserTask {
             entry: 0,
             tms: Default::default(),
             rlimits: rlimits_new(),
-            sigaction: [SigAction::new(); 65],
+            sigaction: [SIGACTION; 65],
             futex_table: Arc::new(Mutex::new(BTreeMap::new())),
             shms: vec![],
             timer: [Default::default(); 3],
@@ -109,10 +112,10 @@ impl UserTask {
 
         let tcb = RwLock::new(ThreadControlBlock {
             cx: TrapFrame::new(),
-            sigmask: SigProcMask::new(),
+            sigmask: SigSet::empty(),
             clear_child_tid: 0,
             set_child_tid: 0,
-            signal: SignalList::new(),
+            signal: SigSet::empty(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
             thread_exit_code: Option::None,
@@ -269,13 +272,18 @@ impl UserTask {
 
             if let Some(parent) = self.parent.read().upgrade() {
                 if exit_signal != 0 {
+                    // parent
+                    //     .tcb
+                    //     .write()
+                    //     .signal
+                    //     .add_signal(SignalNum::from_num(exit_signal as _));
                     parent
                         .tcb
                         .write()
                         .signal
-                        .add_signal(SignalFlags::from_num(exit_signal as _));
+                        .insert(SignalNum::try_from(exit_signal).unwrap());
                 } else {
-                    parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                    parent.tcb.write().signal.insert(SignalNum::CHLD);
                 }
             }
         }
@@ -351,7 +359,7 @@ impl UserTask {
             sigmask: parent_tcb.sigmask.clone(),
             clear_child_tid: 0,
             set_child_tid: 0,
-            signal: SignalList::new(),
+            signal: SigSet::empty(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
             exit_signal: 0,
             thread_exit_code: Option::None,
@@ -470,7 +478,7 @@ impl UserTask {
             Ok(filename.into())
         } else {
             let parent = match fd {
-                AT_CWD => self.pcb.lock().curr_dir.clone(),
+                AT_FDCWD => self.pcb.lock().curr_dir.clone(),
                 _ => self
                     .pcb
                     .lock()
@@ -531,9 +539,9 @@ impl AsyncTask for UserTask {
                     .tcb
                     .write()
                     .signal
-                    .add_signal(SignalFlags::from_num(exit_signal as usize));
+                    .insert(SignalNum::try_from(exit_signal).unwrap());
             } else {
-                parent.tcb.write().signal.add_signal(SignalFlags::SIGCHLD);
+                parent.tcb.write().signal.insert(SignalNum::CHLD);
             }
         } else {
             self.pcb.lock().children.clear();

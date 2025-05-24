@@ -1,6 +1,5 @@
 #![no_std]
 #![feature(used_with_arg)]
-#![feature(strict_provenance)]
 
 extern crate alloc;
 #[macro_use]
