@@ -1,0 +1,13 @@
+[package]
+name = "ext4rsfs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4"
+vfscore = { workspace = true }
+syscalls = { workspace = true }
+sync = { workspace = true }
+devices = { workspace = true }
+libc-types = { workspace = true }
+ext4_rs = "1.3.1"

@@ -20,7 +20,7 @@ use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
 use libc_types::{
-    fcntl::AT_FDCWD,
+    fcntl::{OpenFlags, AT_FDCWD},
     internal::SigAction,
     signal::{SignalNum, REAL_TIME_SIGNAL_NUM},
     times::TMS,
@@ -32,7 +32,7 @@ use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::{alignup, frame_alloc_much};
 use sync::{Mutex, MutexGuard, RwLock};
 use syscalls::Errno;
-use vfscore::{OpenFlags, VfsResult};
+use vfscore::VfsResult;
 
 pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 
@@ -88,7 +88,7 @@ impl UserTask {
         // initialize memset
         let memset = MemSet::new(vec![]);
 
-        let curr_dir = File::open(work_dir, OpenFlags::O_DIRECTORY)
+        let curr_dir = File::open(work_dir, OpenFlags::DIRECTORY)
             .map(Arc::new)
             .expect("dont' have the home dir");
         const SIGACTION: SigAction = SigAction::empty();

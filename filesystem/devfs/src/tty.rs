@@ -2,10 +2,15 @@ use core::cmp;
 
 use alloc::collections::VecDeque;
 use devices::utils::{get_char, puts};
-use libc_types::{ioctl::TermIoctlCmd, poll::PollEvent, termios::Termios, types::WinSize};
+use libc_types::{
+    ioctl::TermIoctlCmd,
+    poll::PollEvent,
+    termios::Termios,
+    types::{Stat, StatMode, WinSize},
+};
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
+use vfscore::{INodeInterface, VfsResult};
 pub struct Tty {
     buffer: Mutex<VecDeque<u8>>,
     termios: Mutex<Termios>,

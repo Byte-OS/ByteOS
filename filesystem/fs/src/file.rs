@@ -1,12 +1,13 @@
 use crate::{dentry::get_mounted, pathbuf::PathBuf, WaitBlockingRead, WaitBlockingWrite};
 use alloc::{string::String, sync::Arc, vec::Vec};
 use libc_types::{
+    fcntl::OpenFlags,
     poll::PollEvent,
-    types::{Dirent64, StatFS, TimeSpec},
+    types::{Dirent64, Stat, StatFS, TimeSpec},
 };
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{DirEntry, FileType, INodeInterface, OpenFlags, SeekFrom, Stat, VfsResult};
+use vfscore::{DirEntry, FileType, INodeInterface, SeekFrom, VfsResult};
 
 pub struct File {
     pub inner: Arc<dyn INodeInterface>,
@@ -26,10 +27,10 @@ impl File {
                 file = file.lookup(name)?;
             }
 
-            if flags.contains(OpenFlags::O_CREAT) {
+            if flags.contains(OpenFlags::CREAT) {
                 file.create(
                     &path.filename(),
-                    if flags.contains(OpenFlags::O_DIRECTORY) {
+                    if flags.contains(OpenFlags::DIRECTORY) {
                         FileType::Directory
                     } else {
                         FileType::File
@@ -52,12 +53,12 @@ impl File {
             inner,
             offset: Mutex::new(0),
             path_buf: PathBuf::empty(),
-            flags: Mutex::new(OpenFlags::O_RDWR),
+            flags: Mutex::new(OpenFlags::RDWR),
         })
     }
 
     pub fn remove_self(&self) -> VfsResult<()> {
-        let dir = Self::open(self.path_buf.dir(), OpenFlags::O_DIRECTORY)?;
+        let dir = Self::open(self.path_buf.dir(), OpenFlags::DIRECTORY)?;
         dir.remove(&self.path_buf.filename())
     }
 
@@ -68,7 +69,7 @@ impl File {
     #[inline(always)]
     fn check_writeable(&self) -> Result<(), Errno> {
         let flags = self.flags.lock().clone();
-        if flags.contains(OpenFlags::O_RDWR) | flags.contains(OpenFlags::O_WRONLY) {
+        if flags.contains(OpenFlags::RDWR) | flags.contains(OpenFlags::WRONLY) {
             Ok(())
         } else {
             Err(Errno::EPERM)
@@ -250,7 +251,7 @@ impl File {
 
     pub async fn async_read(&self, buffer: &mut [u8]) -> Result<usize, Errno> {
         let offset = *self.offset.lock();
-        if self.flags.lock().contains(OpenFlags::O_NONBLOCK) {
+        if self.flags.lock().contains(OpenFlags::NONBLOCK) {
             self.inner.readat(offset, buffer)
         } else {
             WaitBlockingRead(self.inner.clone(), buffer, offset).await

@@ -1,0 +1,13 @@
+[package]
+name = "ext4fs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+log = "0.4"
+vfscore = { workspace = true }
+syscalls = { workspace = true }
+sync = { workspace = true }
+devices = { workspace = true }
+libc-types = { workspace = true }
+lwext4_rust = { git = "https://github.com/Azure-stars/lwext4_rust.git", default-features = false, rev = "ee5131c" }

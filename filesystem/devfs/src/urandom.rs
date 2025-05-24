@@ -1,5 +1,8 @@
-use libc_types::poll::PollEvent;
-use vfscore::{INodeInterface, Stat, StatMode, VfsResult};
+use libc_types::{
+    poll::PollEvent,
+    types::{Stat, StatMode},
+};
+use vfscore::{INodeInterface, VfsResult};
 
 pub struct Urandom;
 

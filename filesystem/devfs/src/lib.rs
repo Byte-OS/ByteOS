@@ -4,8 +4,9 @@ extern crate alloc;
 extern crate log;
 
 use alloc::{collections::BTreeMap, string::ToString, sync::Arc, vec::Vec};
+use libc_types::types::{Stat, StatMode};
 use syscalls::Errno;
-use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, StatMode, VfsResult};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsResult};
 
 mod cpu_dma_latency;
 mod null;
@@ -101,7 +102,7 @@ impl INodeInterface for DevDirContainer {
             .collect())
     }
 
-    fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::DIR; // TODO: add access mode

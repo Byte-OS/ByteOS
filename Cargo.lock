@@ -209,6 +209,32 @@ dependencies = [
 ]
 
 [[package]]
+name = "ext4fs"
+version = "0.1.0"
+dependencies = [
+ "devices",
+ "libc-types",
+ "log",
+ "lwext4_rust",
+ "sync",
+ "syscalls",
+ "vfscore",
+]
+
+[[package]]
+name = "ext4rsfs"
+version = "0.1.0"
+dependencies = [
+ "devices",
+ "ext4_rs",
+ "libc-types",
+ "log",
+ "sync",
+ "syscalls",
+ "vfscore",
+]
+
+[[package]]
 name = "fatfs"
 version = "0.4.0"
 source = "git+https://github.com/byte-os/rust-fatfs.git#3b45ddc5f3991f1a59040404e14da19d149f1dbf"
@@ -230,11 +256,11 @@ dependencies = [
  "bitflags 2.9.0",
  "devfs",
  "devices",
- "ext4_rs",
+ "ext4fs",
+ "ext4rsfs",
  "fatfs",
  "libc-types",
  "log",
- "lwext4_rust",
  "procfs",
  "ramfs",
  "sync",
@@ -629,6 +655,7 @@ dependencies = [
 name = "procfs"
 version = "0.1.0"
 dependencies = [
+ "libc-types",
  "log",
  "sync",
  "syscalls",

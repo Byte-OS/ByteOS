@@ -2,11 +2,10 @@
 //!
 //! MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/include/alltypes.h.in>
 
-use core::{cmp::Ordering, ops::Add};
-
-use num_enum::TryFromPrimitive;
-
+pub use crate::arch::{Stat, StatMode};
 use crate::signal::SignalNum;
+use core::{cmp::Ordering, ops::Add};
+use num_enum::TryFromPrimitive;
 
 /// IoVec structure
 ///

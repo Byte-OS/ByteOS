@@ -13,6 +13,7 @@ extern crate bitflags;
 mod utils;
 
 mod arch;
+pub mod consts;
 pub mod elf;
 pub mod epoll;
 pub mod fcntl;

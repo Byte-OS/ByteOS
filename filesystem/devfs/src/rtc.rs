@@ -1,4 +1,5 @@
-use vfscore::{INodeInterface, StatMode, VfsResult};
+use libc_types::types::{Stat, StatMode};
+use vfscore::{INodeInterface, VfsResult};
 
 pub struct Rtc;
 
@@ -15,7 +16,7 @@ pub struct RtcTime {
 }
 
 impl INodeInterface for Rtc {
-    fn stat(&self, stat: &mut vfscore::Stat) -> vfscore::VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> vfscore::VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::CHAR; // TODO: add access mode

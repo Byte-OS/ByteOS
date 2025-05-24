@@ -14,7 +14,7 @@ use alloc::{
 use core::cmp;
 use executor::{select, thread, tid2task, yield_now, AsyncTask};
 use libc_types::{
-    fcntl::AT_FDCWD,
+    fcntl::{OpenFlags, AT_FDCWD},
     futex::FutexFlags,
     resource::Rusage,
     sched::CloneFlags,
@@ -25,13 +25,12 @@ use log::{debug, warn};
 use polyhal::Time;
 use polyhal_trap::trapframe::TrapFrameArgs;
 use syscalls::Errno;
-use vfscore::OpenFlags;
 
 impl UserTaskContainer {
     pub async fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
         let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_chdir @ path: {}", path);
-        let new_dir = self.task.fd_open(AT_FDCWD, path, OpenFlags::O_RDONLY)?;
+        let new_dir = self.task.fd_open(AT_FDCWD, path, OpenFlags::RDONLY)?;
         match new_dir.file_type()? {
             fs::FileType::Directory => {
                 self.task.pcb.lock().curr_dir = Arc::new(new_dir);

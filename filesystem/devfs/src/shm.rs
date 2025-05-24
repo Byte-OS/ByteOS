@@ -1,9 +1,10 @@
-use vfscore::{INodeInterface, StatMode};
+use libc_types::types::{Stat, StatMode};
+use vfscore::INodeInterface;
 
 pub struct Shm;
 
 impl INodeInterface for Shm {
-    fn stat(&self, stat: &mut vfscore::Stat) -> vfscore::VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> vfscore::VfsResult<()> {
         stat.dev = 0;
         stat.ino = 1; // TODO: convert path to number(ino)
         stat.mode = StatMode::DIR; // TODO: add access mode

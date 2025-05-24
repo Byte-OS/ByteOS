@@ -9,11 +9,12 @@ use core::cmp;
 use executor::yield_now;
 use fs::dentry::umount;
 use fs::file::File;
-use fs::{pipe::create_pipe, OpenFlags, SeekFrom, Stat, StatMode, UTIME_NOW};
+use fs::{pipe::create_pipe, SeekFrom};
+use libc_types::consts::UTIME_NOW;
 use libc_types::epoll::{EpollCtl, EpollEvent};
-use libc_types::fcntl::{FcntlCmd, AT_FDCWD};
+use libc_types::fcntl::{FcntlCmd, OpenFlags, AT_FDCWD};
 use libc_types::poll::{PollEvent, PollFd};
-use libc_types::types::{IoVec, StatFS, TimeSpec};
+use libc_types::types::{IoVec, Stat, StatFS, StatMode, TimeSpec};
 use log::debug;
 use polyhal::VirtAddr;
 use syscalls::Errno;
@@ -102,7 +103,7 @@ impl UserTaskContainer {
             dir_fd as isize, path, mode
         );
         self.task
-            .fd_open(dir_fd, path, OpenFlags::O_DIRECTORY | OpenFlags::O_CREAT)?;
+            .fd_open(dir_fd, path, OpenFlags::DIRECTORY | OpenFlags::CREAT)?;
         Ok(0)
     }
 
@@ -129,7 +130,7 @@ impl UserTaskContainer {
         if old_file_type == FileType::File {
             let new_file = self
                 .task
-                .fd_open(newdir_fd, new_path, OpenFlags::O_CREAT | flags)?;
+                .fd_open(newdir_fd, new_path, OpenFlags::CREAT | flags)?;
             let file_size = old_file.file_size()?;
             let mut buffer = vec![0u8; file_size];
             old_file.read(&mut buffer)?;
@@ -139,7 +140,7 @@ impl UserTaskContainer {
             self.task.fd_open(
                 newdir_fd,
                 new_path,
-                OpenFlags::O_CREAT | OpenFlags::O_DIRECTORY | flags,
+                OpenFlags::CREAT | OpenFlags::DIRECTORY | flags,
             )?;
         } else {
             panic!("can't handle the file: {:?} now", old_file_type);
@@ -252,7 +253,7 @@ impl UserTaskContainer {
         let stat = stat_ptr.get_mut();
 
         self.task
-            .fd_open(dir_fd, path, OpenFlags::O_RDONLY)?
+            .fd_open(dir_fd, path, OpenFlags::RDONLY)?
             .stat(stat)?;
         stat.mode |= StatMode::OWNER_MASK;
         Ok(0)
@@ -279,7 +280,7 @@ impl UserTaskContainer {
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         let statfs = statfs_ptr.get_mut();
-        File::open(path, OpenFlags::O_RDONLY)?.statfs(statfs)?;
+        File::open(path, OpenFlags::RDONLY)?.statfs(statfs)?;
         Ok(0)
     }
 
@@ -351,7 +352,7 @@ impl UserTaskContainer {
             special, dir, fstype, flags, data
         );
 
-        let dev_node = File::open(special, OpenFlags::O_RDONLY)?;
+        let dev_node = File::open(special, OpenFlags::RDONLY)?;
         dev_node.mount(dir)?;
         Ok(0)
     }
@@ -497,7 +498,7 @@ impl UserTaskContainer {
             return Ok(0);
         }
         self.task
-            .fd_open(dir_fd, path, OpenFlags::O_RDONLY)?
+            .fd_open(dir_fd, path, OpenFlags::RDONLY)?
             .utimes(&mut times)?;
 
         Ok(0)
@@ -520,14 +521,14 @@ impl UserTaskContainer {
 
         let ftype = self
             .task
-            .fd_open(dir_fd, filename, OpenFlags::O_RDONLY)?
+            .fd_open(dir_fd, filename, OpenFlags::RDONLY)?
             .file_type()?;
 
         if FileType::Link != ftype {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = File::open(filename, OpenFlags::O_RDONLY)?.resolve_link()?;
+        let file_path = File::open(filename, OpenFlags::RDONLY)?.resolve_link()?;
         let bytes = file_path.as_bytes();
 
         let rlen = cmp::min(bytes.len(), buffer_size);
@@ -943,7 +944,7 @@ impl UserTaskContainer {
         let target = target.get_cstr().map_err(|_| Errno::EINVAL)?;
         let linkpath = linkpath.get_cstr().map_err(|_| Errno::EINVAL)?;
         let file = self.task.fd_resolve(newdir_fd, linkpath)?;
-        let dir = File::open(file.dir(), OpenFlags::O_DIRECTORY)?;
+        let dir = File::open(file.dir(), OpenFlags::DIRECTORY)?;
         dir.symlink(&file.filename(), target)?;
         Ok(0)
     }

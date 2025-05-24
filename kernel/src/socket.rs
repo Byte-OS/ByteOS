@@ -1,8 +1,11 @@
 use core::{cmp, net::SocketAddrV4};
 
 use alloc::{sync::Arc, vec::Vec};
-use fs::{INodeInterface, StatMode};
-use libc_types::poll::PollEvent;
+use fs::INodeInterface;
+use libc_types::{
+    poll::PollEvent,
+    types::{Stat, StatMode},
+};
 use lose_net_stack::net_trait::SocketInterface;
 use polyhal::debug_console::DebugConsole;
 use sync::Mutex;
@@ -198,7 +201,7 @@ impl INodeInterface for Socket {
         Ok(res)
     }
 
-    fn stat(&self, stat: &mut fs::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.mode = StatMode::SOCKET;
         Ok(())
     }

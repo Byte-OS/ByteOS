@@ -6,14 +6,13 @@ extern crate alloc;
 use alloc::{string::String, sync::Arc, vec::Vec};
 use core::cmp::{self, min};
 use core::ops::Add;
-use libc_types::types::TimeSpec;
+use libc_types::consts::UTIME_OMIT;
+use libc_types::types::{Stat, StatMode, TimeSpec};
 use polyhal::pagetable::PAGE_SIZE;
 use runtime::frame::{frame_alloc, FrameTracker};
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{
-    DirEntry, FileSystem, FileType, INodeInterface, Stat, StatMode, VfsResult, UTIME_OMIT,
-};
+use vfscore::{DirEntry, FileSystem, FileType, INodeInterface, VfsResult};
 
 pub struct RamFs {
     root: Arc<RamDirInner>,

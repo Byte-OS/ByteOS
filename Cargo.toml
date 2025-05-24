@@ -17,6 +17,8 @@ members = [
     "filesystem/procfs",
     "filesystem/ramfs",
     "filesystem/vfscore",
+    "filesystem/ext4fs",
+    "filesystem/ext4rsfs",
 
     # 驱动
     "driver/general-plic",

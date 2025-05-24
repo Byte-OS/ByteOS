@@ -4,12 +4,14 @@ use alloc::{
     collections::VecDeque,
     sync::{Arc, Weak},
 };
-use libc_types::poll::PollEvent;
+use libc_types::{
+    poll::PollEvent,
+    types::{Stat, StatMode},
+};
 use sync::Mutex;
 use syscalls::Errno;
-use vfscore::{INodeInterface, StatMode, VfsResult};
+use vfscore::{INodeInterface, VfsResult};
 
-// pipe sender, just can write.
 pub struct PipeSender(Arc<Mutex<VecDeque<u8>>>);
 
 impl INodeInterface for PipeSender {
@@ -33,7 +35,7 @@ impl INodeInterface for PipeSender {
         Ok(res)
     }
 
-    fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.mode = StatMode::FIFO;
         Ok(())
     }
@@ -78,7 +80,7 @@ impl INodeInterface for PipeReceiver {
         Ok(res)
     }
 
-    fn stat(&self, stat: &mut vfscore::Stat) -> VfsResult<()> {
+    fn stat(&self, stat: &mut Stat) -> VfsResult<()> {
         stat.mode = StatMode::FIFO;
         Ok(())
     }

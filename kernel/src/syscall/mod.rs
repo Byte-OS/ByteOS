@@ -8,7 +8,7 @@ mod task;
 mod time;
 pub mod types;
 
-use fs::OpenFlags;
+use libc_types::fcntl::OpenFlags;
 #[cfg(target_arch = "x86_64")]
 use libc_types::fcntl::AT_FDCWD;
 pub use socket::NET_SERVER;
@@ -390,7 +390,7 @@ impl UserTaskContainer {
                     args[1].into(),
                     args[2] as _,
                     args[3].into(),
-                    OpenFlags::O_RDWR.bits(),
+                    OpenFlags::RDWR.bits(),
                 )
                 .await
             }
@@ -425,7 +425,7 @@ impl UserTaskContainer {
                     args[0].into(),
                     AT_FDCWD,
                     args[1].into(),
-                    OpenFlags::O_RDWR.bits(),
+                    OpenFlags::RDWR.bits(),
                 )
                 .await
             }
