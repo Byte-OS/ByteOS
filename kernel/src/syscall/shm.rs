@@ -9,7 +9,7 @@ use runtime::frame::{frame_alloc_much, FrameTracker};
 use syscalls::Errno;
 
 impl UserTaskContainer {
-    pub async fn sys_shmget(&self, mut key: usize, size: usize, shmflg: usize) -> SysResult {
+    pub fn sys_shmget(&self, mut key: usize, size: usize, shmflg: usize) -> SysResult {
         debug!(
             "sys_shmget @ key: {}, size: {}, shmflg: {:#o}",
             key, size, shmflg
@@ -35,7 +35,7 @@ impl UserTaskContainer {
         Err(Errno::ENOENT)
     }
 
-    pub async fn sys_shmat(&self, shmid: usize, shmaddr: usize, shmflg: usize) -> SysResult {
+    pub fn sys_shmat(&self, shmid: usize, shmaddr: usize, shmflg: usize) -> SysResult {
         debug!(
             "sys_shmat @ shmid: {}, shmaddr: {}, shmflg: {:#o}",
             shmid, shmaddr, shmflg
@@ -76,7 +76,7 @@ impl UserTaskContainer {
         Ok(vaddr.raw())
     }
 
-    pub async fn sys_shmctl(&self, shmid: usize, cmd: usize, arg: usize) -> SysResult {
+    pub fn sys_shmctl(&self, shmid: usize, cmd: usize, arg: usize) -> SysResult {
         debug!("sys_shmctl @ shmid: {}, cmd: {}, arg: {}", shmid, cmd, arg);
 
         if cmd == 0 {

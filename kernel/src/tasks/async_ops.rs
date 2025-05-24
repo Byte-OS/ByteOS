@@ -16,7 +16,7 @@ pub struct NextTick(usize);
 impl Future for NextTick {
     type Output = ();
 
-    fn poll(self: Pin<&mut Self>, _cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
+    fn poll(self: Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
         let curr = Time::now().to_msec();
         if curr < self.0 {
             Poll::Pending

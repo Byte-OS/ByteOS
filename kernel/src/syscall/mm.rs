@@ -14,7 +14,7 @@ use syscalls::Errno;
 const MAP_AREA_START: usize = 0x2_0000_0000;
 
 impl UserTaskContainer {
-    pub async fn sys_brk(&self, addr: usize) -> SysResult {
+    pub fn sys_brk(&self, addr: usize) -> SysResult {
         debug!("sys_brk @ new: {:#x} old: {:#x}", addr, self.task.heap());
         match addr {
             0 => Ok(self.task.heap()),
@@ -22,7 +22,7 @@ impl UserTaskContainer {
         }
     }
 
-    pub async fn sys_mmap(
+    pub fn sys_mmap(
         &self,
         start: usize,
         mut len: usize,
@@ -132,7 +132,7 @@ impl UserTaskContainer {
         Ok(addr.into())
     }
 
-    pub async fn sys_munmap(&self, start: usize, len: usize) -> SysResult {
+    pub fn sys_munmap(&self, start: usize, len: usize) -> SysResult {
         debug!("sys_munmap @ start: {:#x}, len: {:#x}", start, len);
         self.task.inner_map(|pcb| {
             pcb.memset
@@ -141,7 +141,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_mprotect(&self, start: usize, len: usize, prot: u32) -> SysResult {
+    pub fn sys_mprotect(&self, start: usize, len: usize, prot: u32) -> SysResult {
         let prot = MmapProt::from_bits(prot).ok_or(Errno::EINVAL)?;
         debug!(
             "sys_mprotect @ start: {:#x}, len: {:#x}, prot: {:?}",
@@ -151,7 +151,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_msync(&self, addr: usize, len: usize, flags: u32) -> SysResult {
+    pub fn sys_msync(&self, addr: usize, len: usize, flags: u32) -> SysResult {
         let flags = MSyncFlags::from_bits_truncate(flags);
         debug!(
             "sys_msync @ addr: {:#x} len: {:#x} flags: {:?}",

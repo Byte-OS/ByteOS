@@ -27,7 +27,7 @@ use polyhal_trap::trapframe::TrapFrameArgs;
 use syscalls::Errno;
 
 impl UserTaskContainer {
-    pub async fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
+    pub fn sys_chdir(&self, path_ptr: UserRef<i8>) -> SysResult {
         let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_chdir @ path: {}", path);
         let new_dir = self.task.fd_open(AT_FDCWD, path, OpenFlags::RDONLY)?;
@@ -40,7 +40,7 @@ impl UserTaskContainer {
         }
     }
 
-    pub async fn sys_getcwd(&self, buf_ptr: UserRef<u8>, size: usize) -> SysResult {
+    pub fn sys_getcwd(&self, buf_ptr: UserRef<u8>, size: usize) -> SysResult {
         debug!("sys_getcwd @ buffer_ptr{} size: {}", buf_ptr, size);
         let buffer = buf_ptr.slice_mut_with_len(size);
         let curr_path = self.task.pcb.lock().curr_dir.clone();
@@ -52,7 +52,7 @@ impl UserTaskContainer {
         Ok(buf_ptr.into())
     }
 
-    pub async fn sys_exit(&self, exit_code: isize) -> SysResult {
+    pub fn sys_exit(&self, exit_code: isize) -> SysResult {
         debug!("sys_exit @ exit_code: {}  task_id: {}", exit_code, self.tid);
         // current_task().as_user_task().unwrap().exit(exit_code as _);
         self.task.thread_exit(exit_code as _);
@@ -275,7 +275,7 @@ impl UserTaskContainer {
     // futex(clear_child_tid，FUTEX_WAKE，1 , NULL，NULL，0);
 
     // 此操作的效果是唤醒正在执行内存位置上的futex等待的单个线程。来自futex唤醒操作的错误将被忽略。
-    pub async fn sys_set_tid_address(&self, tid_ptr: usize) -> SysResult {
+    pub fn sys_set_tid_address(&self, tid_ptr: usize) -> SysResult {
         // information source: https://www.onitroad.com/jc/linux/man-pages/linux/man2/set_tid_address.2.html
 
         debug!("sys_set_tid_address @ tid_ptr: {:#x}", tid_ptr);
@@ -284,12 +284,12 @@ impl UserTaskContainer {
     }
 
     /// sys_getpid() 获取进程 id
-    pub async fn sys_getpid(&self) -> SysResult {
+    pub fn sys_getpid(&self) -> SysResult {
         Ok(self.task.process_id)
     }
 
     /// sys_getppid() 获取父进程 id
-    pub async fn sys_getppid(&self) -> SysResult {
+    pub fn sys_getppid(&self) -> SysResult {
         debug!("sys_getppid @ ");
         self.task
             .parent
@@ -301,7 +301,7 @@ impl UserTaskContainer {
 
     /// sys_gettid() 获取线程 id.
     /// need to write correct clone and thread_clone for pthread.
-    pub async fn sys_gettid(&self) -> SysResult {
+    pub fn sys_gettid(&self) -> SysResult {
         debug!("sys_gettid @ ");
         Ok(self.tid)
     }
@@ -378,7 +378,7 @@ impl UserTaskContainer {
         }
     }
 
-    pub async fn sys_tkill(&self, tid: usize, signum: usize) -> SysResult {
+    pub fn sys_tkill(&self, tid: usize, signum: usize) -> SysResult {
         debug!("sys_tkill @ tid: {}, signum: {}", tid, signum);
         let target_signal = SignalNum::from_num(signum).ok_or(Errno::EINVAL)?;
         let mut child = self.task.inner_map(|x| {
@@ -418,12 +418,12 @@ impl UserTaskContainer {
         }
     }
 
-    pub async fn sys_sigreturn(&self) -> SysResult {
+    pub fn sys_sigreturn(&self) -> SysResult {
         debug!("sys_sigreturn @ ");
         Ok(0)
     }
 
-    pub async fn sys_getrusage(&self, who: usize, usage_ptr: UserRef<Rusage>) -> SysResult {
+    pub fn sys_getrusage(&self, who: usize, usage_ptr: UserRef<Rusage>) -> SysResult {
         debug!("sys_getrusgae @ who: {}, usage_ptr: {}", who, usage_ptr);
         // let Rusage
         let rusage = usage_ptr.get_mut();
@@ -471,7 +471,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_setsid(&self) -> SysResult {
+    pub fn sys_setsid(&self) -> SysResult {
         debug!("[task {}] sys_setsid", self.tid);
         let parent = self.task.parent.read().clone();
 
@@ -482,7 +482,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_sched_getaffinity(
+    pub fn sys_sched_getaffinity(
         &self,
         pid: usize,
         cpu_set_size: usize,

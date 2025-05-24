@@ -21,13 +21,13 @@ use syscalls::Errno;
 use vfscore::FileType;
 
 impl UserTaskContainer {
-    pub async fn sys_dup(&self, fd: usize) -> SysResult {
+    pub fn sys_dup(&self, fd: usize) -> SysResult {
         debug!("sys_dup3 @ fd_src: {}", fd);
         let fd_dst = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
-        self.sys_dup3(fd, fd_dst).await
+        self.sys_dup3(fd, fd_dst)
     }
 
-    pub async fn sys_dup3(&self, fd_src: usize, fd_dst: usize) -> SysResult {
+    pub fn sys_dup3(&self, fd_src: usize, fd_dst: usize) -> SysResult {
         debug!("sys_dup3 @ fd_src: {}, fd_dst: {}", fd_src, fd_dst);
         let file = self.task.get_fd(fd_src).ok_or(Errno::EBADF)?;
         self.task.set_fd(fd_dst, file);
@@ -35,8 +35,8 @@ impl UserTaskContainer {
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_dup2(&self, fd_src: usize, fd_dst: usize) -> SysResult {
-        self.sys_dup3(fd_src, fd_dst).await
+    pub fn sys_dup2(&self, fd_src: usize, fd_dst: usize) -> SysResult {
+        self.sys_dup3(fd_src, fd_dst)
     }
 
     pub async fn sys_read(&self, fd: usize, buf_ptr: UserRef<u8>, count: usize) -> SysResult {
@@ -62,7 +62,7 @@ impl UserTaskContainer {
         file.async_write(buffer).await
     }
 
-    pub async fn sys_readv(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
+    pub fn sys_readv(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
         debug!("sys_readv @ fd: {}, iov: {}, iocnt: {}", fd, iov, iocnt);
         let mut rsize = 0;
         let iov = iov.slice_mut_with_len(iocnt);
@@ -76,7 +76,7 @@ impl UserTaskContainer {
         Ok(rsize)
     }
 
-    pub async fn sys_writev(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
+    pub fn sys_writev(&self, fd: usize, iov: UserRef<IoVec>, iocnt: usize) -> SysResult {
         debug!("sys_writev @ fd: {}, iov: {}, iocnt: {}", fd, iov, iocnt);
         let mut wsize = 0;
         let iov = iov.slice_mut_with_len(iocnt);
@@ -90,13 +90,13 @@ impl UserTaskContainer {
         Ok(wsize)
     }
 
-    pub async fn sys_close(&self, fd: usize) -> SysResult {
+    pub fn sys_close(&self, fd: usize) -> SysResult {
         debug!("[task {}] sys_close @ fd: {}", self.tid, fd as isize);
         self.task.clear_fd(fd);
         Ok(0)
     }
 
-    pub async fn sys_mkdir_at(&self, dir_fd: isize, path: UserRef<i8>, mode: usize) -> SysResult {
+    pub fn sys_mkdir_at(&self, dir_fd: isize, path: UserRef<i8>, mode: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_mkdir_at @ dir_fd: {}, path: {}, mode: {}",
@@ -107,7 +107,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_renameat2(
+    pub fn sys_renameat2(
         &self,
         olddir_fd: isize,
         oldpath: UserRef<i8>,
@@ -150,16 +150,16 @@ impl UserTaskContainer {
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_mkdir(&self, path: UserRef<i8>, mode: usize) -> SysResult {
-        self.sys_mkdir_at(AT_FDCWD, path, mode).await
+    pub fn sys_mkdir(&self, path: UserRef<i8>, mode: usize) -> SysResult {
+        self.sys_mkdir_at(AT_FDCWD, path, mode)
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_unlink(&self, path: UserRef<i8>) -> SysResult {
-        self.sys_unlinkat(AT_FDCWD, path, 0).await
+    pub fn sys_unlink(&self, path: UserRef<i8>) -> SysResult {
+        self.sys_unlinkat(AT_FDCWD, path, 0)
     }
 
-    pub async fn sys_unlinkat(&self, dir_fd: isize, path: UserRef<i8>, flags: usize) -> SysResult {
+    pub fn sys_unlinkat(&self, dir_fd: isize, path: UserRef<i8>, flags: usize) -> SysResult {
         let path = path.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_unlinkat @ dir_fd: {}, path: {}, flags: {}",
@@ -172,7 +172,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_openat(
+    pub fn sys_openat(
         &self,
         dir_fd: isize,
         filename: UserRef<i8>,
@@ -199,12 +199,12 @@ impl UserTaskContainer {
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_open(&self, path: UserRef<i8>, flags: usize, mode: usize) -> SysResult {
+    pub fn sys_open(&self, path: UserRef<i8>, flags: usize, mode: usize) -> SysResult {
         // syscall_openat(axprocess::link::AT_FDCWD, path, flags, mode)
-        self.sys_openat(AT_FDCWD, path, flags, mode).await
+        self.sys_openat(AT_FDCWD, path, flags, mode)
     }
 
-    pub async fn sys_faccess_at(
+    pub fn sys_faccess_at(
         &self,
         dir_fd: isize,
         filename: UserRef<i8>,
@@ -225,7 +225,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_fstat(&self, fd: usize, stat_ptr: UserRef<Stat>) -> SysResult {
+    pub fn sys_fstat(&self, fd: usize, stat_ptr: UserRef<Stat>) -> SysResult {
         debug!("sys_fstat @ fd: {} stat_ptr: {}", fd, stat_ptr);
         let stat_ref = stat_ptr.get_mut();
 
@@ -235,7 +235,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_fstatat(
+    pub fn sys_fstatat(
         &self,
         dir_fd: isize,
         path_ptr: UserRef<i8>,
@@ -260,20 +260,16 @@ impl UserTaskContainer {
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_stat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
-        self.sys_fstatat(AT_FDCWD, path, stat_ptr).await
+    pub fn sys_stat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
+        self.sys_fstatat(AT_FDCWD, path, stat_ptr)
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_lstat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
-        self.sys_fstatat(AT_FDCWD, path, stat_ptr).await
+    pub fn sys_lstat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
+        self.sys_fstatat(AT_FDCWD, path, stat_ptr)
     }
 
-    pub async fn sys_statfs(
-        &self,
-        filename_ptr: UserRef<i8>,
-        statfs_ptr: UserRef<StatFS>,
-    ) -> SysResult {
+    pub fn sys_statfs(&self, filename_ptr: UserRef<i8>, statfs_ptr: UserRef<StatFS>) -> SysResult {
         debug!(
             "sys_statfs @ filename_ptr: {}, statfs_ptr: {}",
             filename_ptr, statfs_ptr
@@ -284,7 +280,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_pipe2(&self, fds_ptr: UserRef<u32>, _unknown: usize) -> SysResult {
+    pub fn sys_pipe2(&self, fds_ptr: UserRef<u32>, _unknown: usize) -> SysResult {
         debug!("sys_pipe2 @ fds_ptr: {}, _unknown: {}", fds_ptr, _unknown);
         let fds = fds_ptr.slice_mut_with_len(2);
 
@@ -301,13 +297,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_pread(
-        &self,
-        fd: usize,
-        ptr: UserRef<u8>,
-        len: usize,
-        offset: usize,
-    ) -> SysResult {
+    pub fn sys_pread(&self, fd: usize, ptr: UserRef<u8>, len: usize, offset: usize) -> SysResult {
         debug!(
             "sys_pread @ fd: {}, ptr: {}, len: {}, offset: {}",
             fd, ptr, len, offset
@@ -318,7 +308,7 @@ impl UserTaskContainer {
         file.readat(offset, buffer)
     }
 
-    pub async fn sys_pwrite(
+    pub fn sys_pwrite(
         &self,
         fd: usize,
         buf_ptr: VirtAddr,
@@ -336,7 +326,7 @@ impl UserTaskContainer {
             .writeat(offset, buffer)
     }
 
-    pub async fn sys_mount(
+    pub fn sys_mount(
         &self,
         special: UserRef<i8>,
         dir: UserRef<i8>,
@@ -357,7 +347,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_umount2(&self, special: UserRef<i8>, flags: usize) -> SysResult {
+    pub fn sys_umount2(&self, special: UserRef<i8>, flags: usize) -> SysResult {
         let special = special.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!("sys_umount @ special: {}, flags: {}", special, flags);
         match special.starts_with("/dev") {
@@ -372,7 +362,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_getdents64(&self, fd: usize, buf_ptr: UserRef<u8>, len: usize) -> SysResult {
+    pub fn sys_getdents64(&self, fd: usize, buf_ptr: UserRef<u8>, len: usize) -> SysResult {
         debug!(
             "[task {}] sys_getdents64 @ fd: {}, buf_ptr: {}, len: {}",
             self.tid, fd, buf_ptr, len
@@ -400,7 +390,7 @@ impl UserTaskContainer {
         self.task.get_fd(fd).ok_or(Errno::EBADF)?.seek(seek_from)
     }
 
-    pub async fn sys_ioctl(
+    pub fn sys_ioctl(
         &self,
         fd: usize,
         request: usize,
@@ -419,7 +409,7 @@ impl UserTaskContainer {
             .map_err(|_| Errno::ENOTTY)
     }
 
-    pub async fn sys_fcntl(&self, fd: usize, cmd: u32, arg: usize) -> SysResult {
+    pub fn sys_fcntl(&self, fd: usize, cmd: u32, arg: usize) -> SysResult {
         debug!(
             "[task {}] fcntl: fd: {}, cmd: {:#x}, arg: {}",
             self.tid, fd, cmd, arg
@@ -428,7 +418,7 @@ impl UserTaskContainer {
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
         debug!("[task {}] fcntl: {:?}", self.tid, cmd);
         match cmd {
-            FcntlCmd::DUPFD | FcntlCmd::DUPFDCLOEXEC => self.sys_dup(fd).await,
+            FcntlCmd::DUPFD | FcntlCmd::DUPFDCLOEXEC => self.sys_dup(fd),
             FcntlCmd::GETFD => Ok(1),
             FcntlCmd::GETFL => Ok(file.flags.lock().bits()),
             FcntlCmd::SETFL => {
@@ -454,7 +444,7 @@ impl UserTaskContainer {
     ///
     /// If times is NULL, then both timestamps are set to the current
     /// time.
-    pub async fn sys_utimensat(
+    pub fn sys_utimensat(
         &self,
         dir_fd: isize,
         path: UserRef<u8>,
@@ -504,7 +494,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_readlinkat(
+    pub fn sys_readlinkat(
         &self,
         dir_fd: isize,
         path: UserRef<i8>,
@@ -539,17 +529,16 @@ impl UserTaskContainer {
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_readlink(
+    pub fn sys_readlink(
         &self,
         path: UserRef<i8>,
         buffer: UserRef<u8>,
         buffer_size: usize,
     ) -> SysResult {
         self.sys_readlinkat(AT_FDCWD, path, buffer, buffer_size)
-            .await
     }
 
-    pub async fn sys_sendfile(
+    pub fn sys_sendfile(
         &self,
         out_fd: usize,
         in_fd: usize,
@@ -805,7 +794,7 @@ impl UserTaskContainer {
             .await
     }
 
-    pub async fn sys_ftruncate(&self, fields: usize, len: usize) -> SysResult {
+    pub fn sys_ftruncate(&self, fields: usize, len: usize) -> SysResult {
         debug!("sys_ftruncate @ fields: {}, len: {}", fields, len);
         // Ok(0)
         if fields == usize::MAX {
@@ -816,7 +805,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_epoll_create1(&self, flags: usize) -> SysResult {
+    pub fn sys_epoll_create1(&self, flags: usize) -> SysResult {
         debug!("sys_epoll_create @ flags: {:#x}", flags);
         let file = Arc::new(EpollFile::new(flags));
         let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
@@ -824,7 +813,7 @@ impl UserTaskContainer {
         Ok(fd)
     }
 
-    pub async fn sys_epoll_ctl(
+    pub fn sys_epoll_ctl(
         &self,
         epfd: usize,
         op: u8,
@@ -896,7 +885,7 @@ impl UserTaskContainer {
         Ok(n)
     }
 
-    pub async fn sys_copy_file_range(
+    pub fn sys_copy_file_range(
         &self,
         fd_in: usize,
         off_in: UserRef<usize>,
@@ -934,7 +923,7 @@ impl UserTaskContainer {
         Ok(rsize)
     }
 
-    pub async fn sys_symlinkat(
+    pub fn sys_symlinkat(
         &self,
         target: UserRef<i8>,
         newdir_fd: isize,

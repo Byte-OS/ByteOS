@@ -24,11 +24,7 @@ use polyhal::time::Time;
 use syscalls::Errno;
 
 impl UserTaskContainer {
-    pub async fn sys_gettimeofday(
-        &self,
-        tv_ptr: UserRef<TimeVal>,
-        timezone_ptr: usize,
-    ) -> SysResult {
+    pub fn sys_gettimeofday(&self, tv_ptr: UserRef<TimeVal>, timezone_ptr: usize) -> SysResult {
         debug!(
             "sys_gettimeofday @ tv_ptr: {}, timezone: {:#x}",
             tv_ptr, timezone_ptr
@@ -65,17 +61,13 @@ impl UserTaskContainer {
         res
     }
 
-    pub async fn sys_times(&self, tms_ptr: UserRef<TMS>) -> SysResult {
+    pub fn sys_times(&self, tms_ptr: UserRef<TMS>) -> SysResult {
         debug!("sys_times @ tms: {}", tms_ptr);
         self.task.inner_map(|x| *tms_ptr.get_mut() = x.tms);
         Ok(Time::now().raw())
     }
 
-    pub async fn sys_clock_gettime(
-        &self,
-        clock_id: usize,
-        times_ptr: UserRef<TimeSpec>,
-    ) -> SysResult {
+    pub fn sys_clock_gettime(&self, clock_id: usize, times_ptr: UserRef<TimeSpec>) -> SysResult {
         debug!(
             "[task {}] sys_clock_gettime @ clock_id: {}, times_ptr: {}",
             self.tid, clock_id, times_ptr
@@ -103,18 +95,14 @@ impl UserTaskContainer {
     }
 
     #[inline]
-    pub async fn sys_clock_getres(
-        &self,
-        clock_id: usize,
-        times_ptr: UserRef<TimeSpec>,
-    ) -> SysResult {
+    pub fn sys_clock_getres(&self, clock_id: usize, times_ptr: UserRef<TimeSpec>) -> SysResult {
         debug!("clock_getres @ {} {:#x?}", clock_id, times_ptr);
         if times_ptr.is_valid() {
             *times_ptr.get_mut() = TimeSpec { sec: 0, nsec: 1 };
         }
         Ok(0)
     }
-    pub async fn sys_setitimer(
+    pub fn sys_setitimer(
         &self,
         which: usize,
         times_ptr: UserRef<ITimerVal>,
