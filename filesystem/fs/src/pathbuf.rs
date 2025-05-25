@@ -83,6 +83,7 @@ impl PathBuf {
         pb
     }
 
+    #[inline]
     pub fn iter(&self) -> impl Iterator<Item = &String> {
         self.0.iter()
     }

@@ -45,18 +45,10 @@ impl Add for TimeVal {
 
 impl PartialOrd for TimeVal {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        if self.sec > other.sec {
-            Some(Ordering::Greater)
-        } else if self.sec < other.sec {
-            Some(Ordering::Less)
-        } else {
-            if self.usec > other.usec {
-                Some(Ordering::Greater)
-            } else if self.usec < other.usec {
-                Some(Ordering::Less)
-            } else {
-                Some(Ordering::Equal)
-            }
+        let sec_res = self.sec.cmp(&other.sec);
+        match sec_res {
+            Ordering::Equal => Some(self.usec.cmp(&other.usec)),
+            _ => Some(sec_res),
         }
     }
 }

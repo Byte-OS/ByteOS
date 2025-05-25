@@ -39,7 +39,7 @@ impl DeviceSet {
             DeviceType::INPUT(device) => self.input.push(device),
             DeviceType::INT(device) => INT_DEVICE.init_by(device),
             DeviceType::UART(device) => {
-                if self.uart.len() == 0 {
+                if self.uart.is_empty() {
                     MAIN_UART.init_by(device.clone());
                 }
                 self.uart.push(device)
