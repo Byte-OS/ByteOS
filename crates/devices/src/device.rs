@@ -49,6 +49,12 @@ impl DeviceSet {
     }
 }
 
+impl Default for DeviceSet {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub trait Driver: Send + Sync {
     fn get_id(&self) -> &str;
 

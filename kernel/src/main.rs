@@ -15,8 +15,6 @@ extern crate bitflags;
 extern crate log;
 #[macro_use]
 extern crate polyhal;
-#[macro_use]
-extern crate cfg_if;
 
 extern crate polyhal_boot;
 extern crate polyhal_trap;

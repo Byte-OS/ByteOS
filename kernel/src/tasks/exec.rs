@@ -7,12 +7,10 @@ use crate::{
     },
 };
 use alloc::{
-    boxed::Box,
     string::{String, ToString},
     sync::Arc,
     vec::Vec,
 };
-use async_recursion::async_recursion;
 use core::ops::{Add, Mul};
 use devices::{frame_alloc_much, FrameTracker, PAGE_SIZE};
 use fs::{file::File, pathbuf::PathBuf};
@@ -128,8 +126,7 @@ pub fn cache_task_template(path: PathBuf) -> Result<(), Errno> {
     Ok(())
 }
 
-#[async_recursion(Sync)]
-pub async fn exec_with_process(
+pub fn exec_with_process(
     task: Arc<UserTask>,
     curr_dir: PathBuf,
     path: String,
@@ -188,8 +185,7 @@ pub async fn exec_with_process(
         } else {
             let mut new_args = vec!["busybox".to_string(), "sh".to_string()];
             args.iter().for_each(|x| new_args.push(x.clone()));
-            return exec_with_process(task, curr_dir, String::from("busybox"), new_args, envp)
-                .await;
+            return exec_with_process(task, curr_dir, String::from("busybox"), new_args, envp);
         };
         let elf_header = elf.header;
 
@@ -212,8 +208,7 @@ pub async fn exec_with_process(
                 drop(frame_ppn);
                 let mut new_args = vec![String::from("libc.so")];
                 new_args.extend(args);
-                return exec_with_process(task, curr_dir, new_args[0].clone(), new_args, envp)
-                    .await;
+                return exec_with_process(task, curr_dir, new_args[0].clone(), new_args, envp);
             }
         }
 

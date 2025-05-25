@@ -103,8 +103,7 @@ impl UserTaskContainer {
             filename.to_string(),
             args,
             envp,
-        )
-        .await?;
+        )?;
         self.task.before_run();
         Ok(0)
     }

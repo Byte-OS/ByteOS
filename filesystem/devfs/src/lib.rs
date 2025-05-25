@@ -80,21 +80,23 @@ impl DevDir {
     }
 }
 
+impl Default for DevDir {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl INodeInterface for DevDirContainer {
     fn lookup(&self, name: &str) -> VfsResult<Arc<dyn INodeInterface>> {
-        self.inner
-            .map
-            .get(name)
-            .map(|x| x.clone())
-            .ok_or(Errno::ENOENT)
+        self.inner.map.get(name).cloned().ok_or(Errno::ENOENT)
     }
 
     fn read_dir(&self) -> VfsResult<Vec<DirEntry>> {
         Ok(self
             .inner
             .map
-            .iter()
-            .map(|(name, _)| DirEntry {
+            .keys()
+            .map(|name| DirEntry {
                 filename: name.to_string(),
                 len: 0,
                 file_type: FileType::Device,

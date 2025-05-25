@@ -24,18 +24,18 @@ use virtio_drivers::transport::{
     DeviceType, Transport,
 };
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 use devices::ALL_DEVICES;
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 use virtio_drivers::transport::pci::bus::MmioCam;
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 use virtio_drivers::transport::pci::{
     bus::{BarInfo, Cam, Command, DeviceFunction, PciRoot},
     virtio_device_type, PciTransport,
 };
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 use crate::virtio_impl::HalImpl;
 
 pub fn init_mmio(node: &Node) -> Arc<dyn Driver> {
@@ -76,7 +76,7 @@ fn virtio_device(transport: MmioTransport, node: &Node) -> Arc<dyn Driver> {
     }
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 fn enumerate_pci(mmconfig_base: *mut u8) {
     info!("mmconfig_base = {:#x}", mmconfig_base as usize);
 
@@ -109,7 +109,7 @@ fn enumerate_pci(mmconfig_base: *mut u8) {
     }
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 fn virtio_device_probe(transport: impl Transport + 'static) {
     let device = match transport.device_type() {
         DeviceType::Block => Some(virtio_blk::init(transport, Vec::new())),
@@ -127,7 +127,7 @@ fn virtio_device_probe(transport: impl Transport + 'static) {
     }
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(target_arch = "x86_64")]
 fn dump_bar_contents(root: &mut PciRoot<MmioCam>, device_function: DeviceFunction, bar_index: u8) {
     let bar_info = root.bar_info(device_function, bar_index).unwrap();
     trace!("Dumping bar {}: {:#x?}", bar_index, bar_info);
@@ -147,7 +147,7 @@ fn dump_bar_contents(root: &mut PciRoot<MmioCam>, device_function: DeviceFunctio
     trace!("End of dump");
 }
 
-#[cfg(not(any(target_arch = "x86_64")))]
+#[cfg(not(target_arch = "x86_64"))]
 driver_define!("virtio,mmio", init_mmio);
 
 #[cfg(target_arch = "x86_64")]
