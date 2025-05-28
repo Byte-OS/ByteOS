@@ -15,9 +15,10 @@ const MAP_AREA_START: usize = 0x2_0000_0000;
 
 impl UserTaskContainer {
     pub fn sys_brk(&self, addr: usize) -> SysResult {
-        debug!("sys_brk @ new: {:#x} old: {:#x}", addr, self.task.heap());
+        let heap = self.task.pcb.lock().heap;
+        debug!("sys_brk @ new: {:#x} old: {:#x}", addr, heap);
         match addr {
-            0 => Ok(self.task.heap()),
+            0 => Ok(heap),
             _ => Ok(self.task.sbrk(addr)),
         }
     }

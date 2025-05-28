@@ -5,6 +5,7 @@ mod filetable;
 mod initproc;
 mod memset;
 mod shm;
+mod stack;
 mod task;
 
 use self::initproc::initproc;

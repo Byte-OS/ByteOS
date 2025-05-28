@@ -16,6 +16,17 @@ pub struct File {
     pub flags: Mutex<OpenFlags>,
 }
 
+impl Clone for File {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.clone(),
+            path_buf: self.path_buf.clone(),
+            offset: Mutex::new(self.offset.lock().clone()),
+            flags: Mutex::new(self.flags.lock().clone()),
+        }
+    }
+}
+
 impl File {
     pub fn open<T: Into<PathBuf>>(path: T, flags: OpenFlags) -> VfsResult<File> {
         let path_buf = path.into();

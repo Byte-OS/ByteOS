@@ -33,7 +33,7 @@ impl UserTaskContainer {
         let new_dir = self.task.fd_open(AT_FDCWD, path, OpenFlags::RDONLY)?;
         match new_dir.file_type()? {
             fs::FileType::Directory => {
-                self.task.pcb.lock().curr_dir = Arc::new(new_dir);
+                self.task.pcb.lock().curr_dir = new_dir;
                 Ok(0)
             }
             _ => Err(Errno::ENOTDIR),

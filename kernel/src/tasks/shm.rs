@@ -2,6 +2,8 @@ use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use runtime::frame::FrameTracker;
 use sync::Mutex;
 
+pub static SHARED_MEMORY: Mutex<BTreeMap<usize, Arc<SharedMemory>>> = Mutex::new(BTreeMap::new());
+
 pub struct SharedMemory {
     pub trackers: Vec<Arc<FrameTracker>>,
     pub deleted: Mutex<bool>,
@@ -27,10 +29,8 @@ pub struct MapedSharedMemory {
 impl Drop for MapedSharedMemory {
     fn drop(&mut self) {
         // self.mem.trackers.remove(self.key);
-        if Arc::strong_count(&self.mem) == 1 && *self.mem.deleted.lock() == true {
+        if Arc::strong_count(&self.mem) == 2 && *self.mem.deleted.lock() == true {
             SHARED_MEMORY.lock().remove(&self.key);
         }
     }
 }
-
-pub static SHARED_MEMORY: Mutex<BTreeMap<usize, Arc<SharedMemory>>> = Mutex::new(BTreeMap::new());

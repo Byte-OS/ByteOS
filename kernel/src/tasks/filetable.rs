@@ -7,7 +7,10 @@ const FILE_MAX: usize = 255;
 const FD_NONE: Option<Arc<File>> = Option::None;
 
 #[derive(Clone)]
-pub struct FileTable(pub Vec<Option<Arc<File>>>);
+pub struct FileTable {
+    inner: Vec<Option<Arc<File>>>,
+    limit: usize,
+}
 
 impl FileTable {
     pub fn new() -> Self {
@@ -17,7 +20,10 @@ impl FileTable {
                 .map(Arc::new)
                 .expect("can't read tty file"),
         ));
-        Self(file_table)
+        Self {
+            inner: file_table,
+            limit: FILE_MAX,
+        }
     }
 }
 
@@ -25,13 +31,13 @@ impl Deref for FileTable {
     type Target = Vec<Option<Arc<File>>>;
 
     fn deref(&self) -> &Self::Target {
-        &self.0
+        &self.inner
     }
 }
 
 impl DerefMut for FileTable {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.0
+        &mut self.inner
     }
 }
 

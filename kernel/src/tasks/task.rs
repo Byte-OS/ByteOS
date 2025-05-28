@@ -15,7 +15,7 @@ use alloc::{
     sync::{Arc, Weak},
     vec::Vec,
 };
-use core::{cmp::max, mem::size_of};
+use core::{cmp::max, mem::size_of, ops::BitAnd};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
@@ -39,7 +39,7 @@ pub type FutexTable = BTreeMap<usize, Vec<usize>>;
 pub struct ProcessControlBlock {
     pub memset: MemSet,
     pub fd_table: FileTable,
-    pub curr_dir: Arc<File>,
+    pub curr_dir: File,
     pub heap: usize,
     pub entry: usize,
     pub children: Vec<Arc<UserTask>>,
@@ -60,11 +60,13 @@ pub struct ThreadControlBlock {
     pub set_child_tid: usize,
     pub signal: SigSet,
     pub signal_queue: [usize; REAL_TIME_SIGNAL_NUM], // a queue for real time signals
+    /// 低 7 位：终止信号编号（如 SIGKILL 为 9）
+    /// 第 8 位（bit 7）：是否生成 core dump（core 被生成则为 1）
+    /// 高 8 位：如果是正常退出（如 exit(3)），则 exit_code = 3 << 8
     pub exit_signal: u8,
     pub thread_exit_code: Option<u32>,
 }
 
-#[allow(dead_code)]
 pub struct UserTask {
     pub task_id: TaskId,
     pub process_id: TaskId,
@@ -88,9 +90,7 @@ impl UserTask {
         // initialize memset
         let memset = MemSet::new(vec![]);
 
-        let curr_dir = File::open(work_dir, OpenFlags::DIRECTORY)
-            .map(Arc::new)
-            .expect("dont' have the home dir");
+        let curr_dir = File::open(work_dir, OpenFlags::DIRECTORY).expect("dont' have the home dir");
         const SIGACTION: SigAction = SigAction::empty();
 
         let inner = ProcessControlBlock {
@@ -239,10 +239,6 @@ impl UserTask {
         addr
     }
 
-    pub fn heap(&self) -> usize {
-        self.pcb.lock().heap
-    }
-
     #[inline]
     pub fn thread_exit(&self, exit_code: usize) {
         let mut tcb_writer = self.tcb.write();
@@ -316,7 +312,7 @@ impl UserTask {
         // clone fd_table and clone heap
         let mut new_pcb = new_task.pcb.lock();
         let mut pcb = self.pcb.lock();
-        new_pcb.fd_table.0 = pcb.fd_table.0.clone();
+        new_pcb.fd_table = pcb.fd_table.clone();
         new_pcb.heap = pcb.heap;
         new_tcb_writer.cx = self.tcb.read().cx.clone();
         new_tcb_writer.cx[TrapFrameArgs::RET] = 0;
@@ -377,12 +373,19 @@ impl UserTask {
             tcb,
         });
         pcb.threads.push(Arc::downgrade(&new_task));
-        // pcb.children.push(new_task.clone());
         new_task
     }
 
-    pub fn push_str(&self, str: &str) -> usize {
-        self.push_arr(str.as_bytes())
+    pub fn push(&self, val: usize) {
+        let mut tcb = self.tcb.write();
+        let sp = tcb.cx[TrapFrameArgs::SP] - size_of::<usize>();
+        *va!(sp).get_mut_ref() = val;
+        tcb.cx[TrapFrameArgs::SP] = sp;
+    }
+
+    #[inline]
+    pub fn push_str(&self, s: &str) -> usize {
+        self.push_arr(s.as_bytes())
     }
 
     pub fn push_arr(&self, buffer: &[u8]) -> usize {
@@ -391,20 +394,7 @@ impl UserTask {
         const ULEN: usize = size_of::<usize>();
         let len = buffer.len();
         let sp = tcb.cx[TrapFrameArgs::SP] - alignup(len + 1, ULEN);
-        VirtAddr::from(sp)
-            .slice_mut_with_len(len)
-            .copy_from_slice(buffer);
-        tcb.cx[TrapFrameArgs::SP] = sp;
-        sp
-    }
-
-    pub fn push_num(&self, num: usize) -> usize {
-        let mut tcb = self.tcb.write();
-
-        const ULEN: usize = size_of::<usize>();
-        let sp = tcb.cx[TrapFrameArgs::SP] - ULEN;
-
-        *VirtAddr::from(sp).get_mut_ref() = num;
+        va!(sp).slice_mut_with_len(len).copy_from_slice(buffer);
         tcb.cx[TrapFrameArgs::SP] = sp;
         sp
     }
@@ -423,45 +413,32 @@ impl UserTask {
             .shms
             .iter()
             .fold(0, |acc, v| max(v.start + v.size, acc));
-        VirtAddr::new(max(map_last, shm_last))
+        va!(max(map_last, shm_last))
     }
 
     pub fn get_fd(&self, index: usize) -> Option<Arc<File>> {
         let pcb = self.pcb.lock();
-        match index >= pcb.rlimits[7] {
-            true => None,
-            false => pcb.fd_table.0[index].clone(),
-        }
+        (index < pcb.rlimits[7])
+            .then(|| pcb.fd_table[index].clone())
+            .flatten()
     }
 
     pub fn set_fd(&self, index: usize, value: Arc<File>) {
         let mut pcb = self.pcb.lock();
-        match index >= pcb.rlimits[7] {
-            true => {}
-            false => pcb.fd_table.0[index] = Some(value),
-        }
+        (index < pcb.rlimits[7]).then(|| pcb.fd_table[index] = Some(value));
     }
 
     pub fn clear_fd(&self, index: usize) {
         let mut pcb = self.pcb.lock();
-        match index >= pcb.fd_table.len() {
-            true => {}
-            false => pcb.fd_table.0[index] = None,
-        }
+        (index < pcb.fd_table.len()).then(|| pcb.fd_table[index] = None);
     }
 
     pub fn alloc_fd(&self) -> Option<usize> {
         let mut pcb = self.pcb.lock();
-        let index = pcb
-            .fd_table
-            .0
-            .iter()
-            .enumerate()
-            .find(|(i, x)| x.is_none() && *i < pcb.rlimits[7])
-            .map(|(i, _)| i);
-        if index.is_none() && pcb.fd_table.0.len() < pcb.rlimits[7] {
-            pcb.fd_table.0.push(None);
-            Some(pcb.fd_table.0.len() - 1)
+        let index = pcb.fd_table.iter().position(|x| x.is_none());
+        if index.is_none() && pcb.fd_table.len() < pcb.rlimits[7] {
+            pcb.fd_table.push(None);
+            Some(pcb.fd_table.len() - 1)
         } else {
             index
         }
@@ -486,7 +463,9 @@ impl UserTask {
                     .get(fd as usize)
                     .cloned()
                     .flatten()
-                    .ok_or(Errno::EBADF)?,
+                    .ok_or(Errno::EBADF)?
+                    .as_ref()
+                    .clone(),
             };
             Ok(parent.path_buf().join(filename))
         }
