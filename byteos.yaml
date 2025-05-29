@@ -33,7 +33,7 @@ bin:
   loongarch64-qemu:
     target: "loongarch64-unknown-none"
     configs:
-      driver: "kramdisk"
+      driver: "kvirtio"
   loongarch64-2k1000:
     target: "loongarch64-unknown-none"
     configs:
