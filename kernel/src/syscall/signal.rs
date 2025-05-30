@@ -80,12 +80,10 @@ impl UserTaskContainer {
         let how = SigMaskHow::try_from(how).map_err(|_| Errno::EINVAL)?;
         let mut tcb = self.task.tcb.write();
         if oldset.is_valid() {
-            let sigmask = oldset.get_mut();
-            *sigmask = tcb.sigmask.clone();
+            oldset.write(tcb.sigmask);
         }
         if set.is_valid() {
-            let sigmask = set.get_mut();
-            tcb.sigmask.handle(how, sigmask)
+            tcb.sigmask.handle(how, &set.read())
         }
         drop(tcb);
         // Err(LinuxError::EPERM)
@@ -110,15 +108,15 @@ impl UserTaskContainer {
             signal, act, oldact
         );
         if oldact.is_valid() {
-            *oldact.get_mut() = self.task.pcb.lock().sigaction[sig].clone();
+            oldact.write(self.task.pcb.lock().sigaction[sig].clone());
         }
         if act.is_valid() {
-            self.task.pcb.lock().sigaction[sig] = act.get_mut().clone();
+            self.task.pcb.lock().sigaction[sig] = act.read();
         }
         Ok(0)
     }
     pub async fn sys_sigsuspend(&self, sigset: UserRef<SignalNum>) -> SysResult {
-        let signal = sigset.get_ref();
+        let signal = sigset.read();
         debug!("sys_sigsuspend @ sigset: {:?} signal: {:?}", sigset, signal);
         loop {
             self.check_timer();

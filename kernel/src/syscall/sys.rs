@@ -6,13 +6,6 @@ use log::{debug, warn};
 impl UserTaskContainer {
     pub fn sys_uname(&self, uts_ptr: UserRef<UTSname>) -> SysResult {
         debug!("sys_uname @ uts_ptr: {}", uts_ptr);
-        let uts = uts_ptr.get_mut();
-        // let sys_name = b"ByteOS";
-        // let sys_nodename = b"ByteOS";
-        // let sys_release = b"release";
-        // let sys_version = b"alpha 1.1";
-        // let sys_machine = b"riscv qemu";
-        // let sys_domain = b"";
 
         // for linux app compatible
         let sys_name = b"Linux";
@@ -22,12 +15,14 @@ impl UserTaskContainer {
         let sys_machine = b"riscv qemu";
         let sys_domain = b"";
 
-        uts.sysname[..sys_name.len()].copy_from_slice(sys_name);
-        uts.nodename[..sys_nodename.len()].copy_from_slice(sys_nodename);
-        uts.release[..sys_release.len()].copy_from_slice(sys_release);
-        uts.version[..sys_version.len()].copy_from_slice(sys_version);
-        uts.machine[..sys_machine.len()].copy_from_slice(sys_machine);
-        uts.domainname[..sys_domain.len()].copy_from_slice(sys_domain);
+        uts_ptr.with_mut(|uts| {
+            uts.sysname[..sys_name.len()].copy_from_slice(sys_name);
+            uts.nodename[..sys_nodename.len()].copy_from_slice(sys_nodename);
+            uts.release[..sys_release.len()].copy_from_slice(sys_release);
+            uts.version[..sys_version.len()].copy_from_slice(sys_version);
+            uts.machine[..sys_machine.len()].copy_from_slice(sys_machine);
+            uts.domainname[..sys_domain.len()].copy_from_slice(sys_domain);
+        });
         Ok(0)
     }
 
@@ -46,15 +41,14 @@ impl UserTaskContainer {
         match resource {
             7 => {
                 if new_limit.is_valid() {
-                    let rlimit = new_limit.get_mut();
-                    self.task.inner_map(|x| {
-                        x.rlimits[7] = rlimit.max;
-                    })
+                    let rlimit = new_limit.read();
+                    self.task.pcb.lock().rlimits[7] = rlimit.max;
                 }
                 if old_limit.is_valid() {
-                    let rlimit = old_limit.get_mut();
-                    rlimit.max = self.task.inner_map(|inner| inner.rlimits[7]);
-                    rlimit.curr = rlimit.max;
+                    old_limit.with_mut(|rlimit| {
+                        rlimit.max = self.task.inner_map(|inner| inner.rlimits[7]);
+                        rlimit.curr = rlimit.max;
+                    })
                 }
             }
             _ => {
@@ -103,7 +97,7 @@ impl UserTaskContainer {
     pub fn sys_info(&self, meminfo: UserRef<u8>) -> SysResult {
         debug!("sys_info: {}", meminfo);
         if meminfo.is_valid() {
-            *meminfo.get_mut() = 3;
+            meminfo.write(3);
         }
         Ok(0)
     }

@@ -1,4 +1,3 @@
-pub mod time;
 pub mod useref;
 
 pub fn hexdump(data: &[u8], mut start_addr: usize) {

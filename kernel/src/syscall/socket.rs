@@ -49,7 +49,7 @@ struct SocketAddr {
     sa_data: [u8; 14],
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct SocketAddrIn {
     family: u16,
@@ -110,7 +110,7 @@ impl UserTaskContainer {
             "[task {}] sys_bind @ socket: {:#x}, addr_ptr: {}, address_len: {:#x}",
             self.tid, socket_fd, addr_ptr, address_len
         );
-        let socket_addr = addr_ptr.get_mut();
+        let socket_addr = addr_ptr.read();
         debug!("try to bind {:?} to socket {}", socket_addr, socket_fd);
         let socket = self
             .task
@@ -227,7 +227,7 @@ impl UserTaskContainer {
             .downcast_arc::<Socket>()
             .map_err(|_| Errno::EINVAL)?;
 
-        let socket_addr = socket_addr.get_mut();
+        let socket_addr = socket_addr.read();
         let remote = SocketAddrV4::new(socket_addr.addr, socket_addr.in_port.to_be());
         loop {
             match socket.inner.clone().connect(remote) {
@@ -276,10 +276,11 @@ impl UserTaskContainer {
         buffer[..rlen].copy_from_slice(&data[..rlen]);
 
         if addr.is_valid() {
-            let socket_addr = addr.get_mut();
-            socket_addr.in_port = remote.port().to_be();
-            socket_addr.family = 2;
-            socket_addr.addr = *remote.ip();
+            addr.with_mut(|socket_addr| {
+                socket_addr.in_port = remote.port().to_be();
+                socket_addr.family = 2;
+                socket_addr.addr = *remote.ip();
+            });
         }
         Ok(rlen)
     }
@@ -303,11 +304,12 @@ impl UserTaskContainer {
             .map_err(|_| Errno::EINVAL)?;
         if addr_ptr.is_valid() {
             let socket_address = socket.inner.get_local().expect("can't get socket address");
-            let socket_addr = addr_ptr.get_mut();
-            socket_addr.family = 2;
-            socket_addr.addr = *socket_address.ip();
-            socket_addr.in_port = socket_address.port().to_be();
-            debug!("socket address: {:?}", socket_address);
+            addr_ptr.with_mut(|socket_addr| {
+                socket_addr.family = 2;
+                socket_addr.addr = *socket_address.ip();
+                socket_addr.in_port = socket_address.port().to_be();
+                debug!("socket address: {:?}", socket_address);
+            });
         }
         Ok(0)
     }
@@ -331,11 +333,13 @@ impl UserTaskContainer {
             .map_err(|_| Errno::EINVAL)?;
         if addr_ptr.is_valid() {
             let socket_address = socket.inner.get_remote().expect("can't get socket address");
-            let socket_addr = addr_ptr.get_mut();
-            socket_addr.family = 2;
-            socket_addr.addr = *socket_address.ip();
-            socket_addr.in_port = socket_address.port().to_be();
-            debug!("[task {}] socket address: {:?}", self.tid, socket_address);
+
+            addr_ptr.with_mut(|socket_addr| {
+                socket_addr.family = 2;
+                socket_addr.addr = *socket_address.ip();
+                socket_addr.in_port = socket_address.port().to_be();
+                debug!("[task {}] socket address: {:?}", self.tid, socket_address);
+            });
         }
         Ok(0)
     }
@@ -371,15 +375,14 @@ impl UserTaskContainer {
     ) -> SysResult {
         debug!("[task {}] sys_getsockopt @ socket: {:#x}, level: {:#x}, optname: {:#x}, optval: {:#x?}, optlen: {:#x?}", 
         self.tid, socket, level, optname, optval, optlen);
-        let optval = optval.get_mut();
-        let _optlen = optlen.get_mut();
+        let _optlen = optlen.read();
 
         match optname {
             // send buffer
-            0x7 => *optval = 32000,
+            0x7 => optval.write(32000),
             // recv buffer
-            0x8 => *optval = 32000,
-            0x2 => *optval = 2000,
+            0x8 => optval.write(32000),
+            0x2 => optval.write(32000),
             // getsockopt
             0x4 => return Err(Errno::EPERM),
             _ => {
@@ -423,7 +426,7 @@ impl UserTaskContainer {
         }
 
         let remote = if addr_ptr.is_valid() {
-            let socket_addr = addr_ptr.get_mut();
+            let socket_addr = addr_ptr.read();
             Some(SocketAddrV4::new(
                 socket_addr.addr,
                 socket_addr.in_port.to_be(),
@@ -477,10 +480,11 @@ impl UserTaskContainer {
         let fd = self.task.alloc_fd().ok_or(Errno::EMFILE)?;
         loop {
             if let Ok(new_socket) = socket.inner.accept() {
-                let sa = socket_addr.get_mut();
-                sa.family = 2;
-                sa.in_port = new_socket.get_remote().unwrap().port();
-                sa.addr = new_socket.get_remote().unwrap().ip().clone();
+                socket_addr.with_mut(|sa| {
+                    sa.family = 2;
+                    sa.in_port = new_socket.get_remote().unwrap().port();
+                    sa.addr = new_socket.get_remote().unwrap().ip().clone();
+                });
                 let new_file = File::new_dev(Socket::new_with_inner(
                     socket.domain,
                     socket.net_type,

@@ -35,20 +35,40 @@ impl<T> Into<usize> for UserRef<T> {
     }
 }
 
-impl<T> UserRef<T> {
+impl<T: Clone + 'static> UserRef<T> {
     #[inline]
-    pub fn addr(&self) -> usize {
+    pub fn read(&self) -> T {
+        unsafe { (self.addr() as *const T).as_ref().unwrap().clone() }
+    }
+}
+
+impl<T: 'static> UserRef<T> {
+    pub const fn addr(&self) -> usize {
         self.addr.raw()
     }
     #[inline]
-    pub fn get_ref(&self) -> &'static T {
-        self.addr.get_ref::<T>()
+    pub const fn write(&self, val: T) {
+        unsafe {
+            (self.addr() as *mut T).write(val);
+        }
     }
-
     #[inline]
-    pub fn get_mut(&self) -> &'static mut T {
-        self.addr.get_mut_ref::<T>()
+    pub fn with<R, F: FnMut(&T) -> R>(&self, mut f: F) -> R {
+        f(self.addr.get_ref())
     }
+    #[inline]
+    pub fn with_mut<R, F: Fn(&mut T) -> R>(&self, f: F) -> R {
+        f(self.addr.get_mut_ref())
+    }
+    // #[inline]
+    // pub fn get_ref(&self) -> &'static T {
+    //     self.addr.get_ref::<T>()
+    // }
+
+    // #[inline]
+    // pub fn get_mut(&self) -> &'static mut T {
+    //     self.addr.get_mut_ref::<T>()
+    // }
 
     #[inline]
     pub fn slice_mut_with_len(&self, len: usize) -> &'static mut [T] {
@@ -68,9 +88,12 @@ impl<T> UserRef<T> {
         self.addr.get_cstr().to_str()
     }
 
-    #[inline]
-    pub fn is_valid(&self) -> bool {
-        self.addr.raw() != 0
+    pub const fn is_null(&self) -> bool {
+        self.addr.raw() == 0
+    }
+
+    pub const fn is_valid(&self) -> bool {
+        !self.is_null()
     }
 }
 
