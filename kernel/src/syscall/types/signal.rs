@@ -7,14 +7,6 @@ pub struct SignalUserContext(UContext);
 
 #[cfg(target_arch = "x86_64")]
 impl SignalUserContext {
-    pub const fn pc(&self) -> usize {
-        self.0.gregs.rip
-    }
-
-    pub const fn set_pc(&mut self, v: usize) {
-        self.0.gregs.rip = v;
-    }
-
     pub const fn store_ctx(&mut self, ctx: &TrapFrame) {
         self.0.gregs.r8 = ctx.r8;
         self.0.gregs.r9 = ctx.r9;
@@ -32,6 +24,7 @@ impl SignalUserContext {
         self.0.gregs.rax = ctx.rax;
         self.0.gregs.rcx = ctx.rcx;
         self.0.gregs.rsp = ctx.rsp;
+        self.0.gregs.rip = ctx.rip;
     }
 
     pub const fn restore_ctx(&self, ctx: &mut TrapFrame) {
@@ -51,29 +44,27 @@ impl SignalUserContext {
         ctx.rax = self.0.gregs.rax;
         ctx.rcx = self.0.gregs.rcx;
         ctx.rsp = self.0.gregs.rsp;
+        ctx.rip = self.0.gregs.rip;
     }
 
     pub const fn set_sig_mask(&mut self, sigset: SigSet) {
         self.0.sig_mask.sigset = sigset;
     }
+
+    pub const fn sig_mask(&self) -> SigSet {
+        self.0.sig_mask.sigset
+    }
 }
 
 #[cfg(any(target_arch = "riscv64"))]
 impl SignalUserContext {
-    pub const fn pc(&self) -> usize {
-        self.0.regs.gregs[0]
-    }
-
-    pub const fn set_pc(&mut self, v: usize) {
-        self.0.regs.gregs[0] = v;
-    }
-
     pub const fn store_ctx(&mut self, ctx: &TrapFrame) {
         let mut i = 1;
         while i < 32 {
             self.0.regs.gregs[i] = ctx.x[i];
             i += 1;
         }
+        self.0.regs.gregs[0] = ctx.sepc;
     }
 
     pub const fn restore_ctx(&self, ctx: &mut TrapFrame) {
@@ -82,29 +73,28 @@ impl SignalUserContext {
             ctx.x[i] = self.0.regs.gregs[i];
             i += 1;
         }
+        ctx.sepc = self.0.regs.gregs[0];
     }
 
     pub const fn set_sig_mask(&mut self, sigset: SigSet) {
         self.0.sig_mask.sigset = sigset;
+    }
+
+    pub const fn sig_mask(&self) -> SigSet {
+        self.0.sig_mask.sigset
     }
 }
 
 #[cfg(target_arch = "aarch64")]
 impl SignalUserContext {
-    pub const fn pc(&self) -> usize {
-        self.0.regs.pc
-    }
-
-    pub const fn set_pc(&mut self, v: usize) {
-        self.0.regs.pc = v;
-    }
-
     pub const fn store_ctx(&mut self, ctx: &TrapFrame) {
         let mut i = 0;
         while i < 31 {
             self.0.regs.gregs[i] = ctx.regs[i];
             i += 1;
         }
+        self.0.regs.pc = ctx.elr;
+        self.0.regs.sp = ctx.sp;
     }
 
     pub const fn restore_ctx(&self, ctx: &mut TrapFrame) {
@@ -113,29 +103,28 @@ impl SignalUserContext {
             ctx.regs[i] = self.0.regs.gregs[i];
             i += 1;
         }
+        ctx.elr = self.0.regs.pc;
+        ctx.sp = self.0.regs.sp;
     }
 
     pub const fn set_sig_mask(&mut self, sigset: SigSet) {
         self.0.sig_mask.sigset = sigset;
+    }
+
+    pub const fn sig_mask(&self) -> SigSet {
+        self.0.sig_mask.sigset
     }
 }
 
 #[cfg(target_arch = "loongarch64")]
 impl SignalUserContext {
-    pub const fn pc(&self) -> usize {
-        self.0.regs.pc
-    }
-
-    pub const fn set_pc(&mut self, v: usize) {
-        self.0.regs.pc = v;
-    }
-
     pub const fn store_ctx(&mut self, ctx: &TrapFrame) {
         let mut i = 0;
         while i < 32 {
             self.0.regs.gregs[i] = ctx.regs[i];
             i += 1;
         }
+        self.0.regs.pc = ctx.era;
     }
 
     pub const fn restore_ctx(&self, ctx: &mut TrapFrame) {
@@ -144,9 +133,14 @@ impl SignalUserContext {
             ctx.regs[i] = self.0.regs.gregs[i];
             i += 1;
         }
+        ctx.era = self.0.regs.pc;
     }
 
     pub const fn set_sig_mask(&mut self, sigset: SigSet) {
         self.0.sig_mask.sigset = sigset;
+    }
+
+    pub const fn sig_mask(&self) -> SigSet {
+        self.0.sig_mask.sigset
     }
 }

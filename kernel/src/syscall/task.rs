@@ -1,6 +1,6 @@
 use super::SysResult;
 use crate::{
-    syscall::time::WaitUntilsec,
+    syscall::{time::WaitUntilsec, types::signal::SignalUserContext},
     tasks::{exec::exec_with_process, futex_requeue, futex_wake, UserTask, WaitFutex, WaitPid},
     user::{entry::user_entry, UserTaskContainer},
     utils::useref::UserRef,
@@ -417,12 +417,11 @@ impl UserTaskContainer {
 
     pub fn sys_sigreturn(&self) -> SysResult {
         debug!("sys_sigreturn @ ");
-        let (sig_uctx, task_mask) = self.task.tcb.write().store_uctx.pop_back().unwrap();
-        self.task.tcb.write().sigmask = task_mask;
         let cx_ref = self.task.force_cx_ref();
+        let sig_uctx = UserRef::<SignalUserContext>::from(cx_ref[TrapFrameArgs::SP]);
         sig_uctx.with(|ctx| {
             ctx.restore_ctx(cx_ref);
-            cx_ref[TrapFrameArgs::SEPC] = ctx.pc();
+            self.task.tcb.write().sigmask = ctx.sig_mask();
         });
         Ok(cx_ref[TrapFrameArgs::RET])
     }

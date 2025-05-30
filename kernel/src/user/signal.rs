@@ -34,25 +34,22 @@ impl UserTaskContainer {
 
         let cx_ref = self.task.force_cx_ref();
         // store task_mask and context.
-        let task_mask = self.task.tcb.read().sigmask;
-        self.task.tcb.write().sigmask = sigaction.mask;
         // alloc space for SignalUserContext at stack and align with 16 bytes.
         let sp = (cx_ref[TrapFrameArgs::SP] - size_of::<SignalUserContext>()) & !0xF;
-        // let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
         let cx = unsafe { (sp as *mut SignalUserContext).as_mut().unwrap() };
 
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
-        cx.set_pc(tcb.cx[TrapFrameArgs::SEPC]);
-        cx.set_sig_mask(sigaction.mask);
+        cx.set_sig_mask(tcb.sigmask);
+
+        tcb.sigmask = sigaction.mask;
         tcb.cx[TrapFrameArgs::SP] = sp;
         tcb.cx[TrapFrameArgs::SEPC] = sigaction.handler;
         tcb.cx[TrapFrameArgs::RA] = sigaction.restorer;
         tcb.cx[TrapFrameArgs::ARG0] = signal.num();
         tcb.cx[TrapFrameArgs::ARG1] = 0;
         tcb.cx[TrapFrameArgs::ARG2] = cx as *mut SignalUserContext as usize;
-        tcb.store_uctx.push_back((sp.into(), task_mask));
         drop(tcb);
     }
 }
