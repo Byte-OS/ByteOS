@@ -4,7 +4,7 @@
 
 pub use crate::arch::{Stat, StatMode};
 use crate::signal::SignalNum;
-use core::{cmp::Ordering, ops::Add};
+use core::{cmp::Ordering, ops::Add, time::Duration};
 use num_enum::TryFromPrimitive;
 
 /// IoVec structure
@@ -112,6 +112,21 @@ impl TimeSpec {
     /// 将 TimeSpec 转换为纳秒（nanoseconds）
     pub const fn to_nsec(&self) -> usize {
         self.sec * 1_000_000_000 + self.nsec
+    }
+}
+
+impl From<Duration> for TimeSpec {
+    fn from(value: Duration) -> Self {
+        Self {
+            sec: value.as_secs() as _,
+            nsec: value.subsec_nanos() as _,
+        }
+    }
+}
+
+impl From<TimeSpec> for Duration {
+    fn from(value: TimeSpec) -> Self {
+        Duration::new(value.sec as _, value.nsec as _)
     }
 }
 

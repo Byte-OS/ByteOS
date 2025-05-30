@@ -12,7 +12,9 @@ use fs::file::File;
 use fs::{pipe::create_pipe, SeekFrom};
 use libc_types::consts::UTIME_NOW;
 use libc_types::epoll::{EpollCtl, EpollEvent};
-use libc_types::fcntl::{FcntlCmd, OpenFlags, AT_FDCWD};
+#[cfg(target_arch = "x86_64")]
+use libc_types::fcntl::AT_FDCWD;
+use libc_types::fcntl::{FcntlCmd, OpenFlags};
 use libc_types::poll::{PollEvent, PollFd};
 use libc_types::types::{IoVec, Stat, StatFS, StatMode, TimeSpec};
 use log::debug;
@@ -227,12 +229,13 @@ impl UserTaskContainer {
 
     pub fn sys_fstat(&self, fd: usize, stat_ptr: UserRef<Stat>) -> SysResult {
         debug!("sys_fstat @ fd: {} stat_ptr: {}", fd, stat_ptr);
-        let stat_ref = stat_ptr.get_mut();
 
         let file = self.task.get_fd(fd).ok_or(Errno::EBADF)?;
-        file.stat(stat_ref)?;
-        stat_ref.mode |= StatMode::OWNER_MASK;
-        Ok(0)
+        stat_ptr.with_mut(|stat| {
+            file.stat(stat)?;
+            stat.mode |= StatMode::OWNER_MASK;
+            Ok(0)
+        })
     }
 
     pub fn sys_fstatat(
@@ -250,13 +253,14 @@ impl UserTaskContainer {
             "sys_fstatat @ dir_fd: {}, path:{}, stat_ptr: {}",
             dir_fd as isize, path, stat_ptr
         );
-        let stat = stat_ptr.get_mut();
 
-        self.task
-            .fd_open(dir_fd, path, OpenFlags::RDONLY)?
-            .stat(stat)?;
-        stat.mode |= StatMode::OWNER_MASK;
-        Ok(0)
+        stat_ptr.with_mut(|stat| {
+            self.task
+                .fd_open(dir_fd, path, OpenFlags::RDONLY)?
+                .stat(stat)?;
+            stat.mode |= StatMode::OWNER_MASK;
+            Ok(0)
+        })
     }
 
     #[cfg(target_arch = "x86_64")]
@@ -275,9 +279,10 @@ impl UserTaskContainer {
             filename_ptr, statfs_ptr
         );
         let path = filename_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
-        let statfs = statfs_ptr.get_mut();
-        File::open(path, OpenFlags::RDONLY)?.statfs(statfs)?;
-        Ok(0)
+        statfs_ptr.with_mut(|statfs| {
+            File::open(path, OpenFlags::RDONLY)?.statfs(statfs)?;
+            Ok(0)
+        })
     }
 
     pub fn sys_pipe2(&self, fds_ptr: UserRef<u32>, _unknown: usize) -> SysResult {
@@ -584,7 +589,7 @@ impl UserTaskContainer {
         );
         let poll_fds = poll_fds_ptr.slice_mut_with_len(nfds);
         let etime = if timeout_ptr.is_valid() {
-            current_nsec() + timeout_ptr.get_ref().to_nsec()
+            current_nsec() + timeout_ptr.read().to_nsec()
         } else {
             usize::MAX
         };
@@ -664,7 +669,7 @@ impl UserTaskContainer {
         max_fdp1 = cmp::min(max_fdp1, 255);
 
         let timeout = if timeout_ptr.is_valid() {
-            let timeout = timeout_ptr.get_mut();
+            let timeout = timeout_ptr.read();
             debug!("[task {}] timeout: {:?}", self.tid, timeout);
             current_nsec() + timeout.to_nsec()
         } else {
@@ -834,7 +839,7 @@ impl UserTaskContainer {
             .downcast_arc::<EpollFile>()
             .map_err(|_| Errno::EINVAL)?;
         self.task.get_fd(fd).ok_or(Errno::EBADF)?;
-        epfile.ctl(ctl, fd, event.get_ref().clone());
+        epfile.ctl(ctl, fd, event.read());
         Ok(0)
     }
 
@@ -903,8 +908,8 @@ impl UserTaskContainer {
         let out_file = self.task.get_fd(fd_out).ok_or(Errno::EBADF)?;
         let mut buffer = vec![0u8; len];
         let rsize = if off_in.is_valid() {
-            let rsize = in_file.readat(*off_in.get_ref(), &mut buffer)?;
-            *off_in.get_mut() += rsize;
+            let rsize = in_file.readat(off_in.read(), &mut buffer)?;
+            off_in.with_mut(|off| *off += rsize);
             rsize
         } else {
             in_file.read(&mut buffer)?
@@ -915,7 +920,8 @@ impl UserTaskContainer {
         }
 
         if off_out.is_valid() {
-            *off_out.get_mut() += out_file.writeat(*off_out.get_ref(), &mut buffer[..rsize])?;
+            let wsize = out_file.writeat(off_out.read(), &mut buffer[..rsize])?;
+            off_out.with_mut(|off| *off += wsize);
         } else {
             out_file.write(&buffer[..rsize])?;
         }

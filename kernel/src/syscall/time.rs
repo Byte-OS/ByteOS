@@ -12,6 +12,7 @@ use core::{
     ops::Add,
     pin::Pin,
     task::{Context, Poll},
+    time::Duration,
 };
 use executor::select;
 use libc_types::{
@@ -20,7 +21,7 @@ use libc_types::{
     types::{TimeSpec, TimeVal},
 };
 use log::{debug, warn};
-use polyhal::time::Time;
+use polyhal::{time::Time, timer::current_time};
 use syscalls::Errno;
 
 impl UserTaskContainer {
@@ -29,7 +30,7 @@ impl UserTaskContainer {
             "sys_gettimeofday @ tv_ptr: {}, timezone: {:#x}",
             tv_ptr, timezone_ptr
         );
-        *tv_ptr.get_mut() = current_timeval();
+        tv_ptr.write(current_timeval());
         Ok(0)
     }
 
@@ -43,7 +44,7 @@ impl UserTaskContainer {
             self.tid, req_ptr, rem_ptr
         );
         let ns = current_nsec();
-        let req = req_ptr.get_mut();
+        let req = req_ptr.read();
         debug!("nano sleep {} nseconds", req.sec * 1_000_000_000 + req.nsec);
 
         let res = match select(
@@ -56,14 +57,14 @@ impl UserTaskContainer {
             executor::Either::Left(_) => Err(Errno::EINTR),
         };
         if rem_ptr.is_valid() {
-            *rem_ptr.get_mut() = Default::default();
+            rem_ptr.write(Default::default());
         }
         res
     }
 
     pub fn sys_times(&self, tms_ptr: UserRef<TMS>) -> SysResult {
         debug!("sys_times @ tms: {}", tms_ptr);
-        self.task.inner_map(|x| *tms_ptr.get_mut() = x.tms);
+        self.task.inner_map(|x| tms_ptr.write(x.tms));
         Ok(Time::now().raw())
     }
 
@@ -73,24 +74,21 @@ impl UserTaskContainer {
             self.tid, clock_id, times_ptr
         );
 
-        let ns = match clock_id {
-            0 => current_nsec(),        // CLOCK_REALTIME
-            1 => Time::now().to_nsec(), // CLOCK_MONOTONIC
+        let dura = match clock_id {
+            0 => current_time(), // CLOCK_REALTIME
+            1 => current_time(), // CLOCK_MONOTONIC
             2 => {
                 warn!("CLOCK_PROCESS_CPUTIME_ID not implemented");
-                0
+                Duration::ZERO
             }
             3 => {
                 warn!("CLOCK_THREAD_CPUTIME_ID not implemented");
-                0
+                Duration::ZERO
             }
             _ => return Err(Errno::EINVAL),
         };
 
-        *times_ptr.get_mut() = TimeSpec {
-            sec: ns / 1_000_000_000,
-            nsec: ns % 1_000_000_000,
-        };
+        times_ptr.write(dura.into());
         Ok(0)
     }
 
@@ -98,7 +96,7 @@ impl UserTaskContainer {
     pub fn sys_clock_getres(&self, clock_id: usize, times_ptr: UserRef<TimeSpec>) -> SysResult {
         debug!("clock_getres @ {} {:#x?}", clock_id, times_ptr);
         if times_ptr.is_valid() {
-            *times_ptr.get_mut() = TimeSpec { sec: 0, nsec: 1 };
+            times_ptr.write(Duration::from_nanos(1).into());
         }
         Ok(0)
     }
@@ -116,12 +114,12 @@ impl UserTaskContainer {
         if which == 0 {
             let mut pcb = self.task.pcb.lock();
             if old_timer_ptr.is_valid() {
-                *old_timer_ptr.get_mut() = pcb.timer[0].timer;
+                old_timer_ptr.write(pcb.timer[0].timer);
             }
 
             if times_ptr.is_valid() {
-                let new_timer = times_ptr.get_ref();
-                pcb.timer[0].timer = *new_timer;
+                let new_timer = times_ptr.read();
+                pcb.timer[0].timer = new_timer;
                 pcb.timer[0].next = current_timeval().add(pcb.timer[0].timer.value);
                 if new_timer.value.sec == 0 && new_timer.value.usec == 0 {
                     pcb.timer[0].next = Default::default();
@@ -147,14 +145,14 @@ impl UserTaskContainer {
         );
 
         if flags == 1 {
-            let req = req_ptr.get_mut();
+            let req = req_ptr.read();
             WaitUntilsec(req.sec * 1_000_000_000 + req.nsec).await;
             if rem_ptr.is_valid() {
-                *rem_ptr.get_mut() = Default::default();
+                rem_ptr.write(Default::default());
             }
         } else {
             let ns = current_nsec();
-            let req = req_ptr.get_mut();
+            let req = req_ptr.read();
             debug!("nano sleep {} nseconds", req.sec * 1_000_000_000 + req.nsec);
             WaitUntilsec(ns + req.sec * 1_000_000_000 + req.nsec).await;
         }

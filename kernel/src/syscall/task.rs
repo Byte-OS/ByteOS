@@ -150,10 +150,10 @@ impl UserTaskContainer {
             new_tcb.cx[TrapFrameArgs::TLS] = tls;
         }
         if flags.contains(CloneFlags::CLONE_PARENT_SETTID) {
-            *ptid.get_mut() = new_task.task_id as _;
+            ptid.write(new_task.task_id as _);
         }
         if flags.contains(CloneFlags::CLONE_CHILD_SETTID) && ctid.is_valid() {
-            *ctid.get_mut() = new_task.task_id as _;
+            ctid.write(new_task.task_id as _);
         }
         new_tcb.exit_signal = sig as u8;
         drop(new_tcb);
@@ -216,7 +216,7 @@ impl UserTaskContainer {
             debug!("wait pid: {}", child_task.exit_code().unwrap());
 
             if status.is_valid() {
-                *status.get_mut() = (child_task.exit_code().unwrap() as i32) << 8;
+                status.write((child_task.exit_code().unwrap() as i32) << 8);
             }
             Ok(child_task.task_id)
         } else if options == 1 {
@@ -240,7 +240,7 @@ impl UserTaskContainer {
                         .retain(|x| x.task_id != child_task.task_id);
                     child_task.release();
                     if status.is_valid() {
-                        *status.get_mut() = (t1 as i32) << 8;
+                        status.write((t1 as i32) << 8);
                     }
                     // TIPS: This is a small change.
                     Ok(child_task.task_id)
@@ -319,7 +319,7 @@ impl UserTaskContainer {
             "[task {}] sys_futex @ uaddr: {} op: {} value: {:#x}, value2: {:#x}, uaddr2: {:#x} , value3: {:#x}",
             self.tid, uaddr_ptr, op, value, value2, uaddr2, value3
         );
-        let uaddr = uaddr_ptr.get_mut();
+        let uaddr = uaddr_ptr.read();
         let flags = FutexFlags::try_from(op).map_err(|_| Errno::EINVAL)?;
         debug!(
             "sys_futex @ uaddr: {:#x} flags: {:?} value: {}",
@@ -328,7 +328,7 @@ impl UserTaskContainer {
 
         match flags {
             FutexFlags::Wait => {
-                if *uaddr == value as _ {
+                if uaddr == value as _ {
                     let futex_table = self.task.pcb.lock().futex_table.clone();
                     let mut table = futex_table.lock();
                     match table.get_mut(&uaddr_ptr.addr()) {
@@ -340,7 +340,7 @@ impl UserTaskContainer {
                     drop(table);
                     let wait_func = WaitFutex(futex_table.clone(), self.tid);
                     if value2 != 0 {
-                        let timeout = UserRef::<TimeSpec>::from(value2).get_mut();
+                        let timeout = UserRef::<TimeSpec>::from(value2).read();
                         match select(wait_func, WaitUntilsec(current_nsec() + timeout.to_nsec()))
                             .await
                         {
@@ -425,19 +425,20 @@ impl UserTaskContainer {
     pub fn sys_getrusage(&self, who: usize, usage_ptr: UserRef<Rusage>) -> SysResult {
         debug!("sys_getrusgae @ who: {}, usage_ptr: {}", who, usage_ptr);
         // let Rusage
-        let rusage = usage_ptr.get_mut();
-
         let tms = self.task.inner_map(|inner| inner.tms);
         let stime = Time::new(tms.stime as _);
         let utime = Time::new(tms.utime as _);
-        rusage.stime = TimeVal {
-            sec: stime.to_usec() / 1000_000,
-            usec: stime.to_usec() % 1000_000,
-        };
-        rusage.utime = TimeVal {
-            sec: utime.to_usec() / 1000_000,
-            usec: utime.to_usec() % 1000_000,
-        };
+
+        usage_ptr.with_mut(|rusage| {
+            rusage.stime = TimeVal {
+                sec: stime.to_usec() / 1000_000,
+                usec: stime.to_usec() % 1000_000,
+            };
+            rusage.utime = TimeVal {
+                sec: utime.to_usec() / 1000_000,
+                usec: utime.to_usec() % 1000_000,
+            };
+        });
         Ok(0)
     }
 

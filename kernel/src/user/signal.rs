@@ -1,6 +1,5 @@
 use crate::syscall::types::signal::SignalUserContext;
 use crate::tasks::{current_user_task, UserTaskControlFlow};
-use crate::utils::useref::UserRef;
 use core::mem::size_of;
 use executor::AsyncTask;
 use libc_types::signal::SignalNum;
@@ -57,7 +56,9 @@ impl UserTaskContainer {
         self.task.tcb.write().sigmask = sigaction.mask;
         // alloc space for SignalUserContext at stack and align with 16 bytes.
         let sp = (cx_ref[TrapFrameArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
-        let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
+        // let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
+        let cx = unsafe { (sp as *mut SignalUserContext).as_mut().unwrap() };
+
         // change task context to do the signal.
         let mut tcb = self.task.tcb.write();
         cx.store_ctx(&cx_ref);
