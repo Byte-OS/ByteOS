@@ -14,7 +14,7 @@ use libc_types::consts::UTIME_NOW;
 use libc_types::epoll::{EpollCtl, EpollEvent};
 #[cfg(target_arch = "x86_64")]
 use libc_types::fcntl::AT_FDCWD;
-use libc_types::fcntl::{FcntlCmd, OpenFlags};
+use libc_types::fcntl::{FcntlCmd, OpenFlags, AT_SYMLINK_NOFOLLOW};
 use libc_types::poll::{PollEvent, PollFd};
 use libc_types::types::{IoVec, Stat, StatFS, StatMode, TimeSpec};
 use log::debug;
@@ -244,10 +244,11 @@ impl UserTaskContainer {
         dir_fd: isize,
         path_ptr: UserRef<i8>,
         stat_ptr: UserRef<Stat>,
+        flags: u32,
     ) -> SysResult {
         debug!(
-            "sys_fstatat @ dir_fd: {}, path_ptr:{}, stat_ptr: {}",
-            dir_fd as isize, path_ptr, stat_ptr
+            "sys_fstatat @ dir_fd: {}, path_ptr:{}, stat_ptr: {} flags: {:#x}",
+            dir_fd as isize, path_ptr, stat_ptr, flags
         );
         let path = path_ptr.get_cstr().map_err(|_| Errno::EINVAL)?;
         debug!(
@@ -256,9 +257,13 @@ impl UserTaskContainer {
         );
 
         stat_ptr.with_mut(|stat| {
-            self.task
-                .fd_open(dir_fd, path, OpenFlags::RDONLY)?
-                .stat(stat)?;
+            let path = self.task.fd_resolve(dir_fd, path)?;
+            let file = if flags & AT_SYMLINK_NOFOLLOW != 0 {
+                File::open(path, OpenFlags::RDONLY)
+            } else {
+                File::open_link(path, OpenFlags::RDONLY)
+            }?;
+            file.stat(stat)?;
             stat.mode |= StatMode::OWNER_MASK;
             Ok(0)
         })
@@ -266,12 +271,12 @@ impl UserTaskContainer {
 
     #[cfg(target_arch = "x86_64")]
     pub fn sys_stat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
-        self.sys_fstatat(AT_FDCWD, path, stat_ptr)
+        self.sys_fstatat(AT_FDCWD, path, stat_ptr, 0)
     }
 
     #[cfg(target_arch = "x86_64")]
     pub fn sys_lstat(&self, path: UserRef<i8>, stat_ptr: UserRef<Stat>) -> SysResult {
-        self.sys_fstatat(AT_FDCWD, path, stat_ptr)
+        self.sys_fstatat(AT_FDCWD, path, stat_ptr, AT_SYMLINK_NOFOLLOW)
     }
 
     pub fn sys_statfs(&self, filename_ptr: UserRef<i8>, statfs_ptr: UserRef<StatFS>) -> SysResult {
@@ -524,7 +529,10 @@ impl UserTaskContainer {
             return Err(Errno::EINVAL);
         }
 
-        let file_path = File::open(filename, OpenFlags::RDONLY)?.resolve_link()?;
+        let file_path = self
+            .task
+            .fd_open(dir_fd, filename, OpenFlags::RDONLY)?
+            .resolve_link()?;
         let bytes = file_path.as_bytes();
 
         let rlen = cmp::min(bytes.len(), buffer_size);

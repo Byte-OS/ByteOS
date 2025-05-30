@@ -99,9 +99,13 @@ impl UserTaskContainer {
                 self.sys_pwrite(args[0] as _, args[1].into(), args[2] as _, args[3] as _)
             }
             #[cfg(not(target_arch = "x86_64"))]
-            Sysno::fstatat => self.sys_fstatat(args[0] as _, args[1].into(), args[2].into()),
+            Sysno::fstatat => {
+                self.sys_fstatat(args[0] as _, args[1].into(), args[2].into(), args[3] as _)
+            }
             #[cfg(target_arch = "x86_64")]
-            Sysno::newfstatat => self.sys_fstatat(args[0] as _, args[1].into(), args[2].into()),
+            Sysno::newfstatat => {
+                self.sys_fstatat(args[0] as _, args[1].into(), args[2].into(), args[3] as _)
+            }
             Sysno::geteuid => self.sys_geteuid(),
             Sysno::getegid => self.sys_getegid(),
             Sysno::getgid => self.sys_getgid(),

@@ -32,7 +32,7 @@ pub fn exec_with_process(
     user_task.page_table.change();
 
     // TODO: 运行程序的时候，判断当前的路径
-    let file = File::open(path.clone(), OpenFlags::RDONLY)
+    let file = File::open_link(path.clone(), OpenFlags::RDONLY)
         .map(Arc::new)?
         .clone();
     let file_size = file.file_size()?;

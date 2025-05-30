@@ -5,6 +5,18 @@ use num_enum::TryFromPrimitive;
 /// 当前目录的文件描述符
 pub const AT_FDCWD: isize = -100;
 
+/// 不跟随符号链接 (do not follow symbolic links)
+pub const AT_SYMLINK_NOFOLLOW: u32 = 0x100;
+
+/// 删除目录而非文件 (remove directory instead of file)
+pub const AT_REMOVEDIR: u32 = 0x200;
+
+/// 跟随符号链接 (follow symbolic links)
+pub const AT_SYMLINK_FOLLOW: u32 = 0x400;
+
+/// 使用有效权限而非实际权限 (use effective access rights instead of real)
+pub const AT_EACCESS: u32 = 0x200; // 注意：与 AT_REMOVEDIR 值相同
+
 /// 文件描述符控制命令
 ///
 /// MUSL: <https://github.com/bminor/musl/blob/c47ad25ea3b484e10326f933e927c0bc8cded3da/arch/generic/bits/fcntl.h#L22>
@@ -39,7 +51,7 @@ pub enum FcntlCmd {
 ))]
 bitflags! {
     /// 文件打开标志，对应 Linux 的 open(2) 系统调用选项。
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy)]
     pub struct OpenFlags: usize {
         /// 只读（Read Only）
         const RDONLY      = 0;
@@ -92,7 +104,7 @@ bitflags! {
 #[cfg(target_arch = "aarch64")]
 bitflags! {
     /// 文件打开标志，对应 Linux 的 open(2) 系统调用选项。
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Copy)]
     pub struct OpenFlags: usize {
         /// 只读（Read Only）
         const RDONLY = 0;

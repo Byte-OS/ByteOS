@@ -68,6 +68,18 @@ impl File {
         })
     }
 
+    /// 打开真正的文件，如果 path 是 link 文件，会打开真正的文件
+    pub fn open_link<T: Into<PathBuf>>(path: T, flags: OpenFlags) -> Result<File, Errno> {
+        let mut file = Self::open(path, flags)?;
+        loop {
+            if file.file_type()? != FileType::Link {
+                return Ok(file);
+            }
+            let link = file.resolve_link()?;
+            file = Self::open(link, flags)?;
+        }
+    }
+
     pub fn remove_self(&self) -> VfsResult<()> {
         let dir = Self::open(self.path_buf.dir(), OpenFlags::DIRECTORY)?;
         dir.remove(&self.path_buf.filename())
@@ -79,7 +91,7 @@ impl File {
 
     #[inline(always)]
     fn check_writeable(&self) -> Result<(), Errno> {
-        let flags = self.flags.lock().clone();
+        let flags = self.flags.lock();
         if flags.contains(OpenFlags::RDWR) | flags.contains(OpenFlags::WRONLY) {
             Ok(())
         } else {
