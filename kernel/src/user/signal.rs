@@ -1,7 +1,8 @@
 use crate::syscall::types::signal::SignalUserContext;
-use crate::tasks::{current_user_task, UserTaskControlFlow};
+use crate::tasks::current_user_task;
 use core::mem::size_of;
 use executor::AsyncTask;
+use libc_types::internal::SigAction;
 use libc_types::signal::SignalNum;
 use log::debug;
 use polyhal_trap::trapframe::TrapFrameArgs;
@@ -16,46 +17,27 @@ impl UserTaskContainer {
             self.task.get_task_id()
         );
 
-        // if the signal is SIGKILL, then exit the task immediately.
-        // the SIGKILL can't be catched and be ignored.
-        if signal == SignalNum::KILL {
-            self.task.exit_with_signal(signal.num());
-        }
-
         // get the signal action for the signal.
         let sigaction = self.task.pcb.lock().sigaction[signal.num()].clone();
 
-        // if there doesn't have signal handler.
-        // Then use default handler. Exit or do nothing.
-        // SIG_ERR = -1, SIG_DEF(default) = 0, SIG_IGN = 1(ignore)
-        if sigaction.handler == 0 {
-            match signal {
-                SignalNum::CANCEL | SignalNum::SEGV | SignalNum::ILL => {
-                    current_user_task().exit_with_signal(signal.num());
-                }
-                _ => {}
+        if sigaction.handler == SigAction::SIG_IGN {
+            // ignore signal if the handler of is SIG_IGN(1)
+            return;
+        } else if sigaction.handler == 0 || sigaction.handler == SigAction::SIG_DFL {
+            // if there doesn't have signal handler.
+            // Then use default handler. Exit or do nothing.
+            if matches!(signal, SignalNum::CANCEL | SignalNum::SEGV | SignalNum::ILL) {
+                current_user_task().exit_with_signal(signal.num());
             }
             return;
         }
-        // ignore signal if the handler of is SIG_IGN(1)
-        if sigaction.handler == 1 {
-            return;
-        }
 
-        info!(
-            "handle signal: {:?} task: {}",
-            signal,
-            self.task.get_task_id()
-        );
-
-        // let cx_ref = unsafe { task.get_cx_ptr().as_mut().unwrap() };
         let cx_ref = self.task.force_cx_ref();
         // store task_mask and context.
         let task_mask = self.task.tcb.read().sigmask;
-        let store_cx = cx_ref.clone();
         self.task.tcb.write().sigmask = sigaction.mask;
         // alloc space for SignalUserContext at stack and align with 16 bytes.
-        let sp = (cx_ref[TrapFrameArgs::SP] - 128 - size_of::<SignalUserContext>()) / 16 * 16;
+        let sp = (cx_ref[TrapFrameArgs::SP] - size_of::<SignalUserContext>()) & !0xF;
         // let cx: &mut SignalUserContext = UserRef::<SignalUserContext>::from(sp).get_mut();
         let cx = unsafe { (sp as *mut SignalUserContext).as_mut().unwrap() };
 
@@ -66,50 +48,11 @@ impl UserTaskContainer {
         cx.set_sig_mask(sigaction.mask);
         tcb.cx[TrapFrameArgs::SP] = sp;
         tcb.cx[TrapFrameArgs::SEPC] = sigaction.handler;
-        tcb.cx[TrapFrameArgs::RA] = if sigaction.restorer == 0 {
-            // SIG_RETURN_ADDR
-            // TODO: add sigreturn addr.
-            0
-        } else {
-            sigaction.restorer
-        };
+        tcb.cx[TrapFrameArgs::RA] = sigaction.restorer;
         tcb.cx[TrapFrameArgs::ARG0] = signal.num();
         tcb.cx[TrapFrameArgs::ARG1] = 0;
         tcb.cx[TrapFrameArgs::ARG2] = cx as *mut SignalUserContext as usize;
+        tcb.store_uctx.push_back((sp.into(), task_mask));
         drop(tcb);
-
-        loop {
-            if let Some(exit_code) = self.task.exit_code() {
-                debug!(
-                    "program exit with code: {}  task_id: {}",
-                    exit_code,
-                    self.task.get_task_id()
-                );
-                break;
-            }
-
-            let cx_ref = self.task.force_cx_ref();
-
-            debug!(
-                "[task {}]task sepc: {:#x}",
-                self.task.get_task_id(),
-                cx_ref[TrapFrameArgs::SEPC]
-            );
-
-            if let UserTaskControlFlow::Break = self.handle_syscall(cx_ref).await {
-                break;
-            }
-        }
-        info!(
-            "handle signal: {:?} task: {} ended",
-            signal,
-            self.task.get_task_id()
-        );
-        // restore sigmask to the mask before doing the signal.
-        self.task.tcb.write().sigmask = task_mask;
-        *cx_ref = store_cx;
-        // copy pc from new_pc
-        cx_ref[TrapFrameArgs::SEPC] = cx.pc();
-        cx.restore_ctx(cx_ref);
     }
 }

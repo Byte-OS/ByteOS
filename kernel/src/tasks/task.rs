@@ -4,18 +4,19 @@ use super::{
     shm::MapedSharedMemory,
 };
 use crate::{
-    syscall::types::time::ProcessTimer,
+    syscall::types::{signal::SignalUserContext, time::ProcessTimer},
     tasks::{
         futex_wake,
         memset::{MapTrack, MemArea},
     },
+    utils::useref::UserRef,
 };
 use alloc::{
-    collections::BTreeMap,
+    collections::{linked_list::LinkedList, BTreeMap},
     sync::{Arc, Weak},
     vec::Vec,
 };
-use core::{cmp::max, mem::size_of, ops::BitAnd};
+use core::{cmp::max, mem::size_of};
 use devices::PAGE_SIZE;
 use executor::{release_task, task::TaskType, task_id_alloc, AsyncTask, TaskId};
 use fs::{file::File, pathbuf::PathBuf, INodeInterface};
@@ -65,6 +66,7 @@ pub struct ThreadControlBlock {
     /// 高 8 位：如果是正常退出（如 exit(3)），则 exit_code = 3 << 8
     pub exit_signal: u8,
     pub thread_exit_code: Option<u32>,
+    pub store_uctx: LinkedList<(UserRef<SignalUserContext>, SigSet)>,
 }
 
 pub struct UserTask {
@@ -117,6 +119,7 @@ impl UserTask {
             set_child_tid: 0,
             signal: SigSet::empty(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
+            store_uctx: LinkedList::new(),
             exit_signal: 0,
             thread_exit_code: Option::None,
         });
@@ -357,6 +360,7 @@ impl UserTask {
             set_child_tid: 0,
             signal: SigSet::empty(),
             signal_queue: [0; REAL_TIME_SIGNAL_NUM],
+            store_uctx: LinkedList::new(),
             exit_signal: 0,
             thread_exit_code: Option::None,
         });

@@ -25,6 +25,12 @@ pub struct SigAction {
 }
 
 impl SigAction {
+    /// 表示使用该信号的默认处理方式（default action）
+    /// 用于注册信号处理函数时，表示恢复默认行为（如终止进程等）。
+    pub const SIG_DFL: usize = 0;
+    /// 表示忽略该信号（ignore）
+    /// 用于注册信号处理函数时，表示收到该信号时不做任何处理。
+    pub const SIG_IGN: usize = 1;
     /// 创建一个新的信号处理函数结构体，所有字段初始化为默认值。
     pub const fn empty() -> Self {
         Self {

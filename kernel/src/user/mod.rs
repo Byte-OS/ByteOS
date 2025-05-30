@@ -90,9 +90,7 @@ impl UserTaskContainer {
                 .inner_map(|inner| inner.tms.utime += (Time::now().raw() - ustart) as u64);
 
             let sstart = Time::now().raw();
-            if cx_ref[TrapFrameArgs::SYSCALL] == Sysno::rt_sigreturn.id() as _ {
-                return UserTaskControlFlow::Break;
-            }
+
             cx_ref.syscall_ok();
             let result = self
                 .syscall(cx_ref[TrapFrameArgs::SYSCALL], cx_ref.args())

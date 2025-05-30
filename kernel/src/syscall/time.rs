@@ -74,19 +74,20 @@ impl UserTaskContainer {
             self.tid, clock_id, times_ptr
         );
 
-        let dura = match clock_id {
-            0 => current_time(), // CLOCK_REALTIME
-            1 => current_time(), // CLOCK_MONOTONIC
+        let nsec = match clock_id {
+            0 => Time::now().to_nsec(), // CLOCK_REALTIME
+            1 => Time::now().to_nsec(), // CLOCK_MONOTONIC
             2 => {
                 warn!("CLOCK_PROCESS_CPUTIME_ID not implemented");
-                Duration::ZERO
+                0
             }
             3 => {
                 warn!("CLOCK_THREAD_CPUTIME_ID not implemented");
-                Duration::ZERO
+                0
             }
             _ => return Err(Errno::EINVAL),
         };
+        let dura = Duration::from_nanos(nsec as _);
 
         times_ptr.write(dura.into());
         Ok(0)

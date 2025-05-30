@@ -32,7 +32,6 @@ impl SignalUserContext {
         self.0.gregs.rax = ctx.rax;
         self.0.gregs.rcx = ctx.rcx;
         self.0.gregs.rsp = ctx.rsp;
-        self.0.gregs.rip = ctx.rip;
     }
 
     pub const fn restore_ctx(&self, ctx: &mut TrapFrame) {
@@ -52,7 +51,6 @@ impl SignalUserContext {
         ctx.rax = self.0.gregs.rax;
         ctx.rcx = self.0.gregs.rcx;
         ctx.rsp = self.0.gregs.rsp;
-        ctx.rip = self.0.gregs.rip;
     }
 
     pub const fn set_sig_mask(&mut self, sigset: SigSet) {

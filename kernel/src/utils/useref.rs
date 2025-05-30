@@ -53,7 +53,7 @@ impl<T: 'static> UserRef<T> {
         }
     }
     #[inline]
-    pub fn with<R, F: Fn(&T) -> R>(&self, f: F) -> R {
+    pub fn with<R, F: FnMut(&T) -> R>(&self, mut f: F) -> R {
         f(self.addr.get_ref())
     }
     #[inline]

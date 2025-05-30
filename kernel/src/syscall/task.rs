@@ -419,7 +419,14 @@ impl UserTaskContainer {
 
     pub fn sys_sigreturn(&self) -> SysResult {
         debug!("sys_sigreturn @ ");
-        Ok(0)
+        let (sig_uctx, task_mask) = self.task.tcb.write().store_uctx.pop_back().unwrap();
+        self.task.tcb.write().sigmask = task_mask;
+        let cx_ref = self.task.force_cx_ref();
+        sig_uctx.with(|ctx| {
+            ctx.restore_ctx(cx_ref);
+            cx_ref[TrapFrameArgs::SEPC] = ctx.pc();
+        });
+        Ok(cx_ref[TrapFrameArgs::RET])
     }
 
     pub fn sys_getrusage(&self, who: usize, usage_ptr: UserRef<Rusage>) -> SysResult {
