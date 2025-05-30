@@ -59,7 +59,7 @@ pub struct SocketAddrIn {
 }
 
 impl UserTaskContainer {
-    pub async fn sys_socket(&self, domain: usize, net_type: usize, protocol: usize) -> SysResult {
+    pub fn sys_socket(&self, domain: usize, net_type: usize, protocol: usize) -> SysResult {
         debug!(
             "[task {}] sys_socket @ domain: {:#x}, net_type: {:#x}, protocol: {:#x}",
             self.tid, domain, net_type, protocol
@@ -75,7 +75,7 @@ impl UserTaskContainer {
         Ok(fd)
     }
 
-    pub async fn sys_socket_pair(
+    pub fn sys_socket_pair(
         &self,
         domain: usize,
         net_type: usize,
@@ -100,7 +100,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_bind(
+    pub fn sys_bind(
         &self,
         socket_fd: usize,
         addr_ptr: UserRef<SocketAddrIn>,
@@ -157,7 +157,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_listen(&self, socket_fd: usize, backlog: usize) -> SysResult {
+    pub fn sys_listen(&self, socket_fd: usize, backlog: usize) -> SysResult {
         debug!(
             "[task {}] sys_listen @ socket_fd: {:#x}, backlog: {:#x}",
             self.tid, socket_fd, backlog
@@ -284,7 +284,7 @@ impl UserTaskContainer {
         Ok(rlen)
     }
 
-    pub async fn sys_getsockname(
+    pub fn sys_getsockname(
         &self,
         socket_fd: usize,
         addr_ptr: UserRef<SocketAddrIn>,
@@ -312,7 +312,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_getpeername(
+    pub fn sys_getpeername(
         &self,
         socket_fd: usize,
         addr_ptr: UserRef<SocketAddrIn>,
@@ -340,7 +340,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_setsockopt(
+    pub fn sys_setsockopt(
         &self,
         socket: usize,
         level: usize,
@@ -361,7 +361,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_getsockopt(
+    pub fn sys_getsockopt(
         &self,
         socket: usize,
         level: usize,
@@ -390,7 +390,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_sendto(
+    pub fn sys_sendto(
         &self,
         socket_fd: usize,
         buffer_ptr: UserRef<u8>,
@@ -436,7 +436,7 @@ impl UserTaskContainer {
         Ok(wlen)
     }
 
-    pub async fn sys_shutdown(&self, socket_fd: usize, how: usize) -> SysResult {
+    pub fn sys_shutdown(&self, socket_fd: usize, how: usize) -> SysResult {
         debug!(
             "[task {}] sys_shutdown socket_fd: {:#x}, how: {:#x}",
             self.tid, socket_fd, how

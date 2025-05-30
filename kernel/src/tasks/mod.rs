@@ -5,6 +5,7 @@ mod filetable;
 mod initproc;
 mod memset;
 mod shm;
+mod stack;
 mod task;
 
 use self::initproc::initproc;
@@ -66,7 +67,6 @@ pub async fn add_user_task(filename: &str, args: Vec<&str>, envp: Vec<&str>) -> 
         args.into_iter().map(String::from).collect(),
         envp.into_iter().map(String::from).collect(),
     )
-    .await
     .expect("can't add task to excutor");
     curr_task.before_run();
     thread::spawn(task.clone(), user_entry());

@@ -136,14 +136,14 @@ impl FrameRegionMap {
             loop {
                 if j - i >= pages {
                     let mut ans = Vec::new();
-                    (i..j).into_iter().for_each(|x| {
+                    (i..j).for_each(|x| {
                         self.bits.set_bit(x, true);
                         ans.push(FrameTracker::new(pa!((start_ppn + x) * PAGE_SIZE)));
                     });
                     return Some(ans);
                 }
 
-                if self.bits.get_bit(j) == true {
+                if self.bits.get_bit(j) {
                     i = j + 1;
                     break;
                 }
@@ -227,6 +227,12 @@ impl FrameAllocator {
     }
 }
 
+impl Default for FrameAllocator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 /// 一个总的页帧分配器
 pub static FRAME_ALLOCATOR: Mutex<FrameAllocator> = Mutex::new(FrameAllocator::new());
 
@@ -246,7 +252,7 @@ pub fn init() {
 
     // 确保帧分配器一定能工作
     assert!(
-        FRAME_ALLOCATOR.lock().0.len() > 0,
+        !FRAME_ALLOCATOR.lock().0.is_empty(),
         "can't find frame to alloc"
     );
 }

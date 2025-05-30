@@ -67,7 +67,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_sigprocmask(
+    pub fn sys_sigprocmask(
         &self,
         how: u8,
         set: UserRef<SigSet>,
@@ -98,7 +98,7 @@ impl UserTaskContainer {
     /// 那么这个进程中的未阻塞这个信号的线程在收到这个信号都会按同一种方式处理这个信号。
     /// 另外，注意子线程的mask是会从主线程继承而来的。
 
-    pub async fn sys_sigaction(
+    pub fn sys_sigaction(
         &self,
         sig: usize,
         act: UserRef<SigAction>,

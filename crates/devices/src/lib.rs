@@ -73,10 +73,10 @@ pub fn get_net_device(id: usize) -> Arc<dyn NetDriver> {
 #[inline]
 pub fn prepare_drivers() {
     DRIVERS_INIT.iter().for_each(|f| {
-        f().map(|device| {
+        if let Some(device) = f() {
             log::debug!("init driver: {}", device.get_id());
             ALL_DEVICES.lock().add_device(device);
-        });
+        }
     });
 }
 
@@ -90,7 +90,7 @@ pub fn try_to_add_device(node: &Node) {
         );
         for compati in node.compatibles() {
             if let Some(f) = driver_manager.get(compati) {
-                ALL_DEVICES.lock().add_device(f(&node));
+                ALL_DEVICES.lock().add_device(f(node));
                 break;
             }
         }

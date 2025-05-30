@@ -14,7 +14,7 @@ unsafe impl Hal for HalImpl {
         let paddr = trackers[0].0;
         let vaddr = NonNull::new(paddr.get_mut_ptr()).unwrap();
         trace!("alloc DMA: paddr={:#x}, pages={:?}", paddr.raw(), trackers);
-        VIRTIO_CONTAINER.lock().extend(trackers.into_iter());
+        VIRTIO_CONTAINER.lock().extend(trackers);
         (paddr.raw(), vaddr)
     }
 
@@ -27,7 +27,7 @@ unsafe impl Hal for HalImpl {
         //     calc_page >= phy_page && calc_page - phy_page < pages
         // });
         VIRTIO_CONTAINER.lock().retain(|x| {
-            let phy_page = paddr as usize >> 12;
+            let phy_page = paddr >> 12;
             let calc_page = x.0.raw();
 
             !(phy_page..phy_page + pages).contains(&calc_page)
@@ -36,7 +36,7 @@ unsafe impl Hal for HalImpl {
     }
 
     unsafe fn mmio_phys_to_virt(paddr: PhysAddr, _size: usize) -> NonNull<u8> {
-        NonNull::new((usize::from(paddr) | VIRT_ADDR_START) as *mut u8).unwrap()
+        NonNull::new((paddr | VIRT_ADDR_START) as *mut u8).unwrap()
     }
 
     unsafe fn share(buffer: NonNull<[u8]>, _direction: BufferDirection) -> PhysAddr {

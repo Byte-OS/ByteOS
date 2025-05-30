@@ -12,6 +12,12 @@ impl Yield {
     }
 }
 
+impl Default for Yield {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl Future for Yield {
     type Output = ();
 

@@ -34,23 +34,27 @@ impl Tty {
     }
 }
 
+impl Default for Tty {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl INodeInterface for Tty {
     fn readat(&self, _offset: usize, buffer: &mut [u8]) -> vfscore::VfsResult<usize> {
-        assert!(buffer.len() > 0);
+        assert!(!buffer.is_empty());
         let mut self_buffer = self.buffer.lock();
-        if self_buffer.len() > 0 {
-            let rlen = cmp::min(buffer.len(), self_buffer.len());
-            for i in 0..rlen {
-                buffer[i] = self_buffer.pop_front().unwrap();
-            }
-            Ok(rlen)
-        } else {
+        if self_buffer.is_empty() {
             if let Some(c) = get_char() {
-                buffer[0] = c as u8;
+                buffer[0] = c;
                 Ok(1)
             } else {
                 Err(Errno::EWOULDBLOCK)
             }
+        } else {
+            let rlen = cmp::min(buffer.len(), self_buffer.len());
+            (0..rlen).for_each(|i| buffer[i] = self_buffer.pop_front().unwrap());
+            Ok(rlen)
         }
     }
 
@@ -79,11 +83,9 @@ impl INodeInterface for Tty {
             let buf_len = self.buffer.lock().len();
             if buf_len > 0 {
                 res |= PollEvent::IN;
-            } else {
-                if let Some(c) = get_char() {
-                    res |= PollEvent::IN;
-                    self.buffer.lock().push_back(c);
-                }
+            } else if let Some(c) = get_char() {
+                res |= PollEvent::IN;
+                self.buffer.lock().push_back(c);
             }
         }
         if events.contains(PollEvent::OUT) {

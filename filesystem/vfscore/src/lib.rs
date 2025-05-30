@@ -63,7 +63,7 @@ pub type VfsResult<T> = core::result::Result<T, Errno>;
 pub trait BlockDevice: Send + Sync {
     fn read_block(&self, block: usize, buffer: &mut [u8]) -> VfsResult<usize>;
     fn write_block(&self, block: usize, buffer: &[u8]) -> VfsResult<usize>;
-    fn capacity(&self) -> VfsResult<usize>;
+    fn capacity(&self) -> VfsResult<u64>;
 }
 
 pub trait INodeInterface: DowncastSync + Send + Sync {

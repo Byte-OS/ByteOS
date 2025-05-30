@@ -1,8 +1,9 @@
 use alloc::{sync::Arc, vec::Vec};
+use libc_types::fcntl::OpenFlags;
 use sync::Mutex;
 use vfscore::{FileSystem, INodeInterface, VfsResult};
 
-use crate::pathbuf::PathBuf;
+use crate::{file::File, pathbuf::PathBuf};
 
 pub static MOUNTED_FS: Mutex<Vec<(PathBuf, DEntryNode)>> = Mutex::new(Vec::new());
 
@@ -28,7 +29,7 @@ impl DEntryNode {
 /// # Returns
 ///
 /// - [DEntryNode] `path` 对应挂载的文件系统
-/// - [String]     `path` 减去挂载路径后的路径
+/// - [PathBuf]    `path` 减去挂载路径后的路径
 ///
 pub fn get_mounted(path: &PathBuf) -> (DEntryNode, PathBuf) {
     let mounted = MOUNTED_FS.lock();
@@ -47,6 +48,10 @@ pub fn get_mounted(path: &PathBuf) -> (DEntryNode, PathBuf) {
 /// - `fs`   需要挂载的文件系统
 /// - `path` 文件系统挂载的路径
 pub fn mount_fs(fs: Arc<dyn FileSystem>, path: &str) {
+    if path != "/" {
+        // 在挂载之前创建对应的文件夹
+        let _ = File::open(path, OpenFlags::DIRECTORY | OpenFlags::CREAT);
+    }
     let path = PathBuf::from(path);
     info!("SYSTEM FS mount {} @ {}", fs.name(), path);
     let node = fs.root_dir();

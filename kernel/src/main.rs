@@ -10,13 +10,9 @@ include!(concat!(env!("OUT_DIR"), "/drivers.rs"));
 #[macro_use]
 extern crate alloc;
 #[macro_use]
-extern crate bitflags;
-#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate polyhal;
-#[macro_use]
-extern crate cfg_if;
 
 extern crate polyhal_boot;
 extern crate polyhal_trap;
@@ -191,14 +187,6 @@ fn main(hart_id: usize) {
 
     // enable interrupts
     IRQ::int_enable();
-
-    // cache task with task templates
-    tasks::exec::cache_task_template("/busybox".into()).expect("can't cache task");
-    tasks::exec::cache_task_template("/runtest.exe".into()).expect("can't cache task");
-    tasks::exec::cache_task_template("/entry-static.exe".into()).expect("can't cache task");
-    tasks::exec::cache_task_template("/libc.so".into()).expect("can't cache task");
-    tasks::exec::cache_task_template("/lua".into()).expect("can't cache task");
-    // tasks::exec::cache_task_template("/lmbench_all").expect("can't cache task");
 
     // init kernel threads and async executor
     tasks::init();

@@ -24,18 +24,18 @@ use virtio_drivers::transport::{
     DeviceType, Transport,
 };
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 use devices::ALL_DEVICES;
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 use virtio_drivers::transport::pci::bus::MmioCam;
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 use virtio_drivers::transport::pci::{
     bus::{BarInfo, Cam, Command, DeviceFunction, PciRoot},
     virtio_device_type, PciTransport,
 };
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 use crate::virtio_impl::HalImpl;
 
 pub fn init_mmio(node: &Node) -> Arc<dyn Driver> {
@@ -76,7 +76,7 @@ fn virtio_device(transport: MmioTransport, node: &Node) -> Arc<dyn Driver> {
     }
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 fn enumerate_pci(mmconfig_base: *mut u8) {
     info!("mmconfig_base = {:#x}", mmconfig_base as usize);
 
@@ -109,7 +109,7 @@ fn enumerate_pci(mmconfig_base: *mut u8) {
     }
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 fn virtio_device_probe(transport: impl Transport + 'static) {
     let device = match transport.device_type() {
         DeviceType::Block => Some(virtio_blk::init(transport, Vec::new())),
@@ -127,12 +127,43 @@ fn virtio_device_probe(transport: impl Transport + 'static) {
     }
 }
 
-#[cfg(any(target_arch = "x86_64"))]
+#[cfg(any(target_arch = "x86_64", target_arch = "loongarch64"))]
 fn dump_bar_contents(root: &mut PciRoot<MmioCam>, device_function: DeviceFunction, bar_index: u8) {
     let bar_info = root.bar_info(device_function, bar_index).unwrap();
     trace!("Dumping bar {}: {:#x?}", bar_index, bar_info);
+
+    #[cfg(target_arch = "loongarch64")]
+    if let BarInfo::Memory {
+        address,
+        size,
+        address_type,
+        ..
+    } = bar_info
+    {
+        if address == 0 && size > 0 {
+            use devices::Mutex;
+            use virtio_drivers::transport::pci::bus::MemoryBarType;
+
+            // 指定 PCI BAR 映射可用的内存范围
+            static PCI_RANGES: Mutex<(usize, usize)> = Mutex::new((0x4000_0000, 0x2_0000));
+            assert!(PCI_RANGES.lock().1 > size as usize);
+            let start = PCI_RANGES.lock().0;
+            PCI_RANGES.lock().1 -= size as usize;
+            PCI_RANGES.lock().0 += size as usize;
+
+            match address_type {
+                MemoryBarType::Width32 => root.set_bar_32(device_function, bar_index, start as _),
+                MemoryBarType::Below1MiB => todo!(),
+                MemoryBarType::Width64 => root.set_bar_64(device_function, bar_index, start as _),
+            }
+        }
+    }
+
+    let bar_info = root.bar_info(device_function, bar_index).unwrap();
+
     if let BarInfo::Memory { address, size, .. } = bar_info {
-        let start = address as *const u8;
+        let start = (address as usize | VIRT_ADDR_START) as *const u8;
+
         unsafe {
             let mut buf = [0u8; 32];
             for i in 0..size / 32 {
@@ -147,11 +178,17 @@ fn dump_bar_contents(root: &mut PciRoot<MmioCam>, device_function: DeviceFunctio
     trace!("End of dump");
 }
 
-#[cfg(not(any(target_arch = "x86_64")))]
+#[cfg(not(any(target_arch = "x86_64", target_arch = "loongarch64")))]
 driver_define!("virtio,mmio", init_mmio);
 
 #[cfg(target_arch = "x86_64")]
 driver_define!({
     enumerate_pci((0xB000_0000usize | VIRT_ADDR_START) as _);
+    None
+});
+
+#[cfg(target_arch = "loongarch64")]
+driver_define!({
+    enumerate_pci((0x2000_0000usize | VIRT_ADDR_START) as _);
     None
 });

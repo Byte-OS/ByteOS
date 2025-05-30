@@ -4,7 +4,7 @@ use libc_types::{resource::Rlimit, utsname::UTSname};
 use log::{debug, warn};
 
 impl UserTaskContainer {
-    pub async fn sys_uname(&self, uts_ptr: UserRef<UTSname>) -> SysResult {
+    pub fn sys_uname(&self, uts_ptr: UserRef<UTSname>) -> SysResult {
         debug!("sys_uname @ uts_ptr: {}", uts_ptr);
         let uts = uts_ptr.get_mut();
         // let sys_name = b"ByteOS";
@@ -32,7 +32,7 @@ impl UserTaskContainer {
     }
 
     /// TODO: FINISH sys_getrlimit
-    pub async fn sys_prlimit64(
+    pub fn sys_prlimit64(
         &self,
         pid: usize,
         resource: usize,
@@ -64,31 +64,31 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_geteuid(&self) -> SysResult {
+    pub fn sys_geteuid(&self) -> SysResult {
         Ok(0)
     }
 
-    pub async fn sys_getegid(&self) -> SysResult {
+    pub fn sys_getegid(&self) -> SysResult {
         Ok(0)
     }
 
-    pub async fn sys_getgid(&self) -> SysResult {
+    pub fn sys_getgid(&self) -> SysResult {
         Ok(0)
     }
 
-    pub async fn sys_getuid(&self) -> SysResult {
+    pub fn sys_getuid(&self) -> SysResult {
         Ok(0)
     }
 
-    pub async fn sys_getpgid(&self) -> SysResult {
+    pub fn sys_getpgid(&self) -> SysResult {
         Ok(0)
     }
 
-    pub async fn sys_setpgid(&self, _pid: usize, _pgid: usize) -> SysResult {
+    pub fn sys_setpgid(&self, _pid: usize, _pgid: usize) -> SysResult {
         Ok(0)
     }
 
-    pub async fn sys_klogctl(&self, log_type: usize, buf: UserRef<u8>, len: usize) -> SysResult {
+    pub fn sys_klogctl(&self, log_type: usize, buf: UserRef<u8>, len: usize) -> SysResult {
         debug!(
             "sys_klogctl @ log_type: {:?} buf: {:?} len: {:?}",
             log_type, buf, len
@@ -100,7 +100,7 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_info(&self, meminfo: UserRef<u8>) -> SysResult {
+    pub fn sys_info(&self, meminfo: UserRef<u8>) -> SysResult {
         debug!("sys_info: {}", meminfo);
         if meminfo.is_valid() {
             *meminfo.get_mut() = 3;
@@ -108,24 +108,19 @@ impl UserTaskContainer {
         Ok(0)
     }
 
-    pub async fn sys_sched_getparam(&self, pid: usize, param: usize) -> SysResult {
+    pub fn sys_sched_getparam(&self, pid: usize, param: usize) -> SysResult {
         debug!("sys_sched_getparam @ pid: {} param: {}", pid, param);
 
         Ok(0)
     }
 
-    pub async fn sys_sched_setscheduler(
-        &self,
-        pid: usize,
-        _policy: usize,
-        param: usize,
-    ) -> SysResult {
+    pub fn sys_sched_setscheduler(&self, pid: usize, _policy: usize, param: usize) -> SysResult {
         debug!("sys_sched_setscheduler @ pid: {} param: {}", pid, param);
 
         Ok(0)
     }
 
-    pub async fn sys_getrandom(&self, buf: UserRef<u8>, buf_len: usize, flags: usize) -> SysResult {
+    pub fn sys_getrandom(&self, buf: UserRef<u8>, buf_len: usize, flags: usize) -> SysResult {
         debug!(
             "sys_getrandom @ buf: {}, buf_len: {:#x}, flags: {:#x}",
             buf, buf_len, flags
@@ -143,7 +138,7 @@ impl UserTaskContainer {
     }
 
     #[cfg(target_arch = "x86_64")]
-    pub async fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
+    pub fn sys_arch_prctl(&self, code: usize, addr: usize) -> SysResult {
         use libc_types::others::ArchPrctlCmd;
         use polyhal_trap::trapframe::TrapFrameArgs;
         use syscalls::Errno;

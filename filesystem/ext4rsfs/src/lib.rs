@@ -88,7 +88,7 @@ impl BlockDevice for Ext4Disk {
 
             data[offset_in_block..offset_in_block + bytes_to_copy]
                 .copy_from_slice(&buf[buf_start..buf_end]);
-            device.write_blocks(current_block_id as usize, &data);
+            device.write_blocks(current_block_id, &data);
 
             total_bytes_written += bytes_to_copy;
             offset_in_block = 0; // only the first block has an offset within the block
@@ -178,8 +178,8 @@ impl INodeInterface for Ext4FileWrapper {
     fn mkdir(&self, path: &str) -> VfsResult<()> {
         // todo!("mkdir ");
         log::debug!("self inode: {}  create {}", self.inode, path);
-        let mut inode = self.inode;
-        let mut name_off = 0;
+        // let mut inode = self.inode;
+        // let mut name_off = 0;
         // self.ext4
         //     .generic_open(
         //         path,

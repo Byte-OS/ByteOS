@@ -65,14 +65,14 @@ impl INodeInterface for PipeReceiver {
     fn poll(&self, events: PollEvent) -> VfsResult<PollEvent> {
         let mut res = PollEvent::NONE;
         if events.contains(PollEvent::IN) {
-            if self.queue.lock().len() > 0 {
+            if !self.queue.lock().is_empty() {
                 res |= PollEvent::IN;
             } else if Weak::strong_count(&self.sender) == 0 {
                 res |= PollEvent::ERR;
             }
         }
         if events.contains(PollEvent::ERR)
-            && self.queue.lock().len() == 0
+            && self.queue.lock().is_empty()
             && Weak::strong_count(&self.sender) == 0
         {
             res |= PollEvent::ERR;

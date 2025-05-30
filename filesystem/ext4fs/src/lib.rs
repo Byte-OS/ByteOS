@@ -227,7 +227,7 @@ impl INodeInterface for Ext4FileWrapper {
 
     fn mkdir(&self, name: &str) -> VfsResult<()> {
         log::warn!("mkdir name: {}", name);
-        let fpath = self.path_deal_with(&name);
+        let fpath = self.path_deal_with(name);
         self.inner.lock().dir_mk(&fpath).map_err(map_ext4_err)?;
         Ok(())
     }
@@ -306,17 +306,17 @@ impl INodeInterface for Ext4FileWrapper {
 
         let mut file = self.inner.lock();
 
-        if file.check_inode_exist(&fpath, InodeTypes::EXT4_DE_DIR) {
+        if file.check_inode_exist(fpath, InodeTypes::EXT4_DE_DIR) {
             Ok(Arc::new(Ext4FileWrapper::new(
                 fpath,
                 InodeTypes::EXT4_DE_DIR,
             )))
-        } else if file.check_inode_exist(&fpath, InodeTypes::EXT4_DE_REG_FILE) {
+        } else if file.check_inode_exist(fpath, InodeTypes::EXT4_DE_REG_FILE) {
             Ok(Arc::new(Ext4FileWrapper::new(
                 fpath,
                 InodeTypes::EXT4_DE_REG_FILE,
             )))
-        } else if file.check_inode_exist(&fpath, InodeTypes::EXT4_DE_SYMLINK) {
+        } else if file.check_inode_exist(fpath, InodeTypes::EXT4_DE_SYMLINK) {
             Ok(Arc::new(Ext4FileWrapper::new(
                 fpath,
                 InodeTypes::EXT4_DE_SYMLINK,

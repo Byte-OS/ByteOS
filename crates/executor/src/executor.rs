@@ -5,6 +5,7 @@ use alloc::{
     vec::Vec,
 };
 use core::{
+    hint::spin_loop,
     sync::atomic::{AtomicBool, Ordering},
     task::{Context, Poll},
 };
@@ -20,7 +21,6 @@ pub type TaskId = usize;
 pub static TASK_MAP: LazyInit<Mutex<HashMap<usize, Weak<dyn AsyncTask>>>> = LazyInit::new();
 /// FIFO task queue, Items will be pushed to the end of the queue after being called.
 pub(crate) static TASK_QUEUE: Mutex<VecDeque<AsyncTaskItem>> = Mutex::new(VecDeque::new());
-/// wake queue, not use at current.
 
 pub static DEFAULT_EXECUTOR: Executor = Executor::new();
 
@@ -65,7 +65,9 @@ impl Executor {
             self.inited.load(Ordering::SeqCst)
         );
         // Waiting for executor's initialisation finish.
-        while !self.inited.load(Ordering::SeqCst) {}
+        while !self.inited.load(Ordering::SeqCst) {
+            spin_loop();
+        }
         loop {
             self.run_ready_task();
             self.hlt_if_idle();
@@ -95,6 +97,12 @@ impl Executor {
     /// Executes the `hlt` instruction if there are no ready tasks
     fn hlt_if_idle(&self) {
         // arch::wfi();
+    }
+}
+
+impl Default for Executor {
+    fn default() -> Self {
+        Self::new()
     }
 }
 

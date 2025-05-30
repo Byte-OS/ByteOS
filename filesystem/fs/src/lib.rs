@@ -24,9 +24,6 @@ use core::{
 use dentry::mount_fs;
 use devfs::{DevDir, DevFS};
 use devices::get_blk_devices;
-use file::File;
-use libc_types::fcntl::OpenFlags;
-use pathbuf::PathBuf;
 use procfs::ProcFS;
 use ramfs::RamFs;
 use syscalls::Errno;
@@ -59,28 +56,11 @@ pub fn init() {
     mount_fs(RamFs::new(), "/var");
     mount_fs(ProcFS::new(), "/proc");
     // filesystems.push((RamFs::new(), "/bin"));
-
-    // init mount points
-    info!("create fatfs mount file");
-    {
-        // create monnt point dev, tmp
-        // let fs = &filesystems[0].0;
-        // let rootfs = filesystems[0].0.root_dir();
-        let rootfs = File::open(PathBuf::empty(), OpenFlags::RDONLY).unwrap();
-        rootfs.mkdir("dev").expect("can't create devfs dir");
-        // dev.mkdir("shm").expect("can't create shm dir");
-        rootfs.mkdir("tmp").expect("can't create tmp dir");
-        // rootfs.mkdir("lib").expect("can't create lib dir");
-        rootfs.mkdir("home").expect("can't create home dir");
-        rootfs.mkdir("var").expect("can't create var dir");
-        rootfs.mkdir("proc").expect("can't create proc dir");
-        rootfs.mkdir("bin").expect("can't create var dir");
-    }
 }
 
 pub struct WaitBlockingRead<'a>(pub Arc<dyn INodeInterface>, pub &'a mut [u8], pub usize);
 
-impl<'a> Future for WaitBlockingRead<'a> {
+impl Future for WaitBlockingRead<'_> {
     type Output = VfsResult<usize>;
 
     fn poll(mut self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -102,7 +82,7 @@ impl<'a> Future for WaitBlockingRead<'a> {
 
 pub struct WaitBlockingWrite<'a>(pub Arc<dyn INodeInterface>, pub &'a [u8], pub usize);
 
-impl<'a> Future for WaitBlockingWrite<'a> {
+impl Future for WaitBlockingWrite<'_> {
     type Output = VfsResult<usize>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {

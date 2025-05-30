@@ -12,7 +12,7 @@ fn write_module_config(driver_list: Vec<String>) {
     let manifest_path = PathBuf::from(env::var("OUT_DIR").expect("can't find manifest dir"));
     let mut module_file_content = String::new();
     driver_list.into_iter().for_each(|module| {
-        if module == "" {
+        if module.is_empty() {
             return;
         };
         module_file_content.push_str(&format!("extern crate {};\n", module.replace("-", "_")))
