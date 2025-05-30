@@ -1,11 +1,11 @@
 use super::types::poll::EpollFile;
 use super::SysResult;
 use crate::user::UserTaskContainer;
-use crate::utils::time::{current_nsec, current_timespec};
 use crate::utils::useref::UserRef;
 use alloc::sync::Arc;
 use bit_field::BitArray;
 use core::cmp;
+use core::time::Duration;
 use executor::yield_now;
 use fs::dentry::umount;
 use fs::file::File;
@@ -18,6 +18,7 @@ use libc_types::fcntl::{FcntlCmd, OpenFlags};
 use libc_types::poll::{PollEvent, PollFd};
 use libc_types::types::{IoVec, Stat, StatFS, StatMode, TimeSpec};
 use log::debug;
+use polyhal::timer::current_time;
 use polyhal::VirtAddr;
 use syscalls::Errno;
 use vfscore::FileType;
@@ -463,14 +464,14 @@ impl UserTaskContainer {
         // build times
         let mut times = match !times_ptr.is_valid() {
             true => {
-                vec![current_timespec(), current_timespec()]
+                vec![current_time().into(), current_time().into()]
             }
             false => {
                 let ts = times_ptr.slice_mut_with_len(2);
                 let mut times = vec![];
                 for i in 0..2 {
                     if ts[i].nsec == UTIME_NOW {
-                        times.push(current_timespec());
+                        times.push(current_time().into());
                     } else {
                         times.push(ts[i]);
                     }
@@ -589,9 +590,9 @@ impl UserTaskContainer {
         );
         let poll_fds = poll_fds_ptr.slice_mut_with_len(nfds);
         let etime = if timeout_ptr.is_valid() {
-            current_nsec() + timeout_ptr.read().to_nsec()
+            current_time() + timeout_ptr.read().into()
         } else {
-            usize::MAX
+            Duration::MAX
         };
         let n = loop {
             let mut num = 0;
@@ -607,7 +608,7 @@ impl UserTaskContainer {
                 }
             }
 
-            if current_nsec() >= etime || num > 0 {
+            if current_time() >= etime || num > 0 {
                 break num;
             }
             yield_now().await;
@@ -627,7 +628,7 @@ impl UserTaskContainer {
             poll_fds_ptr, nfds, timeout
         );
         let poll_fds = poll_fds_ptr.slice_mut_with_len(nfds);
-        let etime = current_nsec() + timeout as usize * 0x1000_000;
+        let etime = current_time() + Duration::from_millis(timeout as _);
         let n = loop {
             let mut num = 0;
             for i in 0..nfds {
@@ -642,7 +643,7 @@ impl UserTaskContainer {
                 }
             }
 
-            if (timeout > 0 && current_nsec() >= etime) || num > 0 {
+            if (timeout > 0 && current_time() >= etime) || num > 0 {
                 break num;
             }
             yield_now().await;
@@ -669,11 +670,11 @@ impl UserTaskContainer {
         max_fdp1 = cmp::min(max_fdp1, 255);
 
         let timeout = if timeout_ptr.is_valid() {
-            let timeout = timeout_ptr.read();
+            let timeout = timeout_ptr.read().into();
             debug!("[task {}] timeout: {:?}", self.tid, timeout);
-            current_nsec() + timeout.to_nsec()
+            current_time() + timeout
         } else {
-            usize::MAX
+            Duration::MAX
         };
         let mut rfds_r = [0usize; 4];
         let mut wfds_r = [0usize; 4];
@@ -771,7 +772,7 @@ impl UserTaskContainer {
                 return Ok(num);
             }
 
-            if current_nsec() > timeout {
+            if current_time() > timeout {
                 if readfds.is_valid() {
                     readfds.slice_mut_with_len(4).copy_from_slice(&rfds_r);
                 }
@@ -860,11 +861,10 @@ impl UserTaskContainer {
             .clone()
             .downcast_arc::<EpollFile>()
             .map_err(|_| Errno::EINVAL)?;
-        let stime = current_nsec();
         let end = if timeout == usize::MAX {
-            usize::MAX
+            Duration::MAX
         } else {
-            stime + timeout * 0x1000_000
+            current_time() + Duration::from_millis(timeout as _)
         };
         let buffer = events.slice_mut_with_len(max_events);
         debug!("epoll_wait:{:#x?}", epfile.data.lock());
@@ -882,7 +882,7 @@ impl UserTaskContainer {
                     }
                 }
             }
-            if current_nsec() >= end || num > 0 {
+            if current_time() >= end || num > 0 {
                 break num;
             }
         };

@@ -2,14 +2,12 @@ use alloc::boxed::Box;
 use async_recursion::async_recursion;
 use executor::{boot_page_table, yield_now, AsyncTask};
 use futures_lite::future;
-use libc_types::signal::SignalNum;
+use libc_types::{signal::SignalNum, types::TimeVal};
 use log::debug;
+use polyhal::timer::current_time;
 use polyhal_trap::trapframe::TrapFrame;
 
-use crate::{
-    tasks::{current_user_task, UserTaskControlFlow},
-    utils::time::current_timeval,
-};
+use crate::tasks::{current_user_task, UserTaskControlFlow};
 
 use super::UserTaskContainer;
 
@@ -24,7 +22,7 @@ impl UserTaskContainer {
         let mut pcb = self.task.pcb.lock();
         let timer = &mut pcb.timer[0];
         if timer.next > timer.last {
-            let now = current_timeval();
+            let now: TimeVal = current_time().into();
             if now >= timer.next {
                 self.task.tcb.write().signal.has(SignalNum::ALRM);
                 timer.last = timer.next;

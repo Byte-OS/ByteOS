@@ -51,9 +51,9 @@ libc-types = { path = "crates/libc-types" }
 logging = { path = "crates/logging" }
 sync = { path = "crates/sync" }
 
-polyhal = { version = "0.3.2", features = ["logger", "trap"] }
-polyhal-boot = { version = "0.3.2" }
-polyhal-trap = { version = "0.3.2" }
+polyhal = { version = "0.4.0", features = ["logger", "trap"] }
+polyhal-boot = { version = "0.4.0" }
+polyhal-trap = { version = "0.4.0" }
 fdt-parser = { version = "0.4.12" }
 
 syscalls = { git = "https://github.com/jasonwhite/syscalls.git", default-features = false }

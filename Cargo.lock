@@ -551,9 +551,9 @@ checksum = "e0a7ae3ac2f1173085d398531c705756c94a4c56843785df85a60c1a0afac116"
 
 [[package]]
 name = "polyhal"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "559d443624d6a26ce216b888271f1f9644ebf8f1eb84bea04f2b186999e08437"
+checksum = "385f80f996f5341d96d5833d456f452480f90ad5e208efe9325b965e5785bc7f"
 dependencies = [
  "aarch64-cpu",
  "acpi",
@@ -583,9 +583,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-boot"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b3a13044bfe59da23027c4e8862d11a342840a8c202901cd3dca21b51c037798"
+checksum = "fc167008a7396cb78e43ea644e9cd300dde6a456bb8ac941fb459bf2cb82c669"
 dependencies = [
  "aarch64-cpu",
  "cfg-if",
@@ -601,9 +601,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-macro"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "229e663dfa642befe27cc449cc841b879818f1f33c8d69535e8614ab74bc5ce6"
+checksum = "76790feec7842ae8f545530d4ed58851518111acf993efc2966de0eddff11751"
 dependencies = [
  "proc-macro-crate",
  "proc-macro2",
@@ -613,9 +613,9 @@ dependencies = [
 
 [[package]]
 name = "polyhal-trap"
-version = "0.3.2"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7cf4c6c8c330789129a3a7e10c62977b55f98e869bb4f5f2244dec1cdb530d77"
+checksum = "630a11f92fa9968490c5680475612f39c7079af9a1ee292d9c9074c040ccf261"
 dependencies = [
  "aarch64-cpu",
  "bitflags 2.9.0",

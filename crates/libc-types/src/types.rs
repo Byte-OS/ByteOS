@@ -53,6 +53,21 @@ impl PartialOrd for TimeVal {
     }
 }
 
+impl From<Duration> for TimeVal {
+    fn from(value: Duration) -> Self {
+        Self {
+            sec: value.as_secs() as _,
+            usec: value.subsec_micros() as _,
+        }
+    }
+}
+
+impl From<TimeVal> for Duration {
+    fn from(value: TimeVal) -> Self {
+        Duration::new(value.sec as _, value.usec as u32 * 1000)
+    }
+}
+
 #[repr(C)]
 /// 表示目录项（dirent）的结构体，用于读取目录内容（如 getdents64）
 ///

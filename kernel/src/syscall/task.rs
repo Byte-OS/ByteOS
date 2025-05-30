@@ -3,7 +3,7 @@ use crate::{
     syscall::time::WaitUntilsec,
     tasks::{exec::exec_with_process, futex_requeue, futex_wake, UserTask, WaitFutex, WaitPid},
     user::{entry::user_entry, UserTaskContainer},
-    utils::{time::current_nsec, useref::UserRef},
+    utils::useref::UserRef,
 };
 use alloc::{
     string::{String, ToString},
@@ -22,7 +22,7 @@ use libc_types::{
     types::{TimeSpec, TimeVal},
 };
 use log::{debug, warn};
-use polyhal::Time;
+use polyhal::timer::{current_time, get_freq};
 use polyhal_trap::trapframe::TrapFrameArgs;
 use syscalls::Errno;
 
@@ -340,10 +340,8 @@ impl UserTaskContainer {
                     drop(table);
                     let wait_func = WaitFutex(futex_table.clone(), self.tid);
                     if value2 != 0 {
-                        let timeout = UserRef::<TimeSpec>::from(value2).read();
-                        match select(wait_func, WaitUntilsec(current_nsec() + timeout.to_nsec()))
-                            .await
-                        {
+                        let timeout = UserRef::<TimeSpec>::from(value2).read().into();
+                        match select(wait_func, WaitUntilsec(current_time() + timeout)).await {
                             executor::Either::Left((res, _)) => res,
                             executor::Either::Right(_) => Err(Errno::ETIMEDOUT),
                         }
@@ -433,17 +431,16 @@ impl UserTaskContainer {
         debug!("sys_getrusgae @ who: {}, usage_ptr: {}", who, usage_ptr);
         // let Rusage
         let tms = self.task.inner_map(|inner| inner.tms);
-        let stime = Time::new(tms.stime as _);
-        let utime = Time::new(tms.utime as _);
+        let freq = get_freq();
 
         usage_ptr.with_mut(|rusage| {
             rusage.stime = TimeVal {
-                sec: stime.to_usec() / 1000_000,
-                usec: stime.to_usec() % 1000_000,
+                sec: (tms.stime % freq) as _,
+                usec: ((tms.stime % freq) * 1000_000 / freq) as _,
             };
             rusage.utime = TimeVal {
-                sec: utime.to_usec() / 1000_000,
-                usec: utime.to_usec() % 1000_000,
+                sec: (tms.utime % freq) as _,
+                usec: ((tms.utime % freq) * 1000_000 / freq) as _,
             };
         });
         Ok(0)

@@ -31,6 +31,7 @@ mod utils;
 use crate::tasks::current_user_task;
 use crate::user::task_ilegal;
 use core::hint::spin_loop;
+use core::time::Duration;
 use devices::{self, get_int_device, PAGE_SIZE, VIRT_ADDR_START};
 use executor::current_task;
 use fs::file::File;
@@ -38,6 +39,7 @@ use libc_types::fcntl::OpenFlags;
 use polyhal::common::PageAlloc;
 use polyhal::irq::IRQ;
 use polyhal::mem::{get_fdt, get_mem_areas};
+use polyhal::timer::{current_time, set_next_timer};
 use polyhal::{va, PhysAddr};
 use polyhal_trap::trap::TrapType;
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
@@ -89,6 +91,9 @@ fn kernel_interrupt(cx_ref: &mut TrapFrame, trap_type: TrapType) {
             } else {
                 panic!("page fault: {:#x?}", trap_type);
             }
+        }
+        TrapType::Timer => {
+            set_next_timer(current_time() + Duration::from_millis(10));
         }
         TrapType::IllegalInstruction(addr) => {
             if addr > VIRT_ADDR_START {

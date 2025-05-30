@@ -2,7 +2,6 @@ use core::{cmp, future::Future, pin::Pin, task::Poll};
 
 use alloc::{sync::Arc, vec::Vec};
 use executor::AsyncTask;
-use polyhal::time::Time;
 use sync::Mutex;
 use syscalls::Errno;
 
@@ -10,21 +9,6 @@ use super::{
     current_user_task,
     task::{FutexTable, UserTask},
 };
-
-pub struct NextTick(usize);
-
-impl Future for NextTick {
-    type Output = ();
-
-    fn poll(self: Pin<&mut Self>, cx: &mut core::task::Context<'_>) -> Poll<Self::Output> {
-        let curr = Time::now().to_msec();
-        if curr < self.0 {
-            Poll::Pending
-        } else {
-            Poll::Ready(())
-        }
-    }
-}
 
 pub struct WaitPid(pub Arc<UserTask>, pub isize);
 

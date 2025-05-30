@@ -6,11 +6,11 @@ use devices::PAGE_SIZE;
 use executor::{AsyncTask, TaskId};
 use libc_types::signal::SignalNum;
 use log::{debug, warn};
-use polyhal::{MappingFlags, Time, VirtAddr};
+use polyhal::timer::get_ticks;
+use polyhal::{MappingFlags, VirtAddr};
 use polyhal_trap::trap::{run_user_task, EscapeReason};
 use polyhal_trap::trapframe::{TrapFrame, TrapFrameArgs};
 use runtime::frame::frame_alloc;
-use syscalls::Sysno;
 
 pub mod entry;
 pub mod signal;
@@ -84,12 +84,12 @@ pub fn user_cow_int(task: Arc<UserTask>, cx_ref: &mut TrapFrame, vaddr: VirtAddr
 impl UserTaskContainer {
     /// Handle user interrupt.
     pub async fn handle_syscall(&self, cx_ref: &mut TrapFrame) -> UserTaskControlFlow {
-        let ustart = Time::now().raw();
+        let ustart = get_ticks();
         if matches!(run_user_task(cx_ref), EscapeReason::SysCall) {
             self.task
-                .inner_map(|inner| inner.tms.utime += (Time::now().raw() - ustart) as u64);
+                .inner_map(|inner| inner.tms.utime += (get_ticks() - ustart) as u64);
 
-            let sstart = Time::now().raw();
+            let sstart = get_ticks();
 
             cx_ref.syscall_ok();
             let result = self
@@ -106,7 +106,7 @@ impl UserTaskContainer {
 
             cx_ref[TrapFrameArgs::RET] = result;
             self.task
-                .inner_map(|inner| inner.tms.stime += (Time::now().raw() - sstart) as u64);
+                .inner_map(|inner| inner.tms.stime += (get_ticks() - sstart) as u64);
         }
 
         // let trap_type = trap_pre_handle(cx_ref);
