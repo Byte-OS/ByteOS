@@ -3,19 +3,10 @@
 #![feature(extract_if)]
 #![feature(let_chains)]
 
-// include modules drivers
-// mod drivers;
-include!(concat!(env!("OUT_DIR"), "/drivers.rs"));
-
 #[macro_use]
 extern crate alloc;
 #[macro_use]
 extern crate log;
-#[macro_use]
-extern crate polyhal;
-
-extern crate polyhal_boot;
-extern crate polyhal_trap;
 
 #[macro_use]
 mod logging;

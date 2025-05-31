@@ -1,5 +1,3 @@
-use polyhal::{debug_console::DebugConsole, PageTable};
-
 use crate::MAIN_UART;
 
 /// Translate virtual address into physical address in the current virtual address space
@@ -12,14 +10,7 @@ pub fn virt_to_phys(vaddr: usize) -> Option<usize> {
 }
 
 pub fn puts(buffer: &[u8]) {
-    // Use the main uart as much as possible.
-    let main_uart_inited = MAIN_UART.is_init();
-    for i in buffer {
-        match main_uart_inited {
-            true => MAIN_UART.put(*i),
-            false => DebugConsole::putchar(*i),
-        }
-    }
+    srv_iface::UART_IMPLS
 }
 
 /// Get a character from the uart.

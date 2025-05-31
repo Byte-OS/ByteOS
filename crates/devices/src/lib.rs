@@ -18,8 +18,6 @@ use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use device::{BlkDriver, DeviceSet, Driver, IntDriver, NetDriver, UartDriver};
 use fdt_parser::Node;
 pub use linkme::{self, distributed_slice as linker_use};
-pub use polyhal::{consts::VIRT_ADDR_START, pagetable::PAGE_SIZE};
-pub use runtime::frame::{frame_alloc, frame_alloc_much, FrameTracker};
 pub use sync::{LazyInit, Mutex, MutexGuard};
 
 pub static DEVICE_TREE: LazyInit<Vec<u8>> = LazyInit::new();
